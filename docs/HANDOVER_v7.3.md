@@ -1,9 +1,23 @@
-# Handover + Plan v7.3 — Steloom
+# Handover + Plan v7.4 — Steloom
 
-**Дата:** 2026-09-25
+**Дата:** 2026-09-25 (обновлено после Stream A)
 **Master HEAD:** `12c45bb`
-**Базис:** v7.2 (24.09) + B7.4 + B7.5 + B7.6 + B7.9 + B7.9.1 + B7.9.3
+**Базис:** v7.3 (25.09) + Stream A
 **Как использовать:** вставить целиком в первое сообщение нового диалога.
+
+---
+
+## Changelog v7.3 → v7.4
+
+| # | Что | Где |
+|---|---|---|
+| 1 | Stream A завершён: 44 global checks, 27 YAML-правок в 13 файлах | Р. 2, Р. 12 |
+| 2 | Создан `scripts/audit_global_checks.py` | Р. 12 |
+| 3 | Сформирован `CONSIDER_PACKAGE_v1.md` (19 пунктов) | Р. 12 |
+| 4 | Волна 3: global checks DONE, осталось 7 doc_types | Р. 5 |
+| 5 | Track A: A1 сделан частично; A2 ждёт юриста | Р. 2 |
+| 6 | Uncommitted YAML-правки в 13 файлах global_checks | Р. 1, Р. 10 |
+| 7 | Уточнён master HEAD: `12c45bb` | Р. 1 |
 
 ---
 
@@ -44,16 +58,23 @@
 Pre-tag → ветка → правки → тесты → baseline → merge `--no-ff -F <path>` → post-tag → push → удаление ветки.
 Post-tag только после `git log --oneline -1` подтверждает merge в HEAD.
 
+### Принцип №5 (новый): «Скриптуемое — скриптуем»
+
+Автоматизируемые проверки (форма, структура, дубли, placeholder'ы) — прогоняются скриптом. Семантические решения — за юристом. **Не путать.**
+
 ---
 
 ## Раздел 1. Текущее состояние master
 
 ```
-master = 05a72ca   [origin/master]
-feat/reap-stale-runs = c9afa43   [отложенная, покрыта архивным тегом]
+master = 12c45bb   [origin/master]
+Working tree: содержит uncommitted YAML-правки в 13 файлах playbooks/global_checks/* (Stream A). Требуется commit по git workflow (Раздел 7).
 
-origin/master
-origin/feat/reap-stale-runs
+Проверить состояние:
+
+bash
+git status --short playbooks/global_checks/
+git diff --stat playbooks/global_checks/
 ```
 
 **Архивный тег:** `archive/infra-reaper-race-fixes-20260919` → `c9afa43`.
@@ -120,16 +141,34 @@ origin/feat/reap-stale-runs
 
 ### Track A — Detection Quality Audit
 
-| Этап | Статус |
-|---|---|
+| Этап | v7.3 | v7.4 |
+|---|---|---|
 | A0 | presence_signal для field_extraction | ✅ DONE (21.09) |
-| A1 | Программный аудит (SQL) | ⏳ TODO |
-| A2 | Ручной аудит (юрист) | ⏳ TODO (требует юриста) |
-| A3 | Аудит YAML | ⏳ TODO (требует юриста + product) |
-| A4 | Калибровка порогов | ⏳ TODO (после A2) |
-| A5 | Улучшение промптов | ⏳ TODO (после A2+A3) |
+| A1 | Программный аудит (SQL) | ✅ Частично сделан через `audit_global_checks.py` |
+| A2 | Ручной аудит (юрист) | ⏳ ждёт `CONSIDER_PACKAGE_v1.md` |
+| A3 | Аудит YAML | ⏳ ждёт юриста + product |
+| A4 | Калибровка порогов | ⏳ после A2 |
+| A5 | Улучшение промптов | ⏳ после A2+A3 |
 
-**Track A полностью заблокирован на юридический аудит.**
+**Track A всё ещё заблокирован на юридический аудит по A2/A3.** Но A1 разблокирован и частично выполнен для global checks.
+
+### 🆕 Stream A — Global Checks Cleanup (2026-09-25)
+
+**Цель:** привести 44 global checks в `playbooks/global_checks/*` в соответствие с требованиями кода и промптов (B7.10 + Wave 3).
+
+**Что сделано:**
+
+| Шаг | Результат |
+|---|---|
+| Создан скрипт `scripts/audit_global_checks.py` (v1→v2→v3) | Трёхуровневый автоматический аудит |
+| Прогон на 44 checks | STRUCT 44✅ / PSIG 44✅ / RW 44✅ / L2 44✅ / DEEP 13⚠️ |
+| Правка №1: `<STATUS_FIELD>` → конкретное поле | 7 файлов |
+| Правка №2: слияние дубля `<context_rules>` | 7 файлов |
+| Правка №3: опечатка `налиличие → наличие` | 1 файл |
+| Правка №4: удаление дублей в обязательных полях | 10 файлов |
+| **Всего YAML-правок** | **27, в 13 уникальных файлах** |
+
+**Статус:** ✅ Все YAML-правки применены в рабочем дереве. ⏳ Ждут git-commit + перекомпиляцию playbook в БД.
 
 ### Детали B7.5 (ключевой фикс)
 
@@ -189,7 +228,34 @@ origin/feat/reap-stale-runs
 
 **Методический вывод:** каждая отменённая гипотеза была «логически правдоподобной». Отменяли их после аудита данных: PyMuPDF dump PDF, Docling output dump, `git log -L` на функцию.
 
+### 🆕 Новое в v7.4 (Stream A)
+
+| # | Гипотеза | Статус |
+|---|---|---|
+| 1 | «У всех 44 checks есть `<STATUS_FIELD>`» | Отменена — только 7 файлов |
+| 2 | «list_dups в `retrieval.*` — by design» | Отменена — копипаст, удалено в 10 файлах |
+| 3 | «v3-скрипт найдёт все placeholder'ы» | Уточнена — не ловит семантические дубли `<context_rules>` с разной лексикой |
+
 ## Раздел 4. Открытый backlog (что осталось)
+
+### Открытые задачи по global checks (после Stream A)
+
+| # | Задача | Тип | Приоритет |
+|---|---|---|---|
+| 4.1 | **Commit Stream A** — 13 файлов + скрипт + пакет | git | **HIGH** |
+| 4.2 | **Перекомпиляция playbook в БД** | infra | HIGH |
+| 4.3 | **Ревью юриста `CONSIDER_PACKAGE_v1.md`** — 19 пунктов | юрист | MEDIUM |
+| 4.4 | **Волна 3 для `document_types/*.yaml`** — 7 файлов | code | MEDIUM |
+| 4.5 | **Финальный `audit_v4`** — DEEP ⚠️ = 0 | audit | LOW |
+
+### Точечные наблюдения Stream A (вне R-* backlog)
+
+| # | Наблюдение | Где | Приоритет |
+|---|---|---|---|
+| S1 | Агрегаторы не покрывают комбинацию (present + unclear) | 2 файла | LOW |
+| S2 | Нетипичные enum'ы (`pre_claim_procedure_status` и др.) | 2 файла | LOW |
+| S3 | Семантика `present` при прямом исключении (RF3) | 2+ файла | LOW |
+| S4 | Keyword overlaps `high ∩ low` — by design | 44 | IGNORE |
 
 ### B7.9.2 — fix B: R15 не заполняет `check_results.page/clause_uid` для field_extraction
 
@@ -239,9 +305,13 @@ else:
 
 ## Раздел 5. Плановые волны
 
-### 🔴 Волна 3: Layer 2 bulk-roll (3–4 дня)
+### 🔴 Волна 3: Layer 2 bulk-roll — **global DONE, doc_types TODO**
 
-**44 файла P3b + 7 document_types.**
+**Было (v7.3):** 44 файла P3b + 7 document_types.
+
+**Стало (v7.4):**
+- ✅ **44 global checks** — обработаны в Stream A (presence_signal, risk_weight, Layer 2 prompt).
+- ⏳ **7 `document_types/*.yaml`** — не начаты (это Layer 2.2).
 
 **Батчи:**
 1. `liability/*` (4)
@@ -272,7 +342,7 @@ else:
 ### ⚪ Волна 5: B4b + Layer 2.2 (2–3 дня)
 
 1. **B4b** — `anchor_stale` (1–2 дня). Инвалидация anchor'ов при refresh контента.
-2. **Layer 2.2** — 7 `document_types/*.yaml` (1 день).
+2. **Layer 2.2** — 7 `document_types/*.yaml` (1 день). **Единственный оставшийся пункт «Волны 3».**
 
 ### Backlog (после стабилизации)
 
@@ -436,6 +506,15 @@ YAML правки **не подхватываются без перекомпи�
 3. **DD Grid UI рендерит `location_page` независимо от `location_clause_ref`** — обнуление одного без другого оставляет misleading signal.
 4. **`__preamble__` — structural marker, не clause.** `_derive_clause_ref_from_uid` уже это знает, `_normalize_location_bundle` теперь тоже.
 
+### 🆕 Уроки Stream A (v7.4)
+
+1. **Форма ≠ содержание.** Скрипт проверяет `presence_signal.field`, `risk_weight`, `<location_instructions>` — но не проверяет семантику агрегатора, консистентность `description` ↔ `<role>` или осмысленность `severity_if_fail`. Это за юристом.
+2. **Placeholder'ы — это класс, а не единичный баг.** `<STATUS_FIELD>` нашёлся сразу в 7 файлах.
+3. **Автодетектор дублей ловит не всё.** `<context_rules>` дубли в `payment_terms_and_structures` и `financial_covenants` имеют разные формулировки — ручной ревью обязателен.
+4. **V1 → V2 → V3 скрипта** — эволюция по мере обнаружения новых классов багов.
+5. **Все 27 правок — однотипны.** Позволило выдавать полные YAML-версии для копипасты.
+6. **«As designed» — это тоже решение.** RF8 — не баг, если осознанно. Пакет `[CONSIDER]` для юриста важен так же, как сами правки.
+
 ### Что не трогать
 
 1. Retrieval engine — кроме B3.6 точечно.
@@ -463,6 +542,15 @@ git branch -vv
 git status --short
 git tag -l --sort=-creatordate | head -15
 
+# Stream A state
+git status --short playbooks/global_checks/
+git diff --stat playbooks/global_checks/
+ls scripts/audit_global_checks.py 2>/dev/null && echo "audit script present"
+
+# Re-run audit
+python scripts/audit_global_checks.py --verbose \
+  --json /tmp/audit_v4.json --csv /tmp/audit_v4.csv
+
 # Worker status
 tmux list-windows -t steloom-dev -F '#I:#W'
 tail -5 /home/steloom/dev-logs/worker-default.log
@@ -475,13 +563,14 @@ SELECT id, status, created_at FROM runs ORDER BY created_at DESC LIMIT 5;
 
 **Первая задача нового диалога — выбор из:**
 
-1. **Волна 3: Layer 2 bulk-roll** — 44 файла P3b + 7 document_types. Механическая работа по батчам.
-2. **B3.6 — layout_element_ids** — архитектурная, 3–5 дней, требует проброса через executor → extraction → resolver.
-3. **B7.9.1** — fix A (5 строк + 4 теста, гигиена БД). Быстро и точечно.
-4. **B7.9.2** — fix B (R15), требует валидации на 5–10 checks.
-5. **B7.4.5** — appendix-tail в ToC, опционально.
+1. **Commit Stream A** — HIGH. 13 файлов + скрипт + `CONSIDER_PACKAGE_v1.md`.
+2. **Перекомпиляция playbook в БД** — HIGH. Без неё YAML-правки не работают в runtime.
+3. **Волна 5: Layer 2.2** — 7 `document_types/*.yaml`.
+4. **B7.9.1 / B7.9.2 / B7.4.5** — точечные fix'ы (низкий).
+5. **Волна 4: B3.6 (layout_element_ids)** — архитектурная, 3–5 дней.
+6. **Ревью юриста `CONSIDER_PACKAGE_v1.md`** — если доступен.
 
-**Рекомендация:** начать с **B7.9.1** (быстро, гигиена данных) → затем **Волна 3** (mechanically). B3.6 оставить на потом, когда накопится понимание.
+**Рекомендация:** начать с (1) + (2) — без коммита и перекомпиляции Stream A не «доходит» до runtime. Затем (3) — Layer 2.2 закрывает «Волну 3».
 
 ---
 
@@ -507,15 +596,111 @@ d748219 fix(structure): B7.6 — ToC-zone heading filter respects post_toc confi
 
 ---
 
-## Конец документа v7.3.
+---
+
+## 🆕 Раздел 12. Артефакты Stream A
+
+### Скрипт `scripts/audit_global_checks.py`
+
+Автоматический аудит `playbooks/global_checks/*` — read-only.
+
+**Проверяет:** STRUCT / PSIG / RW / L2 / RF (RF4, RF7, RF8, RF9, RF10) / DEEP (placeholder'ы, дубли служебных списков, дубли bullets, порядок тегов, keyword overlaps, опечатки).
+
+**Запуск:**
+
+    python scripts/audit_global_checks.py                      # сводка
+    python scripts/audit_global_checks.py --verbose            # детали
+    python scripts/audit_global_checks.py --only liability/    # фильтр
+    python scripts/audit_global_checks.py --json out.json --csv out.csv
+
+**Exit code:** 1 если есть `fail`, иначе 0.
+
+**Развитие:** v3 — текущая. При новых классах багов — добавлять в блок DEEP.
+
+---
+
+### 13 файлов, изменённых в Stream A
+
+**Группа 1 — STATUS_FIELD + дубль context_rules:**
+
+    cyber/cybersecurity_policies_and_incidents.yaml
+    cyber/outsourced_it_and_security_risk.yaml
+    disputes/governing_law_and_forum.yaml
+    disputes/limitation_periods_and_pre_claim_procedures.yaml
+    finance/financial_covenants.yaml
+    finance/payment_terms_and_structures.yaml
+    finance/security_and_encumbrances_general.yaml
+    sanctions/sanctions_clauses.yaml
+
+**Группа 2 — удаление list_dups:**
+
+    hr/hr_key_management_and_change_of_control.yaml
+    ip_it/it_systems_access_and_data_export.yaml
+    liability/liability_and_indemnity_scope.yaml
+    liability/liability_caps_and_baskets.yaml
+    liability/liability_exclusions.yaml
+    rw/mac_mae.yaml
+    sanctions/aml_kyc.yaml
+    sanctions/export_control.yaml
+    term/force_majeure.yaml
+    term/term_and_renewal.yaml
+
+**Итого:** 13 файлов (8 + 10 с пересечениями — уникально 13). 27 правок.
+
+**Проверка одной командой:**
+
+    cd /srv/steloom-dev
+    for f in $(git diff --name-only playbooks/global_checks/); do
+      python -c "import yaml; yaml.safe_load(open('$f'))" && echo "OK  $f" || echo "FAIL $f"
+    done
+
+---
+
+### CONSIDER_PACKAGE_v1.md — пакет для юриста
+
+**Где:** `docs/CONSIDER_PACKAGE_v1.md`.
+
+**Содержит:**
+- **Категория 1 — RF8** (10 файлов): `severity_if_fail` ≠ `severity`. Требуется CONFIRM (as designed) / REJECT / CORRECT.
+- **Категория 2 — RF9** (1 файл): `description` ↔ `<role>`.
+- **Категория 3 — enum-critical** (8 файлов): валидность значения `critical`.
+- **Дополнительно A–D:** агрегаторы, нетипичные enum'ы, семантика `present`, keyword overlaps.
+
+**Всего пунктов ревью:** 19. **Уникальных файлов:** 13.
+
+**После ревью:**
+- Все CONFIRM — фиксируются как `as designed`.
+- Все REJECT / CORRECT — формируется отдельный mini-round правок.
+
+---
+
+### Прогресс-трекер Stream A
+
+| Категория | Всего | Готово |
+|---|---:|---:|
+| STRUCT, presence_signal, risk_weight, Layer 2, RF | 44 | 44 ✅ |
+| YAML: STATUS_FIELD | 7 | 7 ✅ |
+| YAML: дубль context_rules | 7 | 7 ✅ |
+| YAML: опечатка | 1 | 1 ✅ |
+| YAML: list_dups | 10 | 10 ✅ |
+| CONSIDER: RF8 + RF9 + enum-critical | 19 | 0 (ждёт юриста) |
+
+---
+
+## Конец документа v7.4.
 
 **Ближайший шаг нового диалога:**
 
-1. Прочитать Раздел 0 — принципы работы (аудит → 100% → продакшн).
-2. Раздел 1 — состояние master.
-3. Раздел 4 — открытый backlog, выбор задачи.
-4. Раздел 6 — окружение.
-5. Раздел 10 — команды старта.
-6. Раздел 9 — уроки (не повторять ошибки).
+1. **Changelog v7.3 → v7.4** (в начале документа).
+2. Раздел 0 — принципы работы.
+3. Раздел 1 — состояние master + uncommitted Stream A.
+4. **Раздел 12 — артефакты Stream A.**
+5. Раздел 4 — открытый backlog.
+6. Раздел 10 — команды старта.
 
-**Ключевое правило:** перед любой правкой — аудит до 100% понимания. Только потом — продакшн-фикс.
+**Рекомендуемый первый шаг:**
+
+1. `git status --short playbooks/global_checks/` — проверить 13 файлов.
+2. `python scripts/audit_global_checks.py --summary-only` — убедиться DEEP ⚠️ = 0.
+3. Commit Stream A → перекомпиляция playbook в БД → runtime-верификация.
+4. Далее — `Layer 2.2` или ревью юриста.

@@ -80,3 +80,4 @@ docs/*.pdf
 
 # Pipeline artifacts (выходные данные analysis)
 artifacts/
+docs/*.md.bak-*
