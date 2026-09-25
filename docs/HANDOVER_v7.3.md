@@ -1,8 +1,8 @@
 # Handover + Plan v7.3 — Steloom
 
 **Дата:** 2026-09-25
-**Master HEAD:** `05a72ca`
-**Базис:** v7.2 (24.09) + B7.4 + B7.5 + B7.6 + B7.9
+**Master HEAD:** `12c45bb`
+**Базис:** v7.2 (24.09) + B7.4 + B7.5 + B7.6 + B7.9 + B7.9.1 + B7.9.3
 **Как использовать:** вставить целиком в первое сообщение нового диалога.
 
 ---
@@ -115,6 +115,8 @@ origin/feat/reap-stale-runs
 | B7.5 | Spatial matcher geometric hard-gate | `586b425` |
 | B7.6 | ToC-zone heading filter (`== "post_toc"`) | `929a57c` |
 | **B7.9** | Structural markers drop page (завершает B1.1) | `05a72ca` |
+| **B7.9.1** | Drop structural-marker `base_location` из `location_fallback` | `754ac98` |
+| **B7.9.3** | canonical_check skips structural-marker anchors | `12c45bb` |
 
 ### Track A — Detection Quality Audit
 
@@ -188,29 +190,6 @@ origin/feat/reap-stale-runs
 **Методический вывод:** каждая отменённая гипотеза была «логически правдоподобной». Отменяли их после аудита данных: PyMuPDF dump PDF, Docling output dump, `git log -L` на функцию.
 
 ## Раздел 4. Открытый backlog (что осталось)
-
-### B7.9.1 — fix A: `_resolve_field_location_bundle` (гигиена БД)
-
-**Файл:** `src/engine/checks/extraction.py`, функция `_resolve_field_location_bundle` (строки ~146–170).
-
-**Проблема.** При отсутствии per-field location от LLM подставляет `base_location` (из R15-фолбэка `retrieved_chunks[0]`). В `structured_data.<field>.location_fallback` попадают misleading `check_page=2`, `check_clause_uid=main_contract:__preamble__`.
-
-**Fix.**
-```python
-if isinstance(location_fallback, dict):
-    raw_reason = location_fallback.get("reason")
-    if raw_reason and str(raw_reason).strip():
-        return None, {"reason": str(raw_reason).strip()}
-```
-Если caller явно сообщил «не найдено» с reason — honor'ить, не подмешивать `base_location`.
-
-**Blast radius.** 1 функция, 5 строк. 4 unit-теста:
-1. `location=dict` → as-is, fallback=None (regression).
-2. `location=None`, `location_fallback={"reason": "..."}` → `(None, {"reason": "..."})` **без** `check_page`/`check_clause_uid`.
-3. `location=None`, `location_fallback=None` → fallback через base_location (regression).
-4. `location=None`, `location_fallback={"reason": ""}` → fallback через base_location (regression).
-
-**Приоритет.** Средний. Не влияет на UI (B7.9 закрыл).
 
 ### B7.9.2 — fix B: R15 не заполняет `check_results.page/clause_uid` для field_extraction
 
@@ -509,6 +488,12 @@ SELECT id, status, created_at FROM runs ORDER BY created_at DESC LIMIT 5;
 ## Раздел 11. История коммитов (последние 15)
 
 ```
+12c45bb (tag: post-B7.9.3-canonical-check-marker-...) Merge branch 'fix/B7.9.3-canonical-check-marker'
+16ad327 fix(dd-grid): B7.9.3 — canonical_check skips structural-marker anchors
+754ac98 (tag: post-B7.9.1-honest-location-fallback-...) Merge branch 'fix/B7.9.1-honest-location-fallback'
+abdce3b fix(extraction): B7.9.1 — drop structural-marker base_location from fallback
+c2ad700 (tag: post-docs-v7.3-...) docs(plan): warn stale + changelog 21→25.09, link handover v7.3
+6e12b80 docs(handover): v7.3 — B7.4/B7.5/B7.6/B7.9 закрыты, аудит репо
 05a72ca (tag: post-B7.9-honest-field-anchor-...) Merge branch 'fix/B7.9-honest-field-anchor'
 93fac4c fix(dd-grid): B7.9 — structural markers drop page, not just clause_ref
 586b425 (tag: post-B7.5-spatial-matcher-...) Merge branch 'feat/B7.5-toc-body-uid-collision'
@@ -518,12 +503,6 @@ f5941e9 fix(B7.5): reject geometrically invalid spatial marker matches
 d748219 fix(structure): B7.6 — ToC-zone heading filter respects post_toc confirmation
 257092c (tag: post-B7.4-toc-state-machine-iter2-...) Merge branch 'feat/B7.4-toc-state-machine' (iteration 2)
 3489dc8 feat(structure): B7.4 — TOC State Machine + extended entry criteria
-21948c6 (tag: post-B7.1-B7.2-toc-fixes-...) Merge branch 'feat/B7.1-toc-dedup-fix'
-2c20e50 test(structure): coverage suite detect_toc_block — 18 кейсов
-067f41a fix(structure): B7.2 — структурный фикс ToC-зоны
-dfbbd18 feat(structure): B7.1 — body candidate wins over ToC
-b61183a (tag: post-B6.3-follow-ups-...) Merge branch 'feat/B6.3-follow-ups'
-66e75a5 (tag: post-B6.2-detection-quality-...) Merge branch 'feat/B6.2-detection-quality'
 ```
 
 ---
