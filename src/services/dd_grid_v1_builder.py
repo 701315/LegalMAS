@@ -280,13 +280,28 @@ def _humanize_identifier(value: str) -> str:
 # These must never leak into location_clause_ref: the viewer would show
 # "п. __preamble__" as a broken reference.
 _STRUCTURAL_MARKER_RE = re.compile(r"^__[a-z][a-z0-9_]*__$")
+# Scope-prefixed form: "main_contract:__preamble__", "appendix_1:__header__".
+# Contract: any segment (bare or scope:bare) that is a structural marker
+# is not a user-facing clause reference.
+_SCOPED_STRUCTURAL_MARKER_RE = re.compile(r"^[A-Za-z0-9_]+:__[a-z][a-z0-9_]*__$")
 
 
 def _is_structural_marker(value: str | None) -> bool:
-    """True if the value is a structural marker like __preamble__."""
+    """True if the value is a structural marker (bare or scope-prefixed).
+
+    Examples:
+        "__preamble__"                 -> True
+        "main_contract:__preamble__"   -> True
+        "main_contract:7.3"            -> False
+        "п. 5.1"                       -> False
+        "main_contract:S"              -> False
+    """
     if not isinstance(value, str):
         return False
-    return bool(_STRUCTURAL_MARKER_RE.match(value.strip()))
+    text = value.strip()
+    if _STRUCTURAL_MARKER_RE.match(text):
+        return True
+    return bool(_SCOPED_STRUCTURAL_MARKER_RE.match(text))
 
 
 def _safe_str_or_none(value: Any) -> str | None:
@@ -393,10 +408,20 @@ def _normalize_location_bundle(
     - если page отсутствует, пытаемся извлечь её из clause_ref;
     - confidence передаётся как есть (нормализованный к str | None).
     """
-    normalized_clause_ref = _safe_str_or_none(location_clause_ref)
-    if _is_structural_marker(normalized_clause_ref):
-        # Contract: structural markers are not clause references.
-        normalized_clause_ref = None
+    raw_clause_ref = _safe_str_or_none(location_clause_ref)
+    normalized_confidence = _safe_str_or_none(location_confidence)
+
+    # Contract: structural markers (__preamble__, __metadata__, __header__
+    # and their scope-prefixed forms "main_contract:__preamble__" etc.) are
+    # internal segment identifiers, not user-facing clause references.
+    #
+    # If we drop clause_ref but keep page, the viewer shows "стр. 2"
+    # pointing at nothing specific — the same misleading signal as a
+    # broken "п. __preamble__" reference, just quieter. Drop both.
+    if _is_structural_marker(raw_clause_ref):
+        return (None, None, normalized_confidence)
+
+    normalized_clause_ref = raw_clause_ref
     is_en = bool(localization_map and localization_map.get("dd_grid.system.lang") == "en")
     if is_en and normalized_clause_ref and normalized_clause_ref.lower().startswith(("п.", "п ")):
         normalized_clause_ref = re.sub(r"^[Пп]\.\s*", "cl. ", normalized_clause_ref)
@@ -407,7 +432,6 @@ def _normalize_location_bundle(
         if location_page is not None
         else _extract_page_from_clause_ref(normalized_clause_ref)
     )
-    normalized_confidence = _safe_str_or_none(location_confidence)
 
     return (normalized_clause_ref, normalized_page, normalized_confidence)
 
