@@ -159,6 +159,7 @@ async def save_check_result(
             machine_reason_code=semantics.machine_reason_code,
             review_status=semantics.review_status,
             review_message=semantics.review_message,
+            review_status_counter=semantics.review_status_counter,
             needs_manual_review=semantics.needs_manual_review,
             # ── B4: anchors ───────────────────────────────────────────────────
             # Всегда передаём list (возможно пустой). Пустой list = очистить
@@ -294,6 +295,7 @@ async def save_not_applicable_result(
             machine_reason_code=semantics.machine_reason_code,
             review_status=semantics.review_status,
             review_message=semantics.review_message,
+            review_status_counter=semantics.review_status_counter,
             needs_manual_review=semantics.needs_manual_review,
             # ── B4: not-applicable не может иметь anchors ────────────────────
             # Пустой list = очистить любые anchors от предыдущего прогона

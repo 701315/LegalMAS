@@ -304,7 +304,8 @@ class CheckResult(Base):
         nullable=True,
         comment=(
             "Canonical review workflow status: "
-            "no_issue_detected, issue_detected, clause_missing, "
+            "no_issue_detected, issue_detected, "
+            "clause_defined, clause_partially_defined, clause_missing, "
             "unclear, manual_review_required, not_applicable, technical_failure"
         ),
     )
@@ -315,6 +316,15 @@ class CheckResult(Base):
         comment=(
             "Advisory explanation for lawyer. "
             "Shown in drawer/details, never as primary cell text."
+        ),
+    )
+
+    review_status_counter: Mapped[str | None] = mapped_column(
+        String(20),
+        nullable=True,
+        comment=(
+            'Counter "N/M" для clause_partially_defined. '
+            "Null для всех остальных review_status."
         ),
     )
 

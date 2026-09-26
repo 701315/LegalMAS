@@ -792,6 +792,7 @@ class ResultRepository:
         machine_reason_code: str | None = None,
         review_status: str | None = None,
         review_message: str | None = None,
+        review_status_counter: str | None = None,
         needs_manual_review: bool = False,
         anchors: list[CheckAnchor] | None = None,
     ) -> CheckResult:
@@ -916,6 +917,7 @@ class ResultRepository:
                         machine_reason_code=machine_reason_code,
                         review_status=review_status,
                         review_message=review_message,
+                        review_status_counter=review_status_counter,
                         needs_manual_review=needs_manual_review,
                         # ── Sprint 1: канонические поля ────────────────────────
                         canonical_locale=run_lang,
@@ -990,6 +992,7 @@ class ResultRepository:
                 existing.machine_reason_code = machine_reason_code
                 existing.review_status = review_status
                 existing.review_message = review_message
+                existing.review_status_counter = review_status_counter
                 existing.needs_manual_review = needs_manual_review
                 
                 # Обновляем canonical_locale на случай, если применился backfill
