@@ -219,6 +219,11 @@ export function buildDDGridV1DrawerFieldViews(
             anchor_confidence: field.anchor_confidence,
             anchor_stale: field.anchor_stale,
             layout_element_ids: field.layout_element_ids,
+            // ── Risk-aware DD Grid (COC pilot) ──────────────────────────
+            cell_risk_level: field.cell_risk_level,
+            top_risk_field: field.top_risk_field,
+            top_risk_value: field.top_risk_value,
+            top_risk_display: field.top_risk_display,
           }
         : null,
       syntheticColumn,
