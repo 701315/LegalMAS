@@ -71,6 +71,57 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+# ─── Fallback-texts parsing ──────────────────────────────────────────────────
+#
+# Fallback-тексты объявлены авторами полей в `description` в формате:
+#     Fallback: "Не установлен" / "Не удалось определить".
+#
+# Автопарсинг при загрузке playbook → ExtractionFieldConfig.fallback_texts.
+# Универсально для всех doc-type файлов, не привязано к check_id/языку.
+#
+# Нестандартные форматы (продолжение на след. строке, комментарии в скобках,
+# bullet-префиксы) — парсер берёт то, что видит на одной строке; недостающее
+# фиксируется warning'ом при загрузке. Явный `fallback_texts: [...]` в YAML
+# полностью переопределяет автопарсинг.
+
+_FALLBACK_LINE_RE = re.compile(r"Fallback\s*:\s*(.+)", re.IGNORECASE)
+_FALLBACK_PHRASE_RE = re.compile(r'"([^"]+)"')
+
+
+def _extract_fallback_texts_from_description(description: str | None) -> list[str]:
+    """
+    Извлечь fallback-тексты из description поля.
+
+    Формат источника:
+        'Fallback: "Не установлен" / "Не удалось определить".'
+
+    Возвращает список уникальных фраз в порядке появления:
+        ["Не установлен", "Не удалось определить"]
+
+    Если `Fallback:` нет или description пуст → [].
+
+    Универсально: не зависит от check_id, doc_type, языка, содержания документа.
+    """
+    if not description or not isinstance(description, str):
+        return []
+
+    m = _FALLBACK_LINE_RE.search(description)
+    if not m:
+        return []
+
+    line = m.group(1)
+    phrases = _FALLBACK_PHRASE_RE.findall(line)
+
+    seen: set[str] = set()
+    result: list[str] = []
+    for p in phrases:
+        normalized = p.strip()
+        if normalized and normalized not in seen:
+            seen.add(normalized)
+            result.append(normalized)
+    return result
+
+
 class InstructionProvider(Protocol):
     """Интерфейс источника инструкций (диск или база данных)."""
     def get_instruction_data(self, doc_type: str) -> Optional[dict]: ...
@@ -431,12 +482,24 @@ class DocTypeCheckLoader:
             except ValueError:
                 field_type = ExtractionFieldType.STRING
 
+            # fallback_texts: явный YAML override > автопарсинг description.
+            _explicit_fallbacks = f.get("fallback_texts")
+            if _explicit_fallbacks is None:
+                _fallback_texts = _extract_fallback_texts_from_description(
+                    f.get("description")
+                )
+            else:
+                _fallback_texts = (
+                    list(_explicit_fallbacks) if _explicit_fallbacks else []
+                )
+
             fields.append(
                 ExtractionFieldConfig(
                     name=field_name,
                     type=field_type,
                     label=f.get("label"),
                     label_en=f.get("label_en"),
+                    fallback_texts=_fallback_texts,
                     presentation=f.get("presentation", "fact"),
                     display_in_grid=bool(f.get("display_in_grid", False)),
                     display_priority=f.get("display_priority"),

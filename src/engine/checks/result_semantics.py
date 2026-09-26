@@ -135,6 +135,9 @@ def build_canonical_result_semantics(
         result=result,
         exec_result=exec_result,
         execution_status=execution_status,
+        ui_mode=ui_mode,
+        check=check,
+        structured_data=structured_data,
     )
 
     # ── D. Display text ───────────────────────────────────────────────────────
@@ -257,6 +260,84 @@ def _extract_machine_reason(exec_result: dict) -> str | None:
 def _is_not_found_value(value: Any) -> bool:
     """Shared not-found semantic predicate."""
     return _is_not_found_value_shared(value)
+
+
+def _is_field_fallback_value(
+    check: Any | None,
+    field_name: str,
+    value: Any,
+) -> bool:
+    """
+    Display-only: True, если value — один из fallback_texts этого поля.
+
+    Источник fallback_texts — ExtractionFieldConfig.fallback_texts
+    (автопарсинг description или явный YAML override).
+
+    Не влияет на gate semantics — is_not_found_scalar остаётся главным
+    предикатом для presence_signal / iter_meaningful_fields.
+    """
+    if check is None or not isinstance(value, str):
+        return False
+    field_cfg = _find_extraction_field_config(check, field_name)
+    if field_cfg is None:
+        return False
+    fallback_texts = getattr(field_cfg, "fallback_texts", None) or []
+    if not fallback_texts:
+        return False
+    normalized = value.strip()
+    return any(normalized == str(t).strip() for t in fallback_texts)
+
+
+def _count_meaningful_fact_fields(
+    check: Any | None,
+    structured_data: dict[str, Any] | None,
+) -> tuple[int, int]:
+    """
+    Подсчитать meaningful fact-поля и общее число fact-полей check'а.
+
+    Returns:
+        (meaningful_count, total_fact_count)
+        meaningful_count ∈ [0, total_fact_count]
+        total_fact_count = 0 для legacy checks без fact/summary полей.
+
+    Учитываются presentation ∈ {fact, summary}, не в _RESERVED_METADATA_FIELDS.
+    meaningful = value не not_found и не в field_cfg.fallback_texts.
+
+    Универсально: не зависит от check_id, doc_type, языка.
+    """
+    if check is None:
+        return 0, 0
+    extraction = getattr(check, "extraction", None)
+    if extraction is None:
+        return 0, 0
+
+    fact_fields = [
+        f for f in (getattr(extraction, "fields", None) or [])
+        if (
+            (getattr(f, "presentation", "fact") or "").strip().lower()
+            in {"fact", "summary"}
+            and getattr(f, "name", None) not in _RESERVED_METADATA_FIELDS
+        )
+    ]
+    total = len(fact_fields)
+    if total == 0:
+        return 0, 0
+
+    meaningful = 0
+    sd = structured_data or {}
+    for f in fact_fields:
+        field_name = getattr(f, "name", None)
+        if not field_name or field_name not in sd:
+            continue
+        value = _extract_scalar_value(sd[field_name])
+        if _is_not_found_value(value):
+            continue
+        if _is_field_fallback_value(check, field_name, value):
+            continue
+        meaningful += 1
+
+    return meaningful, total
+
 
 
 def _extract_scalar_value(field_payload: Any) -> Any:
@@ -473,6 +554,7 @@ def _iter_grid_factual_fields(
         for field_name, value in factual
         if _get_field_display_in_grid(check, field_name)
         and _is_grid_display_presentation(check, field_name)
+        and not _is_field_fallback_value(check, field_name, value)
     ]
 
 
@@ -561,6 +643,7 @@ def _select_primary_factual_field(
         (field_name, value)
         for field_name, value in _iter_factual_fields(structured_data, check=check)
         if _is_grid_display_presentation(check, field_name)
+        and not _is_field_fallback_value(check, field_name, value)
     ]
     if not factual:
         return None
@@ -672,9 +755,15 @@ def _build_factual_display_text(
     Build factual display text from structured_data.
 
     Priority:
-    1. First field with presentation='summary' — ready-made cell text.
-    2. First field ending with '_display' (backward compat convention).
-    3. First field with presentation='fact' — formatted as 'Label: Value'.
+    1. Field with presentation='summary' — ready-made cell text.
+    2. Explicit compact DD Grid summary from display_in_grid=True fields,
+       sorted by display_priority (deterministic — order independent of jsonb).
+    3. Legacy *_display convention — backward compat for checks
+       without display_in_grid=True fields.
+    4. Legacy primary fact field — formatted as 'Label: Value'.
+
+    Все приоритеты применяют fallback-фильтр: значения из
+    field_cfg.fallback_texts пропускаются (это «данных нет», не факт).
 
     Fields with presentation='signal' or 'diagnostic' are never used
     as primary display text.
@@ -690,17 +779,44 @@ def _build_factual_display_text(
             return "Положение обнаружено"
         return None
 
-    # Priority 1: summary field
+    # Priority 1: summary field — единый агрегат, объявленный как presentation: summary.
     for field_name, field_payload in structured_data.items():
         if field_name in _RESERVED_METADATA_FIELDS:
             continue
         if _get_field_presentation(check, field_name) != "summary":
             continue
         value = _extract_scalar_value(field_payload)
+        if _is_field_fallback_value(check, field_name, value):
+            continue
         if not _is_not_found_value(value):
             return str(value).strip()
 
-    # Priority 2: *_display convention (backward compat)
+    # Priority 2: explicit compact DD Grid summary from display_in_grid=True
+    # fields, sorted by display_priority.
+    #
+    # Это основной путь для playbook-driven checks. Детерминирован: порядок
+    # полей задаётся конфигурацией (display_priority), а не порядком ключей
+    # в structured_data (jsonb не сохраняет порядок).
+    compact_summary = _build_compact_grid_factual_summary(check, structured_data)
+    if compact_summary is not None:
+        logger.debug(
+            "result_semantics: display_text built from compact grid factual summary",
+            extra={"ui_mode": ui_mode},
+        )
+        # Счётчик раскрытия — только для compact summary.
+        # Показываем долю раскрытых fact-полей при частичном раскрытии.
+        # Для legacy paths (Priority 3/4) префикс не применяется —
+        # счётчик относится только к конфигурированным display_in_grid полям.
+        if check is not None:
+            meaningful, total = _count_meaningful_fact_fields(check, structured_data)
+            if 0 < meaningful < total:
+                return f"[{meaningful}/{total}] {compact_summary}"
+        return compact_summary
+
+    # Priority 3: *_display convention — legacy path для checks БЕЗ
+    # display_in_grid=True полей. Итерируем по порядку ключей в
+    # structured_data (jsonb — порядок неопределён, но для legacy это
+    # приемлемо: у таких checks обычно одно-два *_display поля).
     for field_name, field_payload in structured_data.items():
         if field_name in _RESERVED_METADATA_FIELDS:
             continue
@@ -709,19 +825,10 @@ def _build_factual_display_text(
         if _get_field_presentation(check, field_name) in ("signal", "diagnostic"):
             continue
         value = _extract_scalar_value(field_payload)
+        if _is_field_fallback_value(check, field_name, value):
+            continue
         if not _is_not_found_value(value):
             return str(value).strip()
-
-    # Priority 3: explicit compact DD Grid summary from multiple factual fields.
-    # This path is enabled only when playbook fields opt in via display_in_grid=True.
-    # It is universal and does not guess by field names.
-    compact_summary = _build_compact_grid_factual_summary(check, structured_data)
-    if compact_summary is not None:
-        logger.debug(
-            "result_semantics: display_text built from compact grid factual summary",
-            extra={"ui_mode": ui_mode},
-        )
-        return compact_summary
 
     # Priority 4: single primary fact field fallback
     primary = _select_primary_factual_field(check, structured_data)
@@ -811,14 +918,28 @@ def _derive_review_status(
     result: str,
     exec_result: dict,
     execution_status: str,
+    ui_mode: str | None = None,
+    check: Any | None = None,
+    structured_data: dict[str, Any] | None = None,
 ) -> str:
     """
     Derive canonical review workflow status.
 
     Returns one of:
-        technical_failure, not_applicable, clause_missing,
+        technical_failure, not_applicable,
+        clause_missing, clause_defined, clause_partially_defined,
         issue_detected, no_issue_detected,
         manual_review_required, unclear
+
+    field_extraction + pass:
+        все fact-поля meaningful → clause_defined
+        часть meaningful, часть fallback → clause_partially_defined
+        (total=0, legacy checks) → no_issue_detected (старое поведение)
+
+    clause_presence + pass:
+        clause_defined (тема раскрыта).
+
+    Остальные ui_mode → прежнее поведение.
     """
     if execution_status in _TECHNICAL_FAILURE_STATUSES:
         return "technical_failure"
@@ -833,6 +954,19 @@ def _derive_review_status(
         return "issue_detected"
 
     if result == "pass":
+        if ui_mode == "field_extraction" and check is not None:
+            meaningful, total = _count_meaningful_fact_fields(check, structured_data)
+            if total == 0:
+                # Legacy checks без fact-полей — старое поведение.
+                return "no_issue_detected"
+            if meaningful == total:
+                return "clause_defined"
+            if meaningful > 0:
+                return "clause_partially_defined"
+            # meaningful == 0 при pass — fail-safe, не должно происходить.
+            return "clause_missing"
+        if ui_mode == "clause_presence":
+            return "clause_defined"
         return "no_issue_detected"
 
     if result == "unclear":
@@ -845,7 +979,6 @@ def _derive_review_status(
             return "manual_review_required"
         return "unclear"
 
-    # Unknown result value — conservative fallback
     logger.warning(
         "result_semantics: unexpected result value, defaulting review_status to unclear",
         extra={"result": result, "execution_status": execution_status},
