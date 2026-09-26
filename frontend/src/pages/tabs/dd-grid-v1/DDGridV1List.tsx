@@ -128,6 +128,7 @@ interface V1ListRow {
 type ReviewStatusTone =
   | "success"
   | "warning"
+  | "danger"
   | "muted"
   | "unknown";
 
@@ -138,6 +139,7 @@ type ReviewStatusTone =
 function getReviewStatusMeta(
   status: string | null | undefined,
   tFn: (key: string, options?: Record<string, unknown>) => string,
+  counter?: string | null,
 ): {
   label: string;
   tone: ReviewStatusTone;
@@ -165,15 +167,18 @@ function getReviewStatusMeta(
     case "clause_missing":
       return {
         label: tFn("reviewStatus.clause_missing"),
-        tone: "warning",
+        tone: "danger",
         sortRank: 2,
       };
-    case "clause_partially_defined":
+    case "clause_partially_defined": {
+      const base = tFn("reviewStatus.clause_partially_defined");
+      const c = counter?.trim();
       return {
-        label: tFn("reviewStatus.clause_partially_defined"),
+        label: c ? `${base} (${c})` : base,
         tone: "warning",
         sortRank: 3,
       };
+    }
     case "no_issue_detected":
     case "ok":
       return {
@@ -206,6 +211,8 @@ function getReviewStatusIcon(tone: ReviewStatusTone): React.ReactNode {
       return <CheckCircle2 className={`${iconClass} text-[var(--color-success)]`} aria-hidden />;
     case "warning":
       return <XCircle className={`${iconClass} text-[var(--color-warning)]`} aria-hidden />;
+    case "danger":
+      return <XCircle className={`${iconClass} text-[var(--color-error)]`} aria-hidden />;
     case "muted":
       return <MinusCircle className={`${iconClass} text-[var(--text-muted)]`} aria-hidden />;
     case "unknown":
@@ -220,6 +227,8 @@ function getReviewStatusTextToneClass(tone: ReviewStatusTone): string {
       return "status-text-success";
     case "warning":
       return "status-text-warning";
+    case "danger":
+      return "status-text-error";
     case "muted":
       return "text-[var(--text-muted)]";
     case "unknown":
@@ -374,7 +383,11 @@ function buildV1ListRows(
 
       if (!drawer) continue;
 
-      const statusMeta = getReviewStatusMeta(drawer.review_status, tFn);
+      const statusMeta = getReviewStatusMeta(
+        drawer.review_status,
+        tFn,
+        drawer.review_status_counter,
+      );
 
       if (
         !includePassResults &&

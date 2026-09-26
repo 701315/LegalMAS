@@ -85,6 +85,7 @@ const REASON_SOURCE_KEYS: Record<DDGridV1ReasonSource, string> = {
 function getReviewStatusLabel(
   status: string | null | undefined,
   tFn: (key: string) => string,
+  counter?: string | null,
 ): string | null {
   if (!status || typeof status !== "string" || status.trim().length === 0) {
     return null;
@@ -99,8 +100,11 @@ function getReviewStatusLabel(
       return tFn("drawer.reviewStatusLabels.clause_missing");
     case "clause_defined":
       return tFn("drawer.reviewStatusLabels.clause_defined");
-    case "clause_partially_defined":
-      return tFn("drawer.reviewStatusLabels.clause_partially_defined");
+    case "clause_partially_defined": {
+      const base = tFn("drawer.reviewStatusLabels.clause_partially_defined");
+      const c = counter?.trim();
+      return c ? `${base} (${c})` : base;
+    }
     case "no_issue_detected":
     case "ok":
       return tFn("drawer.reviewStatusLabels.no_issue_detected");
@@ -110,6 +114,31 @@ function getReviewStatusLabel(
       return normalized;
   }
 }
+
+function getReviewStatusPillTone(
+  status: string | null | undefined,
+): "neutral" | "muted" | "warning" | "error" | "success" {
+  if (!status || typeof status !== "string") return "neutral";
+  switch (status.trim()) {
+    case "clause_missing":
+    case "issue_detected":
+      return "error";
+    case "needs_review":
+    case "unclear":
+    case "clause_partially_defined":
+      return "warning";
+    case "clause_defined":
+    case "no_issue_detected":
+    case "ok":
+      return "success";
+    case "not_applicable":
+      return "muted";
+    default:
+      return "neutral";
+  }
+}
+
+
 
 // -------------------------------------------------------------
 // Cell state labels for badges
@@ -515,7 +544,11 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
     : t("drawer.documentIdLabel", { id: documentId });
 
   const displayText = drawerContent.display_text?.trim() || null;
-  const reviewStatusLabel = getReviewStatusLabel(drawerContent.review_status, t);
+  const reviewStatusLabel = getReviewStatusLabel(
+    drawerContent.review_status,
+    t,
+    drawerContent.review_status_counter,
+  );
   const executionStatus = drawerContent.execution_status?.trim() || null;
   const showExecutionStatus =
     executionStatus !== null && executionStatus !== "SUCCESS";
@@ -940,7 +973,9 @@ export const DDGridV1Drawer: React.FC<DDGridV1DrawerProps> = ({
               <InfoCard tone="subtle">
                 <div className="flex flex-wrap gap-2">
                   {reviewStatusLabel ? (
-                    <Pill tone="neutral">{reviewStatusLabel}</Pill>
+                    <Pill tone={getReviewStatusPillTone(drawerContent.review_status)}>
+                      {reviewStatusLabel}
+                    </Pill>
                   ) : null}
 
                   {showExecutionStatus ? (

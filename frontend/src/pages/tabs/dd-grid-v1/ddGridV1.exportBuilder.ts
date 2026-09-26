@@ -125,6 +125,7 @@ export interface DDGridV1ExportSourceRow {
 function getReviewStatusLabel(
   status: string | null | undefined,
   t: TFunction,
+  counter?: string | null,
 ): string {
   if (!status || typeof status !== "string" || status.trim().length === 0) {
     return t("reviewStatus.empty");
@@ -138,8 +139,11 @@ function getReviewStatusLabel(
       return t("reviewStatus.clause_missing");
     case "clause_defined":
       return t("reviewStatus.clause_defined");
-    case "clause_partially_defined":
-      return t("reviewStatus.clause_partially_defined");
+    case "clause_partially_defined": {
+      const base = t("reviewStatus.clause_partially_defined");
+      const c = counter?.trim();
+      return c ? `${base} (${c})` : base;
+    }
     case "no_issue_detected":
     case "ok":
       return t("reviewStatus.no_issue_detected");
@@ -411,7 +415,11 @@ function buildExportSourceRow(
     docType: v1Row.docType || "—",
     checkName: check.checkName || check.checkId,
     displayText: drawer.display_text?.trim() || "",
-    reviewStatusLabel: getReviewStatusLabel(drawer.review_status, t),
+    reviewStatusLabel: getReviewStatusLabel(
+      drawer.review_status,
+      t,
+      drawer.review_status_counter,
+    ),
     locationText: buildLocationText(drawer, t),
 
     detectionLevel: detectionLevelInfo.badge ?? "",

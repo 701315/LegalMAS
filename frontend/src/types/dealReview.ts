@@ -126,6 +126,7 @@ export interface CheckItemDTO extends SegmentProvenanceDTO {
   display_text?: string | null;
   review_status?: ReviewWorkflowStatus | string | null;
   review_message?: string | null;
+  review_status_counter?: string | null;
   needs_manual_review?: boolean;
   ui_mode?: ReviewUiMode | string | null;
 }
@@ -188,6 +189,7 @@ export interface MatrixCellDTO extends SegmentProvenanceDTO {
   display_text?: string | null;
   review_status?: ReviewWorkflowStatus | string | null;
   review_message?: string | null;
+  review_status_counter?: string | null;
   needs_manual_review?: boolean;
   ui_mode?: ReviewUiMode | string | null;
 }
@@ -616,6 +618,7 @@ export interface DDGridV1DrawerContentDTO {
   reason: string | null;
   review_status: string | null;
   review_message: string | null;
+  review_status_counter?: string | null;
   display_text: string | null;
 
   // Locale-specific presentation metadata. The backend remains the

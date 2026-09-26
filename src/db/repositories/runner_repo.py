@@ -263,6 +263,7 @@ class RunnerRepository:
             * machine_reason_code
             * review_status
             * review_message
+            * review_status_counter
             * needs_manual_review
         """
         stmt = select(CheckResult).where(CheckResult.run_id == run_id)
@@ -313,6 +314,7 @@ class RunnerRepository:
                     "machine_reason_code": r.machine_reason_code,
                     "review_status": r.review_status,
                     "review_message": r.review_message,
+                    "review_status_counter": r.review_status_counter,
                     "needs_manual_review": bool(r.needs_manual_review or False),
                     "execution_status": r.execution_status or "PENDING",
                     "qc_by": r.qc_by,

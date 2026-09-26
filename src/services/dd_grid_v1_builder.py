@@ -170,6 +170,7 @@ class DrawerContentDTO:
     reason: str | None
     review_status: str | None
     review_message: str | None = None
+    review_status_counter: str | None = None
     display_text: str | None = None
     output_locale: str | None = None
     presentation_locale: str | None = None
@@ -1733,6 +1734,7 @@ def _build_drawer_content(
             ),
             review_status=None,
             review_message=None,
+            review_status_counter=None,
             display_text=None,
             output_locale=None,
             presentation_locale=None,
@@ -1791,6 +1793,7 @@ def _build_drawer_content(
     review_message = _safe_str_or_none(check_result.get("review_message"))
     display_text = _safe_str_or_none(check_result.get("display_text"))
     review_status = _safe_str_or_none(check_result.get("review_status"))
+    review_status_counter = _safe_str_or_none(check_result.get("review_status_counter"))
     execution_status = _normalize_execution_status_for_api(
         check_result=check_result,
         column_cells=column_cells,
@@ -1834,6 +1837,7 @@ def _build_drawer_content(
         reason=metadata_reason or review_message or display_text,
         review_status=review_status,
         review_message=review_message,
+        review_status_counter=review_status_counter,
         display_text=display_text,
         output_locale=check_result.get("output_locale") or check_result.get("presentation_locale"),
         presentation_locale=check_result.get("presentation_locale"),
