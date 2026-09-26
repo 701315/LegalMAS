@@ -102,3 +102,76 @@ class TestDeriveReviewStatus:
         sd = {"x": {"value": "present"}}
         assert self._call(check, sd) == "no_issue_detected"
         
+        # ─── Counter в ResultSemantics ────────────────────────────────────────────────
+
+
+from engine.checks.result_semantics import build_canonical_result_semantics
+
+
+class TestCounterInSemantics:
+    """review_status_counter вычисляется для clause_partially_defined."""
+
+    def _call(self, check, sd):
+        return build_canonical_result_semantics(
+            check=check,
+            exec_result={"result": "pass", "severity": "high"},
+            execution_status="SUCCESS",
+            structured_data=sd,
+        )
+
+    def test_counter_for_partial(self):
+        check = _check("c", [
+            _field("a", fallback_texts=["Не установлено"]),
+            _field("b", fallback_texts=["Не установлено"]),
+        ])
+        sd = {"a": {"value": "X"}, "b": {"value": "Не установлено"}}
+        s = self._call(check, sd)
+        assert s.review_status == "clause_partially_defined"
+        assert s.review_status_counter == "1/2"
+
+    def test_counter_none_for_full(self):
+        check = _check("c", [
+            _field("a", fallback_texts=["Не установлено"]),
+            _field("b", fallback_texts=["Не установлено"]),
+        ])
+        sd = {"a": {"value": "X"}, "b": {"value": "Y"}}
+        s = self._call(check, sd)
+        assert s.review_status == "clause_defined"
+        assert s.review_status_counter is None
+
+    def test_counter_none_for_missing(self):
+        check = _check("c", [
+            _field("a", fallback_texts=["Не установлено"]),
+        ])
+        sd = {"a": {"value": "Не установлено"}}
+        s = build_canonical_result_semantics(
+            check=check,
+            exec_result={"result": "missing_required_clause", "severity": "high"},
+            execution_status="SUCCESS",
+            structured_data=sd,
+        )
+        assert s.review_status == "clause_missing"
+        assert s.review_status_counter is None
+
+
+class TestDisplayTextHasNoPrefix:
+    """Префикс [N/M] убран из display_text — теперь counter в semantics."""
+
+    def test_no_prefix_in_display(self):
+        check = _check("c", [
+            _field("a", display_in_grid=True, display_priority=1,
+                   fallback_texts=["Не установлено"]),
+            _field("b", display_in_grid=True, display_priority=2,
+                   fallback_texts=["Не установлено"]),
+        ])
+        sd = {"a": {"value": "X"}, "b": {"value": "Не установлено"}}
+        s = build_canonical_result_semantics(
+            check=check,
+            exec_result={"result": "pass", "severity": "high"},
+            execution_status="SUCCESS",
+            structured_data=sd,
+        )
+        assert s.display_text is not None
+        assert not s.display_text.startswith("["), \
+            f"display_text не должен начинаться с [N/M]: {s.display_text!r}"
+        assert s.review_status_counter == "1/2"

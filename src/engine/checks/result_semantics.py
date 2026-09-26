@@ -74,12 +74,15 @@ class ResultSemantics:
     """
     Immutable canonical semantics of a check result.
 
-    display_text:         Primary human-facing factual text for DD Grid cell.
-                          None means frontend should use review_status label.
-    machine_reason_code:  Internal machine reason (diagnostics only).
-    review_status:        Canonical review workflow status.
-    review_message:       Advisory explanation for lawyer (drawer/details only).
-    needs_manual_review:  Explicit boolean for workflow filtering.
+    display_text:            Primary human-facing factual text for DD Grid cell.
+                             None means frontend should use review_status label.
+    machine_reason_code:     Internal machine reason (diagnostics only).
+    review_status:           Canonical review workflow status.
+    review_message:          Advisory explanation for lawyer (drawer/details only).
+    needs_manual_review:     Explicit boolean for workflow filtering.
+    review_status_counter:   Counter "N/M" для clause_partially_defined.
+                             None в остальных случаях. Frontend рендерит
+                             рядом с label в колонке Status.
     """
 
     display_text: str | None
@@ -87,6 +90,7 @@ class ResultSemantics:
     review_status: str
     review_message: str | None
     needs_manual_review: bool
+    review_status_counter: str | None = None
 
 
 # ─── Public API ───────────────────────────────────────────────────────────────
@@ -140,6 +144,16 @@ def build_canonical_result_semantics(
         structured_data=structured_data,
     )
 
+    # Counter для clause_partially_defined — "N/M".
+    # Вычисляется из structured_data + fact-полей check'а.
+    # Универсально: не зависит от check_id / doc_type / языка.
+    review_status_counter: str | None = None
+    if review_status == "clause_partially_defined" and check is not None:
+        _m, _total = _count_meaningful_fact_fields(check, structured_data)
+        if 0 < _m < _total:
+            review_status_counter = f"{_m}/{_total}"
+
+
     # ── D. Display text ───────────────────────────────────────────────────────
 
     display_text = _build_display_text(
@@ -180,6 +194,7 @@ def build_canonical_result_semantics(
         review_status=review_status,
         review_message=review_message,
         needs_manual_review=needs_manual_review,
+        review_status_counter=review_status_counter,
     )
 
 
@@ -803,14 +818,6 @@ def _build_factual_display_text(
             "result_semantics: display_text built from compact grid factual summary",
             extra={"ui_mode": ui_mode},
         )
-        # Счётчик раскрытия — только для compact summary.
-        # Показываем долю раскрытых fact-полей при частичном раскрытии.
-        # Для legacy paths (Priority 3/4) префикс не применяется —
-        # счётчик относится только к конфигурированным display_in_grid полям.
-        if check is not None:
-            meaningful, total = _count_meaningful_fact_fields(check, structured_data)
-            if 0 < meaningful < total:
-                return f"[{meaningful}/{total}] {compact_summary}"
         return compact_summary
 
     # Priority 3: *_display convention — legacy path для checks БЕЗ
