@@ -259,6 +259,32 @@ def _is_not_found_value(value: Any) -> bool:
     return _is_not_found_value_shared(value)
 
 
+def _is_field_fallback_value(
+    check: Any | None,
+    field_name: str,
+    value: Any,
+) -> bool:
+    """
+    Display-only: True, если value — один из fallback_texts этого поля.
+
+    Источник fallback_texts — ExtractionFieldConfig.fallback_texts
+    (автопарсинг description или явный YAML override).
+
+    Не влияет на gate semantics — is_not_found_scalar остаётся главным
+    предикатом для presence_signal / iter_meaningful_fields.
+    """
+    if check is None or not isinstance(value, str):
+        return False
+    field_cfg = _find_extraction_field_config(check, field_name)
+    if field_cfg is None:
+        return False
+    fallback_texts = getattr(field_cfg, "fallback_texts", None) or []
+    if not fallback_texts:
+        return False
+    normalized = value.strip()
+    return any(normalized == str(t).strip() for t in fallback_texts)
+
+
 def _extract_scalar_value(field_payload: Any) -> Any:
     """Shared scalar extractor for normalized structured_data fields."""
     return _extract_scalar_value_shared(field_payload)
@@ -473,6 +499,7 @@ def _iter_grid_factual_fields(
         for field_name, value in factual
         if _get_field_display_in_grid(check, field_name)
         and _is_grid_display_presentation(check, field_name)
+        and not _is_field_fallback_value(check, field_name, value)
     ]
 
 
@@ -561,6 +588,7 @@ def _select_primary_factual_field(
         (field_name, value)
         for field_name, value in _iter_factual_fields(structured_data, check=check)
         if _is_grid_display_presentation(check, field_name)
+        and not _is_field_fallback_value(check, field_name, value)
     ]
     if not factual:
         return None
@@ -672,9 +700,15 @@ def _build_factual_display_text(
     Build factual display text from structured_data.
 
     Priority:
-    1. First field with presentation='summary' — ready-made cell text.
-    2. First field ending with '_display' (backward compat convention).
-    3. First field with presentation='fact' — formatted as 'Label: Value'.
+    1. Field with presentation='summary' — ready-made cell text.
+    2. Explicit compact DD Grid summary from display_in_grid=True fields,
+       sorted by display_priority (deterministic — order independent of jsonb).
+    3. Legacy *_display convention — backward compat for checks
+       without display_in_grid=True fields.
+    4. Legacy primary fact field — formatted as 'Label: Value'.
+
+    Все приоритеты применяют fallback-фильтр: значения из
+    field_cfg.fallback_texts пропускаются (это «данных нет», не факт).
 
     Fields with presentation='signal' or 'diagnostic' are never used
     as primary display text.
@@ -690,17 +724,36 @@ def _build_factual_display_text(
             return "Положение обнаружено"
         return None
 
-    # Priority 1: summary field
+    # Priority 1: summary field — единый агрегат, объявленный как presentation: summary.
     for field_name, field_payload in structured_data.items():
         if field_name in _RESERVED_METADATA_FIELDS:
             continue
         if _get_field_presentation(check, field_name) != "summary":
             continue
         value = _extract_scalar_value(field_payload)
+        if _is_field_fallback_value(check, field_name, value):
+            continue
         if not _is_not_found_value(value):
             return str(value).strip()
 
-    # Priority 2: *_display convention (backward compat)
+    # Priority 2: explicit compact DD Grid summary from display_in_grid=True
+    # fields, sorted by display_priority.
+    #
+    # Это основной путь для playbook-driven checks. Детерминирован: порядок
+    # полей задаётся конфигурацией (display_priority), а не порядком ключей
+    # в structured_data (jsonb не сохраняет порядок).
+    compact_summary = _build_compact_grid_factual_summary(check, structured_data)
+    if compact_summary is not None:
+        logger.debug(
+            "result_semantics: display_text built from compact grid factual summary",
+            extra={"ui_mode": ui_mode},
+        )
+        return compact_summary
+
+    # Priority 3: *_display convention — legacy path для checks БЕЗ
+    # display_in_grid=True полей. Итерируем по порядку ключей в
+    # structured_data (jsonb — порядок неопределён, но для legacy это
+    # приемлемо: у таких checks обычно одно-два *_display поля).
     for field_name, field_payload in structured_data.items():
         if field_name in _RESERVED_METADATA_FIELDS:
             continue
@@ -709,19 +762,10 @@ def _build_factual_display_text(
         if _get_field_presentation(check, field_name) in ("signal", "diagnostic"):
             continue
         value = _extract_scalar_value(field_payload)
+        if _is_field_fallback_value(check, field_name, value):
+            continue
         if not _is_not_found_value(value):
             return str(value).strip()
-
-    # Priority 3: explicit compact DD Grid summary from multiple factual fields.
-    # This path is enabled only when playbook fields opt in via display_in_grid=True.
-    # It is universal and does not guess by field names.
-    compact_summary = _build_compact_grid_factual_summary(check, structured_data)
-    if compact_summary is not None:
-        logger.debug(
-            "result_semantics: display_text built from compact grid factual summary",
-            extra={"ui_mode": ui_mode},
-        )
-        return compact_summary
 
     # Priority 4: single primary fact field fallback
     primary = _select_primary_factual_field(check, structured_data)
