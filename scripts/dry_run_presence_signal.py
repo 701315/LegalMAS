@@ -55,35 +55,41 @@ def load_yaml() -> dict:
 
 # ─── 2. Симуляция YAML-правок (в памяти) ────────────────────────────
 
-def add_presence_signal(raw_check: dict) -> dict:
+def strip_new_fields(raw_check: dict) -> dict:
     """
-    Возвращает deepcopy check'а, в котором:
-    - в extraction.fields добавлено поле <id>_presence (первым);
-    - в extraction добавлен presence_signal.
+    Возвращает deepcopy check'а, эмулирующий YAML ДО наших правок:
+    - удалён extraction.presence_signal;
+    - удалено поле <id>_presence из extraction.fields;
+    - удалён risk_weight у всех signal-полей.
+
+    Нужен для сценариев A (сегодня) и B (патч loader без правки YAML):
+    без этого скрипт не покажет backward compat корректно.
     """
     check = copy.deepcopy(raw_check)
     check_id = check["id"]
-    ext = check.setdefault("extraction", {})
-    fields = ext.setdefault("fields", [])
+    ext = check.get("extraction")
+    if not isinstance(ext, dict):
+        return check
 
-    presence_field = {
-        "name": f"{check_id}_presence",
-        "type": "string",
-        "presentation": "signal",
-        "risk_weight": "info",
-        "allowed_values": ["present", "missing", "unclear"],
-        "display_in_grid": False,
-        "description": "Наличие регулирования по теме check'а. Внутреннее агрегатное signal-поле.",
-        "required": True,
-    }
-    fields.insert(0, presence_field)
+    # 1. Убрать presence_signal
+    ext.pop("presence_signal", None)
 
-    ext["presence_signal"] = {
-        "field": f"{check_id}_presence",
-        "present_values": ["present"],
-        "missing_values": ["missing"],
-        "unclear_values": ["unclear"],
-    }
+    # 2. Убрать поле <id>_presence и risk_weight из signal-полей
+    fields = ext.get("fields") or []
+    cleaned_fields = []
+    for f in fields:
+        if not isinstance(f, dict):
+            cleaned_fields.append(f)
+            continue
+        # убрать агрегатное поле presence
+        if f.get("name") == f"{check_id}_presence":
+            continue
+        # убрать risk_weight у signal-полей
+        if f.get("presentation") == "signal":
+            f.pop("risk_weight", None)
+        cleaned_fields.append(f)
+    ext["fields"] = cleaned_fields
+
     return check
 
 
@@ -315,37 +321,37 @@ def main() -> None:
             continue
 
         raw_check = checks_by_id[check_id]
-        raw_check_patched = add_presence_signal(raw_check)
+        raw_check_stripped = strip_new_fields(raw_check)
 
         ext_current = raw_check.get("extraction", {}) or {}
-        ext_patched = raw_check_patched.get("extraction", {}) or {}
+        ext_stripped = raw_check_stripped.get("extraction", {}) or {}
 
         print("─" * 100)
         print(f"CHECK: {check_id}")
         print("─" * 100)
 
-        # A. Сегодня
+        # A. Сегодня: YAML «как было» + loader без патча
         print()
-        print("【A. СЕГОДНЯ: текущий код + текущий YAML】")
-        cfg_a = parse_extraction_current(ext_current)
+        print("【A. СЕГОДНЯ: loader без патча + YAML «как было»】")
+        cfg_a = parse_extraction_current(ext_stripped)
         if cfg_a is None:
             print("  extraction.enabled=False или fields пусты → check не работает.")
             continue
         print(f"  presence_signal: {cfg_a.presence_signal}")
         print(f"  → gate НЕ сработает, fallback _has_meaningful_extraction")
 
-        # B. Патч кода, без правки YAML
+        # B. Патч loader, YAML всё ещё «как было» → backward compat
         print()
         print("【B. ПОСЛЕ ПАТЧА loader.py, БЕЗ правки YAML】")
-        cfg_b = parse_extraction_patched(ext_current)
+        cfg_b = parse_extraction_patched(ext_stripped)
         print(f"  presence_signal: {cfg_b.presence_signal}")
-        print(f"  → поведение идентично A (presence_signal=None в YAML)")
+        print(f"  → поведение идентично A (backward compat)")
 
-        # C. Патч кода + правка YAML
+        # C. Патч loader + правка YAML (как в реальном файле)
         print()
         print("【C. ПОСЛЕ ПАТЧА loader.py + ПРАВКИ YAML】")
         try:
-            cfg_c = parse_extraction_patched(ext_patched)
+            cfg_c = parse_extraction_patched(ext_current)
         except Exception as exc:
             print(f"  [ОШИБКА ВАЛИДАЦИИ] {type(exc).__name__}: {exc}")
             continue
