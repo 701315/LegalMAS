@@ -1039,10 +1039,16 @@ def _normalize_string_comparable(value: Any) -> str | None:
 # Universal: based on semantic (ui_mode, review_status) pair only.
 # No check_id, no field_name, no document-language, no example-specific logic.
 _POSITIVE_LOCATION_COMBOS: frozenset[tuple[str, str]] = frozenset({
-    ("field_extraction", "no_issue_detected"),
-    ("field_extraction", "unclear"),
+    # field_extraction
+    ("field_extraction", "no_issue_detected"),            # legacy (pre-v2)
+    ("field_extraction", "unclear"),                      # legacy
+    ("field_extraction", "clause_defined"),               # v2: тема раскрыта
+    ("field_extraction", "clause_partially_defined"),     # v2: частично
+    # clause_presence
     ("clause_presence",  "no_issue_detected"),
     ("clause_presence",  "unclear"),
+    ("clause_presence",  "clause_defined"),               # v2
+    # risk_detection — без изменений
     ("risk_detection",   "issue_detected"),
     ("risk_detection",   "unclear"),
 })
