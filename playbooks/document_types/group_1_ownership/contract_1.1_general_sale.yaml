@@ -560,6 +560,7 @@ compliance_rules: []
 
 checks_v8:
 
+
   - id: parties_and_authority
     name: "Стороны договора: идентификация и полномочия подписантов"
     description: >
@@ -816,6 +817,12 @@ checks_v8:
 
       compact_output: false
 
+      presence_signal:
+        field: "parties_and_authority_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста договора:
@@ -832,6 +839,26 @@ checks_v8:
 
         <task>
         Заполни строго следующие поля:
+
+        0. parties_and_authority_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (buyer_details_status, seller_details_status,
+              buyer_signatory_basis, seller_signatory_basis)
+             ≠ "not_defined";
+           - "missing" — если все четыре содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - buyer_details_status = "not_defined";
+           - seller_details_status = "not_defined";
+           - buyer_signatory_basis = "not_defined";
+           - seller_signatory_basis = "not_defined";
+           - buyer_details_value, seller_details_value = "Данные не определены";
+           - buyer_signatory, seller_signatory = "Данные не определены";
+           - buyer_signatory_basis_display, seller_signatory_basis_display = "Данные не определены";
+           - не выполняй остальные шаги.
 
         1. buyer_details_status:
            - "defined" — если Покупатель прямо идентифицируется по тексту хотя бы по наименованию, ФИО или статусу ИП + ФИО;
@@ -914,6 +941,9 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни parties_and_authority_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все содержательные поля = "not_defined", все *_value = "Данные не определены", все *_basis_display = "Данные не определены".
         - Используй только релевантные фрагменты контекста.
         - Не делай предположений по типовой структуре договора.
         - Не смешивай сведения о Покупателе и Продавце.
@@ -926,24 +956,62 @@ checks_v8:
         - Если иное основание полномочий прямо названо в тексте и его можно кратко сформулировать на русском языке — используй это наименование в basis_display вместо "Иное основание".
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни упоминания сторон, ни их реквизитов, ни подписантов.
+           → presence = "missing";
+             buyer_details_status = seller_details_status = "not_defined";
+             buyer_signatory_basis = seller_signatory_basis = "not_defined";
+             все *_value / *_display = "Данные не определены".
+
+        2. Прямое исключение или явное отсутствие.
+           В договоре прямо указано, что данные не раскрываются, либо
+           содержится явная формулировка об отсутствии условия.
+           → presence = "present";
+             соответствующий *_status = "not_defined";
+             *_value содержит дословную цитату об исключении.
+
+        3. Противоречие между фрагментами.
+           В разных фрагментах указаны разные ФИО/ИНН для одной стороны.
+           → presence = "unclear";
+             соответствующий *_status = "not_defined";
+             *_value = "Не удалось определить".
+
+        4. Только роли без идентификации.
+           Упомянуты "Покупатель" и "Продавец", но без реквизитов и ФИО.
+           → presence = "present";
+             *_status = "not_defined";
+             *_value = "Данные не определены".
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
-        - Не используй markdown fences.
-        - Не добавляй пояснения до или после JSON.
-        - Верни ровно 10 ключей, перечисленных в task. Не добавляй поле evidence.
-        - Не используй null, None или пустые строки.
         - Все свободные текстовые поля заполняй на русском языке.
-        - Для enum-полей используй только допустимые значения.
-        - Для полей buyer_signatory и seller_signatory при отсутствии данных всегда возвращай
-          "Данные не определены" — даже если поле не является обязательным.
-        - Для полей buyer_signatory_basis_display и seller_signatory_basis_display при отсутствии
-          данных всегда возвращай "Данные не определены" — даже если поле не является обязательным.
+        - Для parties_and_authority_presence используй только: "present", "missing", "unclear".
+        - Для enum-полей *_status используй только: "defined", "not_defined".
+        - Для enum-полей *_basis используй только: "charter", "poa", "order", "other", "not_defined".
+        - Fallback при отсутствии данных:
+          * buyer_details_value, seller_details_value → "Данные не определены";
+          * buyer_signatory, seller_signatory → "Данные не определены";
+          * buyer_signatory_basis_display, seller_signatory_basis_display → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_value / *_display → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
       fields:
+        - name: "parties_and_authority_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие идентификации сторон / полномочий в договоре. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "buyer_details_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус определения Покупателя. Внутреннее enum-поле."
@@ -964,6 +1032,7 @@ checks_v8:
         - name: "seller_details_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус определения Продавца. Внутреннее enum-поле."
@@ -995,6 +1064,7 @@ checks_v8:
         - name: "buyer_signatory_basis"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["charter", "poa", "order", "other", "not_defined"]
           display_in_grid: false
           description: "Внутреннее enum-значение основания полномочий подписанта Покупателя."
@@ -1027,6 +1097,7 @@ checks_v8:
         - name: "seller_signatory_basis"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["charter", "poa", "order", "other", "not_defined"]
           display_in_grid: false
           description: "Внутреннее enum-значение основания полномочий подписанта Продавца."
@@ -1236,6 +1307,12 @@ checks_v8:
 
       compact_output: false
 
+      presence_signal:
+        field: "subject_quantity_price_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста договора сведения только о предмете, количестве и цене товара.
@@ -1250,6 +1327,21 @@ checks_v8:
 
         <task>
         Заполни строго следующие поля:
+
+        0. subject_quantity_price_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (subject_status, quantity_status, price_status) ≠ "not_defined";
+           - "missing" — если все три содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - subject_status = "not_defined";
+           - quantity_status = "not_defined";
+           - price_status = "not_defined";
+           - subject_details, quantity_details, price_details = "Данные не определены";
+           - не выполняй остальные шаги.
 
         1. subject_status:
            - "defined" — если в тексте прямо указан товар, его наименование, вид, номенклатура
@@ -1326,10 +1418,13 @@ checks_v8:
 
         Если данные есть, но противоречивы, неоднозначны или их нельзя надёжно определить:
         - статус: "not_defined"
-        - текстовое поле: "Не удалось определить"
+        - текстовое поле: "Не удалось определить".
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни subject_quantity_price_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details = "Данные не определены".
         - Используй только релевантные фрагменты контекста.
         - Не подставляй нормы закона, обычную практику или предположения вместо текста договора.
         - Не делай выводов по типовой структуре договора.
@@ -1345,21 +1440,57 @@ checks_v8:
         - Все текстовые значения пиши на русском языке.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни предмета, ни количества, ни цены.
+           → presence = "missing";
+             все *_status = "not_defined";
+             все *_details = "Данные не определены".
+
+        2. Прямое указание на согласование в будущем.
+           "Стороны согласуют характеристики товара дополнительно" без ссылки на документ.
+           → presence = "present";
+             все *_status = "not_defined";
+             все *_details = "Данные не определены".
+
+        3. Противоречие между фрагментами.
+           В разных частях договора указаны разные цены или количества.
+           → presence = "unclear";
+             соответствующий *_status = "not_defined";
+             *_details = "Не удалось определить".
+
+        4. Отсылка на внешний документ.
+           Предмет/количество/цена определяются по спецификации, приложению, заявке.
+           → presence = "present";
+             соответствующий *_status = "defined";
+             *_details содержит формулировку вида "Определяется Спецификацией №1".
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
-        - Не используй markdown fences.
-        - Не добавляй пояснения до или после JSON.
-        - Верни ровно 6 ключей, перечисленных в task.
-        - Не добавляй поле evidence.
-        - Не используй null, None или пустые строки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для subject_quantity_price_presence используй только: "present", "missing", "unclear".
         - Для status-полей используй только: "defined" или "not_defined".
-        - Для текстовых полей при отсутствии данных используй только "Данные не определены".
-        - Для текстовых полей при неоднозначности или конфликте используй только "Не удалось определить".
+        - Fallback при отсутствии данных:
+          * subject_details, quantity_details, price_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "subject_quantity_price_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по предмету/количеству/цене. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "subject_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус определения предмета договора. Внутреннее enum-поле."
@@ -1381,6 +1512,7 @@ checks_v8:
         - name: "quantity_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус определения количества. Внутреннее enum-поле."
@@ -1402,6 +1534,7 @@ checks_v8:
         - name: "price_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус определения цены. Внутреннее enum-поле."
@@ -1672,6 +1805,12 @@ checks_v8:
 
       compact_output: false
 
+      presence_signal:
+        field: "payment_terms_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста договора сведения только
@@ -1687,6 +1826,26 @@ checks_v8:
 
         <task>
         Заполни строго следующие поля:
+
+        0. payment_terms_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (payment_procedure_status, payment_model, vat_status,
+              late_payment_consequences_status) ≠ "not_defined";
+           - "missing" — если все четыре содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - payment_procedure_status = "not_defined";
+           - payment_model = "not_defined";
+           - vat_status = "not_defined";
+           - late_payment_consequences_status = "not_defined";
+           - payment_procedure_details = "Не установлено";
+           - payment_model_display = "Не установлена";
+           - vat_display = "Не указано";
+           - late_payment_consequences_display = "Не установлены";
+           - не выполняй остальные шаги.
 
         1. payment_procedure_status:
            - "defined" — если в тексте прямо указан порядок или срок оплаты, или прямо
@@ -1778,6 +1937,9 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни payment_terms_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details/*_display = соответствующий fallback.
         - Используй только релевантные фрагменты контекста.
         - Не подставляй нормы закона, обычную практику или предположения вместо текста договора.
         - Не делай выводов по типовой структуре договора.
@@ -1798,29 +1960,62 @@ checks_v8:
         - Все текстовые значения пиши на русском языке.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни порядка оплаты, ни НДС, ни последствий просрочки.
+           → presence = "missing";
+             все *_status = "not_defined";
+             все *_details/*_display = соответствующий fallback.
+
+        2. Модель не раскрыта.
+           Порядок оплаты указан (например, по счёту), но не ясно, до или после передачи.
+           → presence = "present";
+             payment_procedure_status = "defined";
+             payment_model = "not_defined";
+             payment_model_display = "Не установлена".
+
+        3. Противоречие в сроках.
+           В разных фрагментах указаны разные сроки оплаты.
+           → presence = "unclear";
+             payment_procedure_status = "not_defined";
+             payment_procedure_details = "Не удалось определить".
+
+        4. Общая ссылка на закон вместо конкретных последствий.
+           "Стороны несут ответственность в соответствии с законодательством РФ".
+           → late_payment_consequences_status = "not_defined";
+             presence всё равно "present", если другие поля определены.
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
-        - Не используй markdown fences.
-        - Не добавляй пояснения до или после JSON.
-        - Верни ровно 8 ключей, перечисленных в task.
-        - Не добавляй поле evidence.
-        - Не используй null, None или пустые строки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для payment_terms_presence используй только: "present", "missing", "unclear".
         - Для статусных enum-полей используй только: "defined" или "not_defined".
         - Для payment_model используй только:
           "prepayment", "postpayment", "installments", "mixed", "not_defined".
-        - Для текстовых полей при отсутствии данных используй:
-          payment_procedure_details → "Не установлено"
-          payment_model_display → "Не установлена"
-          vat_display → "Не указано"
-          late_payment_consequences_display → "Не установлены"
-        - Для текстовых полей при неоднозначности или конфликте используй:
-          "Не удалось определить".
+        - Fallback при отсутствии данных:
+          * payment_procedure_details → "Не установлено";
+          * payment_model_display → "Не установлена";
+          * vat_display → "Не указано";
+          * late_payment_consequences_display → "Не установлены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details/*_display → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
       fields:
+        - name: "payment_terms_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по порядку оплаты. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "payment_procedure_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус определения порядка оплаты. Внутреннее enum-поле."
@@ -1843,6 +2038,7 @@ checks_v8:
         - name: "payment_model"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["prepayment", "postpayment", "installments", "mixed", "not_defined"]
           display_in_grid: false
           description: "Внутреннее enum-значение модели оплаты."
@@ -1864,6 +2060,7 @@ checks_v8:
         - name: "vat_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус наличия прямого указания на НДС в договоре. Внутреннее enum-поле."
@@ -1885,6 +2082,7 @@ checks_v8:
         - name: "late_payment_consequences_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: >
@@ -2173,6 +2371,12 @@ checks_v8:
 
       compact_output: false
 
+      presence_signal:
+        field: "delivery_and_transfer_docs_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста договора сведения
@@ -2188,6 +2392,22 @@ checks_v8:
 
         <task>
         Заполни строго следующие поля:
+
+        0. delivery_and_transfer_docs_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (delivery_term_status, delivery_mode, delivery_place_status,
+              transfer_documents_status, accessories_status,
+              product_documents_status) ≠ "not_defined";
+           - "missing" — если все шесть содержательных полей = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - все *_status = "not_defined";
+           - delivery_mode = "not_defined";
+           - все *_details / *_display = соответствующий fallback;
+           - не выполняй остальные шаги.
 
         1. delivery_term_status:
            - "defined" — если в тексте прямо указан срок передачи товара
@@ -2325,6 +2545,9 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни delivery_and_transfer_docs_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", delivery_mode = "not_defined", все *_details/*_display = соответствующий fallback.
         - Используй только релевантные фрагменты контекста.
         - Не подставляй нормы закона, обычную практику или предположения вместо текста договора.
         - Не делай выводов по типовой структуре договора.
@@ -2349,32 +2572,59 @@ checks_v8:
           с корректным fallback-значением.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           Нет ни срока, ни места, ни способа передачи, ни документов.
+           → presence = "missing";
+             все *_status = "not_defined"; delivery_mode = "not_defined".
+
+        2. Общая фраза о передаче без конкретики.
+           "Товар передается Покупателю".
+           → presence = "present"; все *_status = "not_defined".
+
+        3. Отсылка на внешний документ.
+           "Срок поставки определяется графиком поставки".
+           → delivery_term_status = "defined";
+             delivery_term_details = "Согласно Графику поставки".
+
+        4. Тип передачи не назван, но документ указан.
+           "Способ передачи определяется заявкой".
+           → delivery_mode = "not_defined" (тип не назван);
+             delivery_mode_display = "Не установлен".
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
-        - Не используй markdown fences.
-        - Не добавляй пояснения до или после JSON.
-        - Верни ровно 12 ключей, перечисленных в task.
-        - Не добавляй поле evidence.
-        - Не используй null, None или пустые строки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для delivery_and_transfer_docs_presence используй только: "present", "missing", "unclear".
         - Для delivery_term_status, delivery_place_status, transfer_documents_status,
-          accessories_status, product_documents_status используй только:
-          "defined" или "not_defined".
-        - Для delivery_mode используй только:
-          "delivery", "pickup", "carrier", "not_defined".
-        - Для text/display-полей при отсутствии данных используй только:
-          delivery_term_details → "Не установлен"
-          delivery_mode_display → "Не установлен"
-          delivery_place_details → "Не установлено"
-          transfer_documents_details → "Не установлены"
-          accessories_details → "Не установлены"
-          product_documents_details → "Не установлены"
-        - Для text/display-полей при неоднозначности или конфликте используй только:
-          "Не удалось определить".
+          accessories_status, product_documents_status используй только: "defined" или "not_defined".
+        - Для delivery_mode используй только: "delivery", "pickup", "carrier", "not_defined".
+        - Fallback при отсутствии данных:
+          * delivery_term_details → "Не установлен";
+          * delivery_mode_display → "Не установлен";
+          * delivery_place_details → "Не установлено";
+          * transfer_documents_details → "Не установлены";
+          * accessories_details → "Не установлены";
+          * product_documents_details → "Не установлены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details / *_display → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "delivery_and_transfer_docs_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по передаче товара. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "delivery_term_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус определения срока передачи. Внутреннее enum-поле."
@@ -2396,6 +2646,7 @@ checks_v8:
         - name: "delivery_mode"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["delivery", "pickup", "carrier", "not_defined"]
           display_in_grid: false
           description: "Внутреннее enum-значение способа передачи товара."
@@ -2416,6 +2667,7 @@ checks_v8:
         - name: "delivery_place_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус определения места передачи. Внутреннее enum-поле."
@@ -2437,6 +2689,7 @@ checks_v8:
         - name: "transfer_documents_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус указания передаточных документов. Внутреннее enum-поле."
@@ -2458,6 +2711,7 @@ checks_v8:
         - name: "accessories_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "low"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус указания принадлежностей. Внутреннее enum-поле."
@@ -2479,6 +2733,7 @@ checks_v8:
         - name: "product_documents_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "low"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус указания документов на товар. Внутреннее enum-поле."
@@ -2736,6 +2991,12 @@ checks_v8:
 
       compact_output: false
 
+      presence_signal:
+        field: "title_risk_retention_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста договора сведения
@@ -2752,6 +3013,29 @@ checks_v8:
 
         <task>
         Заполни строго следующие поля:
+
+        0. title_risk_retention_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (risk_transfer_status, title_transfer_status,
+              retention_of_title_status) ≠ "not_defined";
+           - "missing" — если все три содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Важно: title_risk_alignment — производное поле, оно НЕ участвует
+           в определении presence.
+
+           Если presence = "missing":
+           - risk_transfer_status = "not_defined";
+           - title_transfer_status = "not_defined";
+           - retention_of_title_status = "not_defined";
+           - risk_transfer_moment = "not_defined";
+           - title_transfer_moment = "not_defined";
+           - risk_transfer_details, title_transfer_details = "Не установлен";
+           - retention_of_title_display = "Не установлено";
+           - title_risk_alignment = "not_defined";
+           - не выполняй остальные шаги.
 
         1. risk_transfer_status:
            - "defined" — если момент перехода риска прямо указан в тексте;
@@ -2842,6 +3126,9 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни title_risk_retention_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_moment = "not_defined", все *_details/*_display = соответствующий fallback, title_risk_alignment = "not_defined".
         - Используй только релевантные фрагменты контекста.
         - Не подставляй нормы закона, обычную практику или предположения вместо текста договора.
         - Если момент перехода не написан прямо — ставь "not_defined", не выводи его из контекста.
@@ -2867,34 +3154,63 @@ checks_v8:
           с корректным fallback-значением.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           Нет ни момента перехода риска, ни момента перехода права, ни удержания.
+           → presence = "missing";
+             все *_status = "not_defined"; все *_moment = "not_defined".
+
+        2. Общая фраза о передаче.
+           "Продавец передаёт товар Покупателю" без указания момента перехода.
+           → presence = "present" (тема упомянута, но не раскрыта);
+             risk_transfer_status = title_transfer_status = "not_defined".
+
+        3. Прямая связь оплаты и перехода права.
+           "Право собственности переходит после полной оплаты".
+           → title_transfer_status = "defined";
+             title_transfer_moment = "upon_payment";
+             retention_of_title_status = "yes".
+
+        4. Момент перехода права определён, момент риска нет.
+           Есть только фраза о переходе права собственности.
+           → presence = "present";
+             title_transfer_status = "defined";
+             risk_transfer_status = "not_defined";
+             title_risk_alignment = "not_defined".
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
-        - Не используй markdown fences.
-        - Не добавляй пояснения до или после JSON.
-        - Верни ровно 9 ключей, перечисленных в task.
-        - Не добавляй поле evidence.
-        - Не используй null, None или пустые строки.
-        - Для risk_transfer_status и title_transfer_status используй только:
-          "defined" или "not_defined".
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для title_risk_retention_presence используй только: "present", "missing", "unclear".
+        - Для risk_transfer_status и title_transfer_status используй только: "defined" или "not_defined".
         - Для risk_transfer_moment используй только:
           "upon_delivery", "upon_carrier", "upon_payment", "upon_act", "custom", "not_defined".
         - Для title_transfer_moment используй только:
           "upon_delivery", "upon_payment", "upon_act", "custom", "not_defined".
-        - Для retention_of_title_status используй только:
-          "yes", "no", "not_defined".
-        - Для title_risk_alignment используй только:
-          "same", "different", "not_defined".
-        - Для text/display-полей при отсутствии данных используй только:
-          risk_transfer_details → "Не установлен"
-          title_transfer_details → "Не установлен"
-          retention_of_title_display → "Не установлено"
-        - Для text/display-полей при неоднозначности или конфликте используй только:
-          "Не удалось определить".
+        - Для retention_of_title_status используй только: "yes", "no", "not_defined".
+        - Для title_risk_alignment используй только: "same", "different", "not_defined".
+        - Fallback при отсутствии данных:
+          * risk_transfer_details, title_transfer_details → "Не установлен";
+          * retention_of_title_display → "Не установлено".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details / *_display → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "title_risk_retention_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по переходу права/риска/удержанию. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "risk_transfer_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус определения момента перехода риска. Внутреннее enum-поле."
@@ -2903,6 +3219,7 @@ checks_v8:
         - name: "risk_transfer_moment"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["upon_delivery", "upon_carrier", "upon_payment", "upon_act", "custom", "not_defined"]
           display_in_grid: false
           description: "Внутреннее enum-значение момента перехода риска случайной гибели."
@@ -2925,6 +3242,7 @@ checks_v8:
         - name: "title_transfer_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус определения момента перехода права собственности. Внутреннее enum-поле."
@@ -2933,6 +3251,7 @@ checks_v8:
         - name: "title_transfer_moment"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["upon_delivery", "upon_payment", "upon_act", "custom", "not_defined"]
           display_in_grid: false
           description: "Внутреннее enum-значение момента перехода права собственности."
@@ -2954,6 +3273,7 @@ checks_v8:
         - name: "retention_of_title_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
           display_in_grid: false
           description: "Внутреннее enum-значение наличия оговорки об удержании титула до оплаты."
@@ -2975,6 +3295,7 @@ checks_v8:
         - name: "title_risk_alignment"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["same", "different", "not_defined"]
           display_in_grid: false
           description: "Внутренний флаг совпадения моментов перехода риска и права собственности."
@@ -3065,7 +3386,7 @@ checks_v8:
            Само по себе упоминание сертификата качества или паспорта изделия
            не всегда означает самостоятельное условие о качестве.
         9. В evidence включай только текст договора.
-        10. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.без markdown.
+        10. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -3157,10 +3478,10 @@ checks_v8:
         6. Если в разных фрагментах есть несовместимые данные и конфликт нельзя снять
            по тексту — верни "Не удалось определить", а для status-полей используй "not_defined".
 
-        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь РОВНО одним JSON-объектом без какого-либо дополнительного текста до или после, со всеми ключами. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки:
+        Ответь РОВНО одним JSON-объектом, со всеми ключами:
         {
           "quality_status": "<defined / not_defined>",
           "quality_details": "<текст или 'Не установлено' / 'Не удалось определить'>",
@@ -3231,6 +3552,12 @@ checks_v8:
 
       compact_output: false
 
+      presence_signal:
+        field: "quality_completeness_warranty_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста договора сведения
@@ -3246,6 +3573,23 @@ checks_v8:
 
         <task>
         Заполни строго следующие поля:
+
+        0. quality_completeness_warranty_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (quality_status, completeness_status, warranty_status) ≠ "not_defined";
+           - "missing" — если все три содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - quality_status = "not_defined";
+           - completeness_status = "not_defined";
+           - warranty_status = "not_defined";
+           - quality_details = "Не установлено";
+           - completeness_details = "Не установлена";
+           - warranty_details = "Не установлена";
+           - не выполняй остальные шаги.
 
         1. quality_status:
            - "defined" — если в тексте прямо указаны требования к качеству товара
@@ -3325,6 +3669,9 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни quality_completeness_warranty_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details = соответствующий fallback.
         - Используй только релевантные фрагменты контекста.
         - Не подставляй нормы ГК, обычную практику или предположения вместо текста договора.
         - Не смешивай качество, комплектность и гарантию с приёмкой, претензиями,
@@ -3343,27 +3690,60 @@ checks_v8:
         - Все текстовые значения пиши на русском языке.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни качества, ни комплектности, ни гарантии.
+           → presence = "missing";
+             все *_status = "not_defined";
+             все *_details = соответствующий fallback.
+
+        2. Прямое отсутствие гарантии.
+           "Продавец гарантию не предоставляет".
+           → presence = "present";
+             warranty_status = "defined";
+             warranty_details = "Гарантия не предусмотрена";
+             остальные поля могут быть not_defined.
+
+        3. Отсылка на внешний документ.
+           Комплектность определяется по Спецификации №1.
+           → completeness_status = "defined";
+             completeness_details = "Согласно Спецификации №1".
+
+        4. Только документы на товар без условия о качестве.
+           Упомянут сертификат качества или паспорт изделия в разделе передачи,
+           но нет самостоятельного условия о качестве.
+           → quality_status = "not_defined".
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
-        - Не используй markdown fences.
-        - Не добавляй пояснения до или после JSON.
-        - Верни ровно 6 ключей, перечисленных в task.
-        - Не добавляй поле evidence.
-        - Не используй null, None или пустые строки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для quality_completeness_warranty_presence используй только: "present", "missing", "unclear".
         - Для status-полей используй только: "defined" или "not_defined".
-        - Для текстовых полей при отсутствии данных используй только:
-          quality_details → "Не установлено"
-          completeness_details → "Не установлена"
-          warranty_details → "Не установлена"
+        - Fallback при отсутствии данных:
+          * quality_details → "Не установлено";
+          * completeness_details → "Не установлена";
+          * warranty_details → "Не установлена".
         - Для warranty_details при прямом отсутствии гарантии используй:
-          "Гарантия не предусмотрена"
-        - Для текстовых полей при неоднозначности или конфликте используй только:
-          "Не удалось определить".
+          "Гарантия не предусмотрена".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "quality_completeness_warranty_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по качеству/комплектности/гарантии. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "quality_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус определения требований к качеству. Внутреннее enum-поле."
@@ -3385,6 +3765,7 @@ checks_v8:
         - name: "completeness_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус определения комплектности. Внутреннее enum-поле."
@@ -3406,6 +3787,7 @@ checks_v8:
         - name: "warranty_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус определения гарантии. Внутреннее enum-поле."
@@ -3494,7 +3876,7 @@ checks_v8:
            или "в порядке, предусмотренном ГК РФ" без конкретизации
            не является достаточным основанием для "defined".
         7. В evidence включай только текст договора.
-        8. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.без markdown.
+        8. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -3579,10 +3961,10 @@ checks_v8:
         5. Если в разных фрагментах есть несовместимые данные и конфликт нельзя снять
            по тексту — верни "Не удалось определить", а в status используй "not_defined".
 
-        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь РОВНО одним JSON-объектом без какого-либо дополнительного текста до или после, со всеми ключами. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки:
+        Ответь РОВНО одним JSON-объектом, со всеми ключами:
         {
           "acceptance_status": "<defined / not_defined>",
           "acceptance_details": "<текст или 'Не установлен' / 'Не удалось определить'>",
@@ -3652,6 +4034,12 @@ checks_v8:
 
       compact_output: false
 
+      presence_signal:
+        field: "acceptance_and_claims_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста договора сведения
@@ -3667,6 +4055,21 @@ checks_v8:
 
         <task>
         Заполни строго следующие поля:
+
+        0. acceptance_and_claims_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (acceptance_status, claims_procedure_status) ≠ "not_defined";
+           - "missing" — если оба содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - acceptance_status = "not_defined";
+           - claims_procedure_status = "not_defined";
+           - acceptance_details = "Не установлен";
+           - claims_procedure_details = "Не установлен";
+           - не выполняй остальные шаги.
 
         1. acceptance_status:
            - "defined" — если в тексте прямо указан порядок приёмки товара
@@ -3723,6 +4126,9 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни acceptance_and_claims_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details = "Не установлен".
         - Используй только релевантные фрагменты контекста.
         - Не подставляй нормы ГК, обычную практику или предположения вместо текста договора.
         - Не смешивай приёмку и претензии с гарантийными условиями, ценой, передачей
@@ -3743,24 +4149,56 @@ checks_v8:
           всегда возвращай ключ с корректным fallback-значением.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           Нет ни порядка приёмки, ни порядка претензий.
+           → presence = "missing";
+             все *_status = "not_defined";
+             все *_details = "Не установлен".
+
+        2. Общая ссылка на закон.
+           "Стороны руководствуются законодательством РФ".
+           → presence = "missing" (тема не раскрыта);
+             acceptance_status = claims_procedure_status = "not_defined".
+
+        3. Отсылка на внешний документ.
+           "Приёмка по Инструкции П-6, П-7".
+           → acceptance_status = "defined";
+             acceptance_details = "Согласно Инструкции П-6 и П-7".
+
+        4. Урегулирована только одна тема.
+           Есть порядок приёмки, но нет претензий.
+           → acceptance_status = "defined";
+             claims_procedure_status = "not_defined";
+             presence = "present".
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
-        - Не используй markdown fences.
-        - Не добавляй пояснения до или после JSON.
-        - Верни ровно 4 ключа, перечисленных в task.
-        - Не добавляй поле evidence.
-        - Не используй null, None или пустые строки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для acceptance_and_claims_presence используй только: "present", "missing", "unclear".
         - Для status-полей используй только: "defined" или "not_defined".
-        - Для текстовых полей при отсутствии данных используй только:
-          acceptance_details → "Не установлен"
-          claims_procedure_details → "Не установлен"
-        - Для текстовых полей при неоднозначности или конфликте используй только:
-          "Не удалось определить".
+        - Fallback при отсутствии данных:
+          * acceptance_details → "Не установлен";
+          * claims_procedure_details → "Не установлен".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "acceptance_and_claims_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по приёмке/претензиям. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "acceptance_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус определения порядка приёмки. Внутреннее enum-поле."
@@ -3783,6 +4221,7 @@ checks_v8:
         - name: "claims_procedure_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус определения порядка претензий. Внутреннее enum-поле."
@@ -3884,7 +4323,7 @@ checks_v8:
            заверение об отсутствии; отдельно отмечай encumbrance_disclosed = "yes".
         8. Не используй "None", "null" или пустые строки.
         9. В evidence включай только текст договора.
-        10. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.без markdown.
+        10. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -3984,10 +4423,10 @@ checks_v8:
            верни "Не удалось определить" и "not_defined" в status-полях.
         7. Убедись, что evidence содержит только текст договора.
 
-        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь РОВНО одним JSON-объектом без какого-либо дополнительного текста до или после, со всеми ключами. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки:
+        Ответь РОВНО одним JSON-объектом, со всеми ключами:
         {
           "third_party_rights_status": "<defined / not_defined>",
           "third_party_rights_details": "<текст или 'Не установлено' / 'Не удалось определить'>",
@@ -4072,6 +4511,12 @@ checks_v8:
 
       compact_output: false
 
+      presence_signal:
+        field: "encumbrance_third_party_rights_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста договора заверения
@@ -4089,6 +4534,25 @@ checks_v8:
 
         <task>
         Заполни строго следующие поля:
+
+        0. encumbrance_third_party_rights_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (third_party_rights_status, pledge_status, arrest_status,
+              other_encumbrances_status, eviction_protection_status,
+              seller_title_liability_status) ≠ "not_defined";
+           - "missing" — если все шесть содержательных полей = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Важно: encumbrance_disclosed НЕ участвует в определении presence
+           (это производный флаг).
+
+           Если presence = "missing":
+           - все *_status = "not_defined";
+           - encumbrance_disclosed = "not_defined";
+           - все *_details / *_display = соответствующий fallback;
+           - не выполняй остальные шаги.
 
         1. third_party_rights_status:
            - "defined" — если в тексте прямо указано, что товар свободен от прав
@@ -4184,6 +4648,9 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни encumbrance_third_party_rights_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", encumbrance_disclosed = "not_defined", все *_details / *_display = соответствующий fallback.
         - Используй только релевантные фрагменты контекста.
         - Не подставляй нормы ст. 460 ГК РФ или иные диспозитивные нормы вместо
           текста договора. Отсутствие заверения в тексте — это not_defined,
@@ -4204,30 +4671,66 @@ checks_v8:
           всегда возвращай ключ с корректным fallback-значением.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           Нет ни заверений, ни упоминаний обременений.
+           → presence = "missing";
+             все *_status = "not_defined";
+             encumbrance_disclosed = "not_defined";
+             encumbrance_warranty_display = "Заверения не предусмотрены".
+
+        2. Раскрытие обременения.
+           "Товар передаётся с обременением — залог в пользу банка".
+           → encumbrance_disclosed = "yes";
+             pledge_status = "defined";
+             pledge_details = "Передаётся с обременением — залог";
+             presence = "present".
+
+        3. Частичное заверение.
+           Заверение только про залог и арест, права третьих лиц не упомянуты.
+           → presence = "present";
+             encumbrance_warranty_display = "Товар свободен от залога и ареста (права третьих лиц не упомянуты)".
+
+        4. Только ответственность без заверений об отсутствии.
+           Есть условие об ответственности продавца за дефекты титула,
+           но нет заверений об отсутствии обременений.
+           → presence = "present";
+             seller_title_liability_status = "defined";
+             encumbrance_warranty_display = "Заверения не предусмотрены".
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
-        - Не используй markdown fences.
-        - Не добавляй пояснения до или после JSON.
-        - Верни ровно 14 ключей, перечисленных в task.
-        - Не добавляй поле evidence.
-        - Не используй null, None или пустые строки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для encumbrance_third_party_rights_presence используй только: "present", "missing", "unclear".
         - Для status-полей используй только: "defined" или "not_defined".
         - Для encumbrance_disclosed используй только: "yes", "no", "not_defined".
-        - Для text/display-полей при отсутствии данных используй только:
-          third_party_rights_details → "Не установлено"
-          pledge_details → "Не установлено"
-          arrest_details → "Не установлено"
-          other_encumbrances_details → "Не установлено"
-          encumbrance_warranty_display → "Заверения не предусмотрены"
-          eviction_protection_display → "Не установлено"
-          seller_title_liability_display → "Не установлена"
-        - Для text/display-полей при неоднозначности или конфликте используй только:
-          "Не удалось определить".
+        - Fallback при отсутствии данных:
+          * third_party_rights_details → "Не установлено";
+          * pledge_details → "Не установлено";
+          * arrest_details → "Не установлено";
+          * other_encumbrances_details → "Не установлено";
+          * encumbrance_warranty_display → "Заверения не предусмотрены";
+          * eviction_protection_display → "Не установлено";
+          * seller_title_liability_display → "Не установлена".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details / *_display → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "encumbrance_third_party_rights_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по обременениям/правам третьих лиц. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "third_party_rights_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус заверения об отсутствии прав третьих лиц. Внутреннее enum-поле."
@@ -4247,6 +4750,7 @@ checks_v8:
         - name: "pledge_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус заверения об отсутствии залога. Внутреннее enum-поле."
@@ -4266,6 +4770,7 @@ checks_v8:
         - name: "arrest_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус заверения об отсутствии ареста. Внутреннее enum-поле."
@@ -4285,6 +4790,7 @@ checks_v8:
         - name: "other_encumbrances_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус заверения об отсутствии иных обременений. Внутреннее enum-поле."
@@ -4304,6 +4810,7 @@ checks_v8:
         - name: "encumbrance_disclosed"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
           display_in_grid: false
           description: >
@@ -4329,6 +4836,7 @@ checks_v8:
         - name: "eviction_protection_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус урегулирования последствий эвикции. Внутреннее enum-поле."
@@ -4350,6 +4858,7 @@ checks_v8:
         - name: "seller_title_liability_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус ответственности продавца за дефекты титула. Внутреннее enum-поле."
@@ -4430,7 +4939,7 @@ checks_v8:
            - details → "Неустойка не предусмотрена"
         7. Не смешивай санкцию продавца и санкцию покупателя.
         8. В evidence включай только текст договора.
-        9. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.без markdown.
+        9. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -4516,10 +5025,9 @@ checks_v8:
         6. Если в разных фрагментах данные несовместимы и конфликт нельзя снять —
            верни "Не удалось определить" и "not_defined" в status-полях.
 
-        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь РОВНО одним JSON-объектом без какого-либо дополнительного текста до или после, со всеми ключами. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки:
         {
           "seller_penalty_status": "<defined / not_defined>",
           "seller_penalty_details": "<текст или 'Не установлена' / 'Неустойка не предусмотрена' / 'Не удалось определить'>",
@@ -4591,6 +5099,12 @@ checks_v8:
 
       compact_output: false
 
+      presence_signal:
+        field: "liability_sanctions_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста договора сведения
@@ -4608,6 +5122,21 @@ checks_v8:
 
         <task>
         Заполни строго следующие поля:
+
+        0. liability_sanctions_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (seller_penalty_status, buyer_penalty_status) ≠ "not_defined";
+           - "missing" — если оба содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - seller_penalty_status = "not_defined";
+           - buyer_penalty_status = "not_defined";
+           - seller_penalty_details = "Не установлена";
+           - buyer_penalty_details = "Не установлена";
+           - не выполняй остальные шаги.
 
         1. seller_penalty_status:
            - "defined" — если в тексте прямо указана неустойка, пени или штраф
@@ -4663,6 +5192,9 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни liability_sanctions_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details = "Не установлена".
         - Используй только релевантные фрагменты контекста.
         - Не подставляй нормы ГК, обычную практику или предположения вместо текста договора.
         - Не смешивай санкцию продавца и санкцию покупателя:
@@ -4684,26 +5216,57 @@ checks_v8:
         - Все текстовые значения пиши на русском языке.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           Нет ни санкций за просрочку передачи, ни за просрочку оплаты.
+           → presence = "missing";
+             seller_penalty_status = buyer_penalty_status = "not_defined".
+
+        2. Общая ссылка на закон.
+           "Стороны несут ответственность в соответствии с законодательством РФ".
+           → presence = "missing";
+             оба *_status = "not_defined".
+
+        3. Прямой отказ от неустойки.
+           "Неустойка не применяется".
+           → presence = "present";
+             seller_penalty_status = "defined";
+             seller_penalty_details = "Неустойка не предусмотрена";
+             аналогично для buyer.
+
+        4. Санкция для обеих сторон одной фразой.
+           "За каждый день просрочки виновная сторона уплачивает 0,1%".
+           → оба *_status = "defined";
+             одинаковый details.
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
-        - Не используй markdown fences.
-        - Не добавляй пояснения до или после JSON.
-        - Верни ровно 4 ключа, перечисленных в task.
-        - Не добавляй поле evidence.
-        - Не используй null, None или пустые строки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для liability_sanctions_presence используй только: "present", "missing", "unclear".
         - Для status-полей используй только: "defined" или "not_defined".
-        - Для текстовых полей при отсутствии данных используй только:
-          seller_penalty_details → "Не установлена"
-          buyer_penalty_details → "Не установлена"
-        - Для текстовых полей при прямом исключении неустойки используй только:
-          "Неустойка не предусмотрена"
-        - Для текстовых полей при неоднозначности или конфликте используй только:
-          "Не удалось определить".
+        - Fallback при отсутствии данных:
+          * seller_penalty_details, buyer_penalty_details → "Не установлена".
+        - Для текстовых полей при прямом исключении неустойки используй:
+          "Неустойка не предусмотрена".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "liability_sanctions_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по неустойке. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "seller_penalty_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус определения неустойки продавца. Внутреннее enum-поле."
@@ -4726,6 +5289,7 @@ checks_v8:
         - name: "buyer_penalty_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус определения неустойки покупателя. Внутреннее enum-поле."
@@ -4818,7 +5382,7 @@ checks_v8:
         9. Не смешивай основания расторжения с последствиями расторжения.
         10. Возврат товара и возврат денег — разные поля; не смешивай их.
         11. В evidence включай только текст договора.
-        12. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.без markdown.
+        12. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -4912,10 +5476,9 @@ checks_v8:
         8. Если в разных фрагментах данные несовместимы и конфликт нельзя снять —
            верни "Не удалось определить" и "not_defined" в status-полях.
 
-        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь РОВНО одним JSON-объектом без какого-либо дополнительного текста до или после, со всеми ключами. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки:
         {
           "termination_status": "<defined / not_defined>",
           "termination_details": "<текст или 'Не установлено' / 'Не удалось определить'>",
@@ -4987,6 +5550,12 @@ checks_v8:
 
       compact_output: false
 
+      presence_signal:
+        field: "termination_and_restitution_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста договора сведения
@@ -5003,6 +5572,24 @@ checks_v8:
 
         <task>
         Заполни строго следующие поля:
+
+        0. termination_and_restitution_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (termination_status, goods_return_status, money_return_status)
+             ≠ "not_defined";
+           - "missing" — если все три содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - termination_status = "not_defined";
+           - goods_return_status = "not_defined";
+           - money_return_status = "not_defined";
+           - termination_details = "Не установлено";
+           - goods_return_details = "Не установлен";
+           - money_return_details = "Не установлен";
+           - не выполняй остальные шаги.
 
         1. termination_status:
            - "defined" — если в тексте прямо указаны основания расторжения
@@ -5081,6 +5668,9 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни termination_and_restitution_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details = соответствующий fallback.
         - Используй только релевантные фрагменты контекста.
         - Не подставляй нормы ГК, обычную практику или предположения вместо текста договора.
         - Не смешивай основания расторжения (termination_details) с его последствиями
@@ -5102,25 +5692,57 @@ checks_v8:
         - Все текстовые значения пиши на русском языке.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           Нет ни условий расторжения, ни возвратов.
+           → presence = "missing";
+             все *_status = "not_defined".
+
+        2. Только расторжение по соглашению.
+           "Договор расторгается по соглашению сторон".
+           → presence = "present";
+             termination_status = "defined";
+             termination_details = "По соглашению сторон".
+
+        3. Запрет одностороннего отказа.
+           "Односторонний отказ не допускается".
+           → presence = "present";
+             termination_status = "defined";
+             termination_details = "Односторонний отказ не допускается".
+
+        4. Расторжение не раскрыто, но возврат денег есть.
+           → presence = "present";
+             termination_status = "not_defined";
+             money_return_status = "defined".
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
-        - Не используй markdown fences.
-        - Не добавляй пояснения до или после JSON.
-        - Верни ровно 6 ключей, перечисленных в task.
-        - Не добавляй поле evidence.
-        - Не используй null, None или пустые строки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для termination_and_restitution_presence используй только: "present", "missing", "unclear".
         - Для status-полей используй только: "defined" или "not_defined".
-        - Для текстовых полей при отсутствии данных используй только:
-          termination_details → "Не установлено"
-          goods_return_details → "Не установлен"
-          money_return_details → "Не установлен"
-        - Для текстовых полей при неоднозначности или конфликте используй только:
-          "Не удалось определить".
+        - Fallback при отсутствии данных:
+          * termination_details → "Не установлено";
+          * goods_return_details → "Не установлен";
+          * money_return_details → "Не установлен".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "termination_and_restitution_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по расторжению/возврату. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "termination_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус определения оснований расторжения. Внутреннее enum-поле."
@@ -5143,6 +5765,7 @@ checks_v8:
         - name: "goods_return_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус определения условий возврата товара. Внутреннее enum-поле."
@@ -5165,6 +5788,7 @@ checks_v8:
         - name: "money_return_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус определения условий возврата денег. Внутреннее enum-поле."
@@ -5186,7 +5810,7 @@ checks_v8:
 
       store_payload: true
 
-  - id: dispute_resolution_and_governing_law
+  - id: dispute_resolution
     name: "Претензионный порядок разрешения споров"
     description: >
       Фактографическая проверка наличия условий о претензионном порядке, сроках
@@ -5233,7 +5857,6 @@ checks_v8:
         Важно:
         - Твоя задача — не оценивать серьёзность риска.
         - Твоя задача — только установить, что прямо есть в тексте договора, а чего прямо нет.
-        - Юрист будет использовать результат в сравнительной таблице по нескольким договорам.
 
         [ЗАДАЧА]
         Найди в тексте договора:
@@ -5256,7 +5879,7 @@ checks_v8:
            это not_defined.
         9. Не используй "None", "null" или пустые строки.
         10. В evidence включай только текст договора.
-        11. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.без markdown.
+        11. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после.
 
         [ПРИМЕРЫ (FEW-SHOT)]
 
@@ -5344,10 +5967,9 @@ checks_v8:
         7. Если в разных фрагментах данные несовместимы и конфликт нельзя снять —
            верни "Не удалось определить" и "not_defined" в status-полях.
 
-        Не выводи шаги проверки. Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        Не выводи шаги проверки. Верни РОВНО один JSON-объект.
 
         [ФОРМАТ ОТВЕТА]
-        Ответь РОВНО одним JSON-объектом без какого-либо дополнительного текста до или после, со всеми ключами. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки:
         {
           "pretrial_status": "<defined / not_defined>",
           "pretrial_details": "<текст или 'Не установлен' / 'Не удалось определить'>",
@@ -5419,6 +6041,12 @@ checks_v8:
 
       compact_output: false
 
+      presence_signal:
+        field: "dispute_resolution_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста договора сведения
@@ -5435,6 +6063,21 @@ checks_v8:
 
         <task>
         Заполни строго следующие поля:
+
+        0. dispute_resolution_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (pretrial_status, claim_response_deadline_status) ≠ "not_defined";
+           - "missing" — если оба содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - pretrial_status = "not_defined";
+           - claim_response_deadline_status = "not_defined";
+           - pretrial_details = "Не установлен";
+           - claim_response_deadline_details = "Не установлен";
+           - не выполняй остальные шаги.
 
         1. pretrial_status:
            - "defined" — если в тексте прямо предусмотрен претензионный /
@@ -5491,6 +6134,9 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни dispute_resolution_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details = "Не установлен".
         - Используй только релевантные фрагменты контекста.
         - Не подставляй нормы закона, обычную практику или предположения вместо
           текста договора.
@@ -5513,24 +6159,56 @@ checks_v8:
           всегда возвращай ключ с корректным fallback-значением.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           Нет ни претензионного порядка, ни срока ответа.
+           → presence = "missing";
+             все *_status = "not_defined".
+
+        2. Общая ссылка на закон.
+           "Разногласия разрешаются в соответствии с законодательством РФ".
+           → presence = "missing";
+             pretrial_status = claim_response_deadline_status = "not_defined".
+
+        3. Прямое указание необязательности досудебного порядка.
+           "Досудебный порядок не является обязательным".
+           → presence = "present";
+             pretrial_status = "defined";
+             pretrial_details = "Досудебный порядок не является обязательным".
+
+        4. Только срок ответа без порядка.
+           Указан только срок ответа, порядок не раскрыт.
+           → presence = "present";
+             claim_response_deadline_status = "defined";
+             pretrial_status = "not_defined".
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
-        - Не используй markdown fences.
-        - Не добавляй пояснения до или после JSON.
-        - Верни ровно 4 ключа, перечисленных в task.
-        - Не добавляй поле evidence.
-        - Не используй null, None или пустые строки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для dispute_resolution_presence используй только: "present", "missing", "unclear".
         - Для status-полей используй только: "defined" или "not_defined".
-        - Для текстовых полей при отсутствии данных используй только:
-          pretrial_details → "Не установлен"
-          claim_response_deadline_details → "Не установлен"
-        - Для текстовых полей при неоднозначности или конфликте используй только:
-          "Не удалось определить".
+        - Fallback при отсутствии данных:
+          * pretrial_details → "Не установлен";
+          * claim_response_deadline_details → "Не установлен".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "dispute_resolution_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по претензионному порядку. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "pretrial_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус определения претензионного порядка. Внутреннее enum-поле."
@@ -5554,6 +6232,7 @@ checks_v8:
         - name: "claim_response_deadline_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
           description: "Статус определения срока ответа на претензию. Внутреннее enum-поле."
