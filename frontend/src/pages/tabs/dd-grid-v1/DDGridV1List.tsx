@@ -144,7 +144,7 @@ function getReviewStatusMeta(
   sortRank: number;
 } {
   if (!status || typeof status !== "string" || status.trim().length === 0) {
-    return { label: tFn("reviewStatus.empty"), tone: "unknown", sortRank: 4 };
+    return { label: tFn("reviewStatus.empty"), tone: "unknown", sortRank: 6 };
   }
 
   const normalized = status.trim();
@@ -156,27 +156,45 @@ function getReviewStatusMeta(
         tone: "warning",
         sortRank: 0,
       };
-    case "no_issue_detected":
-    case "ok":
-      return {
-        label: tFn("reviewStatus.no_issue_detected"),
-        tone: "success",
-        sortRank: 2,
-      };
-    case "not_applicable":
-      return {
-        label: tFn("reviewStatus.not_applicable"),
-        tone: "muted",
-        sortRank: 3,
-      };
     case "unclear":
       return {
         label: tFn("reviewStatus.unclear"),
         tone: "warning",
         sortRank: 1,
       };
+    case "clause_missing":
+      return {
+        label: tFn("reviewStatus.clause_missing"),
+        tone: "warning",
+        sortRank: 2,
+      };
+    case "clause_partially_defined":
+      return {
+        label: tFn("reviewStatus.clause_partially_defined"),
+        tone: "warning",
+        sortRank: 3,
+      };
+    case "no_issue_detected":
+    case "ok":
+      return {
+        label: tFn("reviewStatus.no_issue_detected"),
+        tone: "success",
+        sortRank: 4,
+      };
+    case "clause_defined":
+      return {
+        label: tFn("reviewStatus.clause_defined"),
+        tone: "success",
+        sortRank: 4,
+      };
+    case "not_applicable":
+      return {
+        label: tFn("reviewStatus.not_applicable"),
+        tone: "muted",
+        sortRank: 5,
+      };
     default:
-      return { label: normalized, tone: "unknown", sortRank: 5 };
+      return { label: normalized, tone: "unknown", sortRank: 7 };
   }
 }
 

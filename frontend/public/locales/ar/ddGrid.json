@@ -139,7 +139,10 @@
     "reviewStatusLabels": {
       "needs_review": "Requires legal attention",
       "no_issue_detected": "Check completed with no issues detected",
-      "unclear": "Result not determined"
+      "unclear": "Result not determined",
+      "clause_missing": "Check completed: clause missing",
+      "clause_defined": "Check completed: clause defined",
+      "clause_partially_defined": "Check completed: clause partially defined"
     },
     "cellStateLabels": {
       "defined": "Defined",
@@ -301,7 +304,10 @@
     "needs_review": "Needs review",
     "no_issue_detected": "No issues detected",
     "not_applicable": "Not applicable",
-    "unclear": "Unclear"
+    "unclear": "Unclear",
+    "clause_missing": "Clause missing",
+    "clause_defined": "Clause defined",
+    "clause_partially_defined": "Clause partially defined"
   },
   "location": {
     "pageAbbr": "p. {{page}}",

@@ -130,9 +130,16 @@ function getReviewStatusLabel(
     return t("reviewStatus.empty");
   }
   const normalized = status.trim();
+
   switch (normalized) {
     case "needs_review":
       return t("reviewStatus.needs_review");
+    case "clause_missing":
+      return t("reviewStatus.clause_missing");
+    case "clause_defined":
+      return t("reviewStatus.clause_defined");
+    case "clause_partially_defined":
+      return t("reviewStatus.clause_partially_defined");
     case "no_issue_detected":
     case "ok":
       return t("reviewStatus.no_issue_detected");

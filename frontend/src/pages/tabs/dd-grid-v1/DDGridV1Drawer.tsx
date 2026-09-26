@@ -95,6 +95,12 @@ function getReviewStatusLabel(
   switch (normalized) {
     case "needs_review":
       return tFn("drawer.reviewStatusLabels.needs_review");
+    case "clause_missing":
+      return tFn("drawer.reviewStatusLabels.clause_missing");
+    case "clause_defined":
+      return tFn("drawer.reviewStatusLabels.clause_defined");
+    case "clause_partially_defined":
+      return tFn("drawer.reviewStatusLabels.clause_partially_defined");
     case "no_issue_detected":
     case "ok":
       return tFn("drawer.reviewStatusLabels.no_issue_detected");
