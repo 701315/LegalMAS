@@ -692,6 +692,13 @@ class ExtractionFieldConfig(BaseModel):
     type: ExtractionFieldType = ExtractionFieldType.STRING
     label: str | None = None
     label_en: str | None = None
+    # Точные fallback-тексты поля — значения, означающие «данных нет».
+    # Источники:
+    #   1. Автопарсинг `Fallback: "X" / "Y".` из description (при загрузке playbook).
+    #   2. Явный `fallback_texts: [...]` в YAML — переопределяет парсинг.
+    # Используется display/DD-Grid/review_status слоями для фильтрации fallback.
+    # Gate semantics (is_not_found_scalar, iter_meaningful_fields) НЕ затрагивает.
+    fallback_texts: list[str] = Field(default_factory=list)
     presentation: Literal["summary", "fact", "signal", "diagnostic"] = "fact"
 
     # Grid display contract (universal, playbook-driven).
