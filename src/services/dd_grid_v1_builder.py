@@ -684,6 +684,29 @@ def _is_missing_value(value: Any) -> bool:
     return False
 
 
+def _is_field_fallback_value(check: Any, field_name: str | None, value: Any) -> bool:
+    """
+    DD Grid cell_state: True, если value — один из fallback_texts поля.
+
+    Использует ExtractionFieldConfig.fallback_texts (автопарсинг description
+    или явный YAML override). Не влияет на is_missing_value / _MISSING_SCALAR_VALUES.
+    """
+    if not field_name or check is None or not isinstance(value, str):
+        return False
+    extraction = getattr(check, "extraction", None)
+    if extraction is None:
+        return False
+    for f in getattr(extraction, "fields", None) or []:
+        if getattr(f, "name", None) == field_name:
+            fallback_texts = getattr(f, "fallback_texts", None) or []
+            if not fallback_texts:
+                return False
+            normalized = value.strip()
+            return any(normalized == str(t).strip() for t in fallback_texts)
+    return False
+
+
+
 def _extract_field_payload(structured_data: dict[str, Any], field_name: str | None) -> Any:
     """Вернуть payload конкретного extraction field или None."""
     if not field_name:
@@ -1045,6 +1068,7 @@ def _is_positive_location_finding(
 
 def _resolve_cell_state(
     *,
+    check: CheckDefinition,
     check_result: dict[str, Any] | None,
     column: DDGridColumnRuntime,
     raw_value: Any,
@@ -1077,6 +1101,11 @@ def _resolve_cell_state(
             return "not_defined"
 
     if _is_missing_value(raw_value):
+        return "not_defined"
+
+    # Fallback-значения поля не показываем как определённые.
+    # Автопарсинг Fallback: "..." из description → fallback_texts.
+    if _is_field_fallback_value(check, column.value_field, raw_value):
         return "not_defined"
 
     return "defined"
@@ -1284,6 +1313,7 @@ def _build_cell_value(
         raw_value = status_field_value
 
     cell_state = _resolve_cell_state(
+        check=check,
         check_result=check_result,
         column=column,
         raw_value=raw_value,
