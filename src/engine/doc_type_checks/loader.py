@@ -436,9 +436,11 @@ class DocTypeCheckLoader:
                     name=field_name,
                     type=field_type,
                     label=f.get("label"),
+                    label_en=f.get("label_en"),
                     presentation=f.get("presentation", "fact"),
                     display_in_grid=bool(f.get("display_in_grid", False)),
                     display_priority=f.get("display_priority"),
+                    risk_weight=f.get("risk_weight"),
                     description=f.get("description", ""),
                     regex_patterns=f.get("regex_patterns") or [],
                     keyword_hints=f.get("keyword_hints") or [],
@@ -479,6 +481,7 @@ class DocTypeCheckLoader:
             # Raw list[dict] из YAML; Pydantic парсит в list[DDGridColumnSpec].
             # None если не задано — автомаппинг в DDGridColumnBuilder (V1.6).
             dd_grid_columns=extraction_cfg.get("dd_grid_columns"),
+            presence_signal=extraction_cfg.get("presence_signal"),
         )
 
     def _parse_conditional(self, triggers_cfg: dict | None) -> ConditionalConfig | None:
