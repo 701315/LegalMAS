@@ -104,6 +104,7 @@ class CheckItemDTO(BaseModel):
     display_text: str | None = None
     review_status: str | None = None
     review_message: str | None = None
+    review_status_counter: str | None = None
     needs_manual_review: bool = False
     ui_mode: str | None = None
 
@@ -214,6 +215,7 @@ class MatrixCellDTO(BaseModel):
     display_text: str | None = None
     review_status: str | None = None
     review_message: str | None = None
+    review_status_counter: str | None = None
     needs_manual_review: bool = False
     ui_mode: str | None = None
 
@@ -633,6 +635,7 @@ class DDGridDrawerDTO(BaseModel):
     reason: str | None = None
     review_status: str | None = None
     review_message: str | None = None
+    review_status_counter: str | None = None
     display_text: str | None = None
 
     # Locale-specific presentation metadata for the check-level drawer text.

@@ -333,6 +333,7 @@ def _map_dd_grid_v1_to_response(
             reason=drawer.reason,
             review_status=drawer.review_status,
             review_message=drawer.review_message,
+            review_status_counter=drawer.review_status_counter,
             display_text=drawer.display_text,
             output_locale=_drawer_locale,
             presentation_locale=_drawer_locale,

@@ -553,6 +553,7 @@ async def get_document_detail_for_run(
                 display_text=cr.get("display_text"),
                 review_status=cr.get("review_status"),
                 review_message=cr.get("review_message"),
+                review_status_counter=cr.get("review_status_counter"),
                 needs_manual_review=cr.get("needs_manual_review", False),
                 ui_mode=cr.get("ui_mode"),
                 output_locale=cr.get("output_locale"),
