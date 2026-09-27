@@ -280,26 +280,30 @@ class TestHumanizeFieldName:
 
 
 class TestFormatDisplayValue:
+    # С Commit 2 (35571dc) сигнатура: _format_display_value(check, field_name, value, unit=None).
+    # check=None — валидный кейс: резолв enum-label пропускается, работает
+    # базовое форматирование (строки, bool, unit).
+
     def test_string_value(self):
-        assert _format_display_value("Российская Федерация") == "Российская Федерация"
+        assert _format_display_value(None, "test_field", "Российская Федерация") == "Российская Федерация"
 
     def test_none_value(self):
-        assert _format_display_value(None) == "—"
+        assert _format_display_value(None, "test_field", None) == "—"
 
     def test_bool_true(self):
-        assert _format_display_value(True) == "Да"
+        assert _format_display_value(None, "test_field", True) == "Да"
 
     def test_bool_false(self):
-        assert _format_display_value(False) == "Нет"
+        assert _format_display_value(None, "test_field", False) == "Нет"
 
     def test_with_unit(self):
-        assert _format_display_value("30", unit="дней") == "30 дней"
+        assert _format_display_value(None, "test_field", "30", unit="дней") == "30 дней"
 
     def test_unit_already_present(self):
-        assert _format_display_value("30 дней", unit="дней") == "30 дней"
+        assert _format_display_value(None, "test_field", "30 дней", unit="дней") == "30 дней"
 
     def test_number_value(self):
-        assert _format_display_value(15000000) == "15000000"
+        assert _format_display_value(None, "test_field", 15000000) == "15000000"
 
 
 # ─── Tests: _extract_meaningful_evidence ──────────────────────────────────────
@@ -359,7 +363,9 @@ class TestFieldExtraction:
         )
 
         assert sem.display_text == "Применимое право: Российская Федерация"
-        assert sem.review_status == "no_issue_detected"
+        # Commit 2 (35571dc): field_extraction + pass + все fact-поля meaningful
+        # → clause_defined (было no_issue_detected до рефакторинга).
+        assert sem.review_status == "clause_defined"
         assert sem.needs_manual_review is False
 
     def test_amount_with_unit(self):
@@ -570,7 +576,9 @@ class TestClausePresence:
         )
 
         assert sem.display_text == "Положение обнаружено"
-        assert sem.review_status == "no_issue_detected"
+        # Commit 2 (35571dc): clause_presence + pass → clause_defined
+        # (было no_issue_detected до рефакторинга).
+        assert sem.review_status == "clause_defined"
         assert sem.needs_manual_review is False
 
     def test_missing_required_clause(self):
@@ -1021,13 +1029,17 @@ class TestPresentationRoles:
         check = _make_check(
             ui_mode="field_extraction",
             extraction_fields=[
+                # Naming contract: seller_details (singleton) не может
+                # делить префикс с seller_details_status (paired).
+                # Переименовано: seller_details → seller_name,
+                # seller_details_status → seller_status.
                 {
-                    "name": "seller_details_status",
+                    "name": "seller_status",
                     "presentation": "signal",
                     "description": "Статус продавца",
                 },
                 {
-                    "name": "seller_details",
+                    "name": "seller_name",
                     "label": "Продавец",
                     "presentation": "fact",
                     "description": "Реквизиты продавца",
@@ -1036,8 +1048,8 @@ class TestPresentationRoles:
         )
         exec_result = _make_exec_result(result="pass")
         sd = {
-            "seller_details_status": {"value": "defined"},
-            "seller_details": {"value": "ООО «Альфа», ИНН 7700000000"},
+            "seller_status": {"value": "defined"},
+            "seller_name": {"value": "ООО «Альфа», ИНН 7700000000"},
         }
 
         sem = build_canonical_result_semantics(
@@ -1226,14 +1238,17 @@ class TestModelValidation:
             extraction=ExtractionConfig(
                 enabled=True,
                 fields=[
+                    # Naming contract: singleton не может делить префикс
+                    # с paired <prefix>_status. Переименовано:
+                    # seller_details → seller_name, seller_details_status → seller_status.
                     ExtractionFieldConfig(
-                        name="seller_details",
+                        name="seller_name",
                         label="Продавец",
                         presentation="fact",
                         description="Реквизиты продавца",
                     ),
                     ExtractionFieldConfig(
-                        name="seller_details_status",
+                        name="seller_status",
                         presentation="signal",
                         description="Статус продавца",
                     ),
