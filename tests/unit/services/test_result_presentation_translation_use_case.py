@@ -51,6 +51,7 @@ def make_check_result(
     check_name: str = "Liability cap",
     display_text: str | None = "No aggregate liability cap was found.",
     review_message: str | None = "Request a liability cap.",
+    structured_data: dict | None = None,
 ) -> SimpleNamespace:
     return SimpleNamespace(
         id=CHECK_RESULT_ID,
@@ -60,6 +61,7 @@ def make_check_result(
         check_name=check_name,
         display_text=display_text,
         review_message=review_message,
+        structured_data=structured_data,
     )
 
 
@@ -92,6 +94,7 @@ def make_translation() -> ResultPresentationTranslation:
         localized_check_name="Ограничение ответственности",
         display_text="Совокупный лимит ответственности не установлен.",
         review_message="Рекомендуется запросить согласование лимита.",
+        localized_structured_data=None,
         provider="ollama",
         model="llama3.1",
         prompt_tokens=101,
@@ -220,6 +223,7 @@ def test_execute_claims_and_marks_ready_with_translation_usage() -> None:
         check_name="Liability cap",
         display_text="No aggregate liability cap was found.",
         review_message="Request a liability cap.",
+        structured_data_fields=None,
         glossary_terms=None,
     )
 
@@ -374,12 +378,18 @@ def test_execute_marks_failed_when_translation_raises() -> None:
     assert log_mock.await_count == 2  # claimed + failed
 
 
-def test_execute_raises_transient_error_on_llm_timeout_with_retry_reset() -> None:
+def test_execute_handles_transient_error_via_reset_processing() -> None:
     """
     Verify that transient LLM errors (timeout, connect_error) trigger:
-    - TransientError exception propagation to Celery for retry
-    - reset_processing_to_pending() call to release the row for re-claim
-    - No 'failed' increment in summary (retry will re-process)
+    - mark_failed() with failure_reason=transient_translation_error;
+    - reset_processing_to_pending() to release the row for re-claim;
+    - No 'failed' increment in summary (retry will re-process);
+    - execute() returns summary without propagating TransientError.
+
+    После f8d02f3 (outbox-driven continuation) batch не валится из-за
+    одной транзиентной ошибки: _process_one помечает failed + возвращает
+    запись в pending, а execute() логирует и продолжает. Следующий
+    outbox-батч подхватит запись заново.
     """
     check_result = make_check_result()
     claimed = make_claimed_presentation(check_result=check_result)
@@ -412,9 +422,14 @@ def test_execute_raises_transient_error_on_llm_timeout_with_retry_reset() -> Non
             llm_client=MagicMock(),
         )
 
-        from core.exceptions import TransientError
-        with pytest.raises(TransientError, match="LLM translation transient failure"):
-            run_execute(use_case)
+        # execute() не пробрасывает TransientError — логирует и продолжает.
+        summary = run_execute(use_case)
+
+    assert summary["claimed"] == 1
+    assert summary["ready"] == 0
+    assert summary["stale"] == 0
+    # Transient error не инкрементирует failed — запись уходит в retry.
+    assert summary["failed"] == 0
 
     translate_mock.assert_awaited_once()
 
@@ -478,7 +493,7 @@ def test_execute_marks_failed_when_canonical_result_is_missing() -> None:
         presentation_id=PRESENTATION_ID,
         error_message="Canonical CheckResult was not found",
         translation_metadata={
-            "prompt_version": "v1",
+            "prompt_version": "v2",
             "failure_reason": "check_result_not_found",
         },
     )

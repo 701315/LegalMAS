@@ -48,6 +48,9 @@ def test_ready_presentation_overlays_user_facing_result_fields() -> None:
         check_results=[row],
         presentations_by_result_id={row["id"]: presentation},
         requested_locale="ru",
+        # Presentation собран с content_version="v1" и _source_hash на V1.
+        # Явно передаём V1, чтобы source_content_hash совпал (default V2).
+        content_version=PRESENTATION_CONTENT_VERSION_V1,
     )
 
     assert selected[0]["check_name"] == "Лимит ответственности"
@@ -251,6 +254,7 @@ def test_human_override_replaces_llm_display_text() -> None:
         check_results=[row],
         presentations_by_result_id={row["id"]: presentation},
         requested_locale="ru",
+        content_version=PRESENTATION_CONTENT_VERSION_V1,
     )
 
     # Human override wins for display_text
@@ -288,6 +292,7 @@ def test_human_override_replaces_all_fields() -> None:
         check_results=[row],
         presentations_by_result_id={row["id"]: presentation},
         requested_locale="ru",
+        content_version=PRESENTATION_CONTENT_VERSION_V1,
     )
 
     assert selected[0]["check_name"] == "Человеческое имя"
@@ -315,6 +320,7 @@ def test_no_human_override_uses_llm_values() -> None:
         check_results=[row],
         presentations_by_result_id={row["id"]: presentation},
         requested_locale="ru",
+        content_version=PRESENTATION_CONTENT_VERSION_V1,
     )
 
     assert selected[0]["check_name"] == "Лимит ответственности"

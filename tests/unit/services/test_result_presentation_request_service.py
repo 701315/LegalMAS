@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from uuid import UUID
 
 from core.result_presentation_content import (
-    PRESENTATION_CONTENT_VERSION_V1,
+    PRESENTATION_CONTENT_VERSION_V2,
     build_presentation_source_hash,
 )
 from services.result_presentation_request_service import (
@@ -20,6 +20,7 @@ class FakeCheckResult:
     check_name: str
     display_text: str | None
     review_message: str | None
+    structured_data: dict | None = None
 
 
 RUN_ID = UUID("11111111-1111-1111-1111-111111111111")
@@ -33,6 +34,7 @@ def make_result(
     check_name: str = "Liability cap",
     display_text: str | None = "No aggregate liability cap was found.",
     review_message: str | None = "Request a liability cap.",
+    structured_data: dict | None = None,
 ) -> FakeCheckResult:
     return FakeCheckResult(
         id=result_id,
@@ -40,6 +42,7 @@ def make_result(
         check_name=check_name,
         display_text=display_text,
         review_message=review_message,
+        structured_data=structured_data,
     )
 
 
@@ -47,7 +50,9 @@ def make_presentation(
     *,
     result: FakeCheckResult,
     locale: str = "ru",
-    content_version: str = PRESENTATION_CONTENT_VERSION_V1,
+    # build_result_presentation_progress() default = V2.
+    # Держим default V2 в фикстуре, чтобы source_content_hash совпадал.
+    content_version: str = PRESENTATION_CONTENT_VERSION_V2,
     translation_status: str = "ready",
     source_content_hash: str | None = None,
 ) -> SimpleNamespace:
