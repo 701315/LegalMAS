@@ -203,8 +203,23 @@ function getReviewStatusMeta(
   }
 }
 
-function getReviewStatusIcon(tone: ReviewStatusTone): React.ReactNode {
+function getReviewStatusIcon(
+  status: string | null | undefined,
+  tone: ReviewStatusTone,
+): React.ReactNode {
   const iconClass = "h-3.5 w-3.5";
+  const norm = (status ?? "").trim().toLowerCase();
+
+  // Status-specific иконки — приоритетнее tone
+  if (norm === "clause_missing") {
+    return <XCircle className={`${iconClass} text-[var(--color-error)]`} aria-hidden />;
+  }
+  if (norm === "clause_partially_defined") {
+    return <HelpCircle className={`${iconClass} text-[#0284C7]`} aria-hidden />;
+  }
+  if (norm === "unclear" || norm === "needs_review") {
+    return <HelpCircle className={`${iconClass} text-[var(--color-warning)]`} aria-hidden />;
+  }
 
   switch (tone) {
     case "success":
@@ -876,12 +891,19 @@ export const DDGridV1List: React.FC<DDGridV1ListProps> = ({
           if (!row) return null;
           const tone = row.reviewStatusTone;
           const textToneClass = getReviewStatusTextToneClass(tone);
+          // clause_partially_defined — info-blue, чтобы отличался от
+          // danger (красный) и warning (жёлтый)
+          const inlineStyle =
+            row.reviewStatus === "clause_partially_defined"
+              ? { color: "#0284C7" }
+              : undefined;
           return (
             <div className="flex h-full items-center">
               <span
                 className={`inline-flex items-center gap-1 text-[11px] font-medium ${textToneClass}`}
+                style={inlineStyle}
               >
-                {getReviewStatusIcon(tone)}
+                {getReviewStatusIcon(row.reviewStatus, tone)}
                 <span>{row.reviewStatusLabel}</span>
               </span>
             </div>
