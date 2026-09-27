@@ -45,13 +45,16 @@ def test_derive_clause_ref_normal_number():
 
 
 def test_normalize_bundle_sanitizes_marker():
+    # B1c (6a30459): при структурном маркере обнуляются и ref, и page —
+    # "стр. N" без клаузы всё равно указывает в никуда. См. комментарий
+    # в _normalize_location_bundle.
     ref, page, conf = _normalize_location_bundle(
         location_clause_ref="__preamble__",
         location_page=1,
         location_confidence="low",
     )
     assert ref is None
-    assert page == 1
+    assert page is None
     assert conf == "low"
 
 

@@ -8,7 +8,6 @@ import pytest
 
 from services.instruction_editor_service import InstructionEditorService
 from services.instruction_publishing_service import (
-    DuplicateInstructionContentError,
     InstructionVersionNotFoundError,
 )
 
@@ -105,19 +104,32 @@ class TestCloneDraft:
         with pytest.raises(InstructionVersionNotFoundError):
             await service.clone_draft(source_version_id=uuid.uuid4())
 
-    async def test_clone_draft_duplicate_raises(
+    async def test_clone_draft_creates_draft_copy(
         self, service: InstructionEditorService
     ) -> None:
+        """clone_draft creates a working draft copy from source.
+
+        Дубликат-чек по sha256 намеренно отсутствует (см. docstring
+        InstructionEditorService.clone_draft): клон — рабочая копия
+        для редактирования, тот же YAML/sha — норма.
+        """
         source = _version()
         compiled = _compiled()
-        existing = _version(version_status="draft")
+        cloned = _version(
+            version_id=uuid.uuid4(),
+            version_status="draft",
+        )
 
         service.version_repo.get_by_id = AsyncMock(return_value=source)
         service.compiler.compile_doc_type_instruction.return_value = compiled
-        service.version_repo.get_by_doc_type_and_sha256 = AsyncMock(return_value=existing)
+        service.version_repo.create_version = AsyncMock(return_value=cloned)
 
-        with pytest.raises(DuplicateInstructionContentError):
-            await service.clone_draft(source_version_id=source.id)
+        result = await service.clone_draft(source_version_id=source.id)
+
+        assert result is cloned
+        service.version_repo.create_version.assert_awaited_once()
+        # Дубликат-чек по sha256 не должен вызываться в clone_draft.
+        service.version_repo.get_by_doc_type_and_sha256.assert_not_called()
 
 
 @pytest.mark.asyncio

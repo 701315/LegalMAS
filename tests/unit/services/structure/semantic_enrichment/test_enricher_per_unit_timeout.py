@@ -84,17 +84,24 @@ async def test_slow_unit_times_out_others_succeed() -> None:
 
     call_count = 0
 
-    async def _mock_llm_call(*, prompt: str, max_retries: int = 0) -> str:
+    # call_semantic_enrichment_llm_async возвращает (raw_text, telemetry).
+    # Сигнатура: _llm_client.py → tuple[str, dict].
+    async def _mock_llm_call(
+        *, prompt: str, max_retries: int = 0
+    ) -> tuple[str, dict]:
         nonlocal call_count
         call_count += 1
         if call_count == 2:
             # Second unit hangs long enough to trigger per-unit timeout.
             await asyncio.sleep(999)
         return (
-            '{"unit_type": "obligation", '
-            '"clause_function": "obligations", '
-            '"confidence": 0.9, '
-            '"reasoning": "test"}'
+            (
+                '{"unit_type": "obligation", '
+                '"clause_function": "obligations", '
+                '"confidence": 0.9, '
+                '"reasoning": "test"}'
+            ),
+            {},  # telemetry — в этом тесте не проверяется
         )
 
     settings_mock = _make_settings_mock()
@@ -152,12 +159,18 @@ async def test_callback_invoked_for_each_unit() -> None:
     units = [_make_unit(f"unit_{i}") for i in range(3)]
     snapshot = _make_snapshot(units)
 
-    async def _mock_llm_call(*, prompt: str, max_retries: int = 0) -> str:
+    # call_semantic_enrichment_llm_async → tuple[str, dict].
+    async def _mock_llm_call(
+        *, prompt: str, max_retries: int = 0
+    ) -> tuple[str, dict]:
         return (
-            '{"unit_type": "obligation", '
-            '"clause_function": "obligations", '
-            '"confidence": 0.9, '
-            '"reasoning": "ok"}'
+            (
+                '{"unit_type": "obligation", '
+                '"clause_function": "obligations", '
+                '"confidence": 0.9, '
+                '"reasoning": "ok"}'
+            ),
+            {},
         )
 
     settings_mock = _make_settings_mock()
