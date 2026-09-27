@@ -718,10 +718,19 @@ def _extract_meaningful_evidence(exec_result: dict) -> str | None:
     Extract meaningful evidence text from exec_result.
 
     Returns None if evidence is:
+    - retrieval context (token-budgeted вход для LLM extractor —
+      это "где искали", а не "что нашли"),
     - empty or too short,
     - a machine code,
     - a technical error token.
     """
+    # Retrieval context is NOT semantic evidence.
+    # Для field_extraction это token-budgeted joined_text, поданный
+    # LLM extractor'у как входной контекст. Не должен становиться
+    # display_text.
+    if exec_result.get("evidence_is_retrieval_context"):
+        return None
+
     evidence = str(exec_result.get("evidence") or "").strip()
     if not evidence:
         return None
@@ -870,9 +879,10 @@ def _build_display_text(
     Priority:
     1. Technical failure / not applicable → None
     2. Factual extraction (for ANY result including unclear)
-    3. Meaningful evidence text
-    4. Domain-specific outcome text
-    5. None (frontend uses review_status label)
+    3. missing_required_clause → семантический вывод
+    4. Meaningful evidence text (pass / fail / unclear)
+    5. Domain-specific outcome text
+    6. None (frontend uses review_status label)
     """
     # ── Priority 0: technical failure ─────────────────────────────────────────
     if execution_status in _TECHNICAL_FAILURE_STATUSES:
@@ -891,7 +901,29 @@ def _build_display_text(
     if factual_text is not None:
         return factual_text
 
-    # ── Priority 2: meaningful evidence ───────────────────────────────────────
+    # ── Priority 1b: missing_required_clause — семантический вывод ────────────
+    # missing = "регулирования нет". Это вывод, а не фрагмент. Evidence
+    # (retrieval-контекст) здесь неуместен. Стоит ПОСЛЕ factual_text:
+    # если у check'а есть summary-поле ("AML/KYC: не удалось определить"),
+    # оно приоритетнее generic-формулировки.
+    if result == "missing_required_clause":
+        return "Обязательное положение отсутствует"
+
+    # ── Diagnostic: pass без factual_text на retrieval-контексте ──────────────
+    # Сигнал, что playbook настроен некорректно: presence_signal=present,
+    # но все fact-поля попали в fallback и были отфильтрованы. Показываем
+    # generic "обнаружено", но пишем warning для аудита.
+    if result == "pass" and exec_result.get("evidence_is_retrieval_context"):
+        logger.warning(
+            "result_semantics: pass without factual_text "
+            "(all fact fields are fallback) — check playbook config",
+            extra={
+                "ui_mode": ui_mode,
+                "check_name": check_name,
+            },
+        )
+
+    # ── Priority 2: meaningful evidence (pass / fail / unclear) ───────────────
     evidence = _extract_meaningful_evidence(exec_result)
     if evidence is not None:
         if len(evidence) > _MAX_EVIDENCE_DISPLAY_LENGTH:
@@ -899,9 +931,6 @@ def _build_display_text(
         return evidence
 
     # ── Priority 3: domain-specific outcomes ──────────────────────────────────
-
-    if result == "missing_required_clause":
-        return "Обязательное положение отсутствует"
 
     if result == "pass":
         if ui_mode == "clause_presence":

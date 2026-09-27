@@ -1226,6 +1226,7 @@ class CheckExecutor:
             detection = {
                 "found": True,
                 "evidence": joined_text,
+                "evidence_is_retrieval_context": True,
                 "confidence": 1.0,
                 "method": "extraction_only",
                 "reason": "field_extraction_skip_presence",
@@ -1666,6 +1667,9 @@ class CheckExecutor:
             "result": result,
             "found": found,
             "evidence": detection.get("evidence", ""),
+            "evidence_is_retrieval_context": bool(
+                detection.get("evidence_is_retrieval_context", False)
+            ),
             "confidence": confidence,
             "severity": severity,
             "detector_method": detector_method,
