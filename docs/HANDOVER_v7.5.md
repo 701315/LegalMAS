@@ -391,18 +391,27 @@ else:
   - Employment (`contract_9.1`, +13 M&A/IC checks).
 - ⏳ **30 файлов остаются** — T4 в backlog.
 
-**Файлы для T4 (30 из 42, остались):**
-- Group 1 (ownership): 5 файлов (1.1, 1.8, 1.9, 1.10, 1.12);
-- Group 2 (use): 3 файла;
-- Group 3 (works): 2 файла;
-- Group 4 (services): 3 файла;
-- Group 5 (financial): 6 файлов;
-- Group 6 (intermediary): 4 файла;
-- Group 7 (ip): 4 файла (7.4 — закрыт);
-- Group 8 (partnership): 2 файла;
-- Group 9 (special): 1 файл (9.1 — закрыт).
+**Файлы для T4 (28 из 42, остались):**
 
-Точный список — `find playbooks/document_types -name "*.yaml" | sort` (см. Раздел 10).
+- **Group 1 (ownership)** — 4 файла: `1.8_donation`, `1.9_annuity`, `1.10_assignment`, `1.12_accord`.
+- **Group 2 (use)** — 3 файла: `2.2_rental`, `2.3_vehicle_lease`, `2.4_leasing`.
+- **Group 3 (works)** — 2 файла: `3.1_works_contract`, `3.4_design_survey`.
+- **Group 4 (services)** — 4 файла: `4.1_services`, `4.3_freight_forwarding`, `4.4_storage`, `4.5_insurance`.
+- **Group 5 (financial)** — 5 файлов: `5.1_loan`, `5.2_credit_agreement`, `5.3_factoring`, `5.4_bank_deposit_account`, `5.5_guaranty_and_pledge`.
+- **Group 6 (intermediary)** — 3 файла: `6.1_mandate`, `6.2_commission`, `6.3_agency`.
+- **Group 7 (ip)** — 3 файла: `7.1_ip_assignment`, `7.2_license`, `7.3_franchise`.
+- **Group 8 (partnership)** — 1 файл: `8.1_simple_partnership`.
+- **Group 9 (special)** — 3 файла: `9.2_collective_agreement`, `9.3_prenuptial_agreement`, `9.5_founders_agreement`.
+
+**Опционально (`9.4_alimony_agreement`)** — был частично обработан (`*_code` rename, `7f71c6a`), но без полного v3-промта. Решить отдельно: дорабатывать или оставить.
+
+**Итого:** 28 файлов + 1 опциональный = 28–29.
+
+**Уже обработаны (13 + 1):**
+- Полностью v3: `1.1`, `1.2`, `1.3`, `1.4`, `1.5`, `1.6`, `1.7`, `1.11`, `2.1`, `3.3`, `4.2`, `7.4`, `9.1`.
+- Частично: `9.4`.
+
+**Registry** (`playbooks/document_types/registry.yaml`) — служебный, не в scope.
 
 **Шаблон v3** (актуальный — `docs/TASK_CHECK_CALIBRATION_DOC_TYPE.md`):
 - `<role> → <context> → <task (с п.0)> → <context_rules> → <edge_cases (4)> → <output_expectations>`;
