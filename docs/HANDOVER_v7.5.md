@@ -391,21 +391,29 @@ else:
   - Employment (`contract_9.1`, +13 M&A/IC checks).
 - ⏳ **30 файлов остаются** — T4 в backlog.
 
-**Батчи:**
-1. `liability/*` (4)
-2. `term/*` (4), `coc/*` (2)
-3. `rw/*` (4), `finance/*` (4)
-4. `sanctions/*` (3), `regulatory/*` (3)
-5. `assignment_transfer/*` (3), `ip_it/*` (4)
-6. `formal/*` (4), `hr/*` (2), `cyber/*` (2)
-7. Остаток
+**Файлы для T4 (30 из 42, остались):**
+- Group 1 (ownership): 5 файлов (1.1, 1.8, 1.9, 1.10, 1.12);
+- Group 2 (use): 3 файла;
+- Group 3 (works): 2 файла;
+- Group 4 (services): 3 файла;
+- Group 5 (financial): 6 файлов;
+- Group 6 (intermediary): 4 файла;
+- Group 7 (ip): 4 файла (7.4 — закрыт);
+- Group 8 (partnership): 2 файла;
+- Group 9 (special): 1 файл (9.1 — закрыт).
 
-**Шаблон P3b** (согласован в B5.3):
-- `<location_instructions>` — после `</task>`.
-- `<output_expectations>` — плоский JSON → трёхполевой.
-- `fields:` — `risk_weight` для signal + labels.
+Точный список — `find playbooks/document_types -name "*.yaml" | sort` (см. Раздел 10).
 
-**Что делаем:** расширить все checks во всех YAML: добавить Layer 2 custom prompt, `risk_weight` для signal-полей, `<location_instructions>`.
+**Шаблон v3** (актуальный — `docs/TASK_CHECK_CALIBRATION_DOC_TYPE.md`):
+- `<role> → <context> → <task (с п.0)> → <context_rules> → <edge_cases (4)> → <output_expectations>`;
+- `presence_signal` — после `compact_output`, до `llm_prompt_extraction`;
+- presence-field первым в `fields` (`risk_weight: info`);
+- `risk_weight` — дифференцированно (`high`/`medium`/`low`/`info`);
+- `<edge_cases>` — 4 сценария (полное отсутствие / неполное / противоречие / специфика);
+- финальная строка `<output_expectations>` — «Технический формат JSON (value / confidence / location) задан отдельным контрактом…»;
+- **НЕТ** `<location_instructions>` (запрещено RF10).
+
+**Что делаем:** по двухшаговому паттерну v3 (обзор файла → 5 checks) расширить оставшиеся 30 файлов.
 
 ### 🔵 Волна 4: B3.6 — layout_element_ids (3–5 дней)
 
