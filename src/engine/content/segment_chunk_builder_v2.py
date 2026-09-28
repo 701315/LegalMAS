@@ -1506,6 +1506,7 @@ class SegmentChunkBuilderV2:
                 segment_clause_tree_ref=segment_clause_tree_ref,
                 total_pages=total_pages,
                 segment_plan=segment_plan,
+                bbox_map=bbox_map,
             )
 
         degradation_reason = (
@@ -1667,6 +1668,7 @@ class SegmentChunkBuilderV2:
         segment_clause_tree_ref: str,
         total_pages: int | None,
         segment_plan: Any | None,
+        bbox_map: dict[str, tuple[int, list[float]]],
     ) -> SegmentChunkSnapshotV2:
         """
         Построить snapshot через layout fallback chunker (Mode C).
