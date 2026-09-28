@@ -5573,6 +5573,2025 @@ checks_v8:
           required: false
           display_in_grid: false
 
+  - id: nda_self_confidentiality_check
+    name: "Конфиденциальность самого NDA (условия и факт заключения)"
+    description: >
+      Фактографическая проверка наличия в NDA оговорки о конфиденциальности
+      самого соглашения: защищён ли факт заключения NDA, его условия и содержание
+      переговоров; предусмотрены ли исключения из этой конфиденциальности
+      (раскрытие по закону, аудиторам, аффилированным лицам). Критично для
+      M&A-контекста: утечка факта NDA может сорвать сделку и раскрыть
+      стратегические намерения сторон.
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "medium"
+    severity_if_pass: "pass"
+    severity_if_fail: "medium"
+    severity_if_unclear: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "конфиденциальность настоящего соглашения"
+        - "факт заключения"
+        - "условия соглашения конфиденциальны"
+        - "само соглашение"
+        - "существование соглашения"
+        - "не раскрывать факт"
+        - "confidentiality of this agreement"
+        - "terms of this agreement"
+        - "existence of this agreement"
+        - "negotiations confidential"
+        - "переговоры конфиденциальны"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)настоящ[а-яё]+\\s+соглашени[ея].*?конфиденциальн"
+        - "(?i)факт\\s+(заключения|существования)"
+        - "(?i)условия\\s+настоящего\\s+соглашения"
+        - "(?i)confidentiality\\s+of\\s+this\\s+agreement"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется соглашение о неразглашении (NDA)
+        (ГК РФ ст. 421, 432; ФЗ-98 «О коммерческой тайне»).
+        Проверяется только один вопрос: содержит ли NDA оговорку
+        о конфиденциальности самого соглашения (факта заключения,
+        условий, содержания переговоров).
+
+        Нормативный ориентир:
+        - ст. 421 ГК РФ — свобода договора (стороны вправе установить
+          режим конфиденциальности для любых сведений, включая сам договор).
+        - ФЗ-98 ст. 3 — понятие коммерческой тайны (не распространяется
+          автоматически на текст договора, только по прямому указанию).
+        - Практика M&A: оговорка о конфиденциальности NDA — стандарт,
+          предотвращающий утечку факта переговоров и стратегических намерений.
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска и не подставляй нормы вместо текста.
+        - Различай:
+          1) Защита факта заключения NDA;
+          2) Защита условий NDA (текст, сумма, стороны);
+          3) Защита содержания преддоговорных переговоров;
+          4) Исключения (раскрытие по закону, аудиторам, аффилированным лицам).
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Наличие оговорки о конфиденциальности самого NDA (факт и/или условия).
+        2. Что именно защищено (факт заключения / условия / переговоры).
+        3. Наличие исключений из этой конфиденциальности.
+        4. Формулировки исключений (по закону, аудиторам, аффилированным).
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Не подставляй нормы закона вместо текста договора.
+        3. Если параметр определяется через отсылку к иному документу — это
+           считается "defined", в details укажи ссылку.
+        4. Если условие не указано в тексте прямо и нет отсылки —
+           статус = "not_defined", текст = "Данные не определены".
+        5. Не используй "None", "null" или пустые строки — вместо них применяй
+           "not_defined" для статусов и "Данные не определены" для текстовых полей.
+        6. В evidence включай только дословные цитаты из текста договора.
+        7. Верни РОВНО один валидный JSON-объект со всеми 6 ключами, пригодный
+           для парсинга через json.loads без предварительной обработки. Без markdown,
+           без ```json, без комментариев, без текста до или после. Начни ответ
+           сразу с { и закончи }.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — полная оговорка:
+        Фрагмент:
+        "Настоящее Соглашение и факт его заключения являются конфиденциальной
+        информацией. Стороны обязуются не раскрывать третьим лицам содержание
+        настоящего Соглашения, за исключением случаев, предусмотренных законом,
+        а также раскрытия профессиональным консультантам и аудиторам, связанным
+        обязательствами конфиденциальности."
+
+        Ответ:
+        {
+          "nda_self_confidentiality_status": "defined",
+          "nda_self_confidentiality_details": "настоящее Соглашение и факт его заключения являются конфиденциальной информацией",
+          "nda_self_confidentiality_exceptions_status": "defined",
+          "nda_self_confidentiality_exceptions_details": "раскрытие по закону; раскрытие консультантам и аудиторам, связанным обязательствами конфиденциальности",
+          "evidence": [
+            {
+              "clause_ref": "п. 2.4",
+              "quote": "Настоящее Соглашение и факт его заключения являются конфиденциальной информацией. Стороны обязуются не раскрывать третьим лицам содержание настоящего Соглашения..."
+            }
+          ]
+        }
+
+        Пример 2 — оговорка отсутствует:
+        Фрагмент:
+        "Стороны обязуются хранить в тайне коммерческую информацию друг друга."
+
+        Ответ:
+        {
+          "nda_self_confidentiality_status": "not_defined",
+          "nda_self_confidentiality_details": "Данные не определены",
+          "nda_self_confidentiality_exceptions_status": "not_defined",
+          "nda_self_confidentiality_exceptions_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        Проверь, что все 6 ключей (5 полей + evidence) присутствуют в JSON:
+        1. Найдена ли оговорка о конфиденциальности самого NDA?
+        2. Определено ли, что именно защищено?
+        3. Найдены ли исключения из этой конфиденциальности?
+        4. Все ли статус-поля содержат только значения из allowed_values?
+        5. Если прямой цитаты и отсылки нет — статус = "not_defined", details = "Данные не определены".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "nda_self_confidentiality_status": "<defined / not_defined>",
+          "nda_self_confidentiality_details": "<текст или 'Данные не определены'>",
+          "nda_self_confidentiality_exceptions_status": "<defined / not_defined>",
+          "nda_self_confidentiality_exceptions_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 7
+      temperature: 0.0
+      max_tokens: 800
+
+    retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "конфиденциальность настоящего соглашения факт заключения условия соглашения существование соглашения не раскрывать факт переговоры конфиденциальны confidentiality of this agreement terms of this agreement existence of this agreement negotiations"
+      retrieval_profile: "confidentiality_check"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+        - representations
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - boilerplate
+      negative_keywords:
+        - "конфиденциальная информация означает"
+        - "определение конфиденциальной информации"
+        - "меры защиты информации"
+        - "срок действия соглашения"
+        - "штраф за разглашение"
+        - "возврат носителей"
+        - "в целях настоящего Соглашения понимается"
+      position_bias:
+        preferred_range: [0.30, 0.85]
+        boost: 0.30
+        scope: segment
+      context_k: 7
+      max_chunks: 9
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "boilerplate"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 650
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 900
+
+      compact_output: false
+
+      presence_signal:
+        field: "nda_self_confidentiality_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из NDA сведения о конфиденциальности
+        самого соглашения: защищён ли факт заключения, условия, содержание
+        переговоров; предусмотрены ли исключения из этой конфиденциальности.
+        Не анализируй определение конфиденциальной информации, общие исключения
+        из режима, меры защиты, ответственность или срок.
+        Не оценивай риски.
+        Анализируй только текст договора.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие 5 полей + evidence (всего 6 ключей):
+
+        0. nda_self_confidentiality_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (nda_self_confidentiality_status,
+              nda_self_confidentiality_exceptions_status) ≠ "not_defined";
+           - "missing" — если оба содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - nda_self_confidentiality_status = "not_defined";
+           - nda_self_confidentiality_exceptions_status = "not_defined";
+           - соответствующие *_details = "Данные не определены";
+           - не выполняй остальные шаги.
+
+        1. nda_self_confidentiality_status — "defined" или "not_defined".
+           - "defined" — если в тексте прямо указано, что NDA и/или факт его
+             заключения и/или его условия являются конфиденциальной информацией;
+           - "not_defined" — если такой оговорки нет.
+
+        2. nda_self_confidentiality_details — что именно защищено:
+           - факт заключения NDA;
+           - условия NDA;
+           - содержание переговоров;
+           - возможна любая комбинация.
+           Если данных нет — "Данные не определены".
+
+        3. nda_self_confidentiality_exceptions_status — "defined" или "not_defined".
+           - "defined" — если прямо указаны исключения из конфиденциальности
+             самого NDA (по закону, аудиторам, аффилированным лицам и т.п.);
+           - "not_defined" — если исключений нет.
+
+        4. nda_self_confidentiality_exceptions_details — формулировка исключений.
+
+        Если условие отсутствует в тексте и нет отсылки к документу:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <context_rules>
+        - Перед остальными полями заполни nda_self_confidentiality_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details = "Данные не определены".
+        - Используй только текст договора.
+        - Ищи формулировки: «настоящее Соглашение конфиденциально», «факт заключения
+          конфиденциальный», «условия Соглашения не подлежат раскрытию», «существование
+          Соглашения», «confidentiality of this agreement», «existence of this agreement».
+        - Различай защиту факта заключения (существование) и защиту содержания (условия).
+        - Если в разных фрагментах указаны разные данные и конфликт нельзя
+          разрешить по тексту — статус → "not_defined", текстовое поле → "Не удалось определить".
+        - Не подставляй нормы закона, обычную практику или предположения вместо текста договора.
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет оговорки о конфиденциальности самого NDA.
+           → presence = "missing";
+             nda_self_confidentiality_status = "not_defined";
+             nda_self_confidentiality_exceptions_status = "not_defined";
+             соответствующие *_details = "Данные не определены".
+
+        2. Оговорка есть, но без исключений.
+           Указано, что NDA конфиденциален, но исключения не перечислены.
+           → presence = "present";
+             nda_self_confidentiality_status = "defined";
+             nda_self_confidentiality_exceptions_status = "not_defined";
+             nda_self_confidentiality_exceptions_details = "Данные не определены".
+
+        3. Противоречие между фрагментами.
+           В одном пункте указано, что NDA конфиденциален,
+           в другом — что стороны вправе раскрывать факт его заключения.
+           → presence = "unclear";
+             nda_self_confidentiality_status = "not_defined";
+             nda_self_confidentiality_details = "Не удалось определить".
+
+        4. Защита только факта, но не условий.
+           Указано, что факт заключения NDA конфиденциален,
+           но текст NDA может раскрываться.
+           → presence = "present";
+             nda_self_confidentiality_status = "defined";
+             nda_self_confidentiality_details = "защищён только факт заключения NDA".
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для nda_self_confidentiality_check_presence используй только: "present", "missing", "unclear".
+        - Для всех *_status используй только: "defined" или "not_defined".
+        - Fallback при отсутствии данных:
+          * все *_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
+      fields:
+        - name: "nda_self_confidentiality_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие оговорки о конфиденциальности самого NDA. Внутреннее агрегатное signal-поле."
+          required: true
+
+        - name: "nda_self_confidentiality_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
+          description: "Статус наличия оговорки о конфиденциальности самого NDA."
+          required: true
+
+        - name: "nda_self_confidentiality_details"
+          type: "string"
+          presentation: "fact"
+          label: "Конфиденциальность NDA"
+          description: "Что именно защищено: факт заключения, условия NDA, содержание переговоров."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+
+        - name: "nda_self_confidentiality_exceptions_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "medium"
+          allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
+          description: "Статус наличия исключений из конфиденциальности самого NDA."
+          required: true
+
+        - name: "nda_self_confidentiality_exceptions_details"
+          type: "string"
+          presentation: "fact"
+          label: "Исключения"
+          description: "Формулировка исключений из конфиденциальности самого NDA (по закону, аудиторам, аффилированным лицам)."
+          required: false
+          display_in_grid: false
+
+      store_payload: true
+
+  - id: severability_check
+    name: "Делимость положений (severability)"
+    description: >
+      Фактографическая проверка наличия оговорки о делимости положений NDA
+      (severability clause): сохранение силы остальных условий при признании
+      отдельного положения недействительным, а также возможной оговорки
+      о переформулировании недействительного условия (reformation clause).
+      Критично для NDA с ограничительными оговорками (non-compete,
+      non-solicitation), риск признания которых недействительными повышен.
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "medium"
+    severity_if_pass: "pass"
+    severity_if_fail: "medium"
+    severity_if_unclear: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "делимость положений"
+        - "недействительность отдельного положения"
+        - "сохраняют силу остальные"
+        - "severability"
+        - "если какое-либо положение"
+        - "признание недействительным"
+        - "остальные положения остаются"
+        - "reformation clause"
+        - "переформулирование"
+        - "invalid provision"
+        - "remaining provisions"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)делимост[ьи]\\s+положени"
+        - "(?i)недействительн[а-яё]+\\s+(положени|услови)"
+        - "(?i)остальн[а-яё]+\\s+положени[яй]\\s+(сохраня|остают)"
+        - "(?i)severab(le|ility)"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется соглашение о неразглашении (NDA)
+        (ГК РФ ст. 166–181, 422, 168; Постановление Пленума ВС РФ №25 от 23.06.2015).
+        Проверяется только один вопрос: содержит ли NDA оговорку о делимости
+        положений (severability) и оговорку о переформулировании (reformation).
+
+        Нормативный ориентир:
+        - ст. 166–168 ГК РФ — оспоримые и ничтожные сделки; недействительность
+          части сделки.
+        - ст. 180 ГК РФ — недействительность части сделки не влечёт
+          недействительности прочих её частей, если можно предположить,
+          что сделка была бы совершена и без включения недействительной части.
+        - Постановление Пленума ВС РФ №25 — практика применения ст. 180 ГК РФ.
+        - Severability clause — договорная оговорка, конкретизирующая
+          применение ст. 180 ГК РФ и устраняющая неопределённость.
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска и не подставляй нормы вместо текста.
+        - Severability особенно критична для NDA с оговорками non-compete
+          и non-solicitation, риск признания которых недействительными повышен
+          (ФЗ-135, ст. 37 Конституции РФ).
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Наличие оговорки о делимости (severability clause).
+        2. Формулировку: что происходит с остальными положениями при
+           недействительности одного из них.
+        3. Наличие оговорки о переформулировании (reformation clause) —
+           обязанности сторон или суда заменить недействительное условие
+           на действительное, наиболее близкое по смыслу.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Не подставляй нормы закона вместо текста договора.
+        3. Если параметр определяется через отсылку к иному документу —
+           это считается "defined", в details укажи ссылку.
+        4. Если условие не указано в тексте прямо и нет отсылки —
+           статус = "not_defined", текст = "Данные не определены".
+        5. Не используй "None", "null" или пустые строки — вместо них применяй
+           "not_defined" для статусов и "Данные не определены" для текстовых полей.
+        6. В evidence включай только дословные цитаты из текста договора.
+        7. Верни РОВНО один валидный JSON-объект со всеми 6 ключами, пригодный
+           для парсинга через json.loads без предварительной обработки. Без markdown,
+           без ```json, без комментариев, без текста до или после. Начни ответ
+           сразу с { и закончи }.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — полная оговорка с reformation:
+        Фрагмент:
+        "Если какое-либо положение настоящего Соглашения будет признано
+        недействительным или неисполнимым, это не затрагивает действительности
+        остальных положений, которые продолжают действовать в полном объёме.
+        Стороны обязуются заменить недействительное положение действительным,
+        наиболее близким по смыслу и экономическому результату."
+
+        Ответ:
+        {
+          "severability_status": "defined",
+          "severability_details": "признание отдельного положения недействительным не затрагивает остальные положения, которые продолжают действовать",
+          "reformation_status": "defined",
+          "reformation_details": "стороны обязуются заменить недействительное положение действительным, наиболее близким по смыслу и экономическому результату",
+          "evidence": [
+            {
+              "clause_ref": "п. 14.3",
+              "quote": "Если какое-либо положение настоящего Соглашения будет признано недействительным или неисполнимым, это не затрагивает действительности остальных положений, которые продолжают действовать в полном объёме."
+            }
+          ]
+        }
+
+        Пример 2 — оговорка отсутствует:
+        Фрагмент:
+        "Стороны согласовали условия конфиденциальности."
+
+        Ответ:
+        {
+          "severability_status": "not_defined",
+          "severability_details": "Данные не определены",
+          "reformation_status": "not_defined",
+          "reformation_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        Проверь, что все 6 ключей (5 полей + evidence) присутствуют в JSON:
+        1. Найдена ли оговорка о делимости (severability)?
+        2. Определена ли судьба остальных положений?
+        3. Найдена ли оговорка о переформулировании (reformation)?
+        4. Все ли статус-поля содержат только значения из allowed_values?
+        5. Если прямой цитаты и отсылки нет — статус = "not_defined", details = "Данные не определены".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "severability_status": "<defined / not_defined>",
+          "severability_details": "<текст или 'Данные не определены'>",
+          "reformation_status": "<defined / not_defined>",
+          "reformation_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 7
+      temperature: 0.0
+      max_tokens: 800
+
+    retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "делимость положений недействительность отдельного положения сохраняют силу остальные severability недействительное условие invalid provision remaining provisions reformation clause переформулирование"
+      retrieval_profile: "confidentiality_check"
+      preferred_unit_types:
+        - general_provision
+        - boilerplate
+        - obligation
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - boilerplate
+        - obligations
+      negative_keywords:
+        - "конфиденциальная информация означает"
+        - "определение конфиденциальной информации"
+        - "исключения из конфиденциальности"
+        - "меры защиты информации"
+        - "штраф за разглашение"
+        - "возврат носителей"
+        - "в целях настоящего Соглашения понимается"
+      position_bias:
+        preferred_range: [0.75, 1.0]
+        boost: 0.30
+        scope: segment
+      context_k: 7
+      max_chunks: 9
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "boilerplate"
+        - "obligations"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 650
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 900
+
+      compact_output: false
+
+      presence_signal:
+        field: "severability_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из NDA оговорки о делимости положений
+        (severability) и о переформулировании недействительных условий
+        (reformation).
+        Не анализируй определение конфиденциальной информации, исключения,
+        меры защиты, ответственность, срок или порядок разрешения споров.
+        Не оценивай риски.
+        Анализируй только текст договора.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие 5 полей + evidence (всего 6 ключей):
+
+        0. severability_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (severability_status, reformation_status) ≠ "not_defined";
+           - "missing" — если оба содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - severability_status = "not_defined";
+           - reformation_status = "not_defined";
+           - соответствующие *_details = "Данные не определены";
+           - не выполняй остальные шаги.
+
+        1. severability_status — "defined" или "not_defined".
+           - "defined" — если прямо указано, что недействительность
+             отдельного положения не затрагивает остальные;
+           - "not_defined" — если такой оговорки нет.
+
+        2. severability_details — формулировка (что происходит с остальными
+           положениями).
+
+        3. reformation_status — "defined" или "not_defined".
+           - "defined" — если прямо указано, что стороны (или суд) обязуются
+             заменить недействительное условие на действительное, наиболее
+             близкое по смыслу;
+           - "not_defined" — если такой оговорки нет.
+
+        4. reformation_details — формулировка оговорки о переформулировании.
+
+        Если условие отсутствует в тексте и нет отсылки к документу:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <context_rules>
+        - Перед остальными полями заполни severability_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details = "Данные не определены".
+        - Используй только текст договора.
+        - severability: ищи «если какое-либо положение будет признано недействительным»,
+          «не затрагивает действительности остальных положений», «остальные положения
+          сохраняют силу», «severability», «remaining provisions survive».
+        - reformation: ищи «заменить недействительное положение действительным»,
+          «reformation», «closest economic result», «наиболее близкое по смыслу».
+        - Если в разных фрагментах указаны разные данные и конфликт нельзя
+          разрешить по тексту — статус → "not_defined", текстовое поле → "Не удалось определить".
+        - Не подставляй нормы закона, обычную практику или предположения вместо текста договора.
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни оговорки о делимости, ни оговорки о переформулировании.
+           → presence = "missing";
+             severability_status = "not_defined";
+             reformation_status = "not_defined";
+             соответствующие *_details = "Данные не определены".
+
+        2. Только делимость, без reformation.
+           Есть оговорка о сохранении остальных положений,
+           но нет оговорки о замене недействительного условия.
+           → presence = "present";
+             severability_status = "defined";
+             reformation_status = "not_defined";
+             reformation_details = "Данные не определены".
+
+        3. Противоречие между фрагментами.
+           В одном пункте указано, что недействительность части не влияет
+           на остальные; в другом — что недействительность любой части
+           влечёт прекращение Соглашения.
+           → presence = "unclear";
+             severability_status = "not_defined";
+             severability_details = "Не удалось определить".
+
+        4. Отсылка на применимое право.
+           Указано, что делимость определяется в соответствии
+           с применимым правом без прямого регулирования.
+           → presence = "present";
+             severability_status = "defined";
+             severability_details содержит формулировку вида
+             «делимость определяется применимым правом».
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для severability_check_presence используй только: "present", "missing", "unclear".
+        - Для всех *_status используй только: "defined" или "not_defined".
+        - Fallback при отсутствии данных:
+          * все *_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
+      fields:
+        - name: "severability_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие оговорки о делимости положений. Внутреннее агрегатное signal-поле."
+          required: true
+
+        - name: "severability_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
+          description: "Статус наличия оговорки о делимости положений (severability)."
+          required: true
+
+        - name: "severability_details"
+          type: "string"
+          presentation: "fact"
+          label: "Делимость положений"
+          description: "Формулировка оговорки о делимости: судьба остальных положений при недействительности одного."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+
+        - name: "reformation_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "medium"
+          allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
+          description: "Статус наличия оговорки о переформулировании (reformation clause)."
+          required: true
+
+        - name: "reformation_details"
+          type: "string"
+          presentation: "fact"
+          label: "Переформулирование"
+          description: "Оговорка о замене недействительного условия на действительное, наиболее близкое по смыслу."
+          required: false
+          display_in_grid: false
+
+      store_payload: true
+
+  - id: access_logging_check
+    name: "Учёт лиц, получивших доступ к конфиденциальной информации"
+    description: >
+      Фактографическая проверка наличия в NDA обязанности получающей стороны
+      вести учёт лиц, получивших доступ к конфиденциальной информации
+      (ФЗ-98 «О коммерческой тайне» ст. 10 ч. 1 п. 3), включая круг
+      учитываемых лиц, форму и порядок учёта, сроки хранения данных учёта.
+      Критично для признания режима коммерческой тайны введённым
+      и возможности судебной защиты.
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "учёт лиц"
+        - "журнал доступа"
+        - "реестр доступа"
+        - "список лиц с доступом"
+        - "фиксация доступа"
+        - "регистрация доступа"
+        - "сведения о лицах, получивших доступ"
+        - "круг лиц, имеющих доступ"
+        - "access log"
+        - "access register"
+        - "record of access"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)уч[её]т[а-яё]*\\s+лиц"
+        - "(?i)журнал[а-яё]*\\s+доступ"
+        - "(?i)реестр[а-яё]*\\s+доступ"
+        - "(?i)access\\s+(log|register|record)"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется соглашение о неразглашении (NDA)
+        (ФЗ-98 «О коммерческой тайне» ст. 10 ч. 1 п. 3; ГК РФ ст. 1465, 1467).
+        Проверяется только один вопрос: содержит ли NDA обязанность
+        получающей стороны вести учёт лиц, получивших доступ
+        к конфиденциальной информации.
+
+        Нормативный ориентир:
+        - ФЗ-98 ст. 10 ч. 1 п. 3 — для установления режима коммерческой тайны
+          обладатель информации обязан вести учёт лиц, получивших доступ
+          к информации, составляющей коммерческую тайну.
+        - ФЗ-98 ст. 10 ч. 1 п. 4 — регулировать отношения по использованию
+          информации работниками на основании трудовых договоров
+          и контрактов подрядчиков.
+        - ГК РФ ст. 1467 — исключительное право на секрет производства
+          действует, пока сохраняется конфиденциальность.
+        - Судебная практика: при отсутствии учёта лиц суды часто отказывают
+          в защите режима КТ (Постановление Пленума ВС РФ № 25, обзоры
+          практики по коммерческой тайне).
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска и не подставляй нормы вместо текста.
+        - Учёт доступа — императивное требование ФЗ-98 для обладателя КТ;
+          в NDA оно конкретизируется как обязанность получателя.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Обязанность получающей стороны вести учёт лиц, получивших доступ
+           к конфиденциальной информации.
+        2. Круг учитываемых лиц (сотрудники, консультанты, подрядчики).
+        3. Форму и порядок учёта (журнал, реестр, электронная система).
+        4. Сроки хранения данных учёта, если указаны.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Не подставляй нормы закона вместо текста договора.
+        3. Если параметр определяется через отсылку к иному документу
+           (политике ИБ, регламенту) — это считается "defined",
+           в details укажи ссылку.
+        4. Если условие не указано в тексте прямо и нет отсылки —
+           статус = "not_defined", текст = "Данные не определены".
+        5. Не используй "None", "null" или пустые строки — вместо них применяй
+           "not_defined" для статусов и "Данные не определены" для текстовых полей.
+        6. В evidence включай только дословные цитаты из текста договора.
+        7. Верни РОВНО один валидный JSON-объект со всеми 7 ключами, пригодный
+           для парсинга через json.loads без предварительной обработки. Без markdown,
+           без ```json, без комментариев, без текста до или после. Начни ответ
+           сразу с { и закончи }.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — полная оговорка об учёте:
+        Фрагмент:
+        "Получающая сторона обязуется вести учёт всех лиц, получивших доступ
+        к Конфиденциальной информации, включая сотрудников, консультантов
+        и подрядчиков. Учёт ведётся в форме реестра доступа с указанием
+        ФИО, должности, даты предоставления доступа и объёма раскрытой
+        информации. Реестр хранится в течение 3 лет после прекращения
+        настоящего Соглашения."
+
+        Ответ:
+        {
+          "access_logging_status": "defined",
+          "access_logging_details": "обязанность вести учёт всех лиц, получивших доступ к Конфиденциальной информации",
+          "access_logging_scope_status": "defined",
+          "access_logging_scope_details": "сотрудники, консультанты, подрядчики; реестр с ФИО, должностью, датой предоставления доступа и объёмом раскрытой информации",
+          "access_logging_retention_status": "defined",
+          "access_logging_retention_details": "реестр хранится 3 года после прекращения Соглашения",
+          "evidence": [
+            {
+              "clause_ref": "п. 4.4",
+              "quote": "Получающая сторона обязуется вести учёт всех лиц, получивших доступ к Конфиденциальной информации, включая сотрудников, консультантов и подрядчиков."
+            }
+          ]
+        }
+
+        Пример 2 — оговорка отсутствует:
+        Фрагмент:
+        "Получающая сторона обязуется не разглашать информацию третьим лицам."
+
+        Ответ:
+        {
+          "access_logging_status": "not_defined",
+          "access_logging_details": "Данные не определены",
+          "access_logging_scope_status": "not_defined",
+          "access_logging_scope_details": "Данные не определены",
+          "access_logging_retention_status": "not_defined",
+          "access_logging_retention_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        Проверь, что все 7 ключей (6 полей + evidence) присутствуют в JSON:
+        1. Найдена ли прямая цитата об обязанности вести учёт лиц?
+        2. Определён ли круг учитываемых лиц?
+        3. Указана ли форма учёта?
+        4. Указаны ли сроки хранения?
+        5. Все ли статус-поля содержат только значения из allowed_values?
+        6. Если прямой цитаты и отсылки нет — статус = "not_defined", details = "Данные не определены".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "access_logging_status": "<defined / not_defined>",
+          "access_logging_details": "<текст или 'Данные не определены'>",
+          "access_logging_scope_status": "<defined / not_defined>",
+          "access_logging_scope_details": "<текст или 'Данные не определены'>",
+          "access_logging_retention_status": "<defined / not_defined>",
+          "access_logging_retention_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 8
+      temperature: 0.0
+      max_tokens: 850
+
+    retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "учёт лиц журнал доступа реестр доступа список лиц с доступом фиксация доступа регистрация доступа сведения о лицах получивших доступ круг лиц имеющих доступ access log access register record of access"
+      retrieval_profile: "confidentiality_check"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+        - procedures
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "конфиденциальная информация означает"
+        - "определение конфиденциальной информации"
+        - "общедоступная информация"
+        - "срок действия соглашения"
+        - "штраф за разглашение"
+        - "неустойка"
+        - "в целях настоящего Соглашения понимается"
+      position_bias:
+        preferred_range: [0.20, 0.70]
+        boost: 0.30
+        scope: segment
+      context_k: 8
+      max_chunks: 10
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "procedures"
+      confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
+
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 1000
+
+      compact_output: false
+
+      presence_signal:
+        field: "access_logging_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из NDA сведения об обязанности
+        получающей стороны вести учёт лиц, получивших доступ
+        к конфиденциальной информации (ФЗ-98 ст. 10 ч. 1 п. 3).
+        Не анализируй определение конфиденциальной информации, исключения,
+        общие меры защиты, ответственность, срок или порядок разрешения споров.
+        Не оценивай риски.
+        Анализируй только текст договора.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие 6 полей + evidence (всего 7 ключей):
+
+        0. access_logging_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (access_logging_status, access_logging_scope_status,
+              access_logging_retention_status) ≠ "not_defined";
+           - "missing" — если все три содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - access_logging_status = "not_defined";
+           - access_logging_scope_status = "not_defined";
+           - access_logging_retention_status = "not_defined";
+           - соответствующие *_details = "Данные не определены";
+           - не выполняй остальные шаги.
+
+        1. access_logging_status — "defined" или "not_defined".
+           - "defined" — если в тексте прямо указана обязанность вести учёт
+             лиц, получивших доступ к конфиденциальной информации;
+           - "not_defined" — если такой обязанности нет.
+
+        2. access_logging_details — формулировка обязанности.
+
+        3. access_logging_scope_status — "defined" или "not_defined".
+           - "defined" — если прямо указан круг учитываемых лиц
+             и/или форма учёта (журнал, реестр, электронная система);
+           - "not_defined" — если объём учёта не раскрыт.
+
+        4. access_logging_scope_details — круг лиц и форма учёта.
+
+        5. access_logging_retention_status — "defined" или "not_defined".
+           - "defined" — если прямо указан срок хранения данных учёта;
+           - "not_defined" — если срок не указан.
+
+        6. access_logging_retention_details — срок хранения данных учёта.
+
+        Если условие отсутствует в тексте и нет отсылки к документу:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <context_rules>
+        - Перед остальными полями заполни access_logging_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details = "Данные не определены".
+        - Используй только текст договора.
+        - access_logging: ищи «вести учёт лиц», «фиксировать доступ», «вести реестр
+          доступа», «журнал доступа», «access log», «record of access».
+        - access_logging_scope: ищи перечень категорий лиц (сотрудники, консультанты,
+          подрядчики) и форму учёта (реестр, журнал, электронная система).
+        - access_logging_retention: ищи срок хранения учёта («в течение N лет после
+          прекращения», «до уничтожения носителей»).
+        - Если в разных фрагментах указаны разные данные и конфликт нельзя
+          разрешить по тексту — статус → "not_defined", текстовое поле → "Не удалось определить".
+        - Не подставляй нормы закона, обычную практику или предположения вместо текста договора.
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни обязанности вести учёт, ни перечня учитываемых лиц,
+           ни формы учёта, ни срока хранения.
+           → presence = "missing";
+             все *_status = "not_defined";
+             все *_details = "Данные не определены".
+
+        2. Есть только общая обязанность без деталей.
+           Указано «вести учёт лиц, получивших доступ» без указания круга лиц,
+           формы учёта и срока хранения.
+           → presence = "present";
+             access_logging_status = "defined";
+             access_logging_scope_status = "not_defined";
+             access_logging_retention_status = "not_defined";
+             соответствующие *_details = "Данные не определены".
+
+        3. Противоречие между фрагментами.
+           В одном пункте указано вести реестр, в другом — учёт не требуется.
+           → presence = "unclear";
+             access_logging_status = "not_defined";
+             access_logging_details = "Не удалось определить".
+
+        4. Отсылка на политику ИБ / регламент.
+           Порядок учёта определяется Политикой информационной безопасности
+           или приложением к NDA.
+           → presence = "present";
+             access_logging_status = "defined";
+             access_logging_details содержит формулировку вида
+             «порядок учёта определяется Политикой ИБ (Приложение №N)».
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для access_logging_check_presence используй только: "present", "missing", "unclear".
+        - Для всех *_status используй только: "defined" или "not_defined".
+        - Fallback при отсутствии данных:
+          * все *_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
+      fields:
+        - name: "access_logging_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие обязанности вести учёт лиц, получивших доступ. Внутреннее агрегатное signal-поле."
+          required: true
+
+        - name: "access_logging_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
+          description: "Статус обязанности вести учёт лиц, получивших доступ."
+          required: true
+
+        - name: "access_logging_details"
+          type: "string"
+          presentation: "fact"
+          label: "Учёт доступа"
+          description: "Формулировка обязанности вести учёт лиц, получивших доступ к конфиденциальной информации."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+
+        - name: "access_logging_scope_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "medium"
+          allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
+          description: "Статус раскрытия круга лиц и формы учёта."
+          required: true
+
+        - name: "access_logging_scope_details"
+          type: "string"
+          presentation: "fact"
+          label: "Круг лиц и форма учёта"
+          description: "Круг учитываемых лиц (сотрудники, консультанты, подрядчики) и форма учёта (журнал, реестр, электронная система)."
+          required: true
+          display_in_grid: true
+          display_priority: 2
+
+        - name: "access_logging_retention_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "low"
+          allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
+          description: "Статус указания срока хранения данных учёта."
+          required: true
+
+        - name: "access_logging_retention_details"
+          type: "string"
+          presentation: "fact"
+          label: "Срок хранения учёта"
+          description: "Срок хранения данных учёта лиц, получивших доступ."
+          required: false
+          display_in_grid: false
+
+      store_payload: true
+
+  - id: kt_regime_compliance_check
+    name: "Соответствие определения КТ и режима коммерческой тайны требованиям ФЗ-98"
+    description: >
+      Фактографическая проверка соответствия NDA требованиям ФЗ-98
+      «О коммерческой тайне»: соответствует ли определение конфиденциальной
+      информации определению коммерческой тайны (ст. 3 ФЗ-98), вводится ли
+      режим КТ и его элементы (ст. 10 ФЗ-98), включая ознакомление
+      работников с перечнем КТ (ст. 11 ФЗ-98). Критично для судебной защиты
+      режима КТ и права на возмещение убытков.
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "коммерческая тайна"
+        - "режим коммерческой тайны"
+        - "ФЗ-98"
+        - "ФЗ о коммерческой тайне"
+        - "секрет производства"
+        - "ноу-хау"
+        - "конфиденциальность информации"
+        - "перечень коммерческой тайны"
+        - "ознакомление работников"
+        - "trade secret"
+        - "режим КТ"
+        - "обладатель информации"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)коммерческ[а-яё]+\\s+тай[нн]"
+        - "(?i)режим[а-яё]*\\s+коммерческой\\s+тайны"
+        - "(?i)ФЗ[-\\s]?98"
+        - "(?i)секрет[а-яё]*\\s+производства"
+        - "(?i)trade\\s+secret"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется соглашение о неразглашении (NDA)
+        (ФЗ-98 «О коммерческой тайне» ст. 3, 10, 11, 12; ГК РФ ст. 1465–1472).
+        Проверяется только один вопрос: соответствует ли NDA требованиям
+        ФЗ-98 в части определения коммерческой тайны и введения режима КТ.
+
+        Нормативный ориентир:
+        - ФЗ-98 ст. 3 — определение коммерческой тайны (информация, имеющая
+          действительную или потенциальную коммерческую ценность в силу
+          неизвестности её третьим лицам, к которой нет свободного доступа
+          на законном основании, и в отношении которой обладателем введён
+          режим коммерческой тайны).
+        - ФЗ-98 ст. 10 — меры по охране конфиденциальности (определение перечня
+          КТ, ограничение доступа, учёт лиц, регулирование отношений с работниками
+          и контрагентами, нанесение грифа).
+        - ФЗ-98 ст. 11 — ознакомление работников с установленным режимом КТ
+          под расписку.
+        - ГК РФ ст. 1465 — секрет производства (ноу-хау).
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска и не подставляй нормы вместо текста.
+        - Ключевой вопрос: содержит ли NDA явную отсылку к режиму КТ
+          и его элементам, или это лишь договорная конфиденциальность
+          без признаков КТ-режима?
+        - Различай:
+          1) Соответствие определения ст. 3 ФЗ-98 (три признака КТ);
+          2) Введение режима КТ (ст. 10 ФЗ-98);
+          3) Ознакомление работников с перечнем КТ (ст. 11 ФЗ-98).
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Упоминание «коммерческой тайны» и/или отсылку к ФЗ-98.
+        2. Соответствие определения признакам КТ по ст. 3 ФЗ-98
+           (неизвестность третьим лицам, отсутствие свободного доступа,
+           коммерческая ценность).
+        3. Введение режима КТ (перечень КТ, ограничение доступа, гриф).
+        4. Требование ознакомления работников получателя с перечнем КТ.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Не подставляй нормы закона вместо текста договора.
+        3. Если параметр определяется через отсылку к иному документу —
+           это считается "defined", в details укажи ссылку.
+        4. Если условие не указано в тексте прямо и нет отсылки —
+           статус = "not_defined", текст = "Данные не определены".
+        5. Не используй "None", "null" или пустые строки — вместо них применяй
+           "not_defined" для статусов и "Данные не определены" для текстовых полей.
+        6. В evidence включай только дословные цитаты из текста договора.
+        7. Верни РОВНО один валидный JSON-объект со всеми 8 ключами, пригодный
+           для парсинга через json.loads без предварительной обработки. Без markdown,
+           без ```json, без комментариев, без текста до или после. Начни ответ
+           сразу с { и закончи }.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — полное соответствие ФЗ-98:
+        Фрагмент:
+        "Информация, передаваемая по настоящему Соглашению, является
+        коммерческой тайной в смысле ФЗ-98 «О коммерческой тайне»:
+        она не известна третьим лицам, не находится в свободном доступе
+        и имеет коммерческую ценность. Раскрывающая сторона ввела в отношении
+        неё режим коммерческой тайны, включая утверждение перечня КТ
+        (Приложение №1), ограничение доступа, нанесение грифа «Коммерческая
+        тайна» на материальные носители и ознакомление работников
+        с перечнем под расписку."
+
+        Ответ:
+        {
+          "kt_regime_definition_status": "defined",
+          "kt_regime_definition_details": "информация является коммерческой тайной по ФЗ-98: не известна третьим лицам, не в свободном доступе, имеет коммерческую ценность",
+          "kt_regime_introduced_status": "defined",
+          "kt_regime_introduced_details": "введён режим КТ: перечень КТ (Приложение №1), ограничение доступа, гриф «Коммерческая тайна»",
+          "kt_regime_employee_acknowledgment_status": "defined",
+          "kt_regime_employee_acknowledgment_details": "ознакомление работников с перечнем КТ под расписку",
+          "evidence": [
+            {
+              "clause_ref": "п. 1.2",
+              "quote": "Информация, передаваемая по настоящему Соглашению, является коммерческой тайной в смысле ФЗ-98 «О коммерческой тайне»..."
+            }
+          ]
+        }
+
+        Пример 2 — договорная конфиденциальность без КТ:
+        Фрагмент:
+        "Стороны обязуются хранить информацию в тайне."
+
+        Ответ:
+        {
+          "kt_regime_definition_status": "not_defined",
+          "kt_regime_definition_details": "Данные не определены",
+          "kt_regime_introduced_status": "not_defined",
+          "kt_regime_introduced_details": "Данные не определены",
+          "kt_regime_employee_acknowledgment_status": "not_defined",
+          "kt_regime_employee_acknowledgment_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        Проверь, что все 8 ключей (7 полей + evidence) присутствуют в JSON:
+        1. Есть ли упоминание коммерческой тайны / ФЗ-98?
+        2. Соответствует ли определение признакам КТ по ст. 3 ФЗ-98?
+        3. Введён ли режим КТ (перечень, ограничение доступа, гриф)?
+        4. Есть ли требование ознакомления работников?
+        5. Все ли статус-поля содержат только значения из allowed_values?
+        6. Если прямой цитаты и отсылки нет — статус = "not_defined", details = "Данные не определены".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "kt_regime_definition_status": "<defined / not_defined>",
+          "kt_regime_definition_details": "<текст или 'Данные не определены'>",
+          "kt_regime_introduced_status": "<defined / not_defined>",
+          "kt_regime_introduced_details": "<текст или 'Данные не определены'>",
+          "kt_regime_employee_acknowledgment_status": "<defined / not_defined>",
+          "kt_regime_employee_acknowledgment_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 8
+      temperature: 0.0
+      max_tokens: 950
+
+    retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "коммерческая тайна режим коммерческой тайны ФЗ-98 секрет производства ноу-хау перечень коммерческой тайны ознакомление работников обладатель информации trade secret"
+      retrieval_profile: "confidentiality_check"
+      preferred_unit_types:
+        - definition
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - definitions
+        - obligations
+        - boilerplate
+      negative_keywords:
+        - "исключения из конфиденциальности"
+        - "общедоступная информация"
+        - "независимо разработана"
+        - "срок действия соглашения"
+        - "штраф за разглашение"
+        - "возврат носителей"
+        - "в целях настоящего Соглашения понимается"
+      position_bias:
+        preferred_range: [0.05, 0.45]
+        boost: 0.35
+        scope: segment
+      context_k: 8
+      max_chunks: 10
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "definitions"
+        - "obligations"
+        - "boilerplate"
+      confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.12
+
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 700
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 1000
+
+      compact_output: false
+
+      presence_signal:
+        field: "kt_regime_compliance_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из NDA сведения о соответствии
+        договора требованиям ФЗ-98 «О коммерческой тайне»: определение КТ
+        (ст. 3), введение режима КТ (ст. 10) и ознакомление работников (ст. 11).
+        Не анализируй общие исключения из конфиденциальности, меры защиты
+        (в широком смысле), ответственность, срок или порядок разрешения споров.
+        Не оценивай риски.
+        Анализируй только текст договора.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие 7 полей + evidence (всего 8 ключей):
+
+        0. kt_regime_compliance_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (kt_regime_definition_status, kt_regime_introduced_status,
+              kt_regime_employee_acknowledgment_status) ≠ "not_defined";
+           - "missing" — если все три содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - kt_regime_definition_status = "not_defined";
+           - kt_regime_introduced_status = "not_defined";
+           - kt_regime_employee_acknowledgment_status = "not_defined";
+           - соответствующие *_details = "Данные не определены";
+           - не выполняй остальные шаги.
+
+        1. kt_regime_definition_status — "defined" или "not_defined".
+           - "defined" — если в тексте прямо указано, что информация является
+             коммерческой тайной в смысле ФЗ-98, и/или приведены признаки КТ
+             по ст. 3 (неизвестность третьим лицам, отсутствие свободного
+             доступа, коммерческая ценность);
+           - "not_defined" — если признаков КТ нет.
+
+        2. kt_regime_definition_details — формулировка признаков КТ.
+
+        3. kt_regime_introduced_status — "defined" или "not_defined".
+           - "defined" — если в тексте прямо указано введение режима КТ
+             и/или его элементов (перечень КТ, ограничение доступа, гриф);
+           - "not_defined" — если режим КТ не вводится.
+
+        4. kt_regime_introduced_details — формулировка элементов режима КТ.
+
+        5. kt_regime_employee_acknowledgment_status — "defined" или "not_defined".
+           - "defined" — если прямо указано требование ознакомления работников
+             получателя с перечнем КТ под расписку (ст. 11 ФЗ-98);
+           - "not_defined" — если такого требования нет.
+
+        6. kt_regime_employee_acknowledgment_details — формулировка требования.
+
+        Если условие отсутствует в тексте и нет отсылки к документу:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <context_rules>
+        - Перед остальными полями заполни kt_regime_compliance_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details = "Данные не определены".
+        - Используй только текст договора.
+        - kt_regime_definition: ищи прямые формулировки признаков КТ по ст. 3
+          ФЗ-98 («не известна третьим лицам», «нет свободного доступа»,
+          «коммерческая ценность», «в смысле ФЗ-98»).
+        - kt_regime_introduced: ищи введение режима КТ («введён режим КТ»,
+          «утверждён перечень КТ», «нанесение грифа», «ограничение доступа»).
+        - kt_regime_employee_acknowledgment: ищи «ознакомление работников
+          под расписку», «ознакомить сотрудников с перечнем КТ».
+        - Если в разных фрагментах указаны разные данные и конфликт нельзя
+          разрешить по тексту — статус → "not_defined", текстовое поле → "Не удалось определить".
+        - Не подставляй нормы закона, обычную практику или предположения вместо текста договора.
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни упоминания коммерческой тайны, ни отсылки к ФЗ-98,
+           ни признаков КТ, ни режима КТ.
+           → presence = "missing";
+             все *_status = "not_defined";
+             все *_details = "Данные не определены".
+
+        2. Упоминание КТ без введения режима.
+           Указано, что информация является коммерческой тайной,
+           но не перечислены элементы режима КТ (ст. 10 ФЗ-98).
+           → presence = "present";
+             kt_regime_definition_status = "defined";
+             kt_regime_introduced_status = "not_defined";
+             kt_regime_employee_acknowledgment_status = "not_defined";
+             соответствующие *_details = "Данные не определены".
+
+        3. Противоречие между фрагментами.
+           В одном пункте указано, что информация является КТ,
+           в другом — что она не подпадает под режим КТ.
+           → presence = "unclear";
+             kt_regime_definition_status = "not_defined";
+             kt_regime_definition_details = "Не удалось определить".
+
+        4. Полное соответствие ФЗ-98.
+           Присутствуют все элементы: определение КТ, режим КТ,
+           ознакомление работников.
+           → presence = "present";
+             все три *_status = "defined".
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для kt_regime_compliance_check_presence используй только: "present", "missing", "unclear".
+        - Для всех *_status используй только: "defined" или "not_defined".
+        - Fallback при отсутствии данных:
+          * все *_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
+      fields:
+        - name: "kt_regime_compliance_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие соответствия NDA требованиям ФЗ-98 (определение КТ + режим КТ). Внутреннее агрегатное signal-поле."
+          required: true
+
+        - name: "kt_regime_definition_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
+          description: "Статус соответствия определения конфиденциальной информации признакам КТ по ст. 3 ФЗ-98."
+          required: true
+
+        - name: "kt_regime_definition_details"
+          type: "string"
+          presentation: "fact"
+          label: "Определение КТ"
+          description: "Формулировка признаков КТ (неизвестность третьим лицам, отсутствие свободного доступа, коммерческая ценность) и/или отсылки к ФЗ-98."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+
+        - name: "kt_regime_introduced_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
+          description: "Статус введения режима КТ и его элементов (ст. 10 ФЗ-98)."
+          required: true
+
+        - name: "kt_regime_introduced_details"
+          type: "string"
+          presentation: "fact"
+          label: "Режим КТ"
+          description: "Перечень элементов режима КТ: перечень КТ, ограничение доступа, гриф «Коммерческая тайна»."
+          required: true
+          display_in_grid: true
+          display_priority: 2
+
+        - name: "kt_regime_employee_acknowledgment_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "medium"
+          allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
+          description: "Статус требования ознакомления работников с перечнем КТ (ст. 11 ФЗ-98)."
+          required: true
+
+        - name: "kt_regime_employee_acknowledgment_details"
+          type: "string"
+          presentation: "fact"
+          label: "Ознакомление работников"
+          description: "Формулировка требования ознакомления работников получателя с перечнем КТ под расписку."
+          required: false
+          display_in_grid: false
+
+      store_payload: true
+
+  - id: negotiation_confidentiality_check
+    name: "Конфиденциальность процесса переговоров и промежуточных договорённостей"
+    description: >
+      Фактографическая проверка наличия в NDA оговорки о конфиденциальности
+      самого процесса переговоров: защищён ли факт их ведения, содержание,
+      обмен документами (term sheets, LOI, drafts), промежуточные условия
+      и результаты. Отдельно от конфиденциальности самого NDA. Критично
+      для M&A, инвестиционных сделок и стратегических партнёрств: утечка
+      факта переговоров может сорвать сделку, привести к появлению
+      конкурирующего покупателя и нанести репутационный вред.
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "medium"
+    severity_if_pass: "pass"
+    severity_if_fail: "medium"
+    severity_if_unclear: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "переговоры конфиденциальны"
+        - "факт переговоров"
+        - "содержание переговоров"
+        - "ход переговоров"
+        - "преддоговорные переговоры"
+        - "преддоговорные отношения"
+        - "промежуточные договорённости"
+        - "term sheet"
+        - "letter of intent"
+        - "LOI конфиденциально"
+        - "проект договора конфиденциально"
+        - "drafts confidential"
+        - "negotiations confidential"
+        - "course of negotiations"
+        - "discussions confidential"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(факт|ход|содержани[ея])\\s+переговоро"
+        - "(?i)преддоговорн[а-яё]+\\s+отношени"
+        - "(?i)term\\s+sheet"
+        - "(?i)letter\\s+of\\s+intent"
+        - "(?i)negotiations?\\s+(shall\\s+be\\s+)?confidential"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется соглашение о неразглашении (NDA)
+        (ГК РФ ст. 434.1 «Переговоры о заключении договора»; ФЗ-98 «О коммерческой
+        тайне»; ст. 421 ГК РФ).
+        Проверяется только один вопрос: содержит ли NDA оговорку
+        о конфиденциальности процесса переговоров, отдельно от конфиденциальности
+        самого NDA и от конфиденциальности передаваемой информации.
+
+        Нормативный ориентир:
+        - ст. 434.1 ГК РФ — специальная норма о преддоговорных переговорах.
+          П. 4: сторона, получившая в ходе переговоров конфиденциальную
+          информацию, обязана не раскрывать и не использовать её для своих
+          целей независимо от того, был ли заключён договор.
+        - ст. 431.2 ГК РФ — заверения об обстоятельствах (распространяется
+          на преддоговорные заверения).
+        - ст. 421 ГК РФ — свобода договора: стороны вправе прямо установить
+          режим конфиденциальности переговоров, включая сам факт их ведения.
+        - В M&A и инвестиционной практике оговорка о конфиденциальности
+          переговоров (negotiation confidentiality) — стандарт, предотвращающий
+          утечку факта сделки.
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска и не подставляй нормы вместо текста.
+        - Различай три самостоятельных предмета:
+          1) Конфиденциальность переговоров (факт, ход, содержание, документы);
+          2) Конфиденциальность самого NDA (факт заключения, условия) —
+             проверяется отдельным чеком;
+          3) Конфиденциальность передаваемой информации — тоже отдельно.
+        - В этом чеке фиксируется ТОЛЬКО пункт 1.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Наличие оговорки о конфиденциальности процесса переговоров.
+        2. Объём защиты: что именно защищено (факт ведения переговоров,
+           содержание, обмен документами, промежуточные договорённости,
+           условия term sheet / LOI / draft).
+        3. Срок действия обязательств по конфиденциальности переговоров
+           (может отличаться от срока NDA).
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Не подставляй нормы закона вместо текста договора.
+        3. Если параметр определяется через отсылку к иному документу —
+           это считается "defined", в details укажи ссылку.
+        4. Если условие не указано в тексте прямо и нет отсылки —
+           статус = "not_defined", текст = "Данные не определены".
+        5. Не используй "None", "null" или пустые строки — вместо них применяй
+           "not_defined" для статусов и "Данные не определены" для текстовых полей.
+        6. В evidence включай только дословные цитаты из текста договора.
+        7. Верни РОВНО один валидный JSON-объект со всеми 7 ключами, пригодный
+           для парсинга через json.loads без предварительной обработки. Без markdown,
+           без ```json, без комментариев, без текста до или после. Начни ответ
+           сразу с { и закончи }.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — полная оговорка:
+        Фрагмент:
+        "Стороны обязуются не раскрывать третьим лицам факт ведения, содержание
+        и ход переговоров о заключении настоящего Соглашения, а также любые
+        промежуточные договорённости, условия term sheet, letter of intent
+        и проекты договоров, подготовленные в ходе переговоров. Указанные
+        обязательства действуют в течение 3 (трёх) лет с момента прекращения
+        переговоров независимо от того, было ли достигнуто соглашение."
+
+        Ответ:
+        {
+          "negotiation_confidentiality_status": "defined",
+          "negotiation_confidentiality_details": "обязанность не раскрывать третьим лицам факт ведения, содержание и ход переговоров, промежуточные договорённости, term sheet, LOI, проекты договоров",
+          "negotiation_scope_status": "defined",
+          "negotiation_scope_details": "факт ведения переговоров; содержание и ход; промежуточные договорённости; term sheet; letter of intent; проекты договоров",
+          "negotiation_duration_status": "defined",
+          "negotiation_duration_details": "3 года с момента прекращения переговоров независимо от того, было ли достигнуто соглашение",
+          "evidence": [
+            {
+              "clause_ref": "п. 2.5",
+              "quote": "Стороны обязуются не раскрывать третьим лицам факт ведения, содержание и ход переговоров о заключении настоящего Соглашения, а также любые промежуточные договорённости, условия term sheet, letter of intent и проекты договоров..."
+            }
+          ]
+        }
+
+        Пример 2 — оговорка отсутствует (есть только защита информации):
+        Фрагмент:
+        "Стороны обязуются не разглашать конфиденциальную информацию, полученную
+        в рамках настоящего Соглашения."
+
+        Ответ:
+        {
+          "negotiation_confidentiality_status": "not_defined",
+          "negotiation_confidentiality_details": "Данные не определены",
+          "negotiation_scope_status": "not_defined",
+          "negotiation_scope_details": "Данные не определены",
+          "negotiation_duration_status": "not_defined",
+          "negotiation_duration_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        Проверь, что все 7 ключей (6 полей + evidence) присутствуют в JSON:
+        1. Найдена ли прямая цитата о конфиденциальности переговоров?
+        2. Определён ли объём защиты (факт / содержание / документы)?
+        3. Указан ли срок действия обязательств?
+        4. Отличается ли эта оговорка от конфиденциальности самого NDA
+           и от защиты передаваемой информации?
+        5. Все ли статус-поля содержат только значения из allowed_values?
+        6. Если прямой цитаты и отсылки нет — статус = "not_defined", details = "Данные не определены".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "negotiation_confidentiality_status": "<defined / not_defined>",
+          "negotiation_confidentiality_details": "<текст или 'Данные не определены'>",
+          "negotiation_scope_status": "<defined / not_defined>",
+          "negotiation_scope_details": "<текст или 'Данные не определены'>",
+          "negotiation_duration_status": "<defined / not_defined>",
+          "negotiation_duration_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 7
+      temperature: 0.0
+      max_tokens: 850
+
+    retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "переговоры конфиденциальны факт переговоров содержание переговоров ход переговоров преддоговорные переговоры преддоговорные отношения промежуточные договорённости term sheet letter of intent LOI проект договора drafts negotiations confidential course of negotiations"
+      retrieval_profile: "confidentiality_check"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+        - representations
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - boilerplate
+      negative_keywords:
+        - "конфиденциальная информация означает"
+        - "определение конфиденциальной информации"
+        - "меры защиты информации"
+        - "срок действия соглашения"
+        - "штраф за разглашение"
+        - "неустойка"
+        - "возврат носителей"
+        - "в целях настоящего Соглашения понимается"
+      position_bias:
+        preferred_range: [0.20, 0.75]
+        boost: 0.30
+        scope: segment
+      context_k: 7
+      max_chunks: 9
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "boilerplate"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 30
+      max_snippet_length: 650
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 950
+
+      compact_output: false
+
+      presence_signal:
+        field: "negotiation_confidentiality_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из NDA сведения о конфиденциальности
+        процесса переговоров (факт, ход, содержание, документы) — отдельно
+        от конфиденциальности самого NDA и от защиты передаваемой информации.
+        Не анализируй определение конфиденциальной информации, общие исключения
+        из режима, меры защиты, ответственность или срок действия NDA.
+        Не оценивай риски.
+        Анализируй только текст договора.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие 6 полей + evidence (всего 7 ключей):
+
+        0. negotiation_confidentiality_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (negotiation_confidentiality_status, negotiation_scope_status,
+              negotiation_duration_status) ≠ "not_defined";
+           - "missing" — если все три содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - negotiation_confidentiality_status = "not_defined";
+           - negotiation_scope_status = "not_defined";
+           - negotiation_duration_status = "not_defined";
+           - соответствующие *_details = "Данные не определены";
+           - не выполняй остальные шаги.
+
+        1. negotiation_confidentiality_status — "defined" или "not_defined".
+           - "defined" — если в тексте прямо указана обязанность не раскрывать
+             факт ведения переговоров и/или их содержание и/или промежуточные
+             документы;
+           - "not_defined" — если такой оговорки нет.
+
+        2. negotiation_confidentiality_details — формулировка обязанности.
+
+        3. negotiation_scope_status — "defined" или "not_defined".
+           - "defined" — если прямо указано, что именно защищено
+             (факт, содержание, ход, документы, промежуточные условия);
+           - "not_defined" — если объём защиты не раскрыт.
+
+        4. negotiation_scope_details — перечень защищаемых элементов.
+
+        5. negotiation_duration_status — "defined" или "not_defined".
+           - "defined" — если прямо указан срок действия обязательств
+             по конфиденциальности переговоров (может отличаться от срока NDA);
+           - "not_defined" — если срок не указан.
+
+        6. negotiation_duration_details — формулировка срока.
+
+        Если условие отсутствует в тексте и нет отсылки к документу:
+        - статус = "not_defined"
+        - текст = "Данные не определены"
+        </task>
+
+        <context_rules>
+        - Перед остальными полями заполни negotiation_confidentiality_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details = "Данные не определены".
+        - Используй только текст договора.
+        - negotiation_confidentiality: ищи «не раскрывать факт переговоров»,
+          «содержание переговоров конфиденциально», «ход переговоров»,
+          «преддоговорные отношения конфиденциальны», «negotiations shall be confidential».
+        - negotiation_scope: ищи перечень — «факт», «содержание», «ход»,
+          «term sheet», «letter of intent», «LOI», «проекты договоров», «drafts».
+        - negotiation_duration: ищи срок действия именно этой оговорки
+          («в течение N лет после прекращения переговоров», «независимо
+          от того, был ли заключён договор»).
+        - Не путай с конфиденциальностью самого NDA (факт заключения) —
+          это отдельная тема и отдельный check.
+        - Если в разных фрагментах указаны разные данные и конфликт нельзя
+          разрешить по тексту — статус → "not_defined", текстовое поле → "Не удалось определить".
+        - Не подставляй нормы закона, обычную практику или предположения вместо текста договора.
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет оговорки о конфиденциальности переговоров
+           (защищена только передаваемая информация).
+           → presence = "missing";
+             все три *_status = "not_defined";
+             все *_details = "Данные не определены".
+
+        2. Защищён только факт переговоров без деталей.
+           Указано «факт переговоров конфиденциален», но не определены
+           содержание, документы и срок.
+           → presence = "present";
+             negotiation_confidentiality_status = "defined";
+             negotiation_scope_status = "not_defined";
+             negotiation_duration_status = "not_defined";
+             соответствующие *_details = "Данные не определены".
+
+        3. Противоречие между фрагментами.
+           В одном пункте указано, что переговоры конфиденциальны,
+           в другом — что стороны вправе публично упоминать факт
+           переговоров без раскрытия содержания.
+           → presence = "unclear";
+             negotiation_confidentiality_status = "not_defined";
+             negotiation_confidentiality_details = "Не удалось определить".
+
+        4. Отсылка на отдельный документ / регламент.
+           Конфиденциальность переговоров определяется отдельным
+           соглашением о ведении переговоров (например, term sheet
+           с оговоркой о конфиденциальности).
+           → presence = "present";
+             negotiation_confidentiality_status = "defined";
+             negotiation_confidentiality_details содержит формулировку вида
+             «определяется Соглашением о ведении переговоров».
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для negotiation_confidentiality_check_presence используй только: "present", "missing", "unclear".
+        - Для всех *_status используй только: "defined" или "not_defined".
+        - Fallback при отсутствии данных:
+          * все *_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
+      fields:
+        - name: "negotiation_confidentiality_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие оговорки о конфиденциальности переговоров. Внутреннее агрегатное signal-поле."
+          required: true
+
+        - name: "negotiation_confidentiality_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
+          description: "Статус наличия оговорки о конфиденциальности переговоров."
+          required: true
+
+        - name: "negotiation_confidentiality_details"
+          type: "string"
+          presentation: "fact"
+          label: "Конфиденциальность переговоров"
+          description: "Формулировка обязанности не раскрывать факт, содержание, ход переговоров и промежуточные документы."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+
+        - name: "negotiation_scope_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "medium"
+          allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
+          description: "Статус раскрытия объёма защищаемых элементов (факт, содержание, документы, промежуточные условия)."
+          required: true
+
+        - name: "negotiation_scope_details"
+          type: "string"
+          presentation: "fact"
+          label: "Объём защиты"
+          description: "Перечень защищаемых элементов переговоров: факт, содержание, ход, term sheet, LOI, drafts, промежуточные договорённости."
+          required: true
+          display_in_grid: true
+          display_priority: 2
+
+        - name: "negotiation_duration_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "low"
+          allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
+          description: "Статус указания срока действия обязательств по конфиденциальности переговоров."
+          required: true
+
+        - name: "negotiation_duration_details"
+          type: "string"
+          presentation: "fact"
+          label: "Срок конфиденциальности переговоров"
+          description: "Срок действия обязательств по конфиденциальности переговоров (может отличаться от срока самого NDA)."
+          required: false
+          display_in_grid: false
+
+      store_payload: true
+
 # ════════════════════════════════════════════════════════════════════════════
 # БЛОК 5: DD_REQUEST_TEMPLATES
 # Читается: DDRequestTemplateLoader
