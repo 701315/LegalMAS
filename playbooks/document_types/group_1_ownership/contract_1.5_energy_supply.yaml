@@ -930,9 +930,13 @@ checks_v8:
       mode: "hybrid"
       compact_output: false
 
+      presence_signal:
+        field: "parties_authority_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_max_tokens: 1100
-
 
       llm_prompt_extraction: |
         <role>
@@ -948,6 +952,21 @@ checks_v8:
         </context>
 
         <task>
+        0. parties_authority_presence:
+           Агрегатное signal-поле — наличие регулирования по теме идентификации сторон.
+           - "present" — если хотя бы одно из содержательных полей
+             (eso_details_status, subscriber_details_status) = "defined";
+           - "missing" — если оба содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - eso_details_status = "not_defined";
+           - subscriber_details_status = "not_defined";
+           - все enum-поля = "not_defined";
+           - все *_value / *_signatory = "Данные не определены";
+           - не выполняй остальные шаги.
+
         Заполни строго следующие поля:
 
         1. eso_details_status — "defined" или "not_defined".
@@ -967,18 +986,50 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни parties_authority_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details/*_display = соответствующий fallback.
         - Используй только текст договора.
         - Не делай предположений о типе стороны без прямого текста.
         - Если из текста видно только, что это ЭСО, но не видно её точный тип, используй "unclear".
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы (стороны не идентифицированы).
+           → presence = "missing"; все *_status = "not_defined"; все *_value/*_signatory = "Данные не определены".
+
+        2. Неполное раскрытие темы (есть наименование, но нет реквизитов / подписанта).
+           → presence = "present"; соответствующие *_status = "not_defined"; не найденные текстовые поля = "Данные не определены".
+
+        3. Противоречие между фрагментами (разные наименования или реквизиты стороны в разных частях договора).
+           → presence = "unclear"; соответствующий *_status = "not_defined"; соответствующие *_value = "Не удалось определить".
+
+        4. Реквизиты вынесены в приложение / отдельный документ, в тексте договора прямой отсылки нет.
+           → presence = "present"; соответствующий *_status = "defined"; *_value = "Реквизиты вынесены в приложение".
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для parties_authority_presence используй только: "present", "missing", "unclear".
+        - Для status-полей используй только: "defined" или "not_defined".
+        - Для enum-полей используй только допустимые значения из [ФОРМАТ ОТВЕТА].
+        - Fallback при отсутствии данных: "Данные не определены" / "not_defined".
+        - Fallback при противоречии или неоднозначности: "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
       fields:
+        - name: "parties_authority_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по теме идентификации сторон. Внутреннее агрегатное signal-поле."
+          required: true
         - name: "eso_details_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения реквизитов энергоснабжающей организации."
           required: true
@@ -993,6 +1044,7 @@ checks_v8:
         - name: "eso_type"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["guaranteeing_supplier", "sales_company", "network_org", "unclear", "not_defined"]
           description: "Тип энергоснабжающей организации."
           required: true
@@ -1006,12 +1058,14 @@ checks_v8:
         - name: "eso_signatory_basis"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["charter", "poa", "order", "other", "not_defined"]
           description: "Основание полномочий подписанта ЭСО."
           required: true
         - name: "subscriber_details_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения реквизитов абонента."
           required: true
@@ -1026,6 +1080,7 @@ checks_v8:
         - name: "subscriber_type"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["legal_entity", "individual", "ip", "tszh", "uk", "not_defined"]
           description: "Тип абонента."
           required: true
@@ -1039,6 +1094,7 @@ checks_v8:
         - name: "subscriber_signatory_basis"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["charter", "poa", "order", "other", "not_defined"]
           description: "Основание полномочий подписанта абонента."
           required: true
@@ -1272,9 +1328,13 @@ checks_v8:
       mode: "hybrid"
       compact_output: false
 
+      presence_signal:
+        field: "subject_delivery_point_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_max_tokens: 1300
-
 
       llm_prompt_extraction: |
         <role>
@@ -1290,6 +1350,24 @@ checks_v8:
         </context>
 
         <task>
+        0. subject_delivery_point_presence:
+           Агрегатное signal-поле — наличие регулирования по теме предмета договора.
+           - "present" — если хотя бы одно из содержательных полей
+             (energy_type_status, delivery_point_status, agreed_volume_status,
+             max_capacity_status) = "defined";
+           - "missing" — если все содержательные поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - energy_type_status = "not_defined";
+           - delivery_point_status = "not_defined";
+           - agreed_volume_status = "not_defined";
+           - max_capacity_status = "not_defined";
+           - все enum-поля = "not_defined";
+           - все *_details / *_value = "Данные не определены";
+           - не выполняй остальные шаги.
+
         Заполни строго следующие поля:
 
         1. energy_type_status — "defined" или "not_defined".
@@ -1311,30 +1389,64 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни subject_delivery_point_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details/*_value = соответствующий fallback.
         - Используй только текст договора.
         - Не подставляй технические нормы.
         - Если вид энергии назван прямо, но остальные параметры отсутствуют, заполняй только найденные поля.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы (предмет не раскрыт, только общее «поставка энергии»).
+           → presence = "missing"; все *_status = "not_defined"; все *_details / *_value = "Данные не определены".
+
+        2. Неполное раскрытие (вид энергии назван, но точка поставки, объём и мощность не указаны).
+           → presence = "present"; energy_type_status = "defined"; остальные *_status = "not_defined".
+
+        3. Противоречие между фрагментами (разные объёмы или мощности в разных пунктах / приложениях).
+           → presence = "unclear"; соответствующий *_status = "not_defined"; соответствующий *_details / *_value = "Не удалось определить".
+
+        4. Прямое исключение параметра (например, «объём поставки не лимитируется», «точка поставки не определена договором»).
+           → presence = "present"; соответствующий *_status = "defined"; соответствующий *_details / *_value = цитата с прямым исключением.
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для subject_delivery_point_presence используй только: "present", "missing", "unclear".
+        - Для status-полей используй только: "defined" или "not_defined".
+        - Для energy_type_code используй только: "electricity", "heat", "gas", "water", "other", "not_defined".
+        - Fallback при отсутствии данных: "Данные не определены" / "not_defined".
+        - Fallback при противоречии или неоднозначности: "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
       fields:
+        - name: "subject_delivery_point_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по теме предмета договора (вид энергии, точка поставки, объём, мощность). Внутреннее агрегатное signal-поле."
+          required: true
         - name: "energy_type_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения вида энергии."
           required: true
         - name: "energy_type_code"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["electricity", "heat", "gas", "water", "other", "not_defined"]
           description: "Вид энергии."
           required: true
         - name: "delivery_point_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения точки поставки."
           required: true
@@ -1349,6 +1461,7 @@ checks_v8:
         - name: "boundary_act_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус упоминания акта разграничения балансовой принадлежности."
           required: true
@@ -1362,6 +1475,7 @@ checks_v8:
         - name: "agreed_volume_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения согласованного объёма."
           required: true
@@ -1376,6 +1490,7 @@ checks_v8:
         - name: "max_capacity_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения максимальной мощности."
           required: true
@@ -1390,6 +1505,7 @@ checks_v8:
         - name: "excess_consumption_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения последствий превышения объёма или мощности."
           required: true
@@ -1611,9 +1727,13 @@ checks_v8:
       mode: "hybrid"
       compact_output: false
 
+      presence_signal:
+        field: "tariff_payment_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_max_tokens: 1200
-
 
       llm_prompt_extraction: |
         <role>
@@ -1631,45 +1751,147 @@ checks_v8:
         <task>
         Заполни строго следующие поля:
 
-        1. tariff_status — "defined" или "not_defined".
-        2. tariff_type — fixed_amount / regulatory_reference / not_defined.
-        3. tariff_details — тариф или ссылка на регулирующий орган.
-        4. tariff_rate_type_status — "defined" или "not_defined".
-        5.tariff_rate_type_code — single_rate / two_rate / three_rate / not_defined.
-        6. payment_deadline_status — "defined" или "not_defined".
-        7. payment_deadline_details — срок оплаты.
-        8. penalty_status — "defined" или "not_defined".
-        9. penalty_details — ставка пени за просрочку оплаты.
-        10. disconnection_on_non_payment_status — "defined" или "not_defined".
-        11. disconnection_on_non_payment_details — условие ограничения или отключения при неоплате.
+        0. tariff_payment_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (tariff_status, payment_deadline_status, penalty_status,
+              disconnection_on_non_payment_status) ≠ "not_defined";
+           - "missing" — если все четыре содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
 
-        Если данные отсутствуют в тексте:
-        - статус = "not_defined"
-        - текстовое поле = "Данные не определены"
+           Если presence = "missing":
+           - tariff_status = "not_defined";
+           - payment_deadline_status = "not_defined";
+           - penalty_status = "not_defined";
+           - disconnection_on_non_payment_status = "not_defined";
+           - tariff_details = "Данные не определены";
+           - payment_deadline_details = "Данные не определены";
+           - penalty_details = "Данные не определены";
+           - disconnection_on_non_payment_details = "Данные не определены";
+           - не выполняй остальные шаги.
+
+        1. tariff_status:
+           - "defined" — если в тексте прямо указан тариф числом или есть прямая ссылка
+             на регулирующий орган (например, "устанавливается Комитетом по тарифам");
+           - "not_defined" — если тариф прямо не указан или его нельзя надёжно определить.
+
+        2. tariff_type:
+           - "fixed_amount" — если указана фиксированная сумма;
+           - "regulatory_reference" — если есть ссылка на регулятора;
+           - "not_defined" — если тип не определён.
+
+        3. tariff_details:
+           Краткое user-facing описание тарифа или ссылки на регулятор.
+           Если данных нет — "Данные не определены".
+
+        4. tariff_rate_type_status:
+           - "defined" — если прямо указан тип тарифной структуры (одноставочный, двухставочный и т.д.);
+           - "not_defined" — если не указан.
+
+        5. tariff_rate_type_code:
+           - "single_rate", "two_rate", "three_rate" — согласно тексту;
+           - "not_defined" — если не указан.
+
+        6. payment_deadline_status:
+           - "defined" — если прямо указан срок оплаты (число, период);
+           - "not_defined" — если не указан.
+
+        7. payment_deadline_details:
+           Краткое user-facing описание срока оплаты.
+           Если данных нет — "Данные не определены".
+
+        8. penalty_status:
+           - "defined" — если прямо указана ставка пени или неустойки за просрочку;
+           - "not_defined" — если не указана.
+
+        9. penalty_details:
+           Краткое user-facing описание ставки пени.
+           Если данных нет — "Данные не определены".
+
+        10. disconnection_on_non_payment_status:
+            - "defined" — если прямо указано право ЭСО на ограничение/отключение при неоплате;
+            - "not_defined" — если не указано.
+
+        11. disconnection_on_non_payment_details:
+            Краткое user-facing описание условия отключения.
+            Если данных нет — "Данные не определены".
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни tariff_payment_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details = соответствующий fallback.
         - Используй только текст договора.
         - Если тариф дан через ссылку на регулятора, не пытайся вычислить конкретную цену.
         - Не смешивай общее право ограничения при неоплате с полной процедурой ограничения — здесь извлекай только сам факт и условие.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни тарифа, ни сроков оплаты, ни пеней.
+           → presence = "missing";
+             все *_status = "not_defined";
+             все *_details = соответствующий fallback.
+
+        2. Тариф не раскрыт (ссылка на регулятора без конкретики в договоре).
+           → presence = "present";
+             tariff_status = "defined";
+             tariff_type = "regulatory_reference";
+             tariff_details = ссылка из текста.
+
+        3. Противоречие в сроках или пенях.
+           → presence = "unclear";
+             соответствующий *_status = "not_defined";
+             *_details = "Не удалось определить".
+
+        4. Общая ссылка на закон вместо конкретных последствий.
+           "Стороны несут ответственность в соответствии с законодательством РФ".
+           → penalty_status = "not_defined";
+             disconnection_on_non_payment_status = "not_defined";
+             presence всё равно "present", если другие поля определены.
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для tariff_payment_presence используй только: "present", "missing", "unclear".
+        - Для статусных enum-полей используй только: "defined" или "not_defined".
+        - Fallback при отсутствии данных:
+          * tariff_details → "Данные не определены";
+          * payment_deadline_details → "Данные не определены";
+          * penalty_details → "Данные не определены";
+          * disconnection_on_non_payment_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "tariff_payment_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по тарифу и оплате. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "tariff_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения тарифа."
           required: true
+
         - name: "tariff_type"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["fixed_amount", "regulatory_reference", "not_defined"]
           description: "Тип указания тарифа."
           required: true
+
         - name: "tariff_details"
           type: "string"
           presentation: "fact"
@@ -1678,24 +1900,31 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 1
+
         - name: "tariff_rate_type_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения тарифной структуры."
           required: true
+
         - name: "tariff_rate_type_code"
           type: "string"
           presentation: "signal"
+          risk_weight: "low"
           allowed_values: ["single_rate", "two_rate", "three_rate", "not_defined"]
           description: "Тип тарифной структуры."
           required: true
+
         - name: "payment_deadline_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения срока оплаты."
           required: true
+
         - name: "payment_deadline_details"
           type: "string"
           presentation: "fact"
@@ -1704,12 +1933,15 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 2
+
         - name: "penalty_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения пени за просрочку оплаты."
           required: true
+
         - name: "penalty_details"
           type: "string"
           presentation: "fact"
@@ -1718,12 +1950,15 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 3
+
         - name: "disconnection_on_non_payment_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения права ограничения или отключения при неоплате."
           required: true
+
         - name: "disconnection_on_non_payment_details"
           type: "string"
           presentation: "fact"
@@ -1731,6 +1966,7 @@ checks_v8:
           description: "Условие ограничения или отключения при неоплате."
           required: false
           display_in_grid: false
+
       store_payload: true
 
   - id: metering_cluster
@@ -1934,9 +2170,13 @@ checks_v8:
       mode: "hybrid"
       compact_output: false
 
+      presence_signal:
+        field: "metering_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_max_tokens: 1200
-
 
       llm_prompt_extraction: |
         <role>
@@ -1955,49 +2195,141 @@ checks_v8:
         <task>
         Заполни строго следующие поля:
 
-        1. metering_procedure_status — "defined" или "not_defined".
-        2. meter_details_status — "defined" или "not_defined".
-        3. meter_details_value — тип, номер, дата поверки и иные реквизиты прибора учёта.
-        4. reading_submission_status — "defined" или "not_defined".
-        5. reading_submission_details — срок или порядок передачи показаний.
-        6. calculation_without_meter_status — "defined" или "not_defined".
-        7. calculation_without_meter_code — normative / calculated / not_defined.
-        8. verification_obligation_status — "defined" или "not_defined".
-        9. verification_obligation_details — обязанность по поверке прибора учёта
-           (кто, в какие сроки, за чей счёт) или "Данные не определены".
-        10. seal_tampering_status — "defined" или "not_defined".
-        11. seal_tampering_details — последствия повреждения пломбы или вмешательства.
-        
-        Если данные отсутствуют в тексте:
-        - статус = "not_defined"
-        - текстовое поле = "Данные не определены"
+        0. metering_presence:
+           Агрегатное signal-поле — наличие регулирования по теме учёта.
+           - "present" — если хотя бы одно из содержательных полей
+             (metering_procedure_status, meter_details_status, reading_submission_status,
+              calculation_without_meter_status) ≠ "not_defined";
+           - "missing" — если все четыре содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - metering_procedure_status = "not_defined";
+           - meter_details_status = "not_defined";
+           - reading_submission_status = "not_defined";
+           - calculation_without_meter_status = "not_defined";
+           - все *_details/*_value = соответствующий fallback;
+           - не выполняй остальные шаги.
+
+        1. metering_procedure_status:
+           - "defined" — если в тексте прямо описан порядок учёта потребления;
+           - "not_defined" — если порядок не указан.
+
+        2. meter_details_status:
+           - "defined" — если указаны реквизиты прибора (тип, номер, дата поверки);
+           - "not_defined" — если не указаны.
+
+        3. meter_details_value:
+           Краткое user-facing описание реквизитов прибора.
+           Если данных нет — "Данные не определены".
+
+        4. reading_submission_status:
+           - "defined" — если указан срок или порядок передачи показаний;
+           - "not_defined" — если не указан.
+
+        5. reading_submission_details:
+           Краткое user-facing описание порядка передачи показаний.
+           Если данных нет — "Данные не определены".
+
+        6. calculation_without_meter_status:
+           - "defined" — если указан метод расчёта при отсутствии/неисправности прибора;
+           - "not_defined" — если не указан.
+
+        7. calculation_without_meter_code:
+           - "normative" — расчёт по нормативу;
+           - "calculated" — расчётным способом (по мощности, среднему и т.п.);
+           - "not_defined" — если не указан.
+
+        8. verification_obligation_status:
+           - "defined" — если указана обязанность абонента по поверке;
+           - "not_defined" — если не указана.
+
+        9. verification_obligation_details:
+           Краткое user-facing описание обязанности по поверке.
+           Если данных нет — "Данные не определены".
+
+        10. seal_tampering_status:
+            - "defined" — если указаны последствия повреждения пломбы;
+            - "not_defined" — если не указаны.
+
+        11. seal_tampering_details:
+            Краткое user-facing описание последствий повреждения пломбы.
+            Если данных нет — "Данные не определены".
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни metering_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details/*_value = соответствующий fallback.
         - Используй только текст договора.
         - Если пломба упоминается как нарушение (безучётное потребление, хищение),
-        не включай это в ответ — такие случаи анализируются отдельно.
+          не включай это в ответ — такие случаи анализируются отдельно.
         - Не подставляй правила коммерческого учёта, если их нет в тексте.
         - normative = расчёт по нормативу.
         - calculated = расчётным способом по формуле, мощности, среднему потреблению и т.п.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни порядка учёта, ни реквизитов прибора, ни правил расчёта.
+           → presence = "missing";
+             все *_status = "not_defined";
+             все *_details/*_value = соответствующий fallback.
+
+        2. Неполное раскрытие темы (только общее упоминание "по приборам учёта").
+           → presence = "present";
+             metering_procedure_status = "defined";
+             остальные *_status = "not_defined".
+
+        3. Противоречие между фрагментами (разные методы расчёта или сроки).
+           → presence = "unclear";
+             соответствующий *_status = "not_defined";
+             *_details/*_value = "Не удалось определить".
+
+        4. Прямое исключение параметра (например, "расчёт только по нормативу").
+           → presence = "present";
+             соответствующий *_status = "defined";
+             *_details/*_value содержит цитату с исключением.
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для metering_presence используй только: "present", "missing", "unclear".
+        - Для статусных enum-полей используй только: "defined" или "not_defined".
+        - Fallback при отсутствии данных:
+          * meter_details_value, reading_submission_details, verification_obligation_details, seal_tampering_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details/*_value → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "metering_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по теме учёта потребления. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "metering_procedure_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения порядка учёта потребления."
           required: true
+
         - name: "meter_details_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания реквизитов прибора учёта."
           required: true
+
         - name: "meter_details_value"
           type: "string"
           presentation: "fact"
@@ -2006,12 +2338,15 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 1
+
         - name: "reading_submission_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения порядка передачи показаний."
           required: true
+
         - name: "reading_submission_details"
           type: "string"
           presentation: "fact"
@@ -2020,24 +2355,31 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 2
+
         - name: "calculation_without_meter_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения расчёта при отсутствии или неисправности прибора."
           required: true
+
         - name: "calculation_without_meter_code"
           type: "string"
           presentation: "signal"
+          risk_weight: "low"
           allowed_values: ["normative", "calculated", "not_defined"]
           description: "Метод расчёта при отсутствии или неисправности прибора учёта."
           required: true
+
         - name: "verification_obligation_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус обязанности по поверке прибора учёта."
           required: true
+
         - name: "verification_obligation_details"
           type: "string"
           presentation: "fact"
@@ -2045,12 +2387,15 @@ checks_v8:
           description: "Текст обязанности абонента по поверке прибора учёта."
           required: false
           display_in_grid: false
+
         - name: "seal_tampering_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения последствий повреждения пломбы."
           required: true
+
         - name: "seal_tampering_details"
           type: "string"
           presentation: "fact"
@@ -2058,6 +2403,7 @@ checks_v8:
           description: "Последствия повреждения пломбы или несанкционированного вмешательства."
           required: false
           display_in_grid: false
+
       store_payload: true
 
   - id: subscriber_obligations_cluster
@@ -2250,9 +2596,13 @@ checks_v8:
       mode: "hybrid"
       compact_output: false
 
+      presence_signal:
+        field: "subscriber_obligations_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_max_tokens: 1000
-
 
       llm_prompt_extraction: |
         <role>
@@ -2269,38 +2619,122 @@ checks_v8:
         <task>
         Заполни строго следующие поля:
 
-        1. network_maintenance_status — "defined" или "not_defined".
-        2. network_maintenance_details — обязанности по содержанию сетей и оборудования.
-        3. accident_notification_status — "defined" или "not_defined".
-        4. accident_notification_deadline — срок уведомления об аварии.
-        5. eso_inspection_right_status — "defined" или "not_defined".
-        6. sub_subscriber_status — "defined" или "not_defined".
-        7. sub_subscriber_regime — prohibited / permitted_with_consent / not_defined.
-        8. sub_subscriber_penalty_status — "defined" или "not_defined".
-        9. sub_subscriber_penalty_details — последствия несогласованного субабонентского подключения.
+        0. subscriber_obligations_presence:
+           Агрегатное signal-поле — наличие регулирования по теме обязанностей абонента.
+           - "present" — если хотя бы одно из содержательных полей
+             (network_maintenance_status, accident_notification_status,
+              sub_subscriber_status) ≠ "not_defined";
+           - "missing" — если все три содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
 
-        Если данные отсутствуют в тексте:
-        - статус = "not_defined"
-        - текстовое поле = "Данные не определены"
+           Если presence = "missing":
+           - network_maintenance_status = "not_defined";
+           - accident_notification_status = "not_defined";
+           - sub_subscriber_status = "not_defined";
+           - все *_details = соответствующий fallback;
+           - не выполняй остальные шаги.
+
+        1. network_maintenance_status:
+           - "defined" — если прямо указана обязанность содержать оборудование/сети;
+           - "not_defined" — если не указана.
+
+        2. network_maintenance_details:
+           Краткое user-facing описание обязанности.
+           Если данных нет — "Данные не определены".
+
+        3. accident_notification_status:
+           - "defined" — если указан срок уведомления об аварии;
+           - "not_defined" — если не указан.
+
+        4. accident_notification_deadline:
+           Краткое user-facing описание срока уведомления.
+           Если данных нет — "Данные не определены".
+
+        5. eso_inspection_right_status:
+           - "defined" — если указано право ЭСО на проверку;
+           - "not_defined" — если не указано.
+
+        6. sub_subscriber_status:
+           - "defined" — если указано условие о субабоненте (запрет/разрешение);
+           - "not_defined" — если не указано.
+
+        7. sub_subscriber_regime:
+           - "prohibited" — если запрещено;
+           - "permitted_with_consent" — если разрешено с согласия;
+           - "not_defined" — если не указано.
+
+        8. sub_subscriber_penalty_status:
+           - "defined" — если указаны последствия несогласованного подключения;
+           - "not_defined" — если не указаны.
+
+        9. sub_subscriber_penalty_details:
+           Краткое user-facing описание последствий.
+           Если данных нет — "Данные не определены".
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни subscriber_obligations_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details = соответствующий fallback.
         - Используй только текст договора.
         - "Допускается с согласия ЭСО" = permitted_with_consent.
         - "Запрещается", "не допускается" = prohibited.
         - Не анализируй последствия ограничения подачи — только последствия несогласованного подключения третьих лиц.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни обязанностей по содержанию, ни условий о субабоненте.
+           → presence = "missing";
+             все *_status = "not_defined";
+             все *_details = соответствующий fallback.
+
+        2. Неполное раскрытие темы (только общая ссылка на закон).
+           → presence = "present";
+             все *_status = "not_defined";
+             все *_details = "Данные не определены".
+
+        3. Противоречие между фрагментами (разные условия о субабоненте).
+           → presence = "unclear";
+             соответствующий *_status = "not_defined";
+             *_details = "Не удалось определить".
+
+        4. Прямое исключение обязанности (например, "ЭСО само обслуживает сети").
+           → presence = "present";
+             network_maintenance_status = "defined";
+             network_maintenance_details содержит цитату с исключением.
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для subscriber_obligations_presence используй только: "present", "missing", "unclear".
+        - Для статусных enum-полей используй только: "defined" или "not_defined".
+        - Fallback при отсутствии данных:
+          * network_maintenance_details, accident_notification_deadline, sub_subscriber_penalty_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "subscriber_obligations_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по теме обязанностей абонента. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "network_maintenance_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус обязанности абонента содержать сети и оборудование."
           required: true
+
         - name: "network_maintenance_details"
           type: "string"
           presentation: "fact"
@@ -2308,12 +2742,15 @@ checks_v8:
           description: "Обязанности абонента по содержанию энергопринимающего оборудования и внутренних сетей."
           required: false
           display_in_grid: false
+
         - name: "accident_notification_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения срока уведомления об аварии."
           required: true
+
         - name: "accident_notification_deadline"
           type: "string"
           presentation: "fact"
@@ -2322,30 +2759,39 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 1
+
         - name: "eso_inspection_right_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус права ЭСО на проверку оборудования абонента."
           required: true
+
         - name: "sub_subscriber_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус условия о субабоненте."
           required: true
+
         - name: "sub_subscriber_regime"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["prohibited", "permitted_with_consent", "not_defined"]
           description: "Режим субабонентского подключения."
           required: true
+
         - name: "sub_subscriber_penalty_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения последствий несогласованного субабонентского подключения."
           required: true
+
         - name: "sub_subscriber_penalty_details"
           type: "string"
           presentation: "fact"
@@ -2354,6 +2800,7 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 2
+
       store_payload: true
 
   - id: general_provisions_cluster
@@ -2542,9 +2989,13 @@ checks_v8:
       mode: "hybrid"
       compact_output: false
 
+      presence_signal:
+        field: "general_provisions_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_max_tokens: 1100
-
 
       llm_prompt_extraction: |
         <role>
@@ -2563,39 +3014,125 @@ checks_v8:
         <task>
         Заполни строго следующие поля:
 
-        1. contract_term_status — "defined" или "not_defined".
-        2. contract_term_details — срок действия договора или указание на неопределённый срок.
-        3. auto_renewal_status — "defined" или "not_defined".
-        4. auto_renewal_notice_period — срок уведомления о непролонгации.
-        5. subscriber_termination_status — "defined" или "not_defined".
-        6. subscriber_termination_regime — unilateral / mutual_consent / court_only / unilateral_for_individual_court_for_legal / not_defined.
-        7. eso_termination_status — "defined" или "not_defined".
-        8. eso_termination_details — условия расторжения со стороны ЭСО.
-        9. force_majeure_status — "defined" или "not_defined".
-        10. force_majeure_details — текст форс-мажорной оговорки.
+        0. general_provisions_presence:
+           Агрегатное signal-поле — наличие регулирования по теме общих условий.
+           - "present" — если хотя бы одно из содержательных полей
+             (contract_term_status, subscriber_termination_status,
+              eso_termination_status) ≠ "not_defined";
+           - "missing" — если все три содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
 
-        Если данные отсутствуют в тексте:
-        - статус = "not_defined"
-        - текстовое поле = "Данные не определены"
+           Если presence = "missing":
+           - contract_term_status = "not_defined";
+           - subscriber_termination_status = "not_defined";
+           - eso_termination_status = "not_defined";
+           - все *_details = соответствующий fallback;
+           - не выполняй остальные шаги.
+
+        1. contract_term_status:
+           - "defined" — если указан срок действия или "на неопределённый срок";
+           - "not_defined" — если не указан.
+
+        2. contract_term_details:
+           Краткое user-facing описание срока.
+           Если данных нет — "Данные не определены".
+
+        3. auto_renewal_status:
+           - "defined" — если указана автопролонгация;
+           - "not_defined" — если не указана.
+
+        4. auto_renewal_notice_period:
+           Краткое user-facing описание срока уведомления.
+           Если данных нет — "Данные не определены".
+
+        5. subscriber_termination_status:
+           - "defined" — если указано право абонента на расторжение;
+           - "not_defined" — если не указано.
+
+        6. subscriber_termination_regime:
+           - "unilateral", "mutual_consent", "court_only", "unilateral_for_individual_court_for_legal";
+           - "not_defined" — если не указано.
+
+        7. eso_termination_status:
+           - "defined" — если указано право ЭСО на расторжение;
+           - "not_defined" — если не указано.
+
+        8. eso_termination_details:
+           Краткое user-facing описание условий расторжения ЭСО.
+           Если данных нет — "Данные не определены".
+
+        9. force_majeure_status:
+           - "defined" — если указана форс-мажорная оговорка;
+           - "not_defined" — если не указана.
+
+        10. force_majeure_details:
+            Краткое user-facing описание форс-мажора.
+            Если данных нет — "Данные не определены".
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни general_provisions_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details = соответствующий fallback.
         - Используй только текст договора.
         - Если права расторжения различаются для гражданина и юрлица, используй
-        unilateral_for_individual_court_for_legal.
+          unilateral_for_individual_court_for_legal.
         - Не подставляй нормы ГК без прямого текста договора.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни срока, ни условий расторжения.
+           → presence = "missing";
+             все *_status = "not_defined";
+             все *_details = соответствующий fallback.
+
+        2. Неполное раскрытие темы (только общая ссылка на закон).
+           → presence = "present";
+             все *_status = "not_defined";
+             все *_details = "Данные не определены".
+
+        3. Противоречие между фрагментами (разные сроки или условия).
+           → presence = "unclear";
+             соответствующий *_status = "not_defined";
+             *_details = "Не удалось определить".
+
+        4. Прямое исключение параметра (например, "договор бессрочный").
+           → presence = "present";
+             contract_term_status = "defined";
+             contract_term_details содержит цитату с исключением.
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для general_provisions_presence используй только: "present", "missing", "unclear".
+        - Для статусных enum-полей используй только: "defined" или "not_defined".
+        - Fallback при отсутствии данных:
+          * contract_term_details, auto_renewal_notice_period, eso_termination_details, force_majeure_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "general_provisions_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по теме общих условий. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "contract_term_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения срока действия договора."
           required: true
+
         - name: "contract_term_details"
           type: "string"
           presentation: "fact"
@@ -2604,12 +3141,15 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 1
+
         - name: "auto_renewal_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения автоматической пролонгации."
           required: true
+
         - name: "auto_renewal_notice_period"
           type: "string"
           presentation: "fact"
@@ -2617,24 +3157,31 @@ checks_v8:
           description: "Срок уведомления о непролонгации договора."
           required: false
           display_in_grid: false
+
         - name: "subscriber_termination_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения права абонента на расторжение."
           required: true
+
         - name: "subscriber_termination_regime"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["unilateral", "mutual_consent", "court_only", "unilateral_for_individual_court_for_legal", "not_defined"]
           description: "Режим расторжения договора для абонента."
           required: true
+
         - name: "eso_termination_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения права ЭСО на расторжение."
           required: true
+
         - name: "eso_termination_details"
           type: "string"
           presentation: "fact"
@@ -2643,12 +3190,15 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 2
+
         - name: "force_majeure_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия форс-мажорной оговорки."
           required: true
+
         - name: "force_majeure_details"
           type: "string"
           presentation: "fact"
@@ -2656,6 +3206,7 @@ checks_v8:
           description: "Текст форс-мажорной оговорки."
           required: false
           display_in_grid: false
+
       store_payload: true
 
   - id: energy_quality_requirements_check
@@ -2849,9 +3400,13 @@ checks_v8:
       mode: "hybrid"
       compact_output: false
 
+      presence_signal:
+        field: "energy_quality_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_max_tokens: 950
-
 
       llm_prompt_extraction: |
         <role>
@@ -2869,74 +3424,169 @@ checks_v8:
         <task>
         Заполни строго следующие поля:
 
-        1. quality_requirements_status — "defined" или "not_defined".
-        2. quality_requirements_level — detailed / basic / not_defined.
-        3. voltage_status — "defined" или "not_defined".
-        4. frequency_status — "defined" или "not_defined".
-        5. temperature_status — "defined" или "not_defined".
-        6. pressure_status — "defined" или "not_defined".
-        7. gost_reference_status — "defined" или "not_defined".
-        8. gost_reference_details — ГОСТ или иной нормативный документ.
-        9. liability_for_poor_quality_status — "defined" или "not_defined".
+        0. energy_quality_presence:
+           Агрегатное signal-поле — наличие регулирования по теме качества энергии.
+           - "present" — если хотя бы одно из содержательных полей
+             (quality_requirements_status, liability_for_poor_quality_status) ≠ "not_defined";
+           - "missing" — если оба содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
 
-        Если данные отсутствуют в тексте:
-        - статус = "not_defined"
-        - текстовое поле = "Данные не определены"
+           Если presence = "missing":
+           - quality_requirements_status = "not_defined";
+           - liability_for_poor_quality_status = "not_defined";
+           - все *_details = соответствующий fallback;
+           - не выполняй остальные шаги.
+
+        1. quality_requirements_status:
+           - "defined" — если указаны требования к качеству;
+           - "not_defined" — если не указаны.
+
+        2. quality_requirements_level:
+           - "detailed" — если есть конкретные параметры или ГОСТ;
+           - "basic" — если только общее "надлежащее качество";
+           - "not_defined" — если не указано.
+
+        3. voltage_status:
+           - "defined" — если указано напряжение;
+           - "not_defined" — если не указано.
+
+        4. frequency_status:
+           - "defined" — если указана частота;
+           - "not_defined" — если не указана.
+
+        5. temperature_status:
+           - "defined" — если указана температура;
+           - "not_defined" — если не указана.
+
+        6. pressure_status:
+           - "defined" — если указано давление;
+           - "not_defined" — если не указано.
+
+        7. gost_reference_status:
+           - "defined" — если указана ссылка на ГОСТ;
+           - "not_defined" — если не указана.
+
+        8. gost_reference_details:
+           Краткое user-facing описание ГОСТ.
+           Если данных нет — "Данные не определены".
+
+        9. liability_for_poor_quality_status:
+           - "defined" — если указана ответственность за нарушение качества;
+           - "not_defined" — если не указана.
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни energy_quality_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details = соответствующий fallback.
         - Используй только текст договора.
         - basic = есть только общее указание на надлежащее качество.
         - detailed = есть хотя бы один конкретный параметр или нормативная ссылка.
         - Не подставляй ГОСТ или технические требования из внешних норм.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни требований к качеству, ни ответственности.
+           → presence = "missing";
+             все *_status = "not_defined";
+             все *_details = соответствующий fallback.
+
+        2. Неполное раскрытие темы (только общее "надлежащее качество").
+           → presence = "present";
+             quality_requirements_status = "defined";
+             quality_requirements_level = "basic";
+             остальные *_status = "not_defined".
+
+        3. Противоречие между фрагментами (разные параметры качества).
+           → presence = "unclear";
+             соответствующий *_status = "not_defined";
+             *_details = "Не удалось определить".
+
+        4. Прямое исключение параметра (например, "качество по закону").
+           → presence = "present";
+             quality_requirements_status = "defined";
+             quality_requirements_level = "basic".
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для energy_quality_presence используй только: "present", "missing", "unclear".
+        - Для статусных enum-полей используй только: "defined" или "not_defined".
+        - Fallback при отсутствии данных:
+          * gost_reference_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "energy_quality_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по теме качества энергии. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "quality_requirements_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия требований к качеству энергии."
           required: true
+
         - name: "quality_requirements_level"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["detailed", "basic", "not_defined"]
           description: "Уровень детализации требований к качеству энергии."
           required: true
+
         - name: "voltage_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания напряжения."
           required: true
+
         - name: "frequency_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания частоты."
           required: true
+
         - name: "temperature_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания температуры."
           required: true
+
         - name: "pressure_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания давления."
           required: true
+
         - name: "gost_reference_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус ссылки на ГОСТ или иной нормативный документ."
           required: true
+
         - name: "gost_reference_details"
           type: "string"
           presentation: "fact"
@@ -2945,12 +3595,15 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 1
+
         - name: "liability_for_poor_quality_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус условия об ответственности за нарушение качества энергии."
           required: true
+
       store_payload: true
 
   - id: limitation_procedure_check
@@ -3145,9 +3798,13 @@ checks_v8:
       mode: "hybrid"
       compact_output: false
 
+      presence_signal:
+        field: "limitation_procedure_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_max_tokens: 950
-
 
       llm_prompt_extraction: |
         <role>
@@ -3165,51 +3822,139 @@ checks_v8:
         <task>
         Заполни строго следующие поля:
 
-        1. limitation_procedure_status — "defined" или "not_defined".
-        2. limitation_procedure_level — detailed / basic / not_defined.
-        3. grounds_status — "defined" или "not_defined".
-        4. grounds_details — основания ограничения или отключения.
-        5. notice_period_status — "defined" или "not_defined".
-        6. notice_period_days — срок уведомления.
-        7. phased_limitation_status — "defined" или "not_defined".
-        8. restoration_procedure_status — "defined" или "not_defined".
-        9. restoration_cost_allocation — subscriber / supplier / not_defined.
+        0. limitation_procedure_presence:
+           Агрегатное signal-поле — наличие регулирования по теме ограничения подачи.
+           - "present" — если хотя бы одно из содержательных полей
+             (limitation_procedure_status, grounds_status, notice_period_status,
+              restoration_procedure_status) ≠ "not_defined";
+           - "missing" — если все четыре содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
 
-        Если данные отсутствуют в тексте:
-        - статус = "not_defined"
-        - текстовое поле = "Данные не определены"
+           Если presence = "missing":
+           - limitation_procedure_status = "not_defined";
+           - grounds_status = "not_defined";
+           - notice_period_status = "not_defined";
+           - restoration_procedure_status = "not_defined";
+           - все *_details/*_days = соответствующий fallback;
+           - не выполняй остальные шаги.
+
+        1. limitation_procedure_status:
+           - "defined" — если в тексте есть упоминание процедуры ограничения/отключения;
+           - "not_defined" — если не упомянуто.
+
+        2. limitation_procedure_level:
+           - "detailed" — если есть основания и хотя бы один процедурный элемент;
+           - "basic" — если только общее право ограничить;
+           - "not_defined" — если не указано.
+
+        3. grounds_status:
+           - "defined" — если перечислены основания ограничения;
+           - "not_defined" — если не перечислены.
+
+        4. grounds_details:
+           Краткое user-facing описание оснований.
+           Если данных нет — "Данные не определены".
+
+        5. notice_period_status:
+           - "defined" — если указан срок уведомления числом или периодом;
+           - "not_defined" — если не указан.
+
+        6. notice_period_days:
+           Срок уведомления.
+           Если данных нет — "Данные не определены".
+
+        7. phased_limitation_status:
+           - "defined" — если описана поэтапность;
+           - "not_defined" — если не описана.
+
+        8. restoration_procedure_status:
+           - "defined" — если описан порядок возобновления;
+           - "not_defined" — если не описан.
+
+        9. restoration_cost_allocation:
+           - "subscriber", "supplier" или "not_defined".
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни limitation_procedure_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details/*_days = соответствующий fallback.
         - Используй только текст договора.
         - basic = есть только общее право ограничить или прекратить подачу.
-        - detailed = есть основания и хотя бы один процедурный элемент
-        (срок уведомления / поэтапность / порядок восстановления).
+        - detailed = есть основания и хотя бы один процедурный элемент (срок уведомления / поэтапность / порядок восстановления).
         - Если срок уведомления не указан числом или периодом, не считай его defined.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни процедуры ограничения, ни оснований.
+           → presence = "missing";
+             все *_status = "not_defined";
+             все *_details/*_days = соответствующий fallback.
+
+        2. Неполное раскрытие темы (только общее право ограничить).
+           → presence = "present";
+             limitation_procedure_status = "defined";
+             limitation_procedure_level = "basic";
+             остальные *_status = "not_defined".
+
+        3. Противоречие между фрагментами (разные сроки уведомления).
+           → presence = "unclear";
+             соответствующий *_status = "not_defined";
+             *_details/*_days = "Не удалось определить".
+
+        4. Прямое исключение параметра (например, "отключение без уведомления").
+           → presence = "present";
+             notice_period_status = "defined";
+             notice_period_days = "без уведомления".
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для limitation_procedure_presence используй только: "present", "missing", "unclear".
+        - Для статусных enum-полей используй только: "defined" или "not_defined".
+        - Fallback при отсутствии данных:
+          * grounds_details, notice_period_days → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details/*_days → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "limitation_procedure_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по теме ограничения подачи. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "limitation_procedure_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия процедуры ограничения или прекращения подачи."
           required: true
+
         - name: "limitation_procedure_level"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["detailed", "basic", "not_defined"]
           description: "Уровень детализации процедуры ограничения или прекращения подачи."
           required: true
+
         - name: "grounds_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения оснований ограничения или отключения."
           required: true
+
         - name: "grounds_details"
           type: "string"
           presentation: "fact"
@@ -3218,12 +3963,15 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 1
+
         - name: "notice_period_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения срока предварительного уведомления."
           required: true
+
         - name: "notice_period_days"
           type: "string"
           presentation: "fact"
@@ -3232,24 +3980,31 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 2
+
         - name: "phased_limitation_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения поэтапности ограничения подачи."
           required: true
+
         - name: "restoration_procedure_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения порядка возобновления подачи энергии."
           required: true
+
         - name: "restoration_cost_allocation"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["subscriber", "supplier", "not_defined"]
           description: "Кто несёт расходы на возобновление подачи энергии."
           required: true
+
       store_payload: true
 
   - id: liability_for_interruptions_check
@@ -3436,9 +4191,13 @@ checks_v8:
       mode: "hybrid"
       compact_output: false
 
+      presence_signal:
+        field: "liability_for_interruptions_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_max_tokens: 900
-
 
       llm_prompt_extraction: |
         <role>
@@ -3456,92 +4215,189 @@ checks_v8:
         <task>
         Заполни строго следующие поля:
 
-        1. liability_status — "defined" или "not_defined".
-        2. liability_type_status — "defined" или "not_defined".
-        3.liability_type_code — real_damage / penalty / both / not_defined.
-        4. lost_profit_excluded_status — "defined" или "not_defined".
-        5. lost_profit_excluded_code — yes / no / not_defined.
-        6. exclusions_status — "defined" или "not_defined".
-        7. force_majeure_exclusion_status — "defined" или "not_defined".
-        8. grid_accident_exclusion_status — "defined" или "not_defined".
-        9. interruption_fixation_status — "defined" или "not_defined".
+        0. liability_for_interruptions_presence:
+           Агрегатное signal-поле — наличие регулирования по теме ответственности за перерывы.
+           - "present" — если хотя бы одно из содержательных полей
+             (liability_status, exclusions_status) ≠ "not_defined";
+           - "missing" — если оба содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
 
-        Если данные отсутствуют в тексте:
-        - статус = "not_defined"
-        - enum-поле = "not_defined"
+           Если presence = "missing":
+           - liability_status = "not_defined";
+           - exclusions_status = "not_defined";
+           - все enum-поля = "not_defined";
+           - не выполняй остальные шаги.
+
+        1. liability_status:
+           - "defined" — если прямо указана ответственность ЭСО за перерывы;
+           - "not_defined" — если не указана.
+
+        2. liability_type_status:
+           - "defined" — если указан вид ответственности;
+           - "not_defined" — если не указан.
+
+        3. liability_type_code:
+           - "real_damage", "penalty", "both" или "not_defined".
+
+        4. lost_profit_excluded_status:
+           - "defined" — если прямо сказано про упущенную выгоду;
+           - "not_defined" — если не сказано.
+
+        5. lost_profit_excluded_code:
+           - "yes" — если упущенная выгода исключена;
+           - "no" — если прямо допускается;
+           - "not_defined" — если не указано.
+
+        6. exclusions_status:
+           - "defined" — если перечислены исключения из ответственности;
+           - "not_defined" — если не перечислены.
+
+        7. force_majeure_exclusion_status:
+           - "defined" — если форс-мажор указан как исключение;
+           - "not_defined" — если не указан.
+
+        8. grid_accident_exclusion_status:
+           - "defined" — если авария в сетях указана как исключение;
+           - "not_defined" — если не указана.
+
+        9. interruption_fixation_status:
+           - "defined" — если указан порядок фиксации перерыва;
+           - "not_defined" — если не указан.
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни liability_for_interruptions_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все enum-поля = "not_defined".
         - Используй только текст договора.
         - yes для lost_profit_excluded_code — только если упущенная выгода прямо исключена.
         - no — только если упущенная выгода прямо допускается.
         - Если сказано просто "возмещаются убытки", не делай автоматический вывод об исключении упущенной выгоды.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни ответственности за перерывы, ни исключений.
+           → presence = "missing";
+             все *_status = "not_defined";
+             все enum-поля = "not_defined".
+
+        2. Неполное раскрытие темы (только общая ссылка на закон).
+           → presence = "present";
+             liability_status = "not_defined";
+             exclusions_status = "not_defined".
+
+        3. Противоречие между фрагментами (разные виды ответственности).
+           → presence = "unclear";
+             соответствующий *_status = "not_defined";
+             enum-поля = "not_defined".
+
+        4. Прямое исключение параметра (например, "ЭСО не несёт ответственности").
+           → presence = "present";
+             liability_status = "defined";
+             liability_type_code = "not_defined".
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для liability_for_interruptions_presence используй только: "present", "missing", "unclear".
+        - Для статусных enum-полей используй только: "defined" или "not_defined".
+        - Fallback при отсутствии данных:
+          * все enum-поля → "not_defined".
+        - Fallback при противоречии или неоднозначности:
+          * все enum-поля → "not_defined".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "liability_for_interruptions_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по теме ответственности за перерывы. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "liability_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия условия об ответственности за перерывы."
           required: true
+
         - name: "liability_type_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения вида ответственности за перерывы."
           required: true
+
         - name: "liability_type_code"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           label: "Вид ответственности за перерывы"
           allowed_values: ["real_damage", "penalty", "both", "not_defined"]
           description: "Вид ответственности за перерывы в подаче энергии."
           required: true
           display_in_grid: true
           display_priority: 1
+
         - name: "lost_profit_excluded_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус прямого условия об упущенной выгоде."
           required: true
+
         - name: "lost_profit_excluded_code"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           label: "Упущенная выгода исключена"
           allowed_values: ["yes", "no", "not_defined"]
           description: "Исключена ли упущенная выгода."
           required: true
           display_in_grid: true
           display_priority: 2
+
         - name: "exclusions_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия исключений из ответственности за перерывы."
           required: true
+
         - name: "force_majeure_exclusion_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания форс-мажора как исключения."
           required: true
+
         - name: "grid_accident_exclusion_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания аварии в сетях как исключения."
           required: true
+
         - name: "interruption_fixation_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения порядка фиксации перерыва в подаче."
           required: true
+
       store_payload: true
 
   - id: unauthorized_consumption_check
@@ -3735,9 +4591,13 @@ checks_v8:
       mode: "hybrid"
       compact_output: false
 
+      presence_signal:
+        field: "unauthorized_consumption_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_max_tokens: 950
-
 
       llm_prompt_extraction: |
         <role>
@@ -3755,62 +4615,155 @@ checks_v8:
         <task>
         Заполни строго следующие поля:
 
-        1. unauthorized_clause_status — "defined" или "not_defined".
-        2. unauthorized_clause_level — detailed / basic / not_defined.
-        3. non_contracted_defined_status — "defined" или "not_defined".
-        4. unmetered_defined_status — "defined" или "not_defined".
-        5. calculation_method_status — "defined" или "not_defined".
-        6. calculation_method_details — методика расчёта.
-        7. penalty_status — "defined" или "not_defined".
-        8. immediate_disconnection_status — "defined" или "not_defined".
-        9. act_procedure_status — "defined" или "not_defined".
+        0. unauthorized_consumption_presence:
+           Агрегатное signal-поле — наличие регулирования по теме несанкционированного потребления.
+           - "present" — если хотя бы одно из содержательных полей
+             (unauthorized_clause_status, non_contracted_defined_status,
+              unmetered_defined_status) ≠ "not_defined";
+           - "missing" — если все три содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
 
-        Если данные отсутствуют в тексте:
-        - статус = "not_defined"
-        - текстовое поле = "Данные не определены"
+           Если presence = "missing":
+           - unauthorized_clause_status = "not_defined";
+           - non_contracted_defined_status = "not_defined";
+           - unmetered_defined_status = "not_defined";
+           - все *_details = соответствующий fallback;
+           - не выполняй остальные шаги.
+
+        1. unauthorized_clause_status:
+           - "defined" — если есть упоминание о бездоговорном/безучётном потреблении;
+           - "not_defined" — если не упомянуто.
+
+        2. unauthorized_clause_level:
+           - "detailed" — если есть определения и процедурные элементы;
+           - "basic" — если только общее упоминание;
+           - "not_defined" — если не указано.
+
+        3. non_contracted_defined_status:
+           - "defined" — если дано определение бездоговорного потребления;
+           - "not_defined" — если не дано.
+
+        4. unmetered_defined_status:
+           - "defined" — если дано определение безучётного потребления;
+           - "not_defined" — если не дано.
+
+        5. calculation_method_status:
+           - "defined" — если указана методика расчёта;
+           - "not_defined" — если не указана.
+
+        6. calculation_method_details:
+           Краткое user-facing описание методики.
+           Если данных нет — "Данные не определены".
+
+        7. penalty_status:
+           - "defined" — если указаны санкции;
+           - "not_defined" — если не указаны.
+
+        8. immediate_disconnection_status:
+           - "defined" — если указано право немедленного отключения;
+           - "not_defined" — если не указано.
+
+        9. act_procedure_status:
+           - "defined" — если указан порядок оформления акта;
+           - "not_defined" — если не указан.
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни unauthorized_consumption_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details = соответствующий fallback.
         - Используй только текст договора.
         - basic = есть только общее упоминание о запрете или ответственности.
         - detailed = есть определения и хотя бы один процедурный или расчётный элемент.
         - Не подставляй методику из внешнего регулирования.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни определений, ни санкций за несанкционированное потребление.
+           → presence = "missing";
+             все *_status = "not_defined";
+             все *_details = соответствующий fallback.
+
+        2. Неполное раскрытие темы (только право взыскать без механики).
+           → presence = "present";
+             unauthorized_clause_status = "defined";
+             unauthorized_clause_level = "basic";
+             остальные *_status = "not_defined".
+
+        3. Противоречие между фрагментами (разные методики расчёта).
+           → presence = "unclear";
+             соответствующий *_status = "not_defined";
+             *_details = "Не удалось определить".
+
+        4. Прямое исключение параметра (например, "штрафы не применяются").
+           → presence = "present";
+             penalty_status = "defined";
+             penalty_details содержит цитату с исключением.
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для unauthorized_consumption_presence используй только: "present", "missing", "unclear".
+        - Для статусных enum-полей используй только: "defined" или "not_defined".
+        - Fallback при отсутствии данных:
+          * calculation_method_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "unauthorized_consumption_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по теме несанкционированного потребления. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "unauthorized_clause_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия условия о бездоговорном или безучётном потреблении."
           required: true
+
         - name: "unauthorized_clause_level"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["detailed", "basic", "not_defined"]
           description: "Уровень детализации условий о несанкционированном потреблении."
           required: true
+
         - name: "non_contracted_defined_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия определения бездоговорного потребления."
           required: true
+
         - name: "unmetered_defined_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия определения безучётного потребления."
           required: true
+
         - name: "calculation_method_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения методики расчёта при выявлении нарушения."
           required: true
+
         - name: "calculation_method_details"
           type: "string"
           presentation: "fact"
@@ -3819,24 +4772,31 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 1
+
         - name: "penalty_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения санкций за нарушение."
           required: true
+
         - name: "immediate_disconnection_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус права немедленного отключения."
           required: true
+
         - name: "act_procedure_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения порядка оформления акта о нарушении."
           required: true
+
       store_payload: true
 
   - id: industrial_consumer_protection_check
@@ -4021,9 +4981,13 @@ checks_v8:
       mode: "hybrid"
       compact_output: false
 
+      presence_signal:
+        field: "industrial_consumer_protection_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_max_tokens: 850
-
 
       llm_prompt_extraction: |
         <role>
@@ -4042,51 +5006,135 @@ checks_v8:
         <task>
         Заполни строго следующие поля:
 
-        1. reliability_category_status — "defined" или "not_defined".
-        2. reliability_category_code — I / II / III / not_defined.
-          (I = первая категория, II = вторая, III = третья)
-        3. backup_power_status — "defined" или "not_defined".
-        4. backup_power_details — требования к резервному питанию.
-        5. priority_restoration_status — "defined" или "not_defined".
-        6. downtime_compensation_status — "defined" или "not_defined".
-        7. downtime_compensation_details — условия компенсации убытков от простоя.
-        8. disconnection_prohibition_status — "defined" или "not_defined".
+        0. industrial_consumer_protection_presence:
+           Агрегатное signal-поле — наличие регулирования по теме особых условий для промышленных потребителей.
+           - "present" — если хотя бы одно из содержательных полей
+             (reliability_category_status, backup_power_status, priority_restoration_status,
+              downtime_compensation_status, disconnection_prohibition_status) ≠ "not_defined";
+           - "missing" — если все пять содержательных полей = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
 
-        Если данные отсутствуют в тексте:
-        - статус = "not_defined"
-        - текстовое поле = "Данные не определены"
+           Если presence = "missing":
+           - reliability_category_status = "not_defined";
+           - backup_power_status = "not_defined";
+           - priority_restoration_status = "not_defined";
+           - downtime_compensation_status = "not_defined";
+           - disconnection_prohibition_status = "not_defined";
+           - все *_details/*_code = соответствующий fallback;
+           - не выполняй остальные шаги.
+
+        1. reliability_category_status:
+           - "defined" — если прямо указана категория надёжности;
+           - "not_defined" — если не указана.
+
+        2. reliability_category_code:
+           - "I", "II", "III" или "not_defined".
+
+        3. backup_power_status:
+           - "defined" — если указаны требования к резервному питанию;
+           - "not_defined" — если не указаны.
+
+        4. backup_power_details:
+           Краткое user-facing описание требований.
+           Если данных нет — "Данные не определены".
+
+        5. priority_restoration_status:
+           - "defined" — если указано приоритетное восстановление;
+           - "not_defined" — если не указано.
+
+        6. downtime_compensation_status:
+           - "defined" — если указана компенсация убытков от простоя;
+           - "not_defined" — если не указана.
+
+        7. downtime_compensation_details:
+           Краткое user-facing описание условий компенсации.
+           Если данных нет — "Данные не определены".
+
+        8. disconnection_prohibition_status:
+           - "defined" — если указан запрет полного отключения;
+           - "not_defined" — если не указан.
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни industrial_consumer_protection_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details/*_code = соответствующий fallback.
         - Используй только текст договора.
         - Не выводи категорию надёжности из характера объекта без прямого указания.
         - Учитывай только специальные условия для промышленных потребителей,
-        объектов первой/второй/третьей категории, критической инфраструктуры
-        или объектов жизнеобеспечения.
+          объектов первой/второй/третьей категории, критической инфраструктуры
+          или объектов жизнеобеспечения.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни категории надёжности, ни особых условий.
+           → presence = "missing";
+             все *_status = "not_defined";
+             все *_details/*_code = соответствующий fallback.
+
+        2. Неполное раскрытие темы (только категория без деталей).
+           → presence = "present";
+             reliability_category_status = "defined";
+             остальные *_status = "not_defined".
+
+        3. Противоречие между фрагментами (разные категории в разных пунктах).
+           → presence = "unclear";
+             соответствующий *_status = "not_defined";
+             *_details/*_code = "Не удалось определить".
+
+        4. Прямое исключение параметра (например, "резервное питание не требуется").
+           → presence = "present";
+             backup_power_status = "defined";
+             backup_power_details содержит цитату с исключением.
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для industrial_consumer_protection_presence используй только: "present", "missing", "unclear".
+        - Для статусных enum-полей используй только: "defined" или "not_defined".
+        - Fallback при отсутствии данных:
+          * backup_power_details, downtime_compensation_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details/*_code → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "industrial_consumer_protection_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по теме особых условий для промышленных потребителей. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "reliability_category_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения категории надёжности."
           required: true
+
         - name: "reliability_category_code"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["I", "II", "III", "not_defined"]
           description: "Категория надёжности энергоснабжения (I, II или III)."
           required: true
+
         - name: "backup_power_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия требований к резервному питанию."
           required: true
+
         - name: "backup_power_details"
           type: "string"
           presentation: "fact"
@@ -4095,18 +5143,23 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 1
+
         - name: "priority_restoration_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус условия о приоритетном восстановлении подачи."
           required: true
+
         - name: "downtime_compensation_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения компенсации убытков от простоя."
           required: true
+
         - name: "downtime_compensation_details"
           type: "string"
           presentation: "fact"
@@ -4115,12 +5168,15 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 2
+
         - name: "disconnection_prohibition_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус запрета полного отключения для специальных объектов."
           required: true
+
       store_payload: true
 
   - id: mcd_obligations_check
@@ -4302,9 +5358,13 @@ checks_v8:
       mode: "hybrid"
       compact_output: false
 
+      presence_signal:
+        field: "mcd_obligations_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_max_tokens: 1100
-
 
       llm_prompt_extraction: |
         <role>
@@ -4323,48 +5383,137 @@ checks_v8:
         <task>
         Заполни строго следующие поля:
 
-        1. mcd_clause_status — "defined" или "not_defined".
-        2. boundary_status — "defined" или "not_defined".
-        3. boundary_details — описание границы балансовой принадлежности.
-        4. collective_meter_status — "defined" или "not_defined".
-        5. collective_meter_details — описание коллективного (общедомового) прибора учёта или ссылка на ОДПУ.
-        6. odn_calculation_status — "defined" или "not_defined".
-        7. odn_calculation_details — порядок расчёта ОДН.
-        8. maintenance_responsibility_status — "defined" или "not_defined".
-        9. maintenance_responsibility_code — eso / tszh_uk / not_defined.
-        10. maintenance_responsibility_details — текст условия об ответственности за внутридомовые сети.
+        0. mcd_obligations_presence:
+           Агрегатное signal-поле — наличие регулирования по теме МКД.
+           - "present" — если хотя бы одно из содержательных полей
+             (mcd_clause_status, boundary_status, collective_meter_status,
+              odn_calculation_status, maintenance_responsibility_status) ≠ "not_defined";
+           - "missing" — если все пять содержательных полей = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
 
-        Если данные отсутствуют в тексте:
-        - статус = "not_defined"
-        - текстовое поле = "Данные не определены"
+           Если presence = "missing":
+           - mcd_clause_status = "not_defined";
+           - boundary_status = "not_defined";
+           - collective_meter_status = "not_defined";
+           - odn_calculation_status = "not_defined";
+           - maintenance_responsibility_status = "not_defined";
+           - все *_details/*_code = соответствующий fallback;
+           - не выполняй остальные шаги.
+
+        1. mcd_clause_status:
+           - "defined" — если есть прямые условия для МКД;
+           - "not_defined" — если нет.
+
+        2. boundary_status:
+           - "defined" — если описана граница балансовой принадлежности;
+           - "not_defined" — если не описана.
+
+        3. boundary_details:
+           Краткое user-facing описание границы.
+           Если данных нет — "Данные не определены".
+
+        4. collective_meter_status:
+           - "defined" — если упомянут ОДПУ;
+           - "not_defined" — если не упомянут.
+
+        5. collective_meter_details:
+           Краткое user-facing описание ОДПУ.
+           Если данных нет — "Данные не определены".
+
+        6. odn_calculation_status:
+           - "defined" — если указан порядок расчёта ОДН;
+           - "not_defined" — если не указан.
+
+        7. odn_calculation_details:
+           Краткое user-facing описание порядка расчёта.
+           Если данных нет — "Данные не определены".
+
+        8. maintenance_responsibility_status:
+           - "defined" — если указана ответственность за сети;
+           - "not_defined" — если не указана.
+
+        9. maintenance_responsibility_code:
+           - "eso", "tszh_uk" или "not_defined".
+
+        10. maintenance_responsibility_details:
+            Краткое user-facing описание ответственности.
+            Если данных нет — "Данные не определены".
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни mcd_obligations_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details/*_code = соответствующий fallback.
         - Используй только текст договора.
         - Учитывай только прямые специальные условия для МКД, ТСЖ, ЖСК, управляющей компании
-        или общедомового имущества.
+          или общедомового имущества.
         - Не делай вывод о применимости к МКД без прямого текста.
         - Если за внутридомовые сети отвечает ТСЖ, ЖСК или управляющая компания, используй "tszh_uk".
         - Если ответственность прямо возложена на энергоснабжающую организацию, используй "eso".
         - Если ответственная сторона прямо не определена, используй "not_defined".
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни условий для МКД, ни разграничения сетей.
+           → presence = "missing";
+             все *_status = "not_defined";
+             все *_details/*_code = соответствующий fallback.
+
+        2. Неполное раскрытие темы (только упоминание МКД без деталей).
+           → presence = "present";
+             mcd_clause_status = "defined";
+             остальные *_status = "not_defined".
+
+        3. Противоречие между фрагментами (разные границы или ответственные).
+           → presence = "unclear";
+             соответствующий *_status = "not_defined";
+             *_details/*_code = "Не удалось определить".
+
+        4. Прямое исключение параметра (например, "ОДН не начисляется").
+           → presence = "present";
+             odn_calculation_status = "defined";
+             odn_calculation_details содержит цитату с исключением.
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для mcd_obligations_presence используй только: "present", "missing", "unclear".
+        - Для статусных enum-полей используй только: "defined" или "not_defined".
+        - Fallback при отсутствии данных:
+          * boundary_details, collective_meter_details, odn_calculation_details, maintenance_responsibility_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details/*_code → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "mcd_obligations_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по теме МКД. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "mcd_clause_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия специальных условий для многоквартирного дома."
           required: true
+
         - name: "boundary_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения границы балансовой принадлежности."
           required: true
+
         - name: "boundary_details"
           type: "string"
           presentation: "fact"
@@ -4373,12 +5522,15 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 1
+
         - name: "collective_meter_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус упоминания коллективного (общедомового) прибора учёта."
           required: true
+
         - name: "collective_meter_details"
           type: "string"
           presentation: "fact"
@@ -4387,12 +5539,15 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 2
+
         - name: "odn_calculation_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения порядка расчёта ОДН."
           required: true
+
         - name: "odn_calculation_details"
           type: "string"
           presentation: "fact"
@@ -4401,21 +5556,26 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 3
+
         - name: "maintenance_responsibility_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения ответственного за внутридомовые сети."
           required: true
+
         - name: "maintenance_responsibility_code"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           label: "Ответственный за внутридомовые сети"
           allowed_values: ["eso", "tszh_uk", "not_defined"]
           description: "Кто отвечает за внутридомовые сети."
           required: true
           display_in_grid: true
           display_priority: 5
+
         - name: "maintenance_responsibility_details"
           type: "string"
           presentation: "fact"
@@ -4424,6 +5584,7 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 4
+
       store_payload: true
 
 # ════════════════════════════════════════════════════════════════════════════

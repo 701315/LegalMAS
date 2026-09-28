@@ -2339,14 +2339,13 @@ checks_v8:
           label: "Основания изменения"
           description: "Перечень оснований для изменения размера алиментов."
           required: false
-        - name: "adjustment_procedure"
+        - name: "adjustment_procedure_code"
           type: "string"
-          presentation: "fact"                                                 # ← FIX: signal → fact
-          display_in_grid: true                                                # ← FIX
-          display_priority: 3                                                  # ← FIX
-          label: "Порядок изменения"                                           # ← FIX: label обязателен для fact
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 3
+          label: "Порядок изменения"
           allowed_values: ["negotiation", "court", "both", "statutory_default", "not_defined"]
-                                                                           # ← FIX: + statutory_default
           description: "Порядок изменения: переговоры / суд / оба / дефолт ст. 101 СК РФ."
           required: false
         - name: "adjustment_procedure_details"
@@ -6217,7 +6216,7 @@ checks_v8:
         </rules>
 
       fields:
-        - name: "family_category"
+        - name: "family_category_code"
           type: "string"
           presentation: "fact"
           display_in_grid: true
