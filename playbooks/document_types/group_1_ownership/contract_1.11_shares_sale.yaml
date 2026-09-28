@@ -806,7 +806,6 @@ checks_v8:
     severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
-
     rules:
       keywords:
         - "продавец"
@@ -827,7 +826,6 @@ checks_v8:
         - "{{ inn_ogrn }}"
         - "(?i)согласи(е|я)\\s+супруг"
         - "(?i)не\\s+состоит?\\s+в\\s+браке"
-
     llm:
       prompt_template: |
         [КОНТЕКСТ]
@@ -960,7 +958,6 @@ checks_v8:
       context_k: 6
       temperature: 0.0
       max_tokens: 750
-
     retrieval:
       corpus_scope: "primary_segment"
       levels:
@@ -1002,7 +999,6 @@ checks_v8:
       context_k: 6
       max_chunks: 8
       rerank: true
-
     enrichment_hints:
       preferred_segment_types:
         - "contract"
@@ -1015,19 +1011,20 @@ checks_v8:
         - "boilerplate"
       confidence_bonus_on_match: 0.08
       confidence_penalty_on_excluded_segment: 0.15
-
     evidence:
       required: true
       min_snippet_length: 30
       max_snippet_length: 600
-
     extraction:
       enabled: true
       mode: "hybrid"
       compact_output: false
-
       llm_max_tokens: 1650
-
+      presence_signal:
+        field: "parties_and_authority_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора купли-продажи
@@ -1042,6 +1039,32 @@ checks_v8:
 
         <task>
         Заполни строго следующие поля:
+
+        0. parties_and_authority_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных статусных полей
+             (seller_details_status, buyer_details_status, target_details_status, spousal_consent_status) = "defined";
+           - "missing" — если все эти четыре поля = "not_defined";
+           - "unclear" — если по фрагментам есть противоречие или неоднозначность.
+
+           Если presence = "missing":
+           - seller_details_status = "not_defined";
+           - buyer_details_status = "not_defined";
+           - target_details_status = "not_defined";
+           - spousal_consent_status = "not_defined";
+           - seller_signatory_status = "not_defined";
+           - buyer_signatory_status = "not_defined";
+           - seller_details_value = "Данные не определены";
+           - buyer_details_value = "Данные не определены";
+           - target_details_value = "Данные не определены";
+           - spousal_consent_details = "Данные не определены";
+           - seller_signatory_value = "Данные не определены";
+           - buyer_signatory_value = "Данные не определены";
+           - seller_type = "not_defined";
+           - buyer_type = "not_defined";
+           - seller_signatory_basis = "not_defined";
+           - buyer_signatory_basis = "not_defined";
+           - не выполняй остальные шаги.
 
         1. seller_details_status — "defined" если продавец прямо идентифицирован, иначе "not_defined".
         2. seller_details_value — наименование/ФИО и реквизиты продавца.
@@ -1060,34 +1083,81 @@ checks_v8:
         15. spousal_consent_status — "defined" если согласие супруга или личный режим имущества прямо указан, иначе "not_defined".
         16. spousal_consent_details — формулировка о согласии супруга или личном режиме имущества.
 
-        Если данные отсутствуют:
+        Если данные отсутствуют в тексте договора:
         - статус = "not_defined"
         - текст = "Данные не определены"
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни parties_and_authority_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все содержательные статусы (*_status) = "not_defined", все текстовые/числовые поля = "Данные не определены".
         - Используй только текст договора.
-        - Target-компания — это не продавец и не покупатель, а тот, чьи доли/акции продаются.
+        - Target-компания — это не продавец и не покупатель, а то общество, чьи доли/акции продаются по сделке.
         - seller_type и buyer_type:
-        - "legal_entity" — для юридических лиц (ООО, АО и др.).
-        - "individual" — для физических лиц (без статуса ИП).
-        - "individual_entrepreneur" — для индивидуальных предпринимателей.
-        - "not_defined" — если тип не ясен.
+          * "legal_entity" — для юридических лиц (ООО, АО и др.);
+          * "individual" — для физических лиц (без статуса ИП);
+          * "individual_entrepreneur" — для индивидуальных предпринимателей;
+          * "not_defined" — если тип не ясен.
         - seller_signatory_basis и buyer_signatory_basis:
-        - "charter" — действует на основании устава.
-        - "poa" — действует на основании доверенности.
-        - "order" — действует на основании приказа.
-        - "other" — иное основание (свидетельство, решение и т.д.).
-        - "not_defined" — если основание полномочий не указано.
+          * "charter" — действует на основании устава;
+          * "poa" — действует на основании доверенности;
+          * "order" — действует на основании приказа;
+          * "other" — иное основание (свидетельство, решение и т.д.);
+          * "not_defined" — если основание полномочий не указано.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В договоре купли-продажи корпоративных прав отсутствуют сведения об идентифицирующих реквизитах сторон.
+           → presence = "missing";
+             все содержательные статусы = "not_defined";
+             все текстовые значения = "Данные не определены".
+
+        2. Частичное раскрытие супружеского статуса.
+           Продавец — физлицо, в тексте указано «нотариальное согласие будет предоставлено к дате закрытия».
+           → presence = "present";
+             spousal_consent_status = "defined";
+             spousal_consent_details = "нотариальное согласие будет предоставлено к дате закрытия".
+
+        3. Противоречие в ФИО / реквизитах подписантов.
+           В преамбуле указан один подписант, а в блоке подписей — совершенно другое лицо.
+           → presence = "unclear";
+             seller_signatory_status = "not_defined";
+             seller_signatory_value = "Данные не определены".
+
+        4. Ограничение для юридических лиц.
+           Продавец и Покупатель — юридические лица, в силу чего согласие супруга неприменимо.
+           → presence = "present";
+             spousal_consent_status = "not_defined";
+             spousal_consent_details = "Данные не определены".
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для parties_and_authority_presence используй только: "present", "missing", "unclear".
+        - Для status-полей используй только: "defined" или "not_defined".
+        - Для type-полей используй только: "legal_entity", "individual", "individual_entrepreneur", "not_defined".
+        - Для basis-полей используй только: "charter", "poa", "order", "other", "not_defined".
+        - Fallback при отсутствии данных:
+          * все текстовые/числовые поля $\rightarrow$ "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все содержательные поля $\rightarrow$ "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
       fields:
+        - name: "parties_and_authority_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие идентификации сторон / полномочий в договоре. Внутреннее агрегатное signal-поле."
+          required: true
         - name: "seller_details_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус идентификации продавца."
           required: true
@@ -1102,12 +1172,14 @@ checks_v8:
         - name: "seller_type"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["legal_entity", "individual", "individual_entrepreneur", "not_defined"]
           description: "Тип продавца."
           required: true
         - name: "seller_signatory_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания подписанта продавца."
           required: true
@@ -1121,12 +1193,14 @@ checks_v8:
         - name: "seller_signatory_basis"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["charter", "poa", "order", "other", "not_defined"]
           description: "Основание полномочий подписанта продавца."
           required: true
         - name: "buyer_details_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус идентификации покупателя."
           required: true
@@ -1141,12 +1215,14 @@ checks_v8:
         - name: "buyer_type"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["legal_entity", "individual", "individual_entrepreneur", "not_defined"]
           description: "Тип покупателя."
           required: true
         - name: "buyer_signatory_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания подписанта покупателя."
           required: true
@@ -1160,12 +1236,14 @@ checks_v8:
         - name: "buyer_signatory_basis"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["charter", "poa", "order", "other", "not_defined"]
           description: "Основание полномочий подписанта покупателя."
           required: true
         - name: "target_details_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус идентификации target-компании."
           required: true
@@ -1180,6 +1258,7 @@ checks_v8:
         - name: "spousal_consent_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия согласия супруга или подтверждения личного режима."
           required: true
@@ -1206,7 +1285,6 @@ checks_v8:
     severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
-
     rules:
       keywords:
         - "доля в уставном капитале"
@@ -1226,7 +1304,6 @@ checks_v8:
         - "{{ issue_number }}"
         - "{{ egrul_record }}"
         - "{{ money_amount }}"
-
     llm:
       prompt_template: |
         [КОНТЕКСТ]
@@ -1366,7 +1443,6 @@ checks_v8:
       context_k: 7
       temperature: 0.0
       max_tokens: 800
-
     retrieval:
       retrieval_profile: "party_identification_check"
       corpus_scope: "primary_segment"
@@ -1410,7 +1486,6 @@ checks_v8:
       context_k: 7
       max_chunks: 9
       rerank: true
-
     enrichment_hints:
       preferred_segment_types:
         - "contract"
@@ -1423,19 +1498,20 @@ checks_v8:
         - "definitions"
       confidence_bonus_on_match: 0.10
       confidence_penalty_on_excluded_segment: 0.12
-
     evidence:
       required: true
       min_snippet_length: 50
       max_snippet_length: 700
-
     extraction:
       enabled: true
       mode: "hybrid"
       compact_output: false
-
       llm_max_tokens: 2100
-
+      presence_signal:
+        field: "corporate_asset_subject_extraction_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора купли-продажи корпоративных
@@ -1450,6 +1526,36 @@ checks_v8:
 
         <task>
         Заполни строго следующие поля:
+
+        0. corporate_asset_subject_extraction_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из основных содержательных статусных полей
+             (target_name_status, share_ratio_status, shares_quantity_status, price_status) = "defined";
+           - "missing" — если все эти четыре поля = "not_defined";
+           - "unclear" — если по фрагментам есть противоречие или неоднозначность.
+
+           Если presence = "missing":
+           - target_name_status = "not_defined";
+           - target_ogrn_status = "not_defined";
+           - target_inn_status = "not_defined";
+           - share_ratio_status = "not_defined";
+           - share_nominal_status = "not_defined";
+           - shares_quantity_status = "not_defined";
+           - shares_type_status = "not_defined";
+           - issue_number_status = "not_defined";
+           - price_status = "not_defined";
+           - target_name_details = "Данные не определены";
+           - target_ogrn_details = "Данные не определены";
+           - target_inn_details = "Данные не определены";
+           - share_ratio_details = "Данные не определены";
+           - share_nominal_details = "Данные не определены";
+           - shares_quantity_details = "Данные не определены";
+           - issue_number_details = "Данные не определены";
+           - price_details = "Данные не определены";
+           - asset_type = "not_defined";
+           - shares_type_details = "Данные не определены";
+           - price_currency = "not_defined";
+           - не выполняй остальные шаги.
 
         1. asset_type — "llc_share" / "shares" / "mixed" / "not_defined".
         2. target_name_status — "defined" если наименование target прямо указано, иначе "not_defined".
@@ -1472,45 +1578,95 @@ checks_v8:
         19. price_details — цена сделки с валютой.
         20. price_currency — "RUB" / "USD" / "EUR" / "other" / "not_defined".
 
-        Если данные отсутствуют:
+        Если данные отсутствуют в тексте договора:
         - статус = "not_defined"
         - текст = "Данные не определены"
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни corporate_asset_subject_extraction_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все содержательные статусы (*_status) = "not_defined", все текстовые/числовые поля = "Данные не определены".
         - Используй только текст договора.
         - asset_type:
-        - "llc_share" — при продаже доли в ООО.
-        - "shares" — при продаже акций АО.
-        - "mixed" — если продаётся и то, и другое.
-        - "not_defined" — если тип актива прямо не определён.
+          * "llc_share" — при продаже доли в ООО;
+          * "shares" — при продаже акций АО;
+          * "mixed" — если продаётся и то, и другое;
+          * "not_defined" — если тип актива прямо не определён.
         - shares_type_details:
-        - "ordinary" — обыкновенные акции.
-        - "preferred" — привилегированные акции.
-        - "mixed" — продаются акции обоих типов.
-        - "Данные не определены" — тип акций не указан.
+          * "ordinary" — обыкновенные акции;
+          * "preferred" — привилегированные акции;
+          * "mixed" — продаются акции обоих типов;
+          * "Данные не определены" — тип акций не указан.
         - price_currency:
-        - "RUB" — рубли.
-        - "USD" — доллары США.
-        - "EUR" — евро.
-        - "other" — иная валюта, прямо названная в тексте.
-        - "not_defined" — валюта не указана.
+          * "RUB" — рубли;
+          * "USD" — доллары США;
+          * "EUR" — евро;
+          * "other" — иная валюта, прямо названная в тексте;
+          * "not_defined" — валюта не указана.
         - Не путай цену сделки с номинальной стоимостью доли.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           Договор регламентирует вопросы AML/KYC и конфиденциальности, не устанавливая конкретные параметры продаваемой доли или акций.
+           → presence = "missing";
+             все содержательные статусы = "not_defined";
+             все текстовые значения = "Данные не определены".
+
+        2. Отложенный расчет цены (Earn-out).
+           В договоре написано: "Окончательная цена рассчитывается по формуле на основании финансовых результатов target-компании за 2026 год".
+           → presence = "present";
+             price_status = "defined";
+             price_details = "Окончательная цена рассчитывается по формуле на основании финансовых результатов за 2026 год".
+
+        3. Противоречие в размере доли.
+           В разделе 1 указано, что продается 50% доли в ООО, а в разделе реквизитов — 49%.
+           → presence = "unclear";
+             share_ratio_status = "not_defined";
+             share_ratio_details = "Не удалось определить".
+
+        4. Определение предмета по Спецификации.
+           В самом договоре нет параметров target-компании, содержится ссылка: "Идентификация отчуждаемого актива приведена в Приложении №1".
+           → presence = "present";
+             target_name_status = "defined";
+             target_name_details = "Согласно Приложению №1 к договору".
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для corporate_asset_subject_extraction_presence используй только: "present", "missing", "unclear".
+        - Для status-полей используй только: "defined" или "not_defined".
+        - Для asset_type используй только: "llc_share", "shares", "mixed", "not_defined".
+        - Для shares_type_details используй только: "ordinary", "preferred", "mixed", "Данные не определены".
+        - Для price_currency используй только: "RUB", "USD", "EUR", "other", "not_defined".
+        - Fallback при отсутствии данных:
+          * все текстовые/числовые поля $\rightarrow$ "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все содержательные поля $\rightarrow$ "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "corporate_asset_subject_extraction_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие заверений по предмету и цене сделки в договоре. Внутреннее агрегатное signal-поле."
+          required: true
         - name: "asset_type"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["llc_share", "shares", "mixed", "not_defined"]
           description: "Тип корпоративного актива."
           required: true
         - name: "target_name_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания наименования target."
           required: true
@@ -1525,6 +1681,7 @@ checks_v8:
         - name: "target_ogrn_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания ОГРН target."
           required: true
@@ -1538,6 +1695,7 @@ checks_v8:
         - name: "target_inn_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания ИНН target."
           required: true
@@ -1551,6 +1709,7 @@ checks_v8:
         - name: "share_ratio_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания размера доли."
           required: true
@@ -1565,6 +1724,7 @@ checks_v8:
         - name: "share_nominal_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания номинальной стоимости доли."
           required: true
@@ -1578,6 +1738,7 @@ checks_v8:
         - name: "shares_quantity_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания количества акций."
           required: true
@@ -1591,6 +1752,7 @@ checks_v8:
         - name: "shares_type_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания типа акций."
           required: true
@@ -1604,6 +1766,7 @@ checks_v8:
         - name: "issue_number_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания номера выпуска акций."
           required: true
@@ -1617,6 +1780,7 @@ checks_v8:
         - name: "price_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания цены сделки."
           required: true
@@ -1631,6 +1795,7 @@ checks_v8:
         - name: "price_currency"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["RUB", "USD", "EUR", "other", "not_defined"]
           description: "Валюта цены сделки."
           required: true
@@ -1841,9 +2006,12 @@ checks_v8:
       enabled: true
       mode: "hybrid"
       compact_output: false
-
       llm_max_tokens: 1100
-
+      presence_signal:
+        field: "transfer_mechanics_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора купли-продажи корпоративных
@@ -1858,6 +2026,26 @@ checks_v8:
         <task>
         Заполни строго следующие поля:
 
+        0. transfer_mechanics_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных статусных полей
+             (transfer_mechanism_status, llc_notarization_status, llc_egrul_status, shares_registry_status, closing_sequence_status) = "defined";
+           - "missing" — если все пять полей = "not_defined";
+           - "unclear" — если по фрагментам есть противоречие или неоднозначность.
+
+           Если presence = "missing":
+           - transfer_mechanism_status = "not_defined";
+           - llc_notarization_status = "not_defined";
+           - llc_egrul_status = "not_defined";
+           - shares_registry_status = "not_defined";
+           - closing_sequence_status = "not_defined";
+           - transfer_mechanism_details = "Данные не определены";
+           - llc_notarization_details = "Данные не определены";
+           - llc_egrul_details = "Данные не определены";
+           - shares_registry_details = "Данные не определены";
+           - closing_sequence_details = "Данные не определены";
+           - не выполняй остальные шаги.
+
         1. transfer_mechanism_status — "defined" если момент или механизм перехода права прямо указан, иначе "not_defined".
         2. transfer_mechanism_details — формулировка о механизме перехода.
         3. llc_notarization_status — "defined" если нотариальное удостоверение прямо предусмотрено, иначе "not_defined".
@@ -1869,25 +2057,71 @@ checks_v8:
         9. closing_sequence_status — "defined" если последовательность закрытия сделки (closing sequence) прямо описана, иначе "not_defined".
         10. closing_sequence_details — формулировка о последовательности действий при закрытии.
 
-        Если данные отсутствуют:
+        Если данные отсутствуют в тексте договора:
         - статус = "not_defined"
         - текст = "Данные не определены"
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни transfer_mechanics_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все содержательные статусы (*_status) = "not_defined", все текстовые/числовые поля = "Данные не определены".
         - Используй только текст договора.
         - Не выводи механизм перехода права из закона (ст. 21 ФЗ-14 и др.) — фиксируй только то, что прямо написано.
         - transfer_mechanism_status = "defined" только если момент перехода права явно сформулирован в тексте.
         - llc_notarization_status = "defined" только если необходимость нотариального удостоверения прямо предусмотрена текстом.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           Договор регламентирует вопросы AML/KYC и конфиденциальности, не устанавливая дедлайны или переход прав.
+           → presence = "missing";
+             все содержательные статусы = "not_defined";
+             все текстовые значения = "Данные не определены".
+
+        2. Отсутствие регулирования ЕГРЮЛ.
+           В договоре ООО прямо прописано нотариальное удостоверение сделки, но детальный регламент ЕГРЮЛ опущен.
+           → presence = "present";
+             llc_egrul_status = "not_defined";
+             llc_egrul_details = "Данные не определены".
+
+        3. Противоречие в моменте перехода права.
+           В п. 1.2 указано, что право переходит в момент подписания, а в п. 9.1 — с даты внесения записи в ЕГРЮЛ.
+           → presence = "unclear";
+             transfer_mechanism_status = "not_defined";
+             transfer_mechanism_details = "Не удалось определить".
+
+        4. Оговорка об эскроу-агенте.
+           Переход прав осуществляется через депонирование документов у эскроу-агента с передачей по факту оплаты.
+           → presence = "present";
+             closing_sequence_status = "defined";
+             closing_sequence_details = "закрытие сделки через эскроу-агента по факту подтверждения оплаты".
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для transfer_mechanics_check_presence используй только: "present", "missing", "unclear".
+        - Для status-полей используй только: "defined" или "not_defined".
+        - Fallback при отсутствии данных:
+          * все текстовые/числовые поля $\rightarrow$ "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все содержательные поля $\rightarrow$ "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "transfer_mechanics_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие заверений по механизму перехода права в договоре. Внутреннее агрегатное signal-поле."
+          required: true
         - name: "transfer_mechanism_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения механизма перехода права."
           required: true
@@ -1902,6 +2136,7 @@ checks_v8:
         - name: "llc_notarization_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус нотариального удостоверения (для доли ООО)."
           required: true
@@ -1915,6 +2150,7 @@ checks_v8:
         - name: "llc_egrul_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус урегулирования записи в ЕГРЮЛ."
           required: true
@@ -1928,6 +2164,7 @@ checks_v8:
         - name: "shares_registry_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус урегулирования записи у регистратора/депозитария."
           required: true
@@ -1941,6 +2178,7 @@ checks_v8:
         - name: "closing_sequence_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия closing sequence."
           required: true
@@ -2146,9 +2384,12 @@ checks_v8:
       enabled: true
       mode: "hybrid"
       compact_output: false
-
       llm_max_tokens: 900
-
+      presence_signal:
+        field: "title_and_encumbrances_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки заверения о праве собственности (титуле) продавца
@@ -2163,6 +2404,24 @@ checks_v8:
         <task>
         Заполни строго следующие поля:
 
+        0. title_and_encumbrances_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных статусных полей
+             (title_confirmation_status, pledge_status, arrest_status, third_party_rights_status) = "defined";
+           - "missing" — если все четыре поля = "not_defined";
+           - "unclear" — если по фрагментам есть противоречие или неоднозначность.
+
+           Если presence = "missing":
+           - title_confirmation_status = "not_defined";
+           - pledge_status = "not_defined";
+           - arrest_status = "not_defined";
+           - third_party_rights_status = "not_defined";
+           - title_confirmation_details = "Данные не определены";
+           - pledge_details = "Данные не определены";
+           - arrest_details = "Данные не определены";
+           - third_party_rights_details = "Данные не определены";
+           - не выполняй остальные шаги.
+
         1. title_confirmation_status — "defined" если право собственности продавца на актив прямо подтверждено, иначе "not_defined".
         2. title_confirmation_details — формулировка о праве собственности продавца.
         3. pledge_status — "defined" если отсутствие залога прямо указано, иначе "not_defined".
@@ -2172,24 +2431,70 @@ checks_v8:
         7. third_party_rights_status — "defined" если отсутствие прав третьих лиц прямо указано, иначе "not_defined".
         8. third_party_rights_details — формулировка об отсутствии иных прав третьих лиц.
 
-        Если данные отсутствуют:
+        Если данные отсутствуют в тексте договора:
         - статус = "not_defined"
         - текст = "Данные не определены"
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни title_and_encumbrances_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все содержательные статусы (*_status) = "not_defined", все текстовые/числовые поля = "Данные не определены".
         - Используй только текст договора.
         - pledge_status = "defined" также в случае, если наличие залога прямо подтверждено (тогда в details выведи текст о залоге).
         - Не выводи заверения из нормы ст. 460 ГК РФ — используй исключительно текст договора.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           Договор описывает регламент AML/KYC и конфиденциальность сторон, не устанавливая заверения о чистоте титула.
+           → presence = "missing";
+             все содержательные статусы = "not_defined";
+             все текстовые значения = "Данные не определены".
+
+        2. Прямое раскрытие залога.
+           В договоре зафиксировано: "Продаваемая доля находится в залоге у ПАО «Сбербанк» на основании договора залога № 5".
+           → presence = "present";
+             pledge_status = "defined";
+             pledge_details = "продаваемая доля находится в залоге у ПАО «Сбербанк» на основании договора залога № 5".
+
+        3. Противоречие в титуле.
+           В разделе 4 Продавец гарантирует единоличное владение 100% доли, а в разделе 7 упоминается опцион третьего лица на 10%.
+           → presence = "unclear";
+             third_party_rights_status = "not_defined";
+             third_party_rights_details = "Не удалось определить".
+
+        4. Оговорка о судебном споре.
+           Право собственности Продавца оспаривается третьим лицом в суде, факт судебного спора прямо указан.
+           → presence = "present";
+             title_confirmation_status = "defined";
+             title_confirmation_details = "раскрыт существующий судебный спор о праве собственности на долю".
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для title_and_encumbrances_check_presence используй только: "present", "missing", "unclear".
+        - Для status-полей используй только: "defined" или "not_defined".
+        - Fallback при отсутствии данных:
+          * все текстовые/числовые поля $\rightarrow$ "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все содержательные поля $\rightarrow$ "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "title_and_encumbrances_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие заверений по титулу / отсутствию обременений в договоре. Внутреннее агрегатное signal-поле."
+          required: true
         - name: "title_confirmation_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус подтверждения права собственности продавца на актив."
           required: true
@@ -2204,6 +2509,7 @@ checks_v8:
         - name: "pledge_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус заверения об отсутствии залога."
           required: true
@@ -2217,6 +2523,7 @@ checks_v8:
         - name: "arrest_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус заверения об отсутствии ареста."
           required: true
@@ -2230,6 +2537,7 @@ checks_v8:
         - name: "third_party_rights_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус заверения об отсутствии прав третьих лиц."
           required: true
@@ -2257,7 +2565,6 @@ checks_v8:
     severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
-
     rules:
       keywords:
         - "преимущественное право покупки"
@@ -2279,7 +2586,6 @@ checks_v8:
         - "(?i)сделк(а|и)\\s+с\\s+заинтересованност"
         - "(?i)антимонопольн(ое|ого)\\s+соглас"
         - "(?i)одобрен(ие|а).*собрани"
-
     llm:
       prompt_template: |
         [КОНТЕКСТ]
@@ -2387,7 +2693,6 @@ checks_v8:
       context_k: 7
       temperature: 0.0
       max_tokens: 750
-
     retrieval:
       retrieval_profile: "consent_check"
       corpus_scope: "primary_segment"
@@ -2428,7 +2733,6 @@ checks_v8:
       context_k: 7
       max_chunks: 9
       rerank: true
-
     enrichment_hints:
       preferred_segment_types:
         - "contract"
@@ -2441,19 +2745,20 @@ checks_v8:
         - "obligations"
       confidence_bonus_on_match: 0.10
       confidence_penalty_on_excluded_segment: 0.12
-
     evidence:
       required: true
       min_snippet_length: 40
       max_snippet_length: 700
-
     extraction:
       enabled: true
       mode: "hybrid"
       compact_output: false
-
       llm_max_tokens: 1000
-
+      presence_signal:
+        field: "corporate_procedure_compliance_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора корпоративные процедуры:
@@ -2468,6 +2773,25 @@ checks_v8:
         <task>
         Заполни строго следующие поля:
 
+        0. corporate_procedure_compliance_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных статусных полей
+             (preemptive_rights_status, corporate_approval_status, charter_restrictions_status, fas_clearance_status) = "defined";
+           - "missing" — если все четыре поля = "not_defined";
+           - "unclear" — если по фрагментам есть противоречие или неоднозначность.
+
+           Если presence = "missing":
+           - preemptive_rights_status = "not_defined";
+           - corporate_approval_status = "not_defined";
+           - charter_restrictions_status = "not_defined";
+           - fas_clearance_status = "not_defined";
+           - preemptive_rights_details = "Данные не определены";
+           - corporate_approval_details = "Данные не определены";
+           - charter_restrictions_details = "Данные не определены";
+           - fas_clearance_details = "Данные не определены";
+           - corporate_approval_type = "not_defined";
+           - не выполняй остальные шаги.
+
         1. preemptive_rights_status — "defined" если соблюдение или отказ от преимущественного права прямо урегулированы, иначе "not_defined".
         2. preemptive_rights_details — формулировка о преимущественном праве.
         3. corporate_approval_status — "defined" если корпоративное одобрение прямо упомянуто или прямо указано, что оно не требуется, иначе "not_defined".
@@ -2478,27 +2802,48 @@ checks_v8:
         8. fas_clearance_status — "defined" если согласование ФАС прямо упомянуто (требуется или не требуется), иначе "not_defined".
         9. fas_clearance_details — формулировка о ФАС.
 
-        Если данные отсутствуют:
+        Если данные отсутствуют в тексте договора:
         - статус = "not_defined"
         - текст = "Данные не определены"
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни corporate_procedure_compliance_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все содержательные статусы (*_status) = "not_defined", все текстовые/числовые поля = "Данные не определены".
         - Используй только текст договора.
         - corporate_approval_type:
-        - "general_meeting" — если одобрение исходит от общего собрания.
-        - "board" — если одобрение исходит от совета директоров / наблюдательного совета.
-        - "sole_participant" — если одобрение исходит от единственного участника / акционера.
-        - "not_defined" — если орган прямо не назван или одобрение не упомянуто.
+          * "general_meeting" — если одобрение исходит от общего собрания;
+          * "board" — если одобрение исходит от совета директоров / наблюдательного совета;
+          * "sole_participant" — если одобрение исходит от единственного участника / акционера;
+          * "not_defined" — если орган прямо не назван или одобрение не упомянуто.
+        - Проверка уставных ограничений: это не общая фраза о соответствии уставу, а прямое подтверждение отсутствия ограничений на продажу третьим лицам.
         </context_rules>
 
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для corporate_procedure_compliance_check_presence используй только: "present", "missing", "unclear".
+        - Для status-полей используй только: "defined" или "not_defined".
+        - Для corporate_approval_type используй только: "general_meeting", "board", "sole_participant", "not_defined".
+        - Fallback при отсутствии данных:
+          * все текстовые/числовые поля $\rightarrow$ "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все содержательные поля $\rightarrow$ "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
       fields:
+        - name: "corporate_procedure_compliance_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие заверений по корпоративным процедурам в договоре. Внутреннее агрегатное signal-поле."
+          required: true
         - name: "preemptive_rights_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус урегулирования преимущественного права."
           required: true
@@ -2513,6 +2858,7 @@ checks_v8:
         - name: "corporate_approval_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия корпоративного одобрения."
           required: true
@@ -2527,12 +2873,14 @@ checks_v8:
         - name: "corporate_approval_type"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["general_meeting", "board", "sole_participant", "not_defined"]
           description: "Тип органа корпоративного одобрения."
           required: true
         - name: "charter_restrictions_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус проверки уставных ограничений."
           required: true
@@ -2546,6 +2894,7 @@ checks_v8:
         - name: "fas_clearance_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус упоминания ФАС-согласования."
           required: true
@@ -2572,7 +2921,6 @@ checks_v8:
     severity_if_unclear: "critical"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
-
     rules:
       keywords:
         - "цена"
@@ -2596,11 +2944,10 @@ checks_v8:
         - "(?i)earn[- ]?out"
         - "(?i)отложенн(ый|ого)\\s+платеж"
         - "(?i)working\\s+capital\\s+adjustment"
-
     llm:
       prompt_template: |
         [КОНТЕКСТ]
-        Ты — российский юрист по корпоративным сделкам.
+        Ты — российский юрист по корпоравым сделкам.
         Анализируется договор купли-продажи корпоративных прав (долей/акций).
         Проверяется только один вопрос: цена сделки и структура платежей.
 
@@ -2622,7 +2969,7 @@ checks_v8:
         6. Есть ли последствия просрочки оплаты.
 
         [ПРАВИЛА]
-        1. Используй только текст документа.
+        1. Используй только текст договора.
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
@@ -2716,7 +3063,6 @@ checks_v8:
       context_k: 6
       temperature: 0.0
       max_tokens: 750
-
     retrieval:
       corpus_scope: "primary_segment"
       levels:
@@ -2759,7 +3105,6 @@ checks_v8:
       context_k: 6
       max_chunks: 8
       rerank: true
-
     enrichment_hints:
       preferred_segment_types:
         - "contract"
@@ -2771,20 +3116,21 @@ checks_v8:
         - "obligations"
         - "procedures"
       confidence_bonus_on_match: 0.10
-      confidence_penalty_on_excluded_segment: 0.12
-
+      confidence_penalty_on_excluded_segment: 0.10
     evidence:
       required: true
       min_snippet_length: 40
       max_snippet_length: 700
-
     extraction:
       enabled: true
       mode: "hybrid"
       compact_output: false
-
       llm_max_tokens: 1400
-
+      presence_signal:
+        field: "price_and_payment_mechanics_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора цену сделки и структуру
@@ -2800,6 +3146,29 @@ checks_v8:
         <task>
         Заполни строго следующие поля:
 
+        0. price_and_payment_mechanics_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из основных содержательных статусных полей
+             (price_status, payment_structure_code, payment_deadline_status, late_payment_status) = "defined";
+           - "missing" — если все эти четыре поля = "not_defined";
+           - "unclear" — если по фрагментам есть противоречие или неоднозначность.
+
+           Если presence = "missing":
+           - price_status = "not_defined";
+           - payment_structure_code = "not_defined";
+           - payment_deadline_status = "not_defined";
+           - late_payment_status = "not_defined";
+           - escrow_release_status = "not_defined";
+           - price_adjustment_status = "not_defined";
+           - price_details = "Данные не определены";
+           - payment_structure_details = "Данные не определены";
+           - payment_deadline_details = "Данные не определены";
+           - late_payment_details = "Данные не определены";
+           - escrow_release_details = "Данные не определены";
+           - price_adjustment_details = "Данные не определены";
+           - price_currency = "not_defined";
+           - не выполняй остальные шаги.
+
         1. price_status — "defined" если размер цены прямо указан, иначе "not_defined".
         2. price_details — размер цены сделки.
         3. price_currency — "RUB" / "USD" / "EUR" / "other" / "not_defined".
@@ -2814,36 +3183,82 @@ checks_v8:
         12. late_payment_status — "defined" если последствия просрочки прямо описаны, иначе "not_defined".
         13. late_payment_details — последствия просрочки.
 
-        Если данные отсутствуют:
+        Если данные отсутствуют в тексте договора:
         - статус = "not_defined"
         - текст = "Данные не определены"
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни price_and_payment_mechanics_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все содержательные статусы (*_status) = "not_defined", все текстовые/числовые поля = "Данные не определены".
         - Используй только текст договора.
         - Не смешивай покупную цену сделки с номинальной стоимостью доли в уставном капитале.
         - price_currency:
-        - "RUB" — российские рубли.
-        - "USD" — доллары США.
-        - "EUR" — евро.
-        - "other" — иная валюта, прямо названная в тексте.
-        - "not_defined" — валюта прямо не указана.
+          * "RUB" — российские рубли;
+          * "USD" — доллары США;
+          * "EUR" — евро;
+          * "other" — иная валюта, прямо названная в тексте;
+          * "not_defined" — валюта прямо не указана.
         - payment_structure_code:
-        - "upfront" — вся сумма уплачивается единовременно без удержаний.
-        - "deferred" — часть или вся сумма уплачивается отложенным платежом (без escrow и earn-out).
-        - "escrow" — часть суммы резервируется на эскроу-счёте.
-        - "earn_out" — часть суммы зависит от достижения target-компанией будущих показателей.
-        - "mixed" — комбинация двух и более указанных структур.
-        - "not_defined" — структура платежей прямо не определена.
+          * "upfront" — вся сумма уплачивается единовременно без удержаний;
+          * "deferred" — часть или вся сумма уплачивается отложенным платежом (без escrow и earn-out);
+          * "escrow" — часть суммы резервируется на эскроу-счёте;
+          * "earn_out" — часть суммы зависит от достижения target-компанией будущих показателей;
+          * "mixed" — комбинация двух и более указанных структур;
+          * "not_defined" — структура платежей прямо не определена.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           Договор регламентирует исключительно корпоративный порядок уступки преимущественных прав без согласования цены.
+           → presence = "missing";
+             все содержательные статусы = "not_defined";
+             все текстовые значения = "Данные не определены".
+
+        2. Рассрочка без эскроу.
+           Оплата разделена на 2 равных платежа в течение года без открытия эскроу-счетов.
+           → presence = "present";
+             payment_structure_code = "deferred";
+             payment_structure_details = "2 равных платежа в течение года".
+
+        3. Противоречие в механизме корректировки цены.
+           В одном разделе написано, что корректировка осуществляется по Net Debt, а в другом — по Working Capital без учета долга.
+           → presence = "unclear";
+             price_adjustment_status = "not_defined";
+             price_adjustment_details = "Не удалось определить".
+
+        4. Оговорка об отложенном платеже.
+           Прямо предусмотрен Earn-out в зависимости от EBITDA target-компании по итогам календарного года.
+           → presence = "present";
+             payment_structure_code = "earn_out";
+             payment_structure_details = "начисление Earn-out по результатам EBITDA за финансовый год".
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для price_and_payment_mechanics_presence используй только: "present", "missing", "unclear".
+        - Для status-полей используй только: "defined" или "not_defined".
+        - Для payment_structure_code используй только: "upfront", "deferred", "escrow", "earn_out", "mixed", "not_defined".
+        - Fallback при отсутствии данных:
+          * все текстовые/числовые поля $\rightarrow$ "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все содержательные поля $\rightarrow$ "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
       fields:
+        - name: "price_and_payment_mechanics_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие заверений по условиям и модели оплаты в договоре. Внутреннее агрегатное signal-поле."
+          required: true
         - name: "price_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания цены сделки."
           required: true
@@ -2858,12 +3273,14 @@ checks_v8:
         - name: "price_currency"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["RUB", "USD", "EUR", "other", "not_defined"]
           description: "Валюта цены сделки."
           required: true
         - name: "payment_structure_code"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["upfront", "deferred", "escrow", "earn_out", "mixed", "not_defined"]
           description: "Структура платежей."
           required: true
@@ -2878,6 +3295,7 @@ checks_v8:
         - name: "escrow_release_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения условий release из эскроу."
           required: true
@@ -2891,6 +3309,7 @@ checks_v8:
         - name: "price_adjustment_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия механизма корректировки цены."
           required: true
@@ -2904,6 +3323,7 @@ checks_v8:
         - name: "payment_deadline_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения срока оплаты."
           required: true
@@ -2918,6 +3338,7 @@ checks_v8:
         - name: "late_payment_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия условий о последствиях просрочки."
           required: true
@@ -3145,9 +3566,12 @@ checks_v8:
       enabled: true
       mode: "hybrid"
       compact_output: false
-
       llm_max_tokens: 1400
-
+      presence_signal:
+        field: "warranties_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора пакет заверений продавца
@@ -3163,6 +3587,30 @@ checks_v8:
         <task>
         Заполни строго следующие поля:
 
+        0. warranties_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных статусных полей
+             (tax_warranty_status, litigation_warranty_status, license_warranty_status,
+              title_warranty_status, ip_warranty_status, compliance_warranty_status) = "defined";
+           - "missing" — если все шесть статусных полей = "not_defined";
+           - "unclear" — если по фрагментам есть противоречие или неоднозначность.
+
+           Если presence = "missing":
+           - warranties_status = "not_defined";
+           - tax_warranty_status = "not_defined";
+           - litigation_warranty_status = "not_defined";
+           - license_warranty_status = "not_defined";
+           - title_warranty_status = "not_defined";
+           - ip_warranty_status = "not_defined";
+           - compliance_warranty_status = "not_defined";
+           - tax_warranty_details = "Данные не определены";
+           - litigation_warranty_details = "Данные не определены";
+           - license_warranty_details = "Данные не определены";
+           - title_warranty_details = "Данные не определены";
+           - ip_warranty_details = "Данные не определены";
+           - compliance_warranty_details = "Данные не определены";
+           - не выполняй остальные шаги.
+
         1. warranties_status — "defined" если присутствует хотя бы одно из перечисленных ниже заверений, иначе "not_defined".
         2. tax_warranty_status — "defined" если налоговое заверение (о налогах, отчётности, проверках target) прямо есть, иначе "not_defined".
         3. tax_warranty_details — формулировка налогового заверения.
@@ -3177,30 +3625,79 @@ checks_v8:
         12. compliance_warranty_status — "defined" если заверение о соответствии применимому законодательству (compliance) прямо есть, иначе "not_defined".
         13. compliance_warranty_details — формулировка о compliance.
 
-        Если данные отсутствуют:
+        Если данные отсутствуют в тексте договора:
         - статус = "not_defined"
         - текст = "Данные не определены"
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни warranties_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все содержательные статусы (*_status) = "not_defined", все текстовые поля = "Данные не определены".
         - Используй только текст договора.
         - Проверяй только заверения о target-компании, а не о самом продавце как владельце доли.
         - Заверения о title продавца на продаваемую долю (ст. 460 ГК РФ) не извлекай — здесь извлекай только заверения о титуле target-компании на принадлежащее ей имущество.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           Договор регламентирует процедуру расчетов и closing mechanics без предоставления пакета заверений о target-компании.
+           → presence = "missing";
+             все содержательные статусы = "not_defined";
+             все текстовые значения = "Данные не определены".
+
+        2. Частичный пакет заверений.
+           В договоре даны подробные заверения по налогам и лицензиям, но о спорах и IP стороны умолчали.
+           → presence = "present";
+             warranties_status = "defined";
+             tax_warranty_status = "defined";
+             license_warranty_status = "defined";
+             ip_warranty_status = "not_defined";
+             ip_warranty_details = "Данные не определены".
+
+        3. Противоречие в заверениях.
+           В разделе 6 Продавец гарантирует отсутствие споров, а в приложении Disclosure Letter прямо раскрывает наличие судебного иска на сумму 10 млн руб.
+           → presence = "unclear";
+             litigation_warranty_status = "not_defined";
+             litigation_warranty_details = "Не удалось определить".
+
+        4. Заверения с оговоркой о знании (knowledge qualifier).
+           Заверение о compliance сформулировано: «Насколько известно Продавцу, деятельность Общества ведется без нарушений законодательства».
+           → presence = "present";
+             compliance_warranty_status = "defined";
+             compliance_warranty_details = "насколько известно Продавцу, деятельность Общества ведется без нарушений законодательства".
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для warranties_check_presence используй только: "present", "missing", "unclear".
+        - Для status-полей используй только: "defined" или "not_defined".
+        - Fallback при отсутствии данных:
+          * все текстовые/числовые поля $\rightarrow$ "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все содержательные поля $\rightarrow$ "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
       fields:
+        - name: "warranties_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие заверений об обстоятельствах в отношении target-компании в договоре. Внутреннее агрегатное signal-поле."
+          required: true
         - name: "warranties_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия пакета заверений продавца."
           required: true
         - name: "tax_warranty_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус налогового заверения."
           required: true
@@ -3215,6 +3712,7 @@ checks_v8:
         - name: "litigation_warranty_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус заверения об отсутствии споров."
           required: true
@@ -3228,6 +3726,7 @@ checks_v8:
         - name: "license_warranty_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус заверения о лицензиях."
           required: true
@@ -3241,6 +3740,7 @@ checks_v8:
         - name: "title_warranty_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус заверения о праве собственности на имущество target."
           required: true
@@ -3254,6 +3754,7 @@ checks_v8:
         - name: "ip_warranty_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус заверения об IP."
           required: true
@@ -3267,6 +3768,7 @@ checks_v8:
         - name: "compliance_warranty_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус заверения о compliance."
           required: true
@@ -3417,6 +3919,7 @@ checks_v8:
       temperature: 0.0
       max_tokens: 600
     retrieval:
+      retrieval_profile: "liability_cap_check"
       corpus_scope: "primary_segment"
       levels:
         - "legal_unit"
@@ -3453,7 +3956,6 @@ checks_v8:
         preferred_range: [0.40, 0.90]
         boost: 0.15
         scope: segment
-      retrieval_profile: "liability_cap_check"
       context_k: 6
       max_chunks: 8
       rerank: true
@@ -3477,9 +3979,12 @@ checks_v8:
       enabled: true
       mode: "hybrid"
       compact_output: false
-
       llm_max_tokens: 900
-
+      presence_signal:
+        field: "indemnity_and_liability_limits_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора механизм компенсации потерь
@@ -3495,6 +4000,24 @@ checks_v8:
         <task>
         Заполни строго следующие поля:
 
+        0. indemnity_and_liability_limits_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных статусных полей
+             (indemnity_status, liability_cap_status, de_minimis_basket_status, claim_period_status) = "defined";
+           - "missing" — если все четыре поля = "not_defined";
+           - "unclear" — если по фрагментам есть противоречие или неоднозначность.
+
+           Если presence = "missing":
+           - indemnity_status = "not_defined";
+           - liability_cap_status = "not_defined";
+           - de_minimis_basket_status = "not_defined";
+           - claim_period_status = "not_defined";
+           - indemnity_details = "Данные не определены";
+           - liability_cap_details = "Данные не определены";
+           - de_minimis_basket_details = "Данные не определены";
+           - claim_period_details = "Данные не определены";
+           - не выполняй остальные шаги.
+
         1. indemnity_status — "defined" если специальный механизм возмещения потерь / убытков при нарушении заверений прямо предусмотрен, иначе "not_defined".
         2. indemnity_details — формулировка об indemnity.
         3. liability_cap_status — "defined" если лимит ответственности (cap) продавца прямо указан, иначе "not_defined".
@@ -3504,24 +4027,70 @@ checks_v8:
         7. claim_period_status — "defined" если срок предъявления требований по заверениям или indemnity прямо указан, иначе "not_defined".
         8. claim_period_details — формулировка о сроке предъявления требований.
 
-        Если данные отсутствуют:
+        Если данные отсутствуют в тексте договора:
         - статус = "not_defined"
         - текст = "Данные не определены"
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни indemnity_and_liability_limits_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все содержательные статусы (*_status) = "not_defined", все текстовые/числовые поля = "Данные не определены".
         - Используй только текст договора.
         - indemnity_status = "defined" только если механизм возмещения потерь прямо прописан (как ст. 406.1 ГК РФ или специальный contractual indemnity); не путай со стандартной ответственностью по ст. 393 ГК РФ.
         - liability_cap_status = "defined" только если указана конкретная сумма или процент, ограничивающие ответственность.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           Договор составлен в простой письменной форме по отчуждению без выделенных разделов ограничения ответственности или indemnity.
+           → presence = "missing";
+             все содержательные статусы = "not_defined";
+             все текстовые значения = "Данные не определены".
+
+        2. Выживание фундаментальных заверений без ограничения срока (survival period).
+           В договоре указан claim period 18 месяцев, но для fundamental representations (титул, полномочия) срок давности не ограничен.
+           → presence = "present";
+             claim_period_status = "defined";
+             claim_period_details = "18 месяцев с даты закрытия (кроме фундаментальных заверений об обстоятествах, действующих бессрочно)".
+
+        3. Противоречие в basket и de minimis лимитах.
+           В одном месте указан basket 1 млн рублей с накоплением, в другом — франшиза 500 тыс. рублей без накопления.
+           → presence = "unclear";
+             de_minimis_basket_status = "not_defined";
+             de_minimis_basket_details = "Не удалось определить".
+
+        4. Общий лимит по всем требованиям.
+           Договор устанавливает единый лимит ответственности Продавца по любым нарушениям в размере уплаченной Покупателем цены.
+           → presence = "present";
+             liability_cap_status = "defined";
+             liability_cap_details = "совокупный размер ответственности ограничен размером цены договора".
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для indemnity_and_liability_limits_check_presence используй только: "present", "missing", "unclear".
+        - Для status-полей используй только: "defined" или "not_defined".
+        - Fallback при отсутствии данных:
+          * все текстовые/числовые поля $\rightarrow$ "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все содержательные поля $\rightarrow$ "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "indemnity_and_liability_limits_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие заверений по лимитам ответственности и механизму indemnity в договоре. Внутреннее агрегатное signal-поле."
+          required: true
         - name: "indemnity_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия механизма indemnity."
           required: true
@@ -3536,6 +4105,7 @@ checks_v8:
         - name: "liability_cap_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания лимита ответственности продавца."
           required: true
@@ -3550,6 +4120,7 @@ checks_v8:
         - name: "de_minimis_basket_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания порогов de minimis / basket."
           required: true
@@ -3563,6 +4134,7 @@ checks_v8:
         - name: "claim_period_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания срока предъявления требований."
           required: true
@@ -3589,7 +4161,6 @@ checks_v8:
     severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
-
     rules:
       keywords:
         - "due diligence"
@@ -3605,7 +4176,6 @@ checks_v8:
         - "(?i)due\\s+diligence"
         - "(?i)data\\s+room|виртуальн(ая|ой)\\s+комнат"
         - "(?i)disclosure\\s+letter"
-
     llm:
       prompt_template: |
         [КОНТЕКСТ]
@@ -3714,7 +4284,6 @@ checks_v8:
       context_k: 6
       temperature: 0.0
       max_tokens: 700
-
     retrieval:
       retrieval_profile: "warranties_check"
       corpus_scope: "primary_segment"
@@ -3755,7 +4324,6 @@ checks_v8:
       context_k: 6
       max_chunks: 8
       rerank: true
-
     enrichment_hints:
       preferred_segment_types:
         - "contract"
@@ -3768,19 +4336,20 @@ checks_v8:
         - "procedures"
       confidence_bonus_on_match: 0.08
       confidence_penalty_on_excluded_segment: 0.10
-
     evidence:
       required: true
       min_snippet_length: 40
       max_snippet_length: 650
-
     extraction:
       enabled: true
       mode: "hybrid"
       compact_output: false
-
       llm_max_tokens: 1100
-
+      presence_signal:
+        field: "due_diligence_and_disclosure_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора данные о проведении
@@ -3796,6 +4365,26 @@ checks_v8:
         <task>
         Заполни строго следующие поля:
 
+        0. due_diligence_and_disclosure_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных статусных полей
+             (dd_status, data_room_status, disclosure_letter_status, buyer_reliance_status, dd_issues_procedure_status) = "defined";
+           - "missing" — если все пять полей = "not_defined";
+           - "unclear" — если по фрагментам есть противоречие или неоднозначность.
+
+           Если presence = "missing":
+           - dd_status = "not_defined";
+           - data_room_status = "not_defined";
+           - disclosure_letter_status = "not_defined";
+           - buyer_reliance_status = "not_defined";
+           - dd_issues_procedure_status = "not_defined";
+           - dd_details = "Данные не определены";
+           - data_room_details = "Данные не определены";
+           - disclosure_letter_details = "Данные не определены";
+           - buyer_reliance_details = "Данные не определены";
+           - dd_issues_procedure_details = "Данные не определены";
+           - не выполняй остальные шаги.
+
         1. dd_status — "defined" если проведение проверки компании (DD) прямо упомянуто, иначе "not_defined".
         2. dd_details — формулировка о проведении DD.
         3. data_room_status — "defined" если виртуальная комната данных (VDR / data room) прямо упомянута, иначе "not_defined".
@@ -3805,29 +4394,71 @@ checks_v8:
         7. buyer_reliance_status — "defined" если позиция покупателя относительно полагания на заверения прямо указана, иначе "not_defined".
         8. buyer_reliance_details — "reliance" / "no_reliance" / "Данные не определены".
         9. dd_issues_procedure_status — "defined" если процедура урегулирования выявленных в ходе DD нарушений прямо описана, иначе "not_defined".
-        10. dd_issues_procedure_details — формулировка о порядке действий при выявлении DD-issues.
-
-        Если данные отсутствуют:
-        - статус = "not_defined"
-        - текст = "Данные не определены"
+        10. dd_issues_procedure_details — формулировка о порядке действий при выявления DD-issues.
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни due_diligence_and_disclosure_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все содержательные статусы (*_status) = "not_defined", все текстовые/числовые поля = "Данные не определены".
         - Используй только текст договора.
         - Не анализируй содержание заверений как самостоятельный предмет — только их связь с процедурой DD.
         - buyer_reliance_details:
-        - "reliance" — если Покупатель прямо заявляет, что он полагается на заверения Продавца (несмотря на проведение DD).
-        - "no_reliance" — если Покупатель прямо заявляет, что он НЕ полагается на заверения, а полагается исключительно на результаты собственного DD.
-        - "Данные не определены" — если позиция по reliance прямо не указана.
+          * "reliance" — если Покупатель прямо заявляет, что он полагается на заверения Продавца (несмотря на проведение DD);
+          * "no_reliance" — если Покупатель прямо заявляет, что он НЕ полагается на заверения, а полагается исключительно на результаты собственного DD;
+          * "Данные не определены" — если позиция по reliance прямо не указана.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           Договор регламентирует исключительно порядок корпоративного одобрения, не устанавливая условия по Due Diligence.
+           → presence = "missing";
+             все содержательные статусы = "not_defined";
+             все текстовые значения = "Данные не определены".
+
+        2. Data Room без упоминания писем раскрытия.
+           Покупатель провёл проверку на основе документов, раскрытых в виртуальной комнате данных. Disclosure Letter не упоминается.
+           → presence = "present";
+             disclosure_letter_status = "not_defined";
+             disclosure_letter_details = "Данные не определены".
+
+        3. Противоречие в reliance оговорке.
+           В одном месте написано, что Покупатель полностью полагается на заверения, в другом — что он принимает риски на основании своего DD.
+           → presence = "unclear";
+             buyer_reliance_status = "not_defined";
+             buyer_reliance_details = "Не удалось определить".
+
+        4. Обязательство по устранению DD-Issues.
+           Продавец обязуется до даты закрытия сделки устранить нарушения, выявленные Покупателем в ходе проведения юридической проверки.
+           → presence = "present";
+             dd_issues_procedure_status = "defined";
+             dd_issues_procedure_details = "Продавец обязуется устранить выявленные в ходе DD нарушения до закрытия сделки".
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для due_diligence_and_disclosure_check_presence используй только: "present", "missing", "unclear".
+        - Для status-полей используй только: "defined" или "not_defined".
+        - Fallback при отсутствии данных:
+          * все текстовые/числовые поля $\rightarrow$ "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все содержательные поля $\rightarrow$ "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "due_diligence_and_disclosure_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие заверений по Due Diligence и раскрытию в договоре. Внутреннее aggregate signal-поле."
+          required: true
         - name: "dd_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус упоминания Due Diligence."
           required: true
@@ -3842,6 +4473,7 @@ checks_v8:
         - name: "data_room_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус упоминания data room."
           required: true
@@ -3855,6 +4487,7 @@ checks_v8:
         - name: "disclosure_letter_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус упоминания disclosure letter."
           required: true
@@ -3868,6 +4501,7 @@ checks_v8:
         - name: "buyer_reliance_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания позиции покупателя по reliance."
           required: true
@@ -3882,6 +4516,7 @@ checks_v8:
         - name: "dd_issues_procedure_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания процедуры при выявленных DD-issues."
           required: true
@@ -3889,7 +4524,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Процедура при DD-issues"
-          description: "Формулировка о порядке взаимодействия при выявленных DD-issues."
+          description: "Формулировка о порядке взаимодействия при выявления DD-issues."
           required: false
           display_in_grid: false
       store_payload: true
@@ -3908,7 +4543,6 @@ checks_v8:
     severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
-
     rules:
       keywords:
         - "conditions precedent"
@@ -3924,7 +4558,6 @@ checks_v8:
         - "(?i)conditions\\s+precedent|условия\\s+закрыти"
         - "(?i)long[- ]?stop"
         - "(?i)closing"
-
     llm:
       prompt_template: |
         [КОНТЕКСТ]
@@ -4046,7 +4679,6 @@ checks_v8:
       context_k: 7
       temperature: 0.0
       max_tokens: 800
-
     retrieval:
       retrieval_profile: "title_transfer_check"
       corpus_scope: "primary_segment"
@@ -4089,7 +4721,6 @@ checks_v8:
       context_k: 7
       max_chunks: 9
       rerank: true
-
     enrichment_hints:
       preferred_segment_types:
         - "contract"
@@ -4102,19 +4733,20 @@ checks_v8:
         - "obligations"
       confidence_bonus_on_match: 0.08
       confidence_penalty_on_excluded_segment: 0.10
-
     evidence:
       required: true
       min_snippet_length: 40
       max_snippet_length: 700
-
     extraction:
       enabled: true
       mode: "hybrid"
       compact_output: false
-
       llm_max_tokens: 1300
-
+      presence_signal:
+        field: "closing_conditions_and_payment_mechanics_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора купли-продажи корпоративных
@@ -4129,6 +4761,30 @@ checks_v8:
 
         <task>
         Заполни строго следующие поля:
+
+        0. closing_conditions_and_payment_mechanics_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных статусных полей
+             (cp_status, cp_regulatory_status, cp_corporate_status, long_stop_date_status, termination_on_cp_failure_status, closing_sequence_status, closing_deliverables_status) = "defined";
+           - "missing" — если все семь полей = "not_defined";
+           - "unclear" — если по фрагментам есть противоречие или неоднозначность.
+
+           Если presence = "missing":
+           - cp_status = "not_defined";
+           - cp_regulatory_status = "not_defined";
+           - cp_corporate_status = "not_defined";
+           - long_stop_date_status = "not_defined";
+           - termination_on_cp_failure_status = "not_defined";
+           - closing_sequence_status = "not_defined";
+           - closing_deliverables_status = "not_defined";
+           - cp_details = "Данные не определены";
+           - cp_regulatory_details = "Данные не определены";
+           - cp_corporate_details = "Данные не определены";
+           - long_stop_date_details = "Данные не определены";
+           - termination_on_cp_failure_details = "Данные не определены";
+           - closing_sequence_details = "Данные не определены";
+           - closing_deliverables_details = "Данные не определены";
+           - не выполняй остальные шаги.
 
         1. cp_status — "defined" если перечень conditions precedent прямо указан, иначе "not_defined".
         2. cp_details — перечень conditions precedent.
@@ -4151,33 +4807,79 @@ checks_v8:
             иначе "not_defined".
         14. closing_deliverables_details — формулировка о closing deliverables.
 
-        Если данные отсутствуют:
+        Если данные отсутствуют в тексте договора:
         - статус = "not_defined"
         - текст = "Данные не определены"
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни closing_conditions_and_payment_mechanics_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все содержательные статусы (*_status) = "not_defined", все текстовые/числовые поля = "Данные не определены".
         - Используй только текст договора.
         - cp_status = "defined" только если conditions precedent прямо перечислены или
-        охарактеризованы как условия закрытия; не выводи CP из общего смысла договора.
+          охарактеризованы как условия закрытия; не выводи CP из общего смысла договора.
         - cp_regulatory_status = "defined" только если регуляторное одобрение прямо
-        обозначено в договоре как CP.
+          обозначено в договоре как CP.
         - cp_corporate_status = "defined" только если корпоративное одобрение прямо
-        обозначено в договоре как CP.
+          обозначено в договоре как CP.
         - closing_sequence_status = "defined" только если порядок действий при closing
-        прямо описан (пошагово или в виде перечня).
+          прямо описан (пошагово или в виде перечня).
         - closing_deliverables_status = "defined" только если перечислены конкретные
-        документы, подтверждения, действия или deliverables, подлежащие предоставлению
-        именно при closing.
+          документы, подтверждения, действия или deliverables, подлежащие предоставлению
+          именно при closing.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           Договор закрывается непосредственно в момент подписания (signing and closing are simultaneous), отлагательные условия отсутствуют.
+           → presence = "missing";
+             все содержательные статусы = "not_defined";
+             все текстовые значения = "Данные не определены".
+
+        2. Автоматическое прекращение сделки при срыве Long-stop.
+           Если условия закрытия не выполнены до наступления Long-stop date, сделка автоматически прекращается без ответственности сторон.
+           → presence = "present";
+             termination_on_cp_failure_status = "defined";
+             termination_on_cp_failure_details = "автоматическое прекращение сделки без ответственности сторон в связи с ненаступлением Long-stop".
+
+        3. Противоречие в дате Long-stop.
+           В разделе 3 указана предельная дата 31 декабря, а в приложениях к графику платежей — 31 ноября.
+           → presence = "unclear";
+             long_stop_date_status = "not_defined";
+             long_stop_date_details = "Не удалось определить".
+
+        4. Обязательство по передаче закрывающих документов (closing deliverables).
+           Продавец обязуется на дату закрытия передать нотариальное согласие супруга и свежую выписку из ЕГРЮЛ.
+           → presence = "present";
+             closing_deliverables_status = "defined";
+             closing_deliverables_details = "выписка из ЕГРЮЛ на дату закрытия; нотариальное согласие супруга Продавца".
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для closing_conditions_and_payment_mechanics_check_presence используй только: "present", "missing", "unclear".
+        - Для status-полей используй только: "defined" или "not_defined".
+        - Fallback при отсутствии данных:
+          * все текстовые/числовые поля $\rightarrow$ "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все содержательные поля $\rightarrow$ "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "closing_conditions_and_payment_mechanics_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие заверений по условиям закрытия сделки. Внутреннее агрегатное signal-поле."
+          required: true
         - name: "cp_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия перечня conditions precedent."
           required: true
@@ -4192,6 +4894,7 @@ checks_v8:
         - name: "cp_regulatory_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус CP, связанного с регуляторными одобрениями."
           required: true
@@ -4205,6 +4908,7 @@ checks_v8:
         - name: "cp_corporate_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус CP, связанного с корпоративными одобрениями."
           required: true
@@ -4218,6 +4922,7 @@ checks_v8:
         - name: "long_stop_date_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания long-stop date."
           required: true
@@ -4232,6 +4937,7 @@ checks_v8:
         - name: "termination_on_cp_failure_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус права отказа при неисполнении CP."
           required: true
@@ -4245,6 +4951,7 @@ checks_v8:
         - name: "closing_sequence_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия closing sequence."
           required: true
@@ -4259,6 +4966,7 @@ checks_v8:
         - name: "closing_deliverables_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения перечня closing deliverables."
           required: true
@@ -4289,7 +4997,6 @@ checks_v8:
     severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
-
     rules:
       keywords:
         - "промежуточный период"
@@ -4306,7 +5013,6 @@ checks_v8:
         - "(?i)ordinary\\s+course"
         - "(?i)промежуточн(ый|ого)\\s+период"
         - "(?i)без\\s+(предварительного\\s+)?согласия\\s+покупател"
-
     llm:
       prompt_template: |
         [КОНТЕКСТ]
@@ -4430,7 +5136,6 @@ checks_v8:
       context_k: 7
       temperature: 0.0
       max_tokens: 800
-
     retrieval:
       retrieval_profile: "financial_covenant_check"
       corpus_scope: "primary_segment"
@@ -4472,7 +5177,6 @@ checks_v8:
       context_k: 7
       max_chunks: 9
       rerank: true
-
     enrichment_hints:
       preferred_segment_types:
         - "contract"
@@ -4485,19 +5189,20 @@ checks_v8:
         - "limitations"
       confidence_bonus_on_match: 0.08
       confidence_penalty_on_excluded_segment: 0.10
-
     evidence:
       required: true
       min_snippet_length: 40
       max_snippet_length: 750
-
     extraction:
       enabled: true
       mode: "hybrid"
       compact_output: false
-
       llm_max_tokens: 1600
-
+      presence_signal:
+        field: "interim_period_covenants_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора купли-продажи корпоративных
@@ -4513,6 +5218,31 @@ checks_v8:
 
         <task>
         Заполни строго следующие поля:
+
+        0. interim_period_covenants_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных статусных полей
+             (interim_covenants_status, ordinary_course_status, restricted_actions_status, dividend_restriction_status, asset_disposal_restriction_status, breach_consequences_status) = "defined";
+           - "missing" — если все шесть полей = "not_defined";
+           - "unclear" — если по фрагментам есть противоречие или неоднозначность.
+
+           Если presence = "missing":
+           - interim_covenants_status = "not_defined";
+           - ordinary_course_status = "not_defined";
+           - restricted_actions_status = "not_defined";
+           - buyer_consent_status = "not_defined";
+           - dividend_restriction_status = "not_defined";
+           - borrowing_restriction_status = "not_defined";
+           - asset_disposal_restriction_status = "not_defined";
+           - breach_consequences_status = "not_defined";
+           - ordinary_course_details = "Данные не определены";
+           - restricted_actions_details = "Данные не определены";
+           - buyer_consent_details = "Данные не определены";
+           - dividend_restriction_details = "Данные не определены";
+           - borrowing_restriction_details = "Данные не определены";
+           - asset_disposal_restriction_details = "Данные не определены";
+           - breach_consequences_details = "Данные не определены";
+           - не выполняй остальные шаги.
 
         1. interim_covenants_status — "defined" если ковенанты промежуточного периода
            (период между signing и closing) прямо предусмотрены, иначе "not_defined".
@@ -4541,37 +5271,84 @@ checks_v8:
             промежуточного периода прямо указаны, иначе "not_defined".
         15. breach_consequences_details — формулировка о последствиях нарушения.
 
-        Если данные отсутствуют:
+        Если данные отсутствуют в тексте договора:
         - статус = "not_defined"
         - текст = "Данные не определены"
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни interim_period_covenants_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все содержательные статусы (*_status) = "not_defined", все текстовые/числовые поля = "Данные не определены".
         - Используй только текст договора.
         - interim_covenants_status = "defined" только если ограничения прямо относятся
-        к периоду между signing и closing или иному явно обозначенному промежуточному
-        периоду до закрытия сделки.
+          к периоду между signing и closing или иному явно обозначенному промежуточному
+          периоду до закрытия сделки.
         - ordinary_course_status = "defined" только если обязательство вести деятельность
-        в обычном режиме прямо сформулировано в тексте.
+          в обычном режиме прямо сформулировано в тексте.
         - buyer_consent_status = "defined" только если согласие покупателя прямо требуется
-        для совершения конкретных действий в промежуточный период.
+          для совершения конкретных действий в промежуточный период.
         - restricted_actions_status = "defined" только если имеется прямой перечень или
-        прямое описание ограниченных действий; не выводи запреты из общего контекста.
+          прямое описание ограниченных действий; не выводи запреты из общего контекста.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           Договор закрывается непосредственно в день подписания (signing and closing are simultaneous), промежуточный период отсутствует в силу закона.
+           → presence = "missing";
+             все содержательные статусы = "not_defined";
+             все текстовые значения = "Данные не определены".
+
+        2. Лимиты на новые заимствования.
+           Продавец обязуется обеспечить, что без согласия Покупателя target-компания не будет привлекать кредиты на сумму свыше 5 млн рублей.
+           → presence = "present";
+             borrowing_restriction_status = "defined";
+             borrowing_restriction_details = "ограничение новых заимствований на сумму свыше 5 000 000 рублей".
+
+        3. Противоречие в ковенантах.
+           В одном месте разрешено увеличивать уставный капитал target-компании, а в другом — установлен запрет на любые изменения долей.
+           → presence = "unclear";
+             restricted_actions_status = "not_defined";
+             restricted_actions_details = "Не удалось определить".
+
+        4. Оговорка о согласии.
+           Все существенные операционные изменения в деятельности target-компании допускаются только с предварительного письменного согласия Покупателя.
+           → presence = "present";
+             buyer_consent_status = "defined";
+             buyer_consent_details = "все существенные операционные изменения осуществляются только с письменного согласия Покупателя".
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для interim_period_covenants_check_presence используй только: "present", "missing", "unclear".
+        - Для status-полей используй только: "defined" или "not_defined".
+        - Fallback при отсутствии данных:
+          * все текстовые/числовые поля $\rightarrow$ "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все содержательные поля $\rightarrow$ "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "interim_period_covenants_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие заверений по промежуточному периоду в договоре. Внутреннее агрегатное signal-поле."
+          required: true
         - name: "interim_covenants_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия ковенантов промежуточного периода."
           required: true
         - name: "ordinary_course_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания обязательства ordinary course."
           required: true
@@ -4586,6 +5363,7 @@ checks_v8:
         - name: "restricted_actions_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус перечня запрещённых действий."
           required: true
@@ -4600,6 +5378,7 @@ checks_v8:
         - name: "buyer_consent_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания необходимости согласия покупателя на действия в промежуточный период."
           required: true
@@ -4613,45 +5392,49 @@ checks_v8:
         - name: "dividend_restriction_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус запрета дивидендов."
           required: true
         - name: "dividend_restriction_details"
           type: "string"
           presentation: "fact"
-          label: "Запрет дивидендов"
+          label: "Заверение о запрете дивидендов"
           description: "Формулировка запрета выплаты дивидендов в промежуточный период."
           required: false
           display_in_grid: false
         - name: "borrowing_restriction_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус запрета новых заимствований."
           required: true
         - name: "borrowing_restriction_details"
           type: "string"
           presentation: "fact"
-          label: "Запрет заимствований"
+          label: "Заверение о запрете заимствований"
           description: "Формулировка запрета новых заимствований в промежуточный период."
           required: false
           display_in_grid: false
         - name: "asset_disposal_restriction_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус запрета отчуждения активов."
           required: true
         - name: "asset_disposal_restriction_details"
           type: "string"
           presentation: "fact"
-          label: "Запрет отчуждения активов"
+          label: "Заверение о запрете отчуждения активов"
           description: "Формулировка запрета отчуждения активов target."
           required: false
           display_in_grid: false
         - name: "breach_consequences_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания последствий нарушения ковенантов."
           required: true
@@ -4679,7 +5462,6 @@ checks_v8:
     severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
-
     rules:
       keywords:
         - "санкции"
@@ -4698,7 +5480,6 @@ checks_v8:
         - "(?i)бенефициарн(ый|ого)\\s+владел"
         - "(?i)источник\\s+средств"
         - "(?i)санкц"
-
     llm:
       prompt_template: |
         [КОНТЕКСТ]
@@ -4736,7 +5517,7 @@ checks_v8:
 
         Пример 1 — sanctions compliance урегулированы:
         Фрагмент:
-        "Каждая из сторон заверяет, что она и её бенефициарные владельцы не включены
+        "Каждая из сторон завеяет, что она и её бенефициарные владельцы не включены
         в санкционные списки SDN, EU, UN. Покупатель раскрывает UBO chart. Источник
         средств подтверждён документально. При обнаружении compliance-нарушений любая
         сторона вправе приостановить closing."
@@ -4804,7 +5585,6 @@ checks_v8:
       context_k: 6
       temperature: 0.0
       max_tokens: 700
-
     retrieval:
       retrieval_profile: "sanctions_compliance_check"
       corpus_scope: "primary_segment"
@@ -4845,7 +5625,6 @@ checks_v8:
       context_k: 6
       max_chunks: 8
       rerank: true
-
     enrichment_hints:
       preferred_segment_types:
         - "contract"
@@ -4858,19 +5637,20 @@ checks_v8:
         - "boilerplate"
       confidence_bonus_on_match: 0.08
       confidence_penalty_on_excluded_segment: 0.10
-
     evidence:
       required: true
       min_snippet_length: 40
       max_snippet_length: 650
-
     extraction:
       enabled: true
       mode: "hybrid"
       compact_output: false
-
       llm_max_tokens: 1000
-
+      presence_signal:
+        field: "sanctions_and_beneficial_ownership_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора купли-продажи корпоративных
@@ -4887,6 +5667,25 @@ checks_v8:
         <task>
         Заполни строго следующие поля:
 
+        0. sanctions_and_beneficial_ownership_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных статусных полей
+             (sanctions_rep_status, ubo_disclosure_status, source_of_funds_status, compliance_termination_status) = "defined";
+           - "missing" — если все четыре поля = "not_defined";
+           - "unclear" — если по фрагментам есть противоречие или неоднозначность.
+
+           Если presence = "missing":
+           - sanctions_rep_status = "not_defined";
+           - ubo_disclosure_status = "not_defined";
+           - source_of_funds_status = "not_defined";
+           - compliance_termination_status = "not_defined";
+           - sanctions_rep_details = "Данные не определены";
+           - ubo_disclosure_details = "Данные не определены";
+           - source_of_funds_details = "Данные не определены";
+           - compliance_termination_details = "Данные не определены";
+           - sanctions_covers_both_parties = "not_defined";
+           - не выполняй остальные шаги.
+
         1. sanctions_rep_status — "defined" если санкционные заверения прямо присутствуют
            в тексте договора, иначе "not_defined".
         2. sanctions_rep_details — формулировка санкционных заверений.
@@ -4902,37 +5701,74 @@ checks_v8:
            иначе "not_defined".
         9. compliance_termination_details — формулировка о таком праве.
 
-        Если данные отсутствуют:
+        Если данные отсутствуют в тексте договора:
         - статус = "not_defined"
         - текст = "Данные не определены"
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни sanctions_and_beneficial_ownership_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все содержательные статусы (*_status) = "not_defined", все текстовые/числовые поля = "Данные не определены".
         - Используй только текст договора.
         - sanctions_covers_both_parties:
-        - "yes" — если санкционные заверения прямо распространяются на обе стороны
-        сделки (и продавца, и покупателя).
-        - "no" — если санкционные заверения в тексте прямо относятся только к одной
-        из сторон.
-        - "not_defined" — если из текста невозможно прямо установить охват обеих сторон
-        или санкционных заверений нет вовсе.
-        - sanctions_rep_status = "defined" только если санкционный статус, санкционные
-        списки или compliance-заявления прямо упомянуты; не выводи из общих заверений.
-        - ubo_disclosure_status = "defined" только если раскрытие бенефициарных владельцев
-        прямо предусмотрено или осуществлено.
-        - source_of_funds_status = "defined" только если источник средств прямо
-        подтверждён или требуется подтвердить его документально.
-        - compliance_termination_status = "defined" только если именно compliance-проблема
-        названа основанием для приостановки или прекращения closing.
+          * "yes" — если санкционные заверения прямо распространяются на обе стороны сделки (и продавца, и покупателя);
+          * "no" — если санкционные заверения в тексте прямо относятся только к одной из сторон;
+          * "not_defined" — если из текста невозможно прямо установить охват обеих сторон или санкционных заверений нет вовсе.
+        - sanctions_rep_status = "defined" только если санкционный статус, санкционные списки или compliance-заявления прямо упомянуты; не выводи из общих заверений.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           Договор составлен на русском языке между резидентами без упоминания каких-либо санкций или KYC-процедур.
+           → presence = "missing";
+             все содержательные статусы = "not_defined";
+             все текстовые значения = "Данные не определены".
+
+        2. Односторонние санкционные заверения.
+           В тексте только Покупатель гарантирует, что не входит в санкционные списки. Продавец заверений не дает.
+           → presence = "present";
+             sanctions_rep_status = "defined";
+             sanctions_covers_both_parties = "no";
+             sanctions_rep_details = "Покупатель гарантирует ненахождение в санкционных списках".
+
+        3. Противоречие в раскрытии бенефициаров.
+           В п. 5.1 указано, что UBO раскрыт в Приложении, а в п. 9.4 — что структура холдинга не подлежит раскрытию до закрытия.
+           → presence = "unclear";
+             ubo_disclosure_status = "not_defined";
+             ubo_disclosure_details = "Не удалось определить".
+
+        4. Обязательство по KYC.
+           Продавец и Покупатель обязуются предоставить комплаенс-пакеты в банк-эскроу агент до проведения платежа.
+           → presence = "present";
+             source_of_funds_status = "defined";
+             source_of_funds_details = "обязательство предоставить KYC-пакеты в банк-эскроу агент до платежа".
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для sanctions_and_beneficial_ownership_check_presence используй только: "present", "missing", "unclear".
+        - Для status-полей используй только: "defined" или "not_defined".
+        - Для sanctions_covers_both_parties используй только: "yes", "no", "not_defined".
+        - Fallback при отсутствии данных:
+          * все текстовые/числовые поля $\rightarrow$ "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все содержательные поля $\rightarrow$ "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
       fields:
+        - name: "sanctions_and_beneficial_ownership_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие заверений по санкционному статусу в договоре. Внутреннее агрегатное signal-поле."
+          required: true
         - name: "sanctions_rep_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия санкционных заверений."
           required: true
@@ -4947,12 +5783,14 @@ checks_v8:
         - name: "sanctions_covers_both_parties"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
           description: "Покрывают ли санкционные заверения обе стороны."
           required: true
         - name: "ubo_disclosure_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус раскрытия UBO."
           required: true
@@ -4967,6 +5805,7 @@ checks_v8:
         - name: "source_of_funds_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус подтверждения источника средств."
           required: true
@@ -4980,6 +5819,7 @@ checks_v8:
         - name: "compliance_termination_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус права приостановить closing при compliance-нарушениях."
           required: true
@@ -5006,7 +5846,6 @@ checks_v8:
     severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
-
     rules:
       keywords:
         - "неконкуренция"
@@ -5024,7 +5863,6 @@ checks_v8:
         - "(?i)non[- ]?solicit|непереманив"
         - "(?i)налогов(ые|ых|ой)\\s+обязательств"
         - "(?i)\\bНДФЛ\\b"
-
     llm:
       prompt_template: |
         [КОНТЕКСТ]
@@ -5050,7 +5888,7 @@ checks_v8:
         6. Есть ли порядок взаимодействия при налоговых проверках.
 
         [ПРАВИЛА]
-        1. Используй только текст документа.
+        1. Используй только текст договора.
         2. Не подставляй нормы закона вместо текста договора.
         3. Если условие не указано прямо — возвращай "not_defined".
         4. Если текстового значения нет — возвращай строго "Данные не определены".
@@ -5149,7 +5987,6 @@ checks_v8:
       context_k: 6
       temperature: 0.0
       max_tokens: 800
-
     retrieval:
       retrieval_profile: "non_compete_check"
       corpus_scope: "primary_segment"
@@ -5193,7 +6030,6 @@ checks_v8:
       context_k: 6
       max_chunks: 8
       rerank: true
-
     enrichment_hints:
       preferred_segment_types:
         - "contract"
@@ -5207,19 +6043,20 @@ checks_v8:
         - "boilerplate"
       confidence_bonus_on_match: 0.08
       confidence_penalty_on_excluded_segment: 0.10
-
     evidence:
       required: true
       min_snippet_length: 40
       max_snippet_length: 700
-
     extraction:
       enabled: true
       mode: "hybrid"
       compact_output: false
-
       llm_max_tokens: 1600
-
+      presence_signal:
+        field: "post_closing_obligations_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора купли-продажи корпоративных
@@ -5236,6 +6073,31 @@ checks_v8:
 
         <task>
         Заполни строго следующие поля:
+
+        0. post_closing_obligations_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных статусных полей
+             (non_compete_status, non_solicit_status, tax_allocation_status, tax_indemnity_status) = "defined";
+           - "missing" — если все эти четыре поля = "not_defined";
+           - "unclear" — если по фрагментам есть противоречие или неоднозначность.
+
+           Если presence = "missing":
+           - non_compete_status = "not_defined";
+           - non_compete_duration_status = "not_defined";
+           - non_compete_territory_status = "not_defined";
+           - non_solicit_status = "not_defined";
+           - tax_allocation_status = "not_defined";
+           - tax_indemnity_status = "not_defined";
+           - tax_audit_cooperation_status = "not_defined";
+           - pre_closing_tax_liability = "not_defined";
+           - non_compete_details = "Данные не определены";
+           - non_compete_duration_details = "Данные не определены";
+           - non_compete_territory_details = "Данные не определены";
+           - non_solicit_details = "Данные не определены";
+           - tax_allocation_details = "Данные не определены";
+           - tax_indemnity_details = "Данные не определены";
+           - tax_audit_cooperation_details = "Данные не определены";
+           - не выполняй остальные шаги.
 
         1. non_compete_status — "defined" если ограничение конкуренции (non-compete)
            на post-closing период прямо предусмотрено, иначе "not_defined".
@@ -5262,38 +6124,78 @@ checks_v8:
         15. tax_audit_cooperation_details — формулировка о порядке взаимодействия
             при налоговых проверках.
 
-        Если данные отсутствуют:
+        Если данные отсутствуют в тексте договора:
         - статус = "not_defined"
         - текст = "Данные не определены"
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни post_closing_obligations_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все содержательные статусы (*_status) = "not_defined", все текстовые/числовые поля = "Данные не определены".
         - Используй только текст договора.
         - pre_closing_tax_liability:
-        - "seller" — если ответственность за pre-closing налоговые обязательства
-        target прямо возложена на продавца.
-        - "buyer" — если ответственность прямо возложена на покупателя.
-        - "shared" — если ответственность прямо распределена между обеими сторонами.
-        - "not_defined" — если распределение прямо не определено или налоговые риски
-        не упомянуты.
-        - non_compete_status = "defined" только если ограничение конкуренции прямо
-        установлено именно на post-closing период; не принимай interim-period
-        ограничения как non-compete.
-        - non_solicit_status = "defined" только если запрет переманивания прямо
-        сформулирован; не выводи из общих обязательств добросовестности.
-        - tax_indemnity_status = "defined" только если специальная налоговая indemnity
-        предусмотрена как отдельный механизм; не путай с общим warranty о налогах target.
-        - tax_audit_cooperation_status = "defined" только если порядок взаимодействия
-        при налоговых проверках или спорах прямо описан в договоре.
+          * "seller" — если ответственность за pre-closing налоговые обязательства target прямо возложена на продавца;
+          * "buyer" — если ответственность прямо возложена на покупателя;
+          * "shared" — если ответственность прямо распределена между обеими сторонами;
+          * "not_defined" — если распределение прямо не определено или налоговые риски не упомянуты.
+        - non_compete_status = "defined" только если ограничение конкуренции прямо установлено именно на post-closing период; не принимай interim-period ограничения как non-compete.
+        - non_solicit_status = "defined" только если запрет переманивания прямо сформулирован; не выводи из общих обязательств добросовестности.
+        - tax_indemnity_status = "defined" только если специальная налоговая indemnity предусмотрена как отдельный механизм; не путай с общим warranty о налогах target.
+        - tax_audit_cooperation_status = "defined" только если порядок взаимодействия при налоговых проверках или спорах прямо описан в договоре.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           Договор регламентирует исключительно порядок корпоративного одобрения, не устанавливая условия по post-closing обязательствам.
+           → presence = "missing";
+             все содержательные статусы = "not_defined";
+             все текстовые значения = "Данные не определены".
+
+        2. Non-compete без ограничения территории.
+           В договоре зафиксирован запрет на неконкуренцию Продавца в течение 3 лет без указания территориального охвата.
+           → presence = "present";
+             non_compete_territory_status = "not_defined";
+             non_compete_territory_details = "Данные не определены".
+
+        3. Противоречие в pre-closing tax-liability.
+           В одном месте указано, что Продавец несет полную ответственность за все старые налоги, в другом — что риски переходят к Покупателю «как есть».
+           → presence = "unclear";
+             pre_closing_tax_liability = "not_defined";
+             tax_allocation_details = "Не удалось определить".
+
+        4. Оговорка о налоговом сотрудничестве.
+           Стороны обязуются незамедлительно уведомлять друг друга о получении любых запросов налоговых органов в отношении pre-closing периодов target.
+           → presence = "present";
+             tax_audit_cooperation_status = "defined";
+             tax_audit_cooperation_details = "письменное уведомление в течение 3 рабочих дней с даты запроса ФНС".
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для post_closing_obligations_check_presence используй только: "present", "missing", "unclear".
+        - Для status-полей используй только: "defined" или "not_defined".
+        - Для pre_closing_tax_liability используй только: "seller", "buyer", "shared", "not_defined".
+        - Fallback при отсутствии данных:
+          * все текстовые/числовые поля $\rightarrow$ "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все содержательные поля $\rightarrow$ "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "post_closing_obligations_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие заверений по post-closing обязательствам в договоре. Внутреннее агрегатное signal-поле."
+          required: true
         - name: "non_compete_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия non-compete clause."
           required: true
@@ -5308,6 +6210,7 @@ checks_v8:
         - name: "non_compete_duration_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания срока non-compete."
           required: true
@@ -5321,6 +6224,7 @@ checks_v8:
         - name: "non_compete_territory_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания территории non-compete."
           required: true
@@ -5334,6 +6238,7 @@ checks_v8:
         - name: "non_solicit_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия non-solicit clause."
           required: true
@@ -5348,6 +6253,7 @@ checks_v8:
         - name: "tax_allocation_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения распределения налоговых рисков."
           required: true
@@ -5361,12 +6267,14 @@ checks_v8:
         - name: "pre_closing_tax_liability"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["seller", "buyer", "shared", "not_defined"]
           description: "Кто несёт ответственность за pre-closing налоги target."
           required: true
         - name: "tax_indemnity_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия налоговой индемнити."
           required: true
@@ -5407,7 +6315,6 @@ checks_v8:
     severity_if_unclear: "high"
     origin: "DOCUMENT_TYPE"
     detector_type: "hybrid"
-
     rules:
       keywords:
         - "расторжение"
@@ -5417,14 +6324,12 @@ checks_v8:
         - "reverse break fee"
         - "уступка прав"
         - "без согласия другой стороны"
-
       keyword_mode: "any"
       regex_patterns:
         - "(?i)расторж(ение|ении)"
         - "(?i)long[- ]?stop"
         - "(?i)break\\s+fee"
         - "(?i)уступк(а|и).*без\\s+соглас"
-
     llm:
       prompt_template: |
         [КОНТЕКСТ]
@@ -5538,7 +6443,6 @@ checks_v8:
       context_k: 7
       temperature: 0.0
       max_tokens: 850
-
     retrieval:
       retrieval_profile: "termination_check"
       corpus_scope: "primary_segment"
@@ -5583,7 +6487,6 @@ checks_v8:
       context_k: 7
       max_chunks: 10
       rerank: true
-
     enrichment_hints:
       preferred_segment_types:
         - "contract"
@@ -5598,19 +6501,20 @@ checks_v8:
         - "boilerplate"
       confidence_bonus_on_match: 0.08
       confidence_penalty_on_excluded_segment: 0.10
-
     evidence:
       required: true
       min_snippet_length: 40
       max_snippet_length: 750
-
     extraction:
       enabled: true
       mode: "hybrid"
       compact_output: false
-
       llm_max_tokens: 1100
-
+      presence_signal:
+        field: "termination_and_disputes_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора купли-продажи корпоративных
@@ -5626,6 +6530,26 @@ checks_v8:
 
         <task>
         Заполни строго следующие поля:
+
+        0. termination_and_disputes_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных статусных полей
+             (termination_grounds_status, long_stop_date_status, break_fee_status, reverse_break_fee_status, assignment_restriction_status) = "defined";
+           - "missing" — если все пять полей = "not_defined";
+           - "unclear" — если по фрагментам есть противоречие или неоднозначность.
+
+           Если presence = "missing":
+           - termination_grounds_status = "not_defined";
+           - long_stop_date_status = "not_defined";
+           - break_fee_status = "not_defined";
+           - reverse_break_fee_status = "not_defined";
+           - assignment_restriction_status = "not_defined";
+           - termination_grounds_details = "Данные не определены";
+           - long_stop_date_details = "Данные не определены";
+           - break_fee_details = "Данные не определены";
+           - reverse_break_fee_details = "Данные не определены";
+           - assignment_restriction_details = "Данные не определены";
+           - не выполняй остальные шаги.
 
         1. termination_grounds_status — "defined" если основания расторжения или
            одностороннего отказа от договора прямо указаны, иначе "not_defined".
@@ -5643,32 +6567,78 @@ checks_v8:
            по договору без согласия другой стороны прямо указано, иначе "not_defined".
         10. assignment_restriction_details — формулировка об ограничении уступки.
 
-        Если данные отсутствуют:
+        Если данные отсутствуют в тексте договора:
         - статус = "not_defined"
         - текст = "Данные не определены"
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни termination_and_disputes_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все содержательные статусы (*_status) = "not_defined", все текстовые/числовые поля = "Данные не определены".
         - Используй только текст договора.
         - Не анализируй претензионный порядок, подсудность, конфиденциальность
-        и применимое право — эти вопросы покрываются global checks.
+          и применимое право — эти вопросы покрываются global checks.
         - termination_grounds_status = "defined" только если основания расторжения или
-        одностороннего отказа прямо описаны; не выводи их из общих норм ГК РФ.
+          одностороннего отказа прямо описаны; не выводи их из общих норм ГК РФ.
         - break_fee_status = "defined" только если специальный break fee прямо
-        предусмотрен как договорное условие; не путай с неустойкой по ст. 330 ГК РФ.
+          предусмотрен как договорное условие; не путай с неустойкой по ст. 330 ГК РФ.
         - reverse_break_fee_status = "defined" только если специальный reverse break fee
-        прямо предусмотрен как отдельное договорное условие.
+          прямо предусмотрен как отдельное договорное условие.
         - assignment_restriction_status = "defined" только если ограничение уступки прав
-        прямо сформулировано; не выводи из общих положений об уступке по ст. 382 ГК РФ.
+          прямо сформулировано; не выводи из общих положений об уступке по ст. 382 ГК РФ.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           Договор регламентирует исключительно порядок корпоративного одобрения, не устанавливая условия расторжения или уступки прав.
+           → presence = "missing";
+             все содержательные статусы = "not_defined";
+             все текстовые значения = "Данные не определены".
+
+        2. Расторжение по закону.
+           В тексте написано: "Договор может быть расторгнут в соответствии с законодательством РФ", без указания конкретных walk-away условий или break fees.
+           → presence = "missing"; (нет специальных contractual условий)
+             termination_grounds_status = "not_defined";
+             termination_grounds_details = "Данные не определены".
+
+        3. Противоречие в размере break fee.
+           В одном месте указан break fee в размере 100 тыс. рублей, в другом — в размере 20% от Цены сделки.
+           → presence = "unclear";
+             break_fee_status = "not_defined";
+             break_fee_details = "Не удалось определить".
+
+        4. Разрешение уступки аффилированным лицам.
+           В тексте прямо указано: "Уступка прав по договору допускается без согласия Продавца только в пользу аффилированных лиц Покупателя".
+           → presence = "present";
+             assignment_restriction_status = "defined";
+             assignment_restriction_details = "допускается свободная уступка только в пользу аффилированных лиц Покупателя".
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для termination_and_disputes_check_presence используй только: "present", "missing", "unclear".
+        - Для status-полей используй только: "defined" или "not_defined".
+        - Fallback при отсутствии данных:
+          * все текстовые/числовые поля $\rightarrow$ "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все содержательные поля $\rightarrow$ "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "termination_and_disputes_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие заверений по расторжению / уступке прав в договоре. Внутреннее агрегатное signal-поле."
+          required: true
         - name: "termination_grounds_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания оснований расторжения."
           required: true
@@ -5683,6 +6653,7 @@ checks_v8:
         - name: "long_stop_date_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания long-stop date."
           required: true
@@ -5697,6 +6668,7 @@ checks_v8:
         - name: "break_fee_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия break fee."
           required: true
@@ -5735,6 +6707,7 @@ checks_v8:
           required: false
           display_in_grid: false
       store_payload: true
+
 
 # ════════════════════════════════════════════════════════════════════════════
 # БЛОК 5: DD_REQUEST_TEMPLATES
