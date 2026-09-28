@@ -1394,13 +1394,11 @@ checks_v8:
       preferred_unit_types:
         - obligation
         - general_provision
-        - obligation
       excluded_unit_types:
         - definition
         - structural_anchor
         - technical_fragment
       preferred_clause_functions:
-        - obligations
         - obligations
       negative_keywords:
         - "конфиденциальная информация означает"
@@ -3164,7 +3162,6 @@ checks_v8:
         - obligation
         - general_provision
         - notice
-        - obligation
       excluded_unit_types:
         - definition
         - structural_anchor
@@ -3520,13 +3517,11 @@ checks_v8:
         - general_provision
         - covenants
         - warranty
-        - obligation
       excluded_unit_types:
         - definition
         - structural_anchor
         - technical_fragment
       preferred_clause_functions:
-        - obligations
         - obligations
         - representations
         - boilerplate
@@ -4218,7 +4213,6 @@ checks_v8:
       preferred_clause_functions:
         - obligations
         - representations
-        - obligations
       negative_keywords:
         - "конфиденциальная информация означает"
         - "определение конфиденциальной информации"
