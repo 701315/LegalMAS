@@ -32,6 +32,7 @@
     "exitHint": "Esc or «Close» to exit",
     "noPdfUrl": "Failed to obtain PDF link.",
     "loadingPdf": "Loading PDF…",
+    "loadingPages": "Loading pages…",
     "loadError": "Failed to load PDF."
   },
   "prepared": {

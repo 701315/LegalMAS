@@ -32,6 +32,7 @@
     "exitHint": "Esc или «Закрыть», чтобы выйти",
     "noPdfUrl": "Не удалось получить ссылку на PDF.",
     "loadingPdf": "Загружаем PDF…",
+    "loadingPages": "Загрузка страниц…",
     "loadError": "Не удалось загрузить PDF."
   },
   "prepared": {
