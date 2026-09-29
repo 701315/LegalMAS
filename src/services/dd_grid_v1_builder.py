@@ -313,6 +313,59 @@ def _safe_str_or_none(value: Any) -> str | None:
     return text or None
 
 
+def _extract_layout_element_ids(
+    check_result: dict[str, Any] | None,
+) -> list[str]:
+    """
+    B7.9.2 / viewer-highlight: extract layout element IDs for the viewer
+    highlight from a check_result dict.
+
+    Priority:
+      1) check_result.bbox.element_ids — canonical list of layout element
+         IDs produced by the extraction pipeline (B0.4+).
+      2) [check_result.element_id] — single-id fallback (older records).
+      3) [] — no data.
+
+    Contract:
+      - Never raises. Bad shapes (None, non-list, non-str items) are
+        silently dropped.
+      - Returns a fresh list (never a reference into check_result).
+      - Empty / missing data -> [].
+      - Duplicates and order preserved.
+
+    This is the interim source for viewer highlight until B3.6 lands
+    (B3.6 will populate CheckAnchor.layout_element_ids end-to-end; see
+    HANDOVER v7.6, Раздел 5, Волна 4). Until then, check_result.bbox
+    carries the same layout element IDs from the extraction pipeline.
+    """
+    if not isinstance(check_result, dict):
+        return []
+
+    # Priority 1: canonical list on bbox.element_ids
+    bbox = check_result.get("bbox")
+    if isinstance(bbox, dict):
+        raw_ids = bbox.get("element_ids")
+        if isinstance(raw_ids, list) and raw_ids:
+            cleaned: list[str] = []
+            for item in raw_ids:
+                if item is None:
+                    continue
+                text = str(item).strip()
+                if text:
+                    cleaned.append(text)
+            if cleaned:
+                return cleaned
+
+    # Priority 2: single element_id fallback
+    single = check_result.get("element_id")
+    if isinstance(single, str):
+        cleaned_single = single.strip()
+        if cleaned_single:
+            return [cleaned_single]
+
+    return []
+
+
 def _safe_int_or_none(value: Any) -> int | None:
     """Безопасно привести значение к int или вернуть None."""
     if value is None or value == "":
@@ -1478,8 +1531,13 @@ def _build_cell_value(
         if isinstance(raw_anchor_conf, (int, float)) and not isinstance(raw_anchor_conf, bool):
             anchor_confidence = float(raw_anchor_conf)
         anchor_stale = bool(check_result.get("anchor_stale") or False)
-        # layout_element_ids anchor'а заполнит B3.6; контракт уже принимает поле.
-        layout_element_ids = []
+        # B7.9.2: layout_element_ids anchor'а заполнит B3.6 (Волна 4,
+        # HANDOVER v7.6, Раздел 5); до тех пор используем layout element
+        # IDs из уже доступного check_result.bbox (или check_result.element_id
+        # как fallback). Универсально: работает для любого документа, где
+        # extraction pipeline заполнил bbox/element_id. Когда B3.6 будет
+        # реализован, приоритет можно переключить на anchor.
+        layout_element_ids = _extract_layout_element_ids(check_result)
 
     # ── Risk-aware DD Grid (COC pilot) ─────────────────────────────────────
     # Вычисляется только для positive findings (после фильтров
