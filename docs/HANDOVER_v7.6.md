@@ -1,7 +1,7 @@
 # Handover + Plan v7.6 — Steloom
 
 **Дата:** 2026-09-29 (обновлено после B7.9.2 — anchor sync fix)
-**Master HEAD:** `<merge B7.9.2>` (будет обновлено после merge)
+**Master HEAD:** `4c6fbc2`
 **Базис:** v7.5 + B7.9.2 fix
 **Как использовать:** вставить целиком в первое сообщение нового диалога.
 
@@ -104,11 +104,11 @@ Post-tag только после `git log --oneline -1` подтверждает
 ## Раздел 1. Текущее состояние master
 
 ```
-master = <merge B7.9.2>   [origin/master]   (push after merge)
+master = 4c6fbc2   [origin/master]   (push after merge)
 Working tree: clean
 
 История (свежая):
-<merge>  Merge B7.9.2 — anchor sync fix
+4c6fbc2  Merge B7.9.2 — anchor sync fix
 2dd7086  fix(db): B7.9.2 — sync cr.* location from primary anchor
 4260c16  fix(extraction): B7.9.2 — _extract_numeric_core delegates to universal parser
 a73bfa4  fix(anchors): support comma-separated marker lists in clause_ref parser
@@ -119,7 +119,7 @@ dd677b2  feat(anchors): universal clause_ref parser (B7.9.2)
 
 Теги:
 pre-B7.9.2-fix-20260929-140210
-(после merge: post-B7.9.2-fix-YYYYMMDD-HHMMSS)
+post-B7.9.2-fix-20260929-160713
 ```
 
 **Архивный тег:** `archive/infra-reaper-race-fixes-20260919` → `c9afa43`.
