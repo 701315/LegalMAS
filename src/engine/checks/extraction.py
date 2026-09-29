@@ -32,6 +32,7 @@ from ..playbook.models import (
 )
 
 from core.anchors.models import CheckAnchor, CheckAnchorMethod
+from core.anchors.clause_ref_parser import extract_clause_marker_values
 from .citation_resolver import resolve_quote_in_source
 
 logger = get_logger(__name__)
@@ -212,18 +213,22 @@ class ExtractionExecutor:
     @staticmethod
     def _extract_numeric_core(clause_ref: str) -> list[str]:
         """
-        Извлечь numeric-ядра из человекочитаемого clause_ref.
+        B7.9.2: backward-compatible wrapper over the universal clause_ref
+        parser (core.anchors.clause_ref_parser).
 
-        "п. 8.1.5"          -> ["8.1.5"]
-        "Section 12.1"      -> ["12.1"]
-        "п. 7.1.1, 7.1.2"   -> ["7.1.1", "7.1.2"]
-        "Статья 5"          -> ["5"]
+        Previously this method used a numeric-only regex
+        (r"\\d+(?:\\.\\d+)*"), which:
+          - did not recognize letter markers ("п. S", "Приложение А");
+          - matched page references ("стр. 3") as if they were clause
+            numbers, so "пункт S, ..., стр. 1" yielded ["1"] instead of
+            ["S"].
 
-        Используется для матчинга field_location.clause_ref с raw_uid
-        chunks. Регекс универсален для RU/EN; не зависит от prefix-словаря.
+        The universal parser separates clause markers from page refs and
+        understands numeric, latin, cyrillic, mixed, and appendix markers,
+        including comma/semicolon-separated lists after a single prefix.
+        The method name is preserved for backward compatibility.
         """
-        import re as _re
-        return _re.findall(r"\d+(?:\.\d+)*", clause_ref or "")
+        return extract_clause_marker_values(clause_ref)
 
 
     @staticmethod
