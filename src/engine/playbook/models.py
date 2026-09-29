@@ -170,6 +170,13 @@ class RulesConfig(BaseModel):
 
 class LLMConfig(BaseModel):
     """Конфигурация LLM‑детектора."""
+# prompt_template используется, если ui_mode != "field_extraction"
+# (risk_detection, clause_presence, ...).
+#
+# Для ui_mode == "field_extraction" используется
+# ExtractionConfig.llm_prompt_extraction.
+#
+# Не дублируйте extraction-промпт в prompt_template — он не будет исполнен.
 
     prompt_template: str = ""
     prompt_file: str | None = None
@@ -858,6 +865,12 @@ class ExtractionConfig(BaseModel):
 
     # Кастомный semantic prompt для extraction.
     # ВАЖНО: если задан, обязан содержать {context}.
+    # llm_prompt_extraction используется, если ui_mode == "field_extraction"
+    # или если ui_mode не задан и extraction.enabled == True.
+    #
+    # Для ui_mode != "field_extraction" используется
+    # LLMConfig.prompt_template.
+
     llm_prompt_extraction: str | None = None
 
     # Per-check override для max_tokens в extraction LLM call.

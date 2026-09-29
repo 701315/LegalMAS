@@ -21,7 +21,7 @@ from sqlalchemy import case, distinct, func, select, update, tuple_
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.anchors.models import CheckAnchor
+from core.anchors.models import CheckAnchor, CheckAnchorMethod
 from core.anchors.selection import method_strength, select_primary_anchor
 from core.check_result_persist_errors import (
     CheckResultPersistPermanentError,
@@ -36,6 +36,16 @@ from ..models.run import Run
 from ..models.result import CheckResultPresentation
 from ..models.document import Document
 from ..models.result import CheckResult
+
+# B7.9.2: minimum anchor confidence required to allow the primary anchor
+# to overwrite check-level denormalized location columns
+# (page / clause_uid / element_id / bbox). EXACT_SPAN is always trusted;
+# FUZZY_SPAN requires at least this confidence. Weak methods
+# (CLAUSE_ONLY / LAYOUT_ONLY / PAGE_ONLY / RETRIEVAL_LEGACY) never
+# overwrite, because they may be less precise than the R15-derived
+# check-level location that originally populated cr.*.
+_ANCHOR_SYNC_MIN_CONFIDENCE: float = 0.5
+
 
 logger = get_logger(__name__)
 
@@ -686,6 +696,23 @@ class ResultRepository:
         )
         return ranked[:_MAX_ANCHORS_PER_CHECK_RESULT]
 
+    @staticmethod
+    def _is_anchor_sync_eligible(primary: CheckAnchor) -> bool:
+        """
+        B7.9.2: only strong anchors may overwrite check-level location.
+
+        EXACT_SPAN — always trusted (quote found verbatim).
+        FUZZY_SPAN — trusted when confidence >= _ANCHOR_SYNC_MIN_CONFIDENCE.
+        Everything else (CLAUSE_ONLY / LAYOUT_ONLY / PAGE_ONLY /
+        RETRIEVAL_LEGACY / NONE) — weaker than the existing R15-derived
+        check-level location; leave those columns untouched.
+        """
+        if primary.anchor_method == CheckAnchorMethod.EXACT_SPAN:
+            return True
+        if primary.anchor_method == CheckAnchorMethod.FUZZY_SPAN:
+            return primary.anchor_confidence >= _ANCHOR_SYNC_MIN_CONFIDENCE
+        return False
+
     async def _replace_anchors_for_check_result(
         self,
         *,
@@ -750,6 +777,39 @@ class ResultRepository:
         cr.primary_anchor_method = primary.anchor_method.value
         cr.primary_anchor_confidence = primary.anchor_confidence
         cr.anchor_stale = False
+
+        # B7.9.2: sync check-level denormalized location columns from
+        # the primary anchor for field_extraction checks.
+        #
+        # For field_extraction, anchors are built from per-field quote
+        # spans (EXACT_SPAN / FUZZY_SPAN) — strictly more reliable than
+        # the check-level R15 top-1 provenance that originally populated
+        # cr.page / cr.clause_uid. Sync makes cr.* and primary_anchor.*
+        # agree by construction (see B7.9.2 in HANDOVER_v7.5).
+        #
+        # Guards:
+        #  - only field_extraction ui_mode;
+        #  - only strong anchor methods (see _is_anchor_sync_eligible);
+        #  - only overwrite when the primary row actually carries the
+        #    value; do not blank out existing cr.* fields.
+        if (
+            cr.ui_mode == "field_extraction"
+            and self._is_anchor_sync_eligible(primary)
+        ):
+            if primary_row.page is not None:
+                cr.page = primary_row.page
+            if primary_row.clause_uid:
+                cr.clause_uid = primary_row.clause_uid
+            _eids = primary_row.layout_element_ids or []
+            if isinstance(_eids, list) and _eids:
+                cr.element_id = str(_eids[0])
+            if primary_row.bbox_union is not None:
+                _bbox = primary_row.bbox_union
+                cr.bbox = {
+                    "union": list(_bbox) if isinstance(_bbox, (list, tuple)) else _bbox,
+                    "page": primary_row.page,
+                    "element_ids": list(primary_row.layout_element_ids or []),
+                }
 
 
 
