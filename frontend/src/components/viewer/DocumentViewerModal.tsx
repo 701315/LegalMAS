@@ -1,12 +1,22 @@
 // =============================================================
 // src/components/viewer/DocumentViewerModal.tsx
 //
-// PDF viewer modal with support for page navigation, zoom,
-// and highlighted layout element overlays / chunk bounding boxes.
+// PDF viewer modal.
+//
+// Behavior:
+// - Renders ALL pages of the PDF vertically inside the modal.
+// - Auto-scrolls to `location.page` once the target page's geometry
+//   is known (deterministic — no scrollIntoView timing guesses).
+// - Lazy render: only pages near the viewport mount their <Page> canvas.
+//   Placeholders keep the correct height so scroll never jumps.
+// - Toolbar ◀ ▶ scroll smoothly to the previous / next page.
+// - "visiblePage / numPages" updates as the user scrolls.
+// - Anchor-target and chunk overlays render on their own pages.
 // =============================================================
 
 import React from "react";
 import { Document, Page, pdfjs } from "react-pdf";
+import type { PDFDocumentProxy } from "pdfjs-dist";
 import { useTranslation } from "react-i18next";
 import type { OpenViewerAtPayload } from "../../types";
 
@@ -39,6 +49,63 @@ interface DocumentViewerModalProps {
   sizedChunks?: SizedChunkMeta[];
 }
 
+type PageSize = {
+  originalWidth: number;
+  originalHeight: number;
+};
+
+type PageRenderInfo = {
+  originalWidth?: number;
+  originalHeight?: number;
+};
+
+// Visual spacing between stacked page wrappers, in CSS pixels.
+// Used by both the DOM layout (marginBottom) and the scrollTop
+// arithmetic in scrollToPage — keep them in sync via this constant.
+const PAGE_GAP_PX = 12;
+
+// IntersectionObserver rootMargin for lazy page rendering.
+// 1000px ≈ one viewport height of buffer above/below visible area.
+const LAZY_RENDER_MARGIN_PX = 1000;
+
+// Number of concurrent getPage() calls in the metadata pre-fetch phase.
+// Bounds the pdfjs-worker queue; keeps memory and CPU predictable for
+// large documents (hundreds of pages) without adding user-visible delay.
+const METADATA_CHUNK_SIZE = 20;
+
+/**
+ * Pre-fetch original (unscaled) dimensions for every page of the PDF.
+ *
+ * Runs getPage()/getViewport() in chunks so a 500-page document does not
+ * fire 500 concurrent worker tasks. getViewport({ scale: 1 }) is a
+ * synchronous metadata read — no canvas is rasterised.
+ */
+async function loadPageSizesChunked(
+  pdf: PDFDocumentProxy,
+): Promise<Map<number, PageSize>> {
+  const sizes = new Map<number, PageSize>();
+  const total = pdf.numPages;
+  for (let start = 1; start <= total; start += METADATA_CHUNK_SIZE) {
+    const end = Math.min(start + METADATA_CHUNK_SIZE - 1, total);
+    await Promise.all(
+      Array.from({ length: end - start + 1 }, async (_, i) => {
+        const pageNum = start + i;
+        try {
+          const page = await pdf.getPage(pageNum);
+          const viewport = page.getViewport({ scale: 1 });
+          sizes.set(pageNum, {
+            originalWidth: viewport.width,
+            originalHeight: viewport.height,
+          });
+        } catch {
+          // Non-fatal: onRenderSuccess will backfill the size later.
+        }
+      }),
+    );
+  }
+  return sizes;
+}
+
 const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
   open,
   onClose,
@@ -50,36 +117,34 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
   sizedChunks,
 }) => {
   const { t } = useTranslation("documents");
+
   const [numPages, setNumPages] = React.useState<number | null>(null);
-  const [pageNumber, setPageNumber] = React.useState<number>(1);
-  const containerRef = React.useRef<HTMLDivElement | null>(null);
+  // visiblePage is initialized from the incoming location and reset by
+  // the parent when `location` changes (parent applies a `key` to this
+  // component, causing a remount). This avoids a setState-in-effect
+  // that would otherwise trigger a cascading render on every location
+  // update — see react-hooks/set-state-in-effect.
+  const initialVisiblePage =
+    location?.page && location.page > 0 ? location.page : 1;
+  const [visiblePage, setVisiblePage] =
+    React.useState<number>(initialVisiblePage);
+  const [pageSizes, setPageSizes] = React.useState<Map<number, PageSize>>(
+    () => new Map(),
+  );
+  const [shouldRenderPages, setShouldRenderPages] = React.useState<
+    Set<number>
+  >(() => new Set());
   const [containerWidth, setContainerWidth] = React.useState<number | null>(
     null,
   );
-  const [pageSize, setPageSize] = React.useState<{
-    originalWidth: number;
-    originalHeight: number;
-  } | null>(null);
 
-  React.useEffect(() => {
-    if (location?.page && location.page > 0) {
-      setPageNumber(location.page);
-    }
-  }, [location]);
+  const containerRef = React.useRef<HTMLDivElement | null>(null);
+  const pageRefs = React.useRef<Map<number, HTMLDivElement>>(new Map());
+  const observerRef = React.useRef<IntersectionObserver | null>(null);
+  const programmaticScrollRef = React.useRef(false);
+  const rafHandleRef = React.useRef<number | null>(null);
 
-  // Autoscroll to top of page when changing pages or files
-  React.useEffect(() => {
-    if (!open || !containerRef.current) return;
-
-    const timeoutId = window.setTimeout(() => {
-      const container = containerRef.current;
-      if (!container) return;
-      container.scrollTop = 0;
-    }, 100);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [open, pageNumber, fileUrl]);
-
+  // Track container width for responsive page sizing.
   React.useLayoutEffect(() => {
     if (!open) return;
 
@@ -96,6 +161,7 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
     };
   }, [open]);
 
+  // ESC to close.
   React.useEffect(() => {
     if (!open) return;
 
@@ -110,6 +176,136 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
     return () => window.removeEventListener("keydown", handler);
   }, [open, onClose]);
 
+  // Cleanup RAF handle on unmount.
+  React.useEffect(() => {
+    return () => {
+      if (rafHandleRef.current != null) {
+        window.cancelAnimationFrame(rafHandleRef.current);
+        rafHandleRef.current = null;
+      }
+    };
+  }, []);
+
+  const pageWidth = (containerWidth ?? 900) * initialScale;
+
+  // Deterministic scroll to a specific page. Uses exact arithmetic on
+  // scaled page heights; falls back to scrollIntoView only when the
+  // preceding page sizes are not yet known.
+  const scrollToPage = (
+    target: number,
+    options: { behavior?: ScrollBehavior } = {},
+  ) => {
+    if (!numPages) return;
+    const clamped = Math.min(Math.max(target, 1), numPages);
+    const container = containerRef.current;
+    if (!container) return;
+
+    const behavior = options.behavior ?? "smooth";
+
+    let y: number;
+    if (clamped === 1) {
+      y = 0;
+    } else {
+      const allBeforeKnown = Array.from(
+        { length: clamped - 1 },
+        (_, i) => i + 1,
+      ).every((p) => pageSizes.has(p));
+      if (!allBeforeKnown) {
+        const el = pageRefs.current.get(clamped);
+        if (!el) return;
+        programmaticScrollRef.current = true;
+        el.scrollIntoView({ block: "start", behavior });
+        setVisiblePage(clamped);
+        window.setTimeout(() => {
+          programmaticScrollRef.current = false;
+        }, 600);
+        return;
+      }
+      y = 0;
+      for (let p = 1; p < clamped; p++) {
+        const size = pageSizes.get(p)!;
+        const scaled = size.originalHeight * (pageWidth / size.originalWidth);
+        y += scaled + PAGE_GAP_PX;
+      }
+    }
+
+    programmaticScrollRef.current = true;
+    container.scrollTo({ top: y, behavior });
+    setVisiblePage(clamped);
+    window.setTimeout(() => {
+      programmaticScrollRef.current = false;
+    }, 600);
+  };
+
+  // Deterministic auto-scroll once all page sizes up to `location.page`
+  // are available. Depends on pageSizes.size (a primitive), so it fires
+  // exactly when a new chunk of metadata lands.
+  React.useEffect(() => {
+    if (!open || !numPages) return;
+    const targetRaw = location?.page;
+    const target = Math.min(
+      Math.max(targetRaw && targetRaw > 0 ? targetRaw : 1, 1),
+      numPages,
+    );
+
+    const allReady = Array.from({ length: target }, (_, i) => i + 1).every(
+      (p) => pageSizes.has(p),
+    );
+    if (!allReady) return;
+
+    // scrollToPage performs a DOM side-effect and updates visiblePage.
+    // The setState is intentional: the toolbar counter must reflect the
+    // target page immediately after auto-scroll on open. Reset-on-location
+    // is handled by the parent via a `key` on this component (remount),
+    // so no state-sync effect is needed.
+    /* eslint-disable-next-line react-hooks/set-state-in-effect --
+       intentional sync between programmatic scroll and toolbar counter */
+    scrollToPage(target, { behavior: "auto" });
+    /* eslint-disable-next-line react-hooks/exhaustive-deps --
+       full deps list would include pageSizes.has / scrollToPage, both
+       stable for this effect's purpose; pageSizes.size tracks metadata
+       arrival and location?.page covers target changes */
+  }, [open, numPages, location?.page, fileUrl, pageSizes.size]);
+
+  // Lazy render: observe all page wrappers, render <Page> only for
+  // pages that enter the expanded viewport buffer.
+  React.useEffect(() => {
+    if (!open || !numPages) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        let changed = false;
+        setShouldRenderPages((prev) => {
+          const next = new Set(prev);
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              const raw = (entry.target as HTMLElement).dataset.pageNumber;
+              const pageNum = Number(raw);
+              if (Number.isFinite(pageNum) && !next.has(pageNum)) {
+                next.add(pageNum);
+                changed = true;
+              }
+            }
+          });
+          return changed ? next : prev;
+        });
+      },
+      {
+        root: containerRef.current,
+        rootMargin: `${LAZY_RENDER_MARGIN_PX}px 0px`,
+        threshold: 0,
+      },
+    );
+
+    observerRef.current = observer;
+    pageRefs.current.forEach((el) => observer.observe(el));
+
+    return () => {
+      observer.disconnect();
+      observerRef.current = null;
+    };
+  }, [open, numPages]);
+
   if (!open) return null;
 
   const handleBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -118,62 +314,69 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
     }
   };
 
-  const handleDocumentLoad = ({ numPages }: { numPages: number }) => {
-    setNumPages(numPages);
-    const targetPage = location?.page;
-    if (!targetPage || targetPage < 1) {
-      setPageNumber(1);
+  const handleDocumentLoad = async (pdf: PDFDocumentProxy) => {
+    setNumPages(pdf.numPages);
+    const sizes = await loadPageSizesChunked(pdf);
+    setPageSizes((prev) => {
+      const next = new Map(prev);
+      sizes.forEach((v, k) => next.set(k, v));
+      return next;
+    });
+  };
+
+  const handlePageRenderSuccess = (
+    pageNum: number,
+    info: PageRenderInfo,
+  ) => {
+    if (
+      typeof info.originalWidth !== "number" ||
+      typeof info.originalHeight !== "number"
+    ) {
       return;
     }
-    // Clamp to last page only when numPages is reliably known.
-    // Never reset to 1: the location effect already set the intended page.
-    if (numPages > 0 && targetPage > numPages) {
-      setPageNumber(numPages);
-    }
-  };
-
-  type PageRenderInfo = {
-    originalWidth?: number;
-    originalHeight?: number;
-  };
-
-  const handlePageRenderSuccess = (pageData: PageRenderInfo) => {
-    if (
-      typeof pageData.originalWidth === "number" &&
-      typeof pageData.originalHeight === "number"
-    ) {
-      setPageSize({
-        originalWidth: pageData.originalWidth,
-        originalHeight: pageData.originalHeight,
+    setPageSizes((prev) => {
+      const existing = prev.get(pageNum);
+      if (
+        existing &&
+        existing.originalWidth === info.originalWidth &&
+        existing.originalHeight === info.originalHeight
+      ) {
+        return prev;
+      }
+      const next = new Map(prev);
+      next.set(pageNum, {
+        originalWidth: info.originalWidth as number,
+        originalHeight: info.originalHeight as number,
       });
-    }
+      return next;
+    });
+  };
 
-    window.setTimeout(() => {
+  const handlePrevPage = () => scrollToPage(visiblePage - 1);
+  const handleNextPage = () => scrollToPage(visiblePage + 1);
+
+  const handleContainerScroll = () => {
+    if (programmaticScrollRef.current) return;
+    if (rafHandleRef.current != null) return;
+    rafHandleRef.current = window.requestAnimationFrame(() => {
+      rafHandleRef.current = null;
       const container = containerRef.current;
       if (!container) return;
-
-      const activeOverlay = container.querySelector<HTMLDivElement>(
-        '[data-active-overlay="true"]',
-      );
-
-      if (activeOverlay) {
-        const containerRect = container.getBoundingClientRect();
-        const overlayRect = activeOverlay.getBoundingClientRect();
-        const offsetFromTop = overlayRect.top - containerRect.top;
-        const desiredOffset = containerRect.height * 0.15;
-        container.scrollTop += offsetFromTop - desiredOffset;
-      } else {
-        container.scrollTop = 0;
+      const containerTop = container.getBoundingClientRect().top;
+      let bestPage = visiblePage;
+      let bestDistance = Number.POSITIVE_INFINITY;
+      pageRefs.current.forEach((el, pageNum) => {
+        const rect = el.getBoundingClientRect();
+        const distance = Math.abs(rect.top - containerTop);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          bestPage = pageNum;
+        }
+      });
+      if (bestPage !== visiblePage) {
+        setVisiblePage(bestPage);
       }
-    }, 150);
-  };
-
-  const handlePrevPage = () => {
-    setPageNumber((prev) => Math.max(1, prev - 1));
-  };
-
-  const handleNextPage = () => {
-    setPageNumber((prev) => (numPages ? Math.min(numPages, prev + 1) : prev));
+    });
   };
 
   const headerTitle =
@@ -185,14 +388,12 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
   const lowerTitle = (title ?? "").toLowerCase();
   const hasErrorTitle = Boolean(
     lowerTitle.includes("error") ||
-    lowerTitle.includes("\u043e\u0448\u0438\u0431\u043a"),
+      lowerTitle.includes("\u043e\u0448\u0438\u0431\u043a"),
   );
   const isLoadingTitle = Boolean(
     lowerTitle.includes("load") ||
-    lowerTitle.includes("\u0437\u0430\u0433\u0440\u0443\u0437\u043a"),
+      lowerTitle.includes("\u0437\u0430\u0433\u0440\u0443\u0437\u043a"),
   );
-
-  const pageWidth = (containerWidth ?? 900) * initialScale;
 
   let activeChunkIndex = -1;
 
@@ -239,27 +440,20 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
 
   // B5: anchor-target set из payload. Непусто → подсветка элементов
   // напрямую, даже без chunkIndex. Пусто → fallback на chunk-bbox.
-  //
-  // NOTE: не используем useMemo — компонент имеет early-return выше
-  // (if (!open) return null), и вызов useMemo после него нарушает
-  // Rules of Hooks (см. React error "Rendered more hooks than during
-  // the previous render"). Set из ~10-20 element_ids дешев.
   const anchorTargetElementIds = new Set(location?.layoutElementIds ?? []);
 
-  const pageOverlays: {
-    bbox: [number, number, number, number];
-    chunkIndex: number | null;
-    isAnchorTarget: boolean;
-  }[] =
-    layoutElements && layoutElements.length
-      ? layoutElements
-          .filter((el) => el.page === pageNumber)
-          .map((el) => ({
-            bbox: el.bbox,
-            chunkIndex: elementToChunkIndex.get(el.elementId) ?? null,
-            isAnchorTarget: anchorTargetElementIds.has(el.elementId),
-          }))
-      : [];
+  const overlaysForPage = (pageNum: number) => {
+    if (!layoutElements || layoutElements.length === 0) return [];
+    return layoutElements
+      .filter((el) => el.page === pageNum)
+      .map((el) => ({
+        bbox: el.bbox,
+        chunkIndex: elementToChunkIndex.get(el.elementId) ?? null,
+        isAnchorTarget: anchorTargetElementIds.has(el.elementId),
+      }));
+  };
+
+  const metadataReady = numPages != null && pageSizes.size >= numPages;
 
   return (
     <div
@@ -312,20 +506,23 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
               type="button"
               className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-base)] px-2 py-1 transition hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)] disabled:cursor-not-allowed disabled:opacity-40"
               onClick={handlePrevPage}
-              disabled={pageNumber <= 1}
+              disabled={visiblePage <= 1}
             >
               ◀
             </button>
             <span>
               {numPages
-                ? t("viewer.pageOf", { current: pageNumber, total: numPages })
-                : t("viewer.pageCurrent", { current: pageNumber })}
+                ? t("viewer.pageOf", {
+                    current: visiblePage,
+                    total: numPages,
+                  })
+                : t("viewer.pageCurrent", { current: visiblePage })}
             </span>
             <button
               type="button"
               className="rounded-full border border-[var(--border-soft)] bg-[var(--bg-base)] px-2 py-1 transition hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-elevated-soft)] disabled:cursor-not-allowed disabled:opacity-40"
               onClick={handleNextPage}
-              disabled={!numPages || pageNumber >= numPages}
+              disabled={!numPages || visiblePage >= numPages}
             >
               ▶
             </button>
@@ -338,6 +535,7 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
         {/* Body */}
         <div
           ref={containerRef}
+          onScroll={handleContainerScroll}
           className="flex flex-1 justify-center overflow-auto bg-[var(--bg-base)] p-3"
         >
           {!fileUrl ? (
@@ -345,79 +543,130 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
               {t("viewer.noPdfUrl")}
             </div>
           ) : (
-            <div className="bg-[var(--bg-elevated-soft)]">
-              <Document
-                file={fileUrl}
-                onLoadSuccess={handleDocumentLoad}
-                loading={
-                  <div className="rounded-[16px] bg-[var(--bg-card)] px-4 py-3 text-xs text-[var(--text-secondary)]">
-                    {t("viewer.loadingPdf")}
-                  </div>
-                }
-                error={
-                  <div className="rounded-[16px] bg-[var(--bg-card)] px-4 py-3 text-xs text-[var(--color-error-text)]">
-                    {t("viewer.loadError")}
-                  </div>
-                }
-              >
-                <div className="relative" style={{ width: pageWidth }}>
-                  <Page
-                    pageNumber={pageNumber}
-                    width={pageWidth}
-                    onRenderSuccess={handlePageRenderSuccess}
-                  />
-
-                  {pageOverlays.length > 0 && (
-                    <div className="pointer-events-none absolute inset-0">
-                      {pageOverlays.map((ov, i) => {
-                        // B5: anchor target рендерится даже без chunkIndex.
-                        if (ov.chunkIndex == null && !ov.isAnchorTarget) return null;
-                        if (!pageSize) return null;
-
-                        const [x0, top, x1, bottom] = ov.bbox;
-
-                        const scaleX = pageWidth / pageSize.originalWidth;
-                        const scaleY = scaleX;
-
-                        const left = x0 * scaleX;
-                        const width = (x1 - x0) * scaleX;
-                        const y = top * scaleY;
-                        const height = (bottom - top) * scaleY;
-
-                        const isEven = (ov.chunkIndex ?? 0) % 2 === 0;
-                        const isActive =
-                          activeChunkIndex >= 0 &&
-                          ov.chunkIndex === activeChunkIndex;
-
-                        // B5: anchor target — максимальный визуальный приоритет.
-                        const bgClass = ov.isAnchorTarget
-                          ? "bg-[var(--accent-primary)]/28 ring-2 ring-[var(--accent-primary)]"
-                          : isActive
-                            ? "bg-[var(--accent-primary)]/18 ring-2 ring-[var(--accent-primary)]/80"
-                            : isEven
-                              ? "bg-white/55"
-                              : "bg-black/8";
-
-                        return (
-                          <div
-                            key={i}
-                            className={bgClass}
-                            data-active-overlay={isActive ? "true" : undefined}
-                            style={{
-                              position: "absolute",
-                              left,
-                              top: y,
-                              width,
-                              height,
-                            }}
-                          />
-                        );
-                      })}
-                    </div>
-                  )}
+            <Document
+              file={fileUrl}
+              onLoadSuccess={handleDocumentLoad}
+              loading={
+                <div className="rounded-[16px] bg-[var(--bg-card)] px-4 py-3 text-xs text-[var(--text-secondary)]">
+                  {t("viewer.loadingPdf")}
                 </div>
-              </Document>
-            </div>
+              }
+              error={
+                <div className="rounded-[16px] bg-[var(--bg-card)] px-4 py-3 text-xs text-[var(--color-error-text)]">
+                  {t("viewer.loadError")}
+                </div>
+              }
+            >
+              {!metadataReady ? (
+                <div className="rounded-[16px] bg-[var(--bg-card)] px-4 py-3 text-xs text-[var(--text-secondary)]">
+                  {t("viewer.loadingPages")}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center">
+                  {Array.from({ length: numPages ?? 0 }, (_, i) => {
+                    const pageNum = i + 1;
+                    const size = pageSizes.get(pageNum);
+                    if (!size) return null;
+                    const scaledHeight =
+                      size.originalHeight * (pageWidth / size.originalWidth);
+                    const overlays = overlaysForPage(pageNum);
+                    const renderCanvas = shouldRenderPages.has(pageNum);
+
+                    return (
+                      <div
+                        key={pageNum}
+                        data-page-number={pageNum}
+                        ref={(el) => {
+                          if (el) {
+                            pageRefs.current.set(pageNum, el);
+                            if (observerRef.current) {
+                              observerRef.current.observe(el);
+                            }
+                          } else {
+                            const existing = pageRefs.current.get(pageNum);
+                            if (existing && observerRef.current) {
+                              observerRef.current.unobserve(existing);
+                            }
+                            pageRefs.current.delete(pageNum);
+                          }
+                        }}
+                        className="relative bg-[var(--bg-elevated-soft)]"
+                        style={{
+                          width: pageWidth,
+                          height: scaledHeight,
+                          marginBottom: PAGE_GAP_PX,
+                        }}
+                      >
+                        {renderCanvas && (
+                          <Page
+                            pageNumber={pageNum}
+                            width={pageWidth}
+                            onRenderSuccess={(info) =>
+                              handlePageRenderSuccess(pageNum, info)
+                            }
+                          />
+                        )}
+                        {overlays.length > 0 && (
+                          <div className="pointer-events-none absolute inset-0">
+                            {overlays.map((ov, idx) => {
+                              // B5: anchor target рендерится даже без
+                              // chunkIndex.
+                              if (
+                                ov.chunkIndex == null &&
+                                !ov.isAnchorTarget
+                              ) {
+                                return null;
+                              }
+
+                              const [x0, top, x1, bottom] = ov.bbox;
+
+                              const scaleX = pageWidth / size.originalWidth;
+
+                              const left = x0 * scaleX;
+                              const width = (x1 - x0) * scaleX;
+                              const y = top * scaleX;
+                              const height = (bottom - top) * scaleX;
+
+                              const isEven = (ov.chunkIndex ?? 0) % 2 === 0;
+                              const isActive =
+                                activeChunkIndex >= 0 &&
+                                ov.chunkIndex === activeChunkIndex;
+
+                              // B5: anchor target — максимальный
+                              // визуальный приоритет.
+                              const bgClass = ov.isAnchorTarget
+                                ? "bg-[var(--accent-primary)]/28 ring-2 ring-[var(--accent-primary)]"
+                                : isActive
+                                  ? "bg-[var(--accent-primary)]/18 ring-2 ring-[var(--accent-primary)]/80"
+                                  : isEven
+                                    ? "bg-white/55"
+                                    : "bg-black/8";
+
+                              return (
+                                <div
+                                  key={idx}
+                                  className={bgClass}
+                                  data-active-overlay={
+                                    isActive ? "true" : undefined
+                                  }
+                                  style={{
+                                    position: "absolute",
+                                    left,
+                                    top: y,
+                                    width,
+                                    height,
+                                  }}
+                                />
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </Document>
           )}
         </div>
       </div>
@@ -426,5 +675,3 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
 };
 
 export default DocumentViewerModal;
-
-

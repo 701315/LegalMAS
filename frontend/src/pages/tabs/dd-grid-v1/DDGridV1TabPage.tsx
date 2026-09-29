@@ -1072,6 +1072,19 @@ const DDGridV1TabPage: React.FC<GridTabProps> = ({ dealId, runId }) => {
       </section>
 
       <DocumentViewerModal
+        // B7.9.2: reset viewer state on location change by remounting.
+        // This is the idiomatic alternative to syncing visiblePage
+        // via useEffect (which would trigger react-hooks/set-state-in-effect).
+        key={
+          viewerState
+            ? `viewer-${
+                viewerState.location?.clauseUid ??
+                viewerState.location?.page ??
+                viewerState.location?.chunkId ??
+                "default"
+              }`
+            : "viewer-closed"
+        }
         open={Boolean(viewerState)}
         onClose={handleCloseViewer}
         fileUrl={viewerState?.pdfUrl ?? null}
