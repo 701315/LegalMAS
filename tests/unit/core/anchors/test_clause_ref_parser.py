@@ -226,6 +226,31 @@ class TestMultiMarker:
 
 
 class TestPosition:
+
+    def test_comma_separated_after_one_prefix(self):
+        r = parse_clause_ref("п. 7.1.1, 7.1.2")
+        assert [m.value for m in r.markers] == ["7.1.1", "7.1.2"]
+
+    def test_comma_separated_three_markers(self):
+        r = parse_clause_ref("п. 7.1.1, 7.1.2, 7.1.3")
+        assert [m.value for m in r.markers] == ["7.1.1", "7.1.2", "7.1.3"]
+
+    def test_semicolon_separated(self):
+        r = parse_clause_ref("cl. 3.1; 3.2")
+        assert [m.value for m in r.markers] == ["3.1", "3.2"]
+
+    def test_page_stops_marker_list(self):
+        r = parse_clause_ref("п. 7.1.1, стр. 3")
+        assert [m.value for m in r.markers] == ["7.1.1"]
+        assert r.page_hint == 3
+
+    def test_appendix_list(self):
+        r = parse_clause_ref("Appendix A, B")
+        assert [m.value for m in r.markers] == ["A", "B"]
+
+    def test_appendix_list_both_appendix_kind(self):
+        r = parse_clause_ref("Appendix A, B")
+        assert all(m.kind == MarkerKind.APPENDIX for m in r.markers)
     def test_position_is_offset_in_original_string(self):
         r = parse_clause_ref("п. 2.2, стр. 3")
         assert r.markers[0].position == 3
