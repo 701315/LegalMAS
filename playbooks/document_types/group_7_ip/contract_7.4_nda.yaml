@@ -643,12 +643,13 @@ checks_v8:
         - "legal_unit"
         - "section"
       required_kind: "legal_unit"
-      retrieval_query: "раскрывающая сторона получающая сторона disclosing party receiving party одностороннее двустороннее взаимное многостороннее NDA цель раскрытия для целей в связи с due diligence M&A инвестиции ограничение использования"
+      retrieval_query: "раскрывающая сторона получающая сторона принимающая сторона раскрывающую сторону принимающую сторону disclosing party receiving party именуемое именуемый именуемая именуемые заключили настоящий договор заключили настоящее соглашение в лице действующего действующей на основании доверенность доверенности устав устава представитель представителя подписант преамбула стороны сторон реквизиты одностороннее двустороннее взаимное многостороннее NDA цель раскрытия для целей в связи с due diligence M&A инвестиции ограничение использования"
       retrieval_profile: "party_identification_check"
       preferred_unit_types:
         - obligation
         - general_provision
         - representations
+        - confidentiality
       excluded_unit_types:
         - definition
         - structural_anchor
@@ -656,6 +657,20 @@ checks_v8:
       preferred_clause_functions:
         - obligations
         - representations
+      boost_keywords:
+        - "именуем"
+        - "именуемый"
+        - "именуемая"
+        - "именуемое"
+        - "заключили"
+        - "в лице"
+        - "действующего на основании"
+        - "принимающая сторона"
+        - "раскрывающая сторона"
+        - "представитель"
+        - "доверенност"
+        - "устав"
+        - "преамбула"
       negative_keywords:
         - "исключения из конфиденциальной информации"
         - "меры защиты"
@@ -695,15 +710,24 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 2500
+
       compact_output: false
-      llm_max_tokens: 1300
-      store_payload: true
+
+      presence_signal:
+        field: "nda_parties_and_type_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из NDA сведения о сторонах, типе NDA
         (односторонний / двусторонний / многосторонний) и цели раскрытия информации.
         Не анализируй определение конфиденциальной информации, исключения,
         меры защиты, ответственность или срок действия.
+        Не оценивай риски.
+        Анализируй только текст договора.
         </role>
 
         <context>
@@ -711,7 +735,27 @@ checks_v8:
         </context>
 
         <task>
-        Заполни строго следующие 10 полей + evidence (всего 11 ключей):
+        Заполни строго следующие 11 полей + evidence (всего 12 ключей):
+
+        0. nda_parties_and_type_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (disclosing_party_status, receiving_party_status, nda_type_code,
+              purpose_status, use_restriction_status) ≠ "not_defined";
+           - "missing" — если все пять содержательных полей = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - disclosing_party_status = "not_defined";
+           - receiving_party_status = "not_defined";
+           - nda_type_code = "not_defined";
+           - purpose_status = "not_defined";
+           - use_restriction_status = "not_defined";
+           - disclosing_party_details, receiving_party_details = "Данные не определены";
+           - nda_type_details, purpose_details, use_restriction_details = "Данные не определены";
+           - не выполняй остальные шаги.
+
         1. disclosing_party_status — "defined" или "not_defined".
         2. disclosing_party_details — наименование и реквизиты раскрывающей стороны.
         3. receiving_party_status — "defined" или "not_defined".
@@ -732,25 +776,101 @@ checks_v8:
         - в details укажи ссылку (например, «определяется по Приложению №1»).
         </task>
 
-        <rules>
+        <context_rules>
+        - Перед остальными полями заполни nda_parties_and_type_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details = "Данные не определены".
         - Используй только текст договора.
         - nda_type_code:
-          * "unilateral" — если информация раскрывается только одной стороной;
-          * "mutual" — если две стороны обмениваются информацией взаимно;
+          * "unilateral" — если информация раскрывается только одной стороной.
+            Ключевой признак: в преамбуле одна сторона названа «Раскрывающей»
+            (Disclosing Party), другая — «Принимающей» (Receiving Party).
+            ВАЖНО: если получающая сторона обязуется обеспечивать конфиденциальность
+            и не использовать информацию — это unilateral, а НЕ mutual.
+            Mutual = только если ОБЕ стороны одновременно выступают и раскрывающей,
+            и получающей (фразы «взаимно», «обмениваются», «каждая из Сторон
+            раскрывает и получает»).
+          * "mutual" — если две стороны обмениваются информацией взаимно.
+            Ключевой признак: преамбула использует «взаимно», «Стороны обмениваются»,
+            или обе стороны поименованы и как раскрывающие, и как получающие.
           * "multilateral" — если сторон три и более и они обмениваются информацией между собой;
           * "not_defined" — если тип прямо не указан и не следует из контекста.
         - В receiving_party_details при mutual/multilateral указывай контрагента(-ов),
           не совпадающего с disclosing_party_details, и отмечай двойную роль.
-        - Верни РОВНО один валидный JSON-объект со всеми 11 ключами, без markdown,
-          без комментариев, без текста до или после.
-        </rules>
+        - Если в разных фрагментах указаны разные данные и конфликт нельзя разрешить
+          по тексту — статус → "not_defined", текстовое поле → "Не удалось определить".
+        - Не подставляй нормы закона, обычную практику или предположения вместо текста договора.
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
+        - use_restriction_status:
+          * "defined" — если в документе указано, для каких целей можно использовать
+            информацию (например: «для целей due diligence», «для формирования
+            предмета и предложения о его приобретении», «исключительно для…»).
+          * "not_defined" — если такой формулировки нет.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни упоминания сторон, ни их ролей, ни типа NDA, ни цели раскрытия.
+           → presence = "missing";
+             все *_status = "not_defined";
+             все *_details = "Данные не определены".
+
+        2. Неполное раскрытие темы.
+           Стороны указаны, но тип NDA прямо не следует из текста;
+           или тип указан, но цель раскрытия не определена.
+           → presence = "present";
+             соответствующий *_status = "not_defined";
+             соответствующее *_details = "Данные не определены".
+
+        3. Противоречие между фрагментами.
+           В разных частях договора указаны разные типы NDA или разные стороны
+           в одной и той же роли.
+           → presence = "unclear";
+             соответствующий *_status = "not_defined";
+             соответствующее *_details = "Не удалось определить".
+
+        4. Отсылка на внешний документ.
+           Цель раскрытия определяется через приложение / проект / дополнительное
+           соглашение.
+           → presence = "present";
+             purpose_status = "defined";
+             purpose_details содержит формулировку вида
+             «определяется по Приложению №1».
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для nda_parties_and_type_check_presence используй только: "present", "missing", "unclear".
+        - Для status-полей используй только: "defined" или "not_defined".
+        - Для nda_type_code используй только:
+          "unilateral", "mutual", "multilateral", "not_defined".
+        - Fallback при отсутствии данных:
+          * все *_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
       fields:
+        - name: "nda_parties_and_type_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие идентификации сторон / типа NDA / цели раскрытия. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "disclosing_party_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус идентификации раскрывающей стороны."
           required: true
+
         - name: "disclosing_party_details"
           type: "string"
           presentation: "fact"
@@ -759,12 +879,16 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 1
+
         - name: "receiving_party_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус идентификации получающей стороны."
           required: true
+
         - name: "receiving_party_details"
           type: "string"
           presentation: "fact"
@@ -773,12 +897,16 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 2
+
         - name: "nda_type_code"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["unilateral", "mutual", "multilateral", "not_defined"]
+          display_in_grid: false
           description: "Тип NDA: односторонний, двусторонний, многосторонний или не определён."
           required: true
+
         - name: "nda_type_details"
           type: "string"
           presentation: "fact"
@@ -787,12 +915,16 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
+
         - name: "purpose_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус указания цели раскрытия конфиденциальной информации."
           required: true
+
         - name: "purpose_details"
           type: "string"
           presentation: "fact"
@@ -801,12 +933,16 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
+
         - name: "use_restriction_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус наличия ограничения использования информации указанной целью."
           required: true
+
         - name: "use_restriction_details"
           type: "string"
           presentation: "fact"
@@ -814,6 +950,8 @@ checks_v8:
           description: "Формулировка ограничения использования конфиденциальной информации целью раскрытия."
           required: false
           display_in_grid: false
+
+      store_payload: true
 
   - id: confidential_info_definition_check
     name: "Определение конфиденциальной информации и проверка на catch-all"
@@ -1075,7 +1213,7 @@ checks_v8:
       enabled: true
       mode: "hybrid"
       compact_output: false
-      llm_max_tokens: 1500
+      llm_max_tokens: 2200
       store_payload: true
       llm_prompt_extraction: |
         <role>
@@ -1808,7 +1946,7 @@ checks_v8:
       enabled: true
       mode: "hybrid"
       compact_output: false
-      llm_max_tokens: 1300
+      llm_max_tokens: 2000
       store_payload: true
       llm_prompt_extraction: |
         <role>
@@ -2529,7 +2667,7 @@ checks_v8:
       enabled: true
       mode: "hybrid"
       compact_output: false
-      llm_max_tokens: 1000
+      llm_max_tokens: 2200
       store_payload: true
       llm_prompt_extraction: |
         Ты — российский юрист. Извлеки из NDA условия об ответственности за нарушение
@@ -2870,7 +3008,7 @@ checks_v8:
       enabled: true
       mode: "hybrid"
       compact_output: false
-      llm_max_tokens: 1000
+      llm_max_tokens: 2200
       store_payload: true
       llm_prompt_extraction: |
         Ты — российский юрист. Извлеки из NDA порядок возврата или уничтожения конфиденциальной информации по окончании срока или по требованию.
@@ -5171,7 +5309,7 @@ checks_v8:
       enabled: true
       mode: "hybrid"
       compact_output: false
-      llm_max_tokens: 1000
+      llm_max_tokens: 2200
       store_payload: true
       llm_prompt_extraction: |
         Ты — российский юрист. Извлеки из NDA порядок направления уведомлений (notices): процедура, адреса, способы доставки, момент получения.
