@@ -304,6 +304,71 @@ class DocTypeCheckLoader:
         )
         return result
 
+    def load_all_checks_for_doc(
+        self,
+        doc_type: str,
+    ) -> list[CheckDefinition]:
+        """
+        Загрузить ВСЕ CheckDefinition для doc_type без фильтрации по triggers.
+
+        Отличие от load_checks_for_doc:
+          - load_checks_for_doc: возвращает только checks, применимые при
+            заданном наборе сработавших triggers (runtime-фильтр).
+          - load_all_checks_for_doc: полный список определений для doc_type
+            независимо от triggers.
+
+        Использование:
+          Когда downstream-код (например build_dd_requests) матчит
+          check_results по check_id, ему нужны ПОЛНЫЕ определения. Runtime
+          trigger-фильтр уже сработал на этапе executor: check_result
+          существует только для triggered checks.
+
+        Контракт:
+          - trigger-фильтр НЕ применяется.
+          - MAX_CHECKS НЕ применяется (нужны все definitions).
+          - Возвращает [] при отсутствии doc_type / yaml_data.
+          - Никогда не бросает: _build_* методы сами возвращают None при ошибке.
+        """
+        if not doc_type:
+            return []
+
+        yaml_data = self._load_yaml(doc_type)
+        if not yaml_data:
+            return []
+
+        shared_patterns = yaml_data.get("shared_patterns") or {}
+        result: list[CheckDefinition] = []
+
+        for item in yaml_data.get("checks_v8") or []:
+            if not isinstance(item, dict):
+                continue
+            check = self._build_check_from_v8(item, doc_type, shared_patterns)
+            if check:
+                result.append(check)
+
+        for item in yaml_data.get("doc_type_checks") or []:
+            if not isinstance(item, dict):
+                continue
+            check = self._build_check_from_doc_type(item, doc_type, shared_patterns)
+            if check:
+                result.append(check)
+
+        for rule in yaml_data.get("compliance_rules") or []:
+            if not isinstance(rule, dict):
+                continue
+            check = self._build_compliance_check(rule, doc_type)
+            if check:
+                result.append(check)
+
+        logger.info(
+            "DocTypeCheckLoader: loaded all doc-type checks (unfiltered)",
+            extra={
+                "doc_type": doc_type,
+                "count": len(result),
+            },
+        )
+        return result
+
     # ──────────────────────────────────────────────────────────────
     # ВНУТРЕННИЕ МЕТОДЫ
     # ──────────────────────────────────────────────────────────────
