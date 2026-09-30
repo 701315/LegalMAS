@@ -192,6 +192,49 @@ class DDRequestTemplateLoader:
         """Backward-compatible flat view: explicit YAML templates + builtin."""
         return self._load_cache()["templates"]
 
+    def get_explicit_template(self, check_id: str) -> dict | None:
+        """
+        Return the explicit YAML dd_request_templates[check_id] entry.
+
+        Returns:
+            dict with "text" (and optionally "addressee") if the check_id
+            has an explicit entry in some YAML instruction;
+            None otherwise (file-scoped _default / builtin not considered).
+        """
+        cache = self._load_cache()
+        tmpl = cache["templates"].get(check_id)
+        if isinstance(tmpl, dict) and "text" in tmpl:
+            return tmpl
+        return None
+
+    def format_doc_names(self, doc_names: list[str], locale: str = "en") -> str:
+        """
+        Format a document list for insertion into DD-request text.
+
+        Single source of truth — used by render() and by external
+        composers (services.dd_request_composer).
+
+        Rules:
+          - up to 5 names, each quoted;
+          - >5 truncated with locale-specific 'more_documents' suffix.
+
+        Locale controls only the truncation suffix; document names
+        themselves are user-provided (filenames), never translated.
+        """
+        target_locale = normalize_export_locale(locale)
+        builtins = (
+            _BUILTIN_TEMPLATES.get(target_locale)
+            or _BUILTIN_TEMPLATES.get("en", {})
+        )
+        doc_names_str = ", ".join(f'"{n}"' for n in doc_names[:5])
+        if len(doc_names) > 5:
+            more_count = len(doc_names) - 5
+            more_docs_tmpl = builtins.get(
+                "more_documents", ", and {count} more document(s)"
+            )
+            doc_names_str += more_docs_tmpl.format(count=more_count)
+        return doc_names_str
+
     def render(
         self,
         check_id: str,
@@ -215,11 +258,7 @@ class DDRequestTemplateLoader:
         target_locale = normalize_export_locale(locale)
         builtins = _BUILTIN_TEMPLATES.get(target_locale) or _BUILTIN_TEMPLATES.get("en", {})
 
-        doc_names_str = ", ".join(f'"{n}"' for n in doc_names[:5])
-        if len(doc_names) > 5:
-            more_count = len(doc_names) - 5
-            more_docs_tmpl = builtins.get("more_documents", ", and {count} more document(s)")
-            doc_names_str += more_docs_tmpl.format(count=more_count)
+        doc_names_str = self.format_doc_names(doc_names, locale=locale)
 
         cache = self._load_cache()
         templates = cache["templates"]
