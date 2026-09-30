@@ -40,13 +40,16 @@ def test_build_dd_requests_uses_localized_check_name() -> None:
     check_id = "chk_1"
     check_def = _make_check_def(check_id=check_id, check_name="Canonical Check Name")
     
-    # check_result with localized check_name overlay
+    # check_result with localized check_name overlay.
+    # Trigger is rule-based (v3 semantics): result must be one of
+    # DD_REQUEST_DEFAULT_RESULTS = {missing_required_cla, unclear}.
     check_results = [
         {
             "check_id": check_id,
             "check_name": "Localized Check Name (RU)",
             "document_id": "doc_1",
-            "structured_data": {"target_field": None},  # triggers DD request
+            "result": "missing_required_cla",  # triggers DD request
+            "structured_data": {},
             "segment_id": None,
             "segment_type": None,
             "segment_title": None,
