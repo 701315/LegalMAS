@@ -3,8 +3,8 @@
 """
 Unit tests for services.dd_request_rules.
 
-DD-request trigger is a pure function of check_result.result:
-    default set = {missing_required_cla, unclear}
+DD-request trigger is a pure function of check_result.review_status:
+    default set = {clause_missing, clause_partially_defined, unclear}
     per-check override via CheckDefinition.dd_request_when_result
 """
 
@@ -13,87 +13,88 @@ from __future__ import annotations
 import pytest
 
 from services.dd_request_rules import (
-    DD_REQUEST_DEFAULT_RESULTS,
+    DD_REQUEST_DEFAULT_REVIEW_STATUSES,
+    DD_REQUEST_DEFAULT_RESULTS,  # backward-compat alias
     normalize_dd_request_results,
     should_trigger_dd_request,
 )
 
 
-class TestDefaultResults:
-    def test_default_set_contains_missing_and_unclear(self) -> None:
-        assert DD_REQUEST_DEFAULT_RESULTS == frozenset(
-            {"missing_required_cla", "unclear"}
+class TestDefaultReviewStatuses:
+    def test_default_set_contains_three_statuses(self) -> None:
+        assert DD_REQUEST_DEFAULT_REVIEW_STATUSES == frozenset(
+            {"clause_missing", "clause_partially_defined", "unclear"}
         )
 
-    @pytest.mark.parametrize("result", ["missing_required_cla", "unclear"])
-    def test_default_results_trigger(self, result: str) -> None:
-        cr = {"check_id": "chk_1", "result": result}
+    @pytest.mark.parametrize(
+        "review_status",
+        ["clause_missing", "clause_partially_defined", "unclear"],
+    )
+    def test_default_statuses_trigger(self, review_status: str) -> None:
+        cr = {"check_id": "chk_1", "review_status": review_status}
         assert should_trigger_dd_request(check_result=cr) is True
 
     @pytest.mark.parametrize(
-        "result",
+        "review_status",
         [
-            "pass",
-            "fail",
-            "not_applicable",
-            "no",
-            "defined",
-            "not_defined",
+            "clause_defined",
+            "risk_detected",
+            "no_issue_detected",
             "",
             None,
         ],
     )
-    def test_non_default_results_do_not_trigger(self, result) -> None:
-        cr = {"check_id": "chk_1", "result": result}
+    def test_non_default_statuses_do_not_trigger(self, review_status) -> None:
+        cr = {"check_id": "chk_1", "review_status": review_status}
         assert should_trigger_dd_request(check_result=cr) is False
 
-    def test_missing_result_key_does_not_trigger(self) -> None:
+    def test_missing_review_status_key_does_not_trigger(self) -> None:
         cr = {"check_id": "chk_1"}
         assert should_trigger_dd_request(check_result=cr) is False
 
     @pytest.mark.parametrize(
         "raw,expected",
         [
-            ("MISSING_REQUIRED_CLA", True),
-            ("  unclear  ", True),
-            ("Pass", False),
-            ("FAIL", False),
+            ("CLAUSE_MISSING", True),
+            ("  clause_partially_defined  ", True),
+            ("Clause_Defined", False),
+            ("RISK_DETECTED", False),
         ],
     )
     def test_case_and_whitespace_normalized(self, raw: str, expected: bool) -> None:
-        cr = {"result": raw}
+        cr = {"review_status": raw}
         assert should_trigger_dd_request(check_result=cr) is expected
 
 
 class TestOverride:
     def test_override_replaces_default(self) -> None:
-        cr = {"result": "fail"}
+        cr = {"review_status": "risk_detected"}
         assert should_trigger_dd_request(
-            check_result=cr, override_results=["fail"]
+            check_result=cr, override_results=["risk_detected"]
         ) is True
 
     def test_override_blocks_default(self) -> None:
-        cr = {"result": "missing_required_cla"}
+        cr = {"review_status": "clause_missing"}
         assert should_trigger_dd_request(
-            check_result=cr, override_results=["pass"]
+            check_result=cr, override_results=["clause_defined"]
         ) is False
 
     def test_empty_override_disables_trigger(self) -> None:
-        cr = {"result": "missing_required_cla"}
+        cr = {"review_status": "clause_missing"}
         assert should_trigger_dd_request(
             check_result=cr, override_results=[]
         ) is False
 
     def test_none_override_falls_back_to_default(self) -> None:
-        cr = {"result": "missing_required_cla"}
+        cr = {"review_status": "clause_missing"}
         assert should_trigger_dd_request(
             check_result=cr, override_results=None
         ) is True
 
     def test_override_normalized(self) -> None:
-        cr = {"result": "FAIL"}
+        cr = {"review_status": "RISK_DETECTED"}
         assert should_trigger_dd_request(
-            check_result=cr, override_results=["  fail  "]
+            check_result=cr, override_results=["  risk_detected  "]
         ) is True
 
 
