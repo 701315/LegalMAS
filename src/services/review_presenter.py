@@ -24,6 +24,7 @@ from api.schemas.deal_review import (
 
 from engine.playbook.models import CheckDefinition
 from services.dd_request_rules import should_trigger_dd_request
+from services.dd_request_composer import compose_dd_request
 
 
 def build_dd_requests(
@@ -63,19 +64,23 @@ def build_dd_requests(
         if not check_def:
             continue
 
-        # B7.9.2 / Variant B: DD-request trigger via rules engine.
-        # Fires when check_result.result ∈ DD_REQUEST_DEFAULT_RESULTS
-        # (missing_required_cla, unclear) or per-check YAML override
-        # (CheckDefinition.dd_request_when_result).
+        # DD-request trigger via rules engine (services.dd_request_rules).
+        # Fires when check_result.review_status ∈
+        # DD_REQUEST_DEFAULT_REVIEW_STATUSES
+        # (clause_missing, clause_partially_defined, unclear)
+        # or per-check YAML override (CheckDefinition.dd_request_when_result).
         override_results = getattr(check_def, "dd_request_when_result", None)
 
         triggered_docs: list[dict] = []
+        trigger_cr: dict | None = None
         for cr in cr_list:
             if not should_trigger_dd_request(
                 check_result=cr,
                 override_results=override_results,
             ):
                 continue
+            if trigger_cr is None:
+                trigger_cr = cr
             doc_id = cr.get("document_id", "")
             structured_data = cr.get("structured_data") or {}
             triggered_docs.append({
@@ -104,7 +109,13 @@ def build_dd_requests(
 
         # Рендерим текст из YAML шаблона
         doc_names = [d["document_name"] for d in triggered_docs]
-        text, addressee = loader.render(check_id, check_def.name, doc_names)
+        text, addressee = compose_dd_request(
+            check_result=trigger_cr,
+            check_def=check_def,
+            doc_names=doc_names,
+            loader=loader,
+            locale="ru",  # source-text locale for auto-generated templates
+        )
 
         # required_fields — только для сбора structured_values (best-effort),
         # НЕ для триггера. У check без extraction список пуст.

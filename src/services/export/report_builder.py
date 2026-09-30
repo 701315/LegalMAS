@@ -46,6 +46,7 @@ from core.i18n.export_translator import t_export
 from core.logging import get_logger
 from engine.playbook.models import CheckDefinition
 from services.dd_request_rules import should_trigger_dd_request
+from services.dd_request_composer import compose_dd_request
 
 logger = get_logger(__name__)
 
@@ -272,12 +273,15 @@ def _build_dd_requests_for_report(
         override_results = getattr(check_def, "dd_request_when_result", None)
 
         triggered_docs: list[dict] = []
+        trigger_cr: dict | None = None
         for cr in cr_list:
             if not should_trigger_dd_request(
                 check_result=cr,
                 override_results=override_results,
             ):
                 continue
+            if trigger_cr is None:
+                trigger_cr = cr
             doc_id = cr.get("document_id", "")
             structured_data = cr.get("structured_data") or {}
             triggered_docs.append({
@@ -291,7 +295,13 @@ def _build_dd_requests_for_report(
             continue
 
         doc_names = [d["document_name"] for d in triggered_docs]
-        text, addressee = loader.render(check_id, check_def.name, doc_names, locale=locale)
+        text, addressee = compose_dd_request(
+            check_result=trigger_cr,
+            check_def=check_def,
+            doc_names=doc_names,
+            loader=loader,
+            locale=locale,
+        )
 
         # required_fields — только для structured_values (best-effort).
         required_fields: list[str] = []
