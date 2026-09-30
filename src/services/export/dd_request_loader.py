@@ -98,12 +98,30 @@ class DDRequestTemplateLoader:
         self._dirs = [Path(d) for d in dirs]
         self._cache: dict[str, dict] | None = None
 
-    def get_all_templates(self) -> dict[str, dict]:
-        """Load and merge all templates from YAML files."""
+    def _load_cache(self) -> dict[str, dict]:
+        """
+        Build and cache two maps in a single YAML pass.
+
+        Returns:
+            {
+              "templates": {check_id: explicit dd_request_templates entry}
+                           + builtin fallback (backward-compatible view),
+              "defaults":  {check_id: _default of the YAML where check_id
+                           is declared in checks_v8}. File-scoped fallback
+                           used by render() when a check has no explicit
+                           dd_request_templates entry.
+            }
+
+        Why two maps: a single flat ``_default`` in ``templates`` would be
+        last-wins (whichever YAML sorts last), which is wrong for
+        instruction-scoped generic text. A file-scoped ``_default`` gives
+        each check_id the generic template from its own instruction.
+        """
         if self._cache is not None:
             return self._cache
 
-        merged: dict[str, dict] = dict(_BUILTIN_TEMPLATES.get("en", {}))
+        templates: dict[str, dict] = dict(_BUILTIN_TEMPLATES.get("en", {}))
+        file_defaults: dict[str, dict] = {}
 
         yaml_files: list[Path] = []
         for d in self._dirs:
@@ -119,29 +137,60 @@ class DDRequestTemplateLoader:
             try:
                 with open(yaml_file, encoding="utf-8") as f:
                     data = yaml.safe_load(f)
-                templates = data.get("dd_request_templates", {})
-                for check_id, tmpl in templates.items():
-                    if isinstance(tmpl, dict) and "text" in tmpl:
-                        merged[check_id] = tmpl
-                        logger.debug(
-                            "Loaded DD template from YAML",
-                            check_id=check_id,
-                            source=yaml_file.name,
-                        )
             except Exception as e:
                 logger.warning(
                     "Failed to load DD templates from YAML",
                     file=yaml_file.name,
                     error=str(e),
                 )
+                continue
+            if not isinstance(data, dict):
+                continue
+
+            dd_tmpl = data.get("dd_request_templates") or {}
+            if not isinstance(dd_tmpl, dict):
+                continue
+
+            file_default = dd_tmpl.get("_default")
+
+            # (1) explicit per-check templates
+            for check_id, tmpl in dd_tmpl.items():
+                if check_id == "_default":
+                    continue
+                if isinstance(tmpl, dict) and "text" in tmpl:
+                    templates[check_id] = tmpl
+                    logger.debug(
+                        "Loaded DD template from YAML",
+                        check_id=check_id,
+                        source=yaml_file.name,
+                    )
+
+            # (2) file-scoped default for checks declared in this file
+            if isinstance(file_default, dict) and "text" in file_default:
+                checks_list = data.get("checks_v8") or []
+                for c in checks_list:
+                    if not isinstance(c, dict):
+                        continue
+                    cid = c.get("id") or c.get("check_id")
+                    if not cid:
+                        continue
+                    # explicit template (if any) always wins over file default
+                    if cid in templates:
+                        continue
+                    file_defaults[cid] = file_default
 
         logger.info(
             "DD request templates loaded",
-            total=len(merged),
-            from_yaml=len(merged) - len(_BUILTIN_TEMPLATES.get("en", {})),
+            total=len(templates),
+            from_yaml=len(templates) - len(_BUILTIN_TEMPLATES.get("en", {})),
+            file_scoped_defaults=len(file_defaults),
         )
-        self._cache = merged
-        return merged
+        self._cache = {"templates": templates, "defaults": file_defaults}
+        return self._cache
+
+    def get_all_templates(self) -> dict[str, dict]:
+        """Backward-compatible flat view: explicit YAML templates + builtin."""
+        return self._load_cache()["templates"]
 
     def render(
         self,
@@ -156,7 +205,9 @@ class DDRequestTemplateLoader:
         Lookup order:
           1. Exact check_id match in YAML templates
           2. check_id prefix match in YAML templates
-          3. Built-in locale-specific template (exact/prefix/_default)
+          3. File-scoped YAML _default (from the instruction that
+             declares check_id in checks_v8)
+          4. Built-in locale-specific template (exact/prefix/_default)
 
         Returns:
             (rendered_text, addressee)
@@ -170,17 +221,26 @@ class DDRequestTemplateLoader:
             more_docs_tmpl = builtins.get("more_documents", ", and {count} more document(s)")
             doc_names_str += more_docs_tmpl.format(count=more_count)
 
-        templates = self.get_all_templates()
+        cache = self._load_cache()
+        templates = cache["templates"]
+        file_defaults = cache["defaults"]
 
         # 1. Exact match in YAML
         tmpl = templates.get(check_id)
+        prefix = check_id.split("_")[0] if "_" in check_id else check_id
 
         # 2. Prefix match in YAML
-        prefix = check_id.split("_")[0] if "_" in check_id else check_id
         if tmpl is None:
             tmpl = templates.get(prefix)
 
-        # 3. Fallback to builtins for target locale
+        # 3. File-scoped _default from the YAML that declared this check
+        #    (via checks_v8). Ensures doc-type checks without an explicit
+        #    dd_request_templates entry get the correct instruction-scoped
+        #    generic text instead of an unrelated file's last-wins _default.
+        if tmpl is None:
+            tmpl = file_defaults.get(check_id)
+
+        # 4. Builtin locale-specific fallback (checks not in any instruction)
         if tmpl is None:
             tmpl = (
                 builtins.get(check_id)
