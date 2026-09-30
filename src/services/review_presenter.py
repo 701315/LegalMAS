@@ -23,6 +23,7 @@ from api.schemas.deal_review import (
 )
 
 from engine.playbook.models import CheckDefinition
+from services.dd_request_rules import should_trigger_dd_request
 
 
 def build_dd_requests(
@@ -33,8 +34,9 @@ def build_dd_requests(
     """
     Построить список DD-запросов для UI.
 
-    Триггер: required=true поле со значением not_defined/missing в structured_data.
-    Источник: прямое чтение check_results + CheckDefinition.extraction.fields.
+    Триггер: check_result.result ∈ {missing_required_cla, unclear}.
+    Опциональный per-check override — CheckDefinition.dd_request_when_result.
+    Источник: прямое чтение check_results + CheckDefinition.
     Aggregator больше не нужен для этой фичи.
 
     Args:
@@ -61,55 +63,34 @@ def build_dd_requests(
         if not check_def:
             continue
 
-        # Находим required поля из CheckDefinition
-        extraction = check_def.extraction
-        if not extraction or not extraction.enabled:
-            continue
+        # B7.9.2 / Variant B: DD-request trigger via rules engine.
+        # Fires when check_result.result ∈ DD_REQUEST_DEFAULT_RESULTS
+        # (missing_required_cla, unclear) or per-check YAML override
+        # (CheckDefinition.dd_request_when_result).
+        override_results = getattr(check_def, "dd_request_when_result", None)
 
-        required_fields = [
-            f.name for f in extraction.fields
-            if getattr(f, "required", False)
-        ]
-
-        if not required_fields:
-            # Нет required полей — DD Request не создаётся
-            continue
-
-        # Ищем документы где хотя бы одно required поле отсутствует
         triggered_docs: list[dict] = []
         for cr in cr_list:
+            if not should_trigger_dd_request(
+                check_result=cr,
+                override_results=override_results,
+            ):
+                continue
             doc_id = cr.get("document_id", "")
             structured_data = cr.get("structured_data") or {}
-
-            missing_required: list[str] = []
-            for field_name in required_fields:
-                field_value = structured_data.get(field_name)
-
-                # Нормализация (как в aggregator.py)
-                if isinstance(field_value, dict) and "value" in field_value:
-                    raw_value = field_value.get("value")
-                else:
-                    raw_value = field_value
-
-                # Проверка на missing
-                if raw_value is None or str(raw_value) in ("not_found", "not_defined", "None", ""):
-                    missing_required.append(field_name)
-
-            if missing_required:
-                triggered_docs.append({
-                    "document_id": doc_id,
-                    "document_name": documents.get(doc_id, {}).get("name", "Unknown"),
-                    "doc_type": documents.get(doc_id, {}).get("doc_type", "Generic"),
-                    "missing_fields": missing_required,
-                    "structured_data": structured_data,
-                    "segment_id": cr.get("segment_id"),
-                    "segment_type": cr.get("segment_type"),
-                    "segment_title": cr.get("segment_title"),
-                    "segment_order": cr.get("segment_order"),
-                    "is_primary_segment": cr.get("is_primary_segment"),
-                    "chunk_id": cr.get("chunk_id"),
-                    "chunk_index": cr.get("chunk_index"),
-                })
+            triggered_docs.append({
+                "document_id": doc_id,
+                "document_name": documents.get(doc_id, {}).get("name", "Unknown"),
+                "doc_type": documents.get(doc_id, {}).get("doc_type", "Generic"),
+                "structured_data": structured_data,
+                "segment_id": cr.get("segment_id"),
+                "segment_type": cr.get("segment_type"),
+                "segment_title": cr.get("segment_title"),
+                "segment_order": cr.get("segment_order"),
+                "is_primary_segment": cr.get("is_primary_segment"),
+                "chunk_id": cr.get("chunk_id"),
+                "chunk_index": cr.get("chunk_index"),
+            })
 
         if not triggered_docs:
             continue
@@ -124,6 +105,16 @@ def build_dd_requests(
         # Рендерим текст из YAML шаблона
         doc_names = [d["document_name"] for d in triggered_docs]
         text, addressee = loader.render(check_id, check_def.name, doc_names)
+
+        # required_fields — только для сбора structured_values (best-effort),
+        # НЕ для триггера. У check без extraction список пуст.
+        required_fields: list[str] = []
+        extraction = check_def.extraction
+        if extraction is not None and getattr(extraction, "enabled", False):
+            required_fields = [
+                f.name for f in extraction.fields
+                if getattr(f, "required", False)
+            ]
 
         # Собираем structured_values только из required полей
         structured_values: list[dict] = []

@@ -30,6 +30,7 @@ from core.config import settings
 from core.i18n.export_translator import t_export
 from core.logging import get_logger
 from engine.playbook.models import CheckDefinition
+from services.dd_request_rules import should_trigger_dd_request
 
 logger = get_logger(__name__)
 
@@ -257,48 +258,39 @@ def _build_dd_requests_for_summary(
         if not check_def:
             continue
 
-        extraction = check_def.extraction
-        if not extraction or not extraction.enabled:
-            continue
-
-        required_fields = [
-            f.name for f in extraction.fields
-            if getattr(f, "required", False)
-        ]
-
-        if not required_fields:
-            continue
+        # B7.9.2 / Variant B: DD-request trigger via rules engine.
+        override_results = getattr(check_def, "dd_request_when_result", None)
 
         triggered_docs: list[dict] = []
         for cr in cr_list:
+            if not should_trigger_dd_request(
+                check_result=cr,
+                override_results=override_results,
+            ):
+                continue
             doc_id = cr.get("document_id", "")
             structured_data = cr.get("structured_data") or {}
-
-            missing_required = []
-            for field_name in required_fields:
-                field_value = structured_data.get(field_name)
-
-                if isinstance(field_value, dict) and "value" in field_value:
-                    raw_value = field_value.get("value")
-                else:
-                    raw_value = field_value
-
-                if raw_value is None or str(raw_value) in ("not_found", "not_defined", "None", ""):
-                    missing_required.append(field_name)
-
-            if missing_required:
-                triggered_docs.append({
-                    "document_id": doc_id,
-                    "document_name": documents.get(doc_id, {}).get("name", t_export("fallback.unknown", locale)),
-                    "doc_type": documents.get(doc_id, {}).get("doc_type", t_export("fallback.generic", locale)),
-                    "structured_data": structured_data,
-                })
+            triggered_docs.append({
+                "document_id": doc_id,
+                "document_name": documents.get(doc_id, {}).get("name", t_export("fallback.unknown", locale)),
+                "doc_type": documents.get(doc_id, {}).get("doc_type", t_export("fallback.generic", locale)),
+                "structured_data": structured_data,
+            })
 
         if not triggered_docs:
             continue
 
         doc_names = [d["document_name"] for d in triggered_docs]
         text, addressee = loader.render(check_id, check_def.name, doc_names)
+
+        # required_fields — только для structured_values (best-effort).
+        required_fields: list[str] = []
+        extraction = check_def.extraction
+        if extraction is not None and getattr(extraction, "enabled", False):
+            required_fields = [
+                f.name for f in extraction.fields
+                if getattr(f, "required", False)
+            ]
 
         structured_values = []
         for doc in triggered_docs:
