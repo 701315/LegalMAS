@@ -243,6 +243,19 @@ class GlobalCheckConfig(BaseModel):
         description="Level-based keyword groups: {'high': [...], 'medium': [...], 'low': [...]}",
     )
 
+    # ── DD Request generation contract ─────────────────────────────────
+    # Optional override list of check_result.result values that trigger
+    # a DD request for this check. None = use the global default.
+    # See: services/dd_request_rules.py.
+    dd_request_when_result: list[str] | None = Field(
+        default=None,
+        description=(
+            "Optional list of check_result.result values that trigger a DD "
+            "request for this check. None = use global default "
+            "(missing_required_cla + unclear)."
+        ),
+    )
+
     llm: dict[str, Any] = Field(
         default_factory=dict,
         description="LLM detector configuration (prompt, model, parameters).",

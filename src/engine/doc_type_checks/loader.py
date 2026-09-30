@@ -789,6 +789,7 @@ class DocTypeCheckLoader:
                 extraction=extraction,
                 conditional=conditional,
                 enrichment_hints=enrichment_hints,
+                dd_request_when_result=item.get("dd_request_when_result"),
             )
 
         except (ValidationError, Exception) as e:
@@ -873,6 +874,7 @@ class DocTypeCheckLoader:
                 evidence=EvidenceConfig(required=True),
                 extraction=extraction,
                 conditional=conditional,
+                dd_request_when_result=item.get("dd_request_when_result"),
             )
 
         except Exception as e:
@@ -935,6 +937,7 @@ class DocTypeCheckLoader:
                 llm=LLMConfig(),
                 retrieval=retrieval,
                 evidence=EvidenceConfig(required=True),
+                dd_request_when_result=rule.get("dd_request_when_result"),
             )
 
         except Exception as e:

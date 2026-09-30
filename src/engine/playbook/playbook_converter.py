@@ -115,4 +115,5 @@ class PlaybookConverter:
             or CheckDefinition.model_fields["retrieval"].default_factory(),
             conditional=conditional_cfg,
             extraction=extraction_cfg,
+            dd_request_when_result=raw_check.get("dd_request_when_result"),
         )

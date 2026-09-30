@@ -388,6 +388,9 @@ def load_playbook_from_dict(raw: dict) -> PlaybookDefinition:
                 retrieval=RetrievalConfig(**(cfg.retrieval or {})),
                 extraction=_extraction,
                 enrichment_hints=_enrichment_hints,
+                dd_request_when_result=getattr(
+                    cfg, "dd_request_when_result", None
+                ),
             )
         )
 
