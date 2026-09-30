@@ -81,8 +81,21 @@ class DDRequestTemplateLoader:
     with per-file templates taking priority over built-in fallbacks.
     """
 
-    def __init__(self, doc_types_dir: str | None = None):
-        self._dir = Path(doc_types_dir or "playbooks/document_types")
+    def __init__(self, dirs: list[str | Path] | None = None):
+        """
+        Args:
+            dirs: Список каталогов для поиска YAML-инструкций.
+                  По умолчанию: playbooks/document_types + playbooks/global_checks
+                  — оба источника содержат dd_request_templates-секции,
+                  и оба должны участвовать в lookup по check_id.
+                  Передача явного списка используется только в тестах.
+        """
+        if dirs is None:
+            dirs = [
+                "playbooks/document_types",
+                "playbooks/global_checks",
+            ]
+        self._dirs = [Path(d) for d in dirs]
         self._cache: dict[str, dict] | None = None
 
     def get_all_templates(self) -> dict[str, dict]:
@@ -92,15 +105,17 @@ class DDRequestTemplateLoader:
 
         merged: dict[str, dict] = dict(_BUILTIN_TEMPLATES.get("en", {}))
 
-        if not self._dir.exists():
-            logger.warning(
-                "document_types dir not found, using built-in templates",
-                path=str(self._dir),
-            )
-            self._cache = merged
-            return merged
+        yaml_files: list[Path] = []
+        for d in self._dirs:
+            if not d.exists():
+                logger.warning(
+                    "DD template dir not found, skipping",
+                    path=str(d),
+                )
+                continue
+            yaml_files.extend(d.rglob("*.yaml"))
 
-        for yaml_file in sorted(self._dir.rglob("*.yaml")):
+        for yaml_file in sorted(yaml_files):
             try:
                 with open(yaml_file, encoding="utf-8") as f:
                     data = yaml.safe_load(f)
