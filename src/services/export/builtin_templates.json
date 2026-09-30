@@ -1,34 +1,6 @@
 {
   "en": {
     "more_documents": ", and {count} more document(s)",
-    "coc": {
-      "text": "Please provide information regarding change of control conditions provided in {doc_names}. Please clarify: (a) whether counterparty consent is required; (b) whether the transaction triggers termination rights.",
-      "addressee": "Seller / Seller's Legal Counsel"
-    },
-    "consent": {
-      "text": "Please confirm receipt of all necessary third-party consents for the transaction in respect of {doc_names}.",
-      "addressee": "Corporate Secretary"
-    },
-    "termination": {
-      "text": "Please provide a list of termination grounds provided in {doc_names}, specifying the notice procedure.",
-      "addressee": "Legal Counsel"
-    },
-    "non_compete": {
-      "text": "Please clarify the terms and conditions of non-compete restrictions contained in {doc_names}.",
-      "addressee": "Legal Counsel"
-    },
-    "indemnity": {
-      "text": "Please provide information on indemnity caps in {doc_names}.",
-      "addressee": "Seller's Legal Counsel"
-    },
-    "re_encumbrance": {
-      "text": "Please provide extracts from the state register confirming the absence of encumbrances on the properties specified in {doc_names}.",
-      "addressee": "Registration Authority / Cadastral Engineer"
-    },
-    "emp_key_man": {
-      "text": "Please provide information on key employees specified in {doc_names}, including retention terms.",
-      "addressee": "HR Director / Legal Counsel"
-    },
     "_default": {
       "text": "Please provide additional information regarding \"{check_name}\" in respect of {doc_names}.",
       "addressee": "Legal Counsel"
@@ -36,34 +8,6 @@
   },
   "ru": {
     "more_documents": " и ещё {count} документ(ов)",
-    "coc": {
-      "text": "Просим предоставить информацию об условиях смены контроля, предусмотренных в {doc_names}. Необходимо уточнить: (а) требуется ли согласие контрагента; (б) порождает ли сделка право на расторжение.",
-      "addressee": "Продавец / Юридический советник продавца"
-    },
-    "consent": {
-      "text": "Просим подтвердить получение всех необходимых согласий третьих лиц для совершения сделки в отношении {doc_names}.",
-      "addressee": "Корпоративный секретарь"
-    },
-    "termination": {
-      "text": "Просим предоставить перечень оснований для расторжения, предусмотренных в {doc_names}, с указанием процедуры уведомления.",
-      "addressee": "Юридический советник"
-    },
-    "non_compete": {
-      "text": "Просим уточнить условия и сроки ограничений на конкуренцию, содержащихся в {doc_names}.",
-      "addressee": "Юридический советник"
-    },
-    "indemnity": {
-      "text": "Просим предоставить информацию о предельных суммах возмещения убытков (indemnity cap) в {doc_names}.",
-      "addressee": "Юридический советник продавца"
-    },
-    "re_encumbrance": {
-      "text": "Просим предоставить выписки из ЕГРН, подтверждающие отсутствие обременений на объекты, указанные в {doc_names}.",
-      "addressee": "Регистрационный орган / Кадастровый инженер"
-    },
-    "emp_key_man": {
-      "text": "Просим предоставить информацию о ключевых сотрудниках, указанных в {doc_names}, включая условия их удержания.",
-      "addressee": "HR-директор / Юридический советник"
-    },
     "_default": {
       "text": "Просим предоставить дополнительную информацию по вопросу «{check_name}» в отношении {doc_names}.",
       "addressee": "Юридический советник"
