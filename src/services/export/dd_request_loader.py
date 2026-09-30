@@ -100,7 +100,7 @@ class DDRequestTemplateLoader:
             self._cache = merged
             return merged
 
-        for yaml_file in sorted(self._dir.glob("*.yaml")):
+        for yaml_file in sorted(self._dir.rglob("*.yaml")):
             try:
                 with open(yaml_file, encoding="utf-8") as f:
                     data = yaml.safe_load(f)
