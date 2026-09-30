@@ -845,7 +845,9 @@ async def get_dd_requests(
             playbook_checks=playbook.checks,
         )
 
-    return build_dd_requests(check_results, documents, checks_by_id)
+    return build_dd_requests(
+        check_results, documents, checks_by_id, locale=resolved_locale,
+    )
 
 
 @router.get(

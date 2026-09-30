@@ -31,6 +31,7 @@ def build_dd_requests(
     check_results: list[dict[str, Any]],
     documents: dict[str, dict[str, Any]],
     checks_by_id: dict[str, CheckDefinition],
+    locale: str = "ru",
 ) -> list[DDRequestDTO]:
     """
     Построить список DD-запросов для UI.
@@ -114,7 +115,7 @@ def build_dd_requests(
             check_def=check_def,
             doc_names=doc_names,
             loader=loader,
-            locale="ru",  # source-text locale for auto-generated templates
+            locale=locale,
         )
 
         # required_fields — только для сбора structured_values (best-effort),

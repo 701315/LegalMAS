@@ -99,10 +99,13 @@ def build_dd_requests(
     check_results: list[dict[str, Any]],
     documents: dict[str, dict[str, Any]],
     checks_by_id: dict[str, Any],
+    locale: str = "ru",
 ) -> list[DDRequestDTO]:
     """Прямое чтение из check_results + CheckDefinition, без aggregator."""
     from services import review_presenter
-    return review_presenter.build_dd_requests(check_results, documents, checks_by_id)
+    return review_presenter.build_dd_requests(
+        check_results, documents, checks_by_id, locale=locale,
+    )
 
 
 def build_conditional_checks(
