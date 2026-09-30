@@ -113,5 +113,19 @@
     "unknown": "Unknown",
     "generic": "Generic",
     "na": "n/a"
+  },
+  "dd_request": {
+    "clause_missing": {
+      "text": "Please provide additional information on the missing mandatory provision \"{check_name}\" in document {doc_names}.",
+      "addressee": "Legal Counsel"
+    },
+    "clause_partially_defined": {
+      "text": "Please provide additional information on the missing provisions of check \"{check_name}\" in document {doc_names}.",
+      "addressee": "Legal Counsel"
+    },
+    "unclear": {
+      "text": "Please clarify the findings of check \"{check_name}\" in document {doc_names} — manual verification required.",
+      "addressee": "Legal Counsel"
+    }
   }
 }
