@@ -16,6 +16,7 @@ import { useRun } from "../../../api/runs";
 import { useDealReviewDdGridV1 } from "../../../api/dealReview";
 import { useDDGridV1UIStore } from "../dd-grid-v1/ddGridV1.collapseStore";
 import { selectDDGridV1DerivedModel } from "../dd-grid-v1/ddGridV1.selectors";
+import { classifyReviewStatus } from "../../../utils/reviewStatus";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -193,17 +194,10 @@ function buildCheckGroupSummary(
       if (!checkIds.has(checkId)) continue;
       if (!drawer) continue;
 
-      const status = drawer.review_status;
-      let bucket: "pass" | "fail" | "unclear" | null = null;
-      if (status === "ok" || status === "no_issue_detected") {
-        bucket = "pass";
-      } else if (status === "needs_review") {
-        bucket = "fail";
-      } else if (status === "unclear") {
-        bucket = "unclear";
-      }
-
-      if (!bucket) continue;
+      // Single source of truth for both review_status families
+      // (legacy + v2 field_extraction). See utils/reviewStatus.ts.
+      const bucket = classifyReviewStatus(drawer.review_status);
+      if (bucket === "skip") continue;
 
       const existing = aggregateMap.get(checkId);
       if (existing) {
@@ -480,7 +474,7 @@ export const AnalysisResultsWidget: React.FC<
 
       for (const drawer of Object.values(drawerBySegment)) {
         if (!drawer) continue;
-        if (drawer.review_status === "unclear") {
+        if (classifyReviewStatus(drawer.review_status) === "unclear") {
           const existing = documentMap.get(row.documentId);
           if (existing) {
             existing.unclearCount += 1;

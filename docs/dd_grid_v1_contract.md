@@ -235,6 +235,32 @@ Drawer показывается при клике на ячейку / строк
 }
 ```
 
+### `review_status` — permitted values
+
+Two families coexist by design; UI code MUST handle both.
+
+Legacy family (risk_detection / clause_presence / pre-v2 records):
+
+    "ok"
+    "no_issue_detected"
+    "needs_review"
+    "unclear"
+    "not_applicable"
+
+v2 family (field_extraction, see src/engine/checks/result_semantics.py):
+
+    "clause_defined"              # all fact-fields meaningful -> pass
+    "clause_partially_defined"    # part meaningful, part fallback -> unclear
+    "clause_missing"              # required clause absent -> fail
+    "unclear"                     # ambiguous -> unclear
+
+Any value not listed above MUST be treated as "skip" — it does not
+count toward pass / fail / unclear aggregates. This is a fail-safe
+for forward compatibility.
+
+Frontend mapping lives in `frontend/src/utils/reviewStatus.ts`
+(`classifyReviewStatus`).
+
 ### Drawer Reason Precedence
 
 ```
