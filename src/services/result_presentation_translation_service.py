@@ -31,6 +31,8 @@ class ResultPresentationTranslation:
     display_text: str | None
     review_message: str | None
     localized_structured_data: dict[str, str] | None
+    dd_request_text: str | None
+    dd_request_addressee: str | None
     provider: str
     model: str
     prompt_tokens: int | None
@@ -78,6 +80,8 @@ def build_result_presentation_translation_prompt(
     check_name: str,
     display_text: str | None,
     review_message: str | None,
+    dd_request_source_text: str | None = None,
+    dd_request_source_addressee: str | None = None,
     structured_data_fields: dict[str, str] | None = None,
     glossary_terms: dict[str, str] | None = None,
 ) -> str:
@@ -107,6 +111,8 @@ def build_result_presentation_translation_prompt(
         "check_name": normalized_check_name,
         "display_text": display_text,
         "review_message": review_message,
+        "dd_request_text": dd_request_source_text,
+        "dd_request_addressee": dd_request_source_addressee,
         "structured_data_fields": structured_data_fields or None,
     }
 
@@ -124,6 +130,13 @@ def build_result_presentation_translation_prompt(
         "- display_text: string or null",
         "- review_message: string or null",
         "- localized_structured_data: object mapping input field_name to translated string, or null",
+        "- dd_request_text: string or null",
+        "- dd_request_addressee: string or null",
+        "If dd_request_text is null, return null for dd_request_text.",
+        "If dd_request_addressee is null, return null for dd_request_addressee.",
+        "When translating dd_request_text, preserve any placeholder tokens ",
+        "verbatim, including {check_name} and {doc_names}. Do not translate ",
+        "or remove them; they are substituted later by the caller.",
         "For localized_structured_data: translate each value from structured_data_fields into target_locale.",
         "Preserve machine enum codes (e.g. 'yes', 'no', 'present', 'absent', 'not_defined') unchanged.",
         "If structured_data_fields is null or empty, return null for localized_structured_data.",
@@ -159,17 +172,26 @@ def parse_result_presentation_translation(
     if not isinstance(payload, dict):
         raise ValueError("LLM response must be a JSON object")
 
-    expected_keys = {
+    required_keys = {
         "localized_check_name",
         "display_text",
         "review_message",
         "localized_structured_data",
     }
+    optional_keys = {"dd_request_text", "dd_request_addressee"}
+    allowed_keys = required_keys | optional_keys
 
-    if set(payload) != expected_keys:
+    if not required_keys.issubset(payload):
         raise ValueError(
-            "LLM response must contain exactly: "
-            "localized_check_name, display_text, review_message, localized_structured_data"
+            "LLM response missing required keys: "
+            "localized_check_name, display_text, review_message, "
+            "localized_structured_data"
+        )
+
+    unexpected = set(payload) - allowed_keys
+    if unexpected:
+        raise ValueError(
+            f"LLM response contains unexpected keys: {sorted(unexpected)}"
         )
 
     localized_sd_raw = payload.get("localized_structured_data")
@@ -195,6 +217,14 @@ def parse_result_presentation_translation(
             field_name="review_message",
         ),
         "localized_structured_data": localized_sd,
+        "dd_request_text": _normalize_optional_text(
+            payload.get("dd_request_text"),
+            field_name="dd_request_text",
+        ),
+        "dd_request_addressee": _normalize_optional_text(
+            payload.get("dd_request_addressee"),
+            field_name="dd_request_addressee",
+        ),
     }
 
 
@@ -206,6 +236,8 @@ async def translate_result_presentation(
     check_name: str,
     display_text: str | None,
     review_message: str | None,
+    dd_request_source_text: str | None = None,
+    dd_request_source_addressee: str | None = None,
     structured_data_fields: dict[str, str] | None = None,
     glossary_terms: dict[str, str] | None = None,
 ) -> ResultPresentationTranslation:
@@ -220,6 +252,8 @@ async def translate_result_presentation(
         check_name=check_name,
         display_text=display_text,
         review_message=review_message,
+        dd_request_source_text=dd_request_source_text,
+        dd_request_source_addressee=dd_request_source_addressee,
         structured_data_fields=structured_data_fields,
         glossary_terms=glossary_terms,
     )
@@ -248,6 +282,8 @@ async def translate_result_presentation(
         display_text=translated["display_text"],
         review_message=translated["review_message"],
         localized_structured_data=translated["localized_structured_data"],
+        dd_request_text=translated.get("dd_request_text"),
+        dd_request_addressee=translated.get("dd_request_addressee"),
         provider=response.provider,
         model=response.model,
         prompt_tokens=response.prompt_tokens,

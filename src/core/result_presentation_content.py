@@ -34,6 +34,7 @@ def build_presentation_source_payload(
     display_text: str | None,
     review_message: str | None,
     dd_request_text: str | None = None,
+    dd_request_addressee: str | None = None,
     structured_data: dict[str, Any] | None = None,
     content_version: str = PRESENTATION_CONTENT_VERSION_V2,
 ) -> dict[str, Any]:
@@ -62,6 +63,7 @@ def build_presentation_source_payload(
         "display_text": _normalize_text(display_text),
         "review_message": _normalize_text(review_message),
         "dd_request_text": _normalize_text(dd_request_text),
+        "dd_request_addressee": _normalize_text(dd_request_addressee),
     }
 
     # v2: fingerprint only free-text field values used by Matrix cells.
@@ -85,6 +87,7 @@ def build_presentation_source_hash(
     display_text: str | None,
     review_message: str | None,
     dd_request_text: str | None = None,
+    dd_request_addressee: str | None = None,
     structured_data: dict[str, Any] | None = None,
     content_version: str = PRESENTATION_CONTENT_VERSION_V2,
 ) -> str:
@@ -100,6 +103,7 @@ def build_presentation_source_hash(
         display_text=display_text,
         review_message=review_message,
         dd_request_text=dd_request_text,
+        dd_request_addressee=dd_request_addressee,
         structured_data=structured_data,
         content_version=content_version,
     )

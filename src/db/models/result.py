@@ -526,6 +526,12 @@ class CheckResultPresentation(Base):
         comment="Locale-specific DD request text when applicable.",
     )
 
+    dd_request_addressee: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+        comment="Locale-specific DD request addressee when applicable.",
+    )
+
     translation_status: Mapped[str] = mapped_column(
         String(20),
         nullable=False,
