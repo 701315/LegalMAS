@@ -1003,6 +1003,7 @@ class ResultPresentationProgressDTO(BaseModel):
     stale: int
 
     created_pending: int = 0
+    reset_pending: int = 0
     existing: int = 0
 
     is_complete: bool

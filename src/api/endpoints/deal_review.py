@@ -137,6 +137,7 @@ def _to_result_presentation_progress_dto(
         stale=progress.stale,
         created_pending=progress.created_pending,
         existing=progress.existing,
+        reset_pending=progress.reset_pending,
         is_complete=progress.is_complete,
         dispatch_status=dispatch_status,
     )

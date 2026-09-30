@@ -64,7 +64,7 @@ async def dispatch_auto_translation_if_needed(
             content_version=PRESENTATION_CONTENT_VERSION_V2,
         )
 
-        if progress.created_pending <= 0:
+        if progress.created_pending <= 0 and progress.reset_pending <= 0:
             return False
 
         # Log audit event for auto-dispatch

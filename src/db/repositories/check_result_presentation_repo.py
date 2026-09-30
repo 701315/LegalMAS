@@ -203,6 +203,91 @@ class CheckResultPresentationRepository:
         return presentation
 
 
+    async def reset_to_pending_for_rehash(
+        self,
+        *,
+        presentation_id: uuid.UUID,
+        new_source_hash: str,
+        source_locale: str | None,
+    ) -> CheckResultPresentation | None:
+        """
+        Reset a presentation to pending because the canonical source
+        content changed (prompt contract, YAML template, or check_result).
+
+        Called from ResultPresentationRequestService when the current
+        source hash no longer matches the stored hash. This is the only
+        path that re-opens a terminal row — the D4 worker never touches
+        ready/reviewed/approved/failed/stale on its own.
+
+        Guarded transitions:
+          - ready / reviewed / approved / failed / stale → pending
+          - processing → NOT touched (worker owns the row via SKIP LOCKED)
+
+        Cleared on reset:
+          - all LLM-generated locale content
+            (localized_check_name, display_text, review_message,
+             localized_structured_data, dd_request_text,
+             dd_request_addressee)
+          - translation_provider / translation_model /
+            translation_metadata
+          - error_message
+          - human_override_text (source changed → old override is
+            semantically stale; caller is expected to audit it before
+            calling so the discarded value is not lost)
+
+        Returns the refreshed ORM row, or None if the row is no longer
+        in a resettable state (e.g. raced with a worker claim).
+        """
+        normalized_hash = new_source_hash.strip().lower()
+
+        if len(normalized_hash) != 64:
+            raise ValueError("new_source_hash must be a SHA-256 hex digest")
+
+        stmt = (
+            update(CheckResultPresentation)
+            .where(
+                CheckResultPresentation.id == presentation_id,
+                CheckResultPresentation.translation_status.in_(
+                    ("ready", "reviewed", "approved", "failed", "stale")
+                ),
+            )
+            .values(
+                translation_status="pending",
+                source_content_hash=normalized_hash,
+                source_locale=source_locale,
+                localized_check_name=None,
+                display_text=None,
+                review_message=None,
+                localized_structured_data=None,
+                dd_request_text=None,
+                dd_request_addressee=None,
+                translation_provider=None,
+                translation_model=None,
+                translation_metadata=None,
+                error_message=None,
+                human_override_text=None,
+            )
+            .returning(CheckResultPresentation.id)
+        )
+
+        result = await self.session.execute(stmt)
+
+        # SQLAlchemy asyncpg returns a scalar when RETURNING has a
+        # single column. Zero rows means the row was claimed by a
+        # worker between our read and this update
+        # (translation_status == 'processing'). Caller falls back to
+        # treating it as existing.
+        updated_id = result.scalar_one_or_none()
+
+        if updated_id is None:
+            return None
+
+        await self.session.flush()
+
+        # Re-fetch by primary key so the caller gets a fully-populated
+        # ORM entity (status, hash, timestamps) after flush.
+        return await self.session.get(CheckResultPresentation, presentation_id)
+
     async def claim_pending_for_run(
         self,
         *,

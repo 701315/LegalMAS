@@ -29,10 +29,14 @@ from db.repositories.check_result_presentation_repo import (
     CheckResultPresentationRepository,
 )
 from db.repositories.result_repo import ResultRepository
+from core.logging import get_logger
 from services.translation_audit import (
     ACTION_REQUESTED,
+    ACTION_RESET,
     log_translation_event,
 )
+
+logger = get_logger(__name__)
 
 
 _PRESENTATION_STATUSES = (
@@ -65,6 +69,7 @@ class ResultPresentationProgress:
     stale: int
     created_pending: int = 0
     existing: int = 0
+    reset_pending: int = 0
 
     @property
     def is_complete(self) -> bool:
@@ -127,6 +132,7 @@ def build_result_presentation_progress(
     content_version: str = PRESENTATION_CONTENT_VERSION_V2,
     created_pending: int = 0,
     existing: int = 0,
+    reset_pending: int = 0,
 ) -> ResultPresentationProgress:
     """
     Build derived progress for one Run/locale/version.
@@ -210,6 +216,7 @@ def build_result_presentation_progress(
         stale=counts["stale"],
         created_pending=created_pending,
         existing=existing,
+        reset_pending=reset_pending,
     )
 
 
@@ -275,6 +282,7 @@ class ResultPresentationRequestService:
             stale=progress.stale,
             created_pending=0,
             existing=0,
+            reset_pending=0,
         )
 
     async def request_pending_presentations(
@@ -322,6 +330,8 @@ class ResultPresentationRequestService:
 
         created_pending = 0
         existing = 0
+        reset_pending = 0
+        reset_details: list[dict[str, Any]] = []
 
         for check_result in check_results:
             result_id = str(check_result.id)
@@ -330,20 +340,68 @@ class ResultPresentationRequestService:
                 content_version=normalized_version,
             )
 
-            if result_id in presentations_by_result_id:
+            existing_presentation = presentations_by_result_id.get(result_id)
+
+            if existing_presentation is None:
+                presentation = await self.presentation_repo.create_pending_if_absent(
+                    check_result_id=check_result.id,
+                    locale=normalized_locale,
+                    content_version=normalized_version,
+                    source_content_hash=current_hash,
+                    source_locale=normalized_source_locale,
+                )
+                presentations_by_result_id[result_id] = presentation
+                created_pending += 1
+                continue
+
+            stored_hash = _presentation_value(
+                existing_presentation, "source_content_hash"
+            )
+            stored_status = str(
+                _presentation_value(
+                    existing_presentation, "translation_status"
+                )
+                or ""
+            ).strip().lower()
+
+            # Content unchanged — trust the existing presentation.
+            if stored_hash == current_hash:
                 existing += 1
                 continue
 
-            presentation = await self.presentation_repo.create_pending_if_absent(
-                check_result_id=check_result.id,
-                locale=normalized_locale,
-                content_version=normalized_version,
-                source_content_hash=current_hash,
+            # Content changed but a worker currently owns the row.
+            # Do not race the worker; it will finish and the next
+            # request_pending_presentations call will reset it.
+            if stored_status == "processing":
+                existing += 1
+                continue
+
+            had_human_override = bool(
+                _presentation_value(existing_presentation, "human_override_text")
+            )
+
+            reset_row = await self.presentation_repo.reset_to_pending_for_rehash(
+                presentation_id=existing_presentation.id,
+                new_source_hash=current_hash,
                 source_locale=normalized_source_locale,
             )
 
-            presentations_by_result_id[result_id] = presentation
-            created_pending += 1
+            if reset_row is None:
+                # Raced with a worker claim between read and update.
+                existing += 1
+                continue
+
+            presentations_by_result_id[result_id] = reset_row
+            reset_pending += 1
+            reset_details.append(
+                {
+                    "check_id": check_result.check_id,
+                    "old_status": stored_status,
+                    "old_hash": stored_hash,
+                    "new_hash": current_hash,
+                    "human_override_discarded": had_human_override,
+                }
+            )
 
         progress = build_result_presentation_progress(
             check_results=check_results,
@@ -352,7 +410,36 @@ class ResultPresentationRequestService:
             content_version=normalized_version,
             created_pending=created_pending,
             existing=existing,
+            reset_pending=reset_pending,
         )
+
+        # Audit — source-content-changed resets (before the created-pending
+        # audit so the reasons are recorded even if the second one is
+        # skipped). Uses ACTION_RESET with an explicit reason to
+        # distinguish from QC-reviewer-triggered resets.
+        if reset_pending > 0 and actor and tenant_id and deal_id:
+            try:
+                await log_translation_event(
+                    self.session,
+                    tenant_id=tenant_id,
+                    deal_id=deal_id,
+                    action=ACTION_RESET,
+                    actor=actor,
+                    details={
+                        "run_id": str(run_id),
+                        "locale": normalized_locale,
+                        "content_version": normalized_version,
+                        "reason": "source_content_changed",
+                        "reset_pending": reset_pending,
+                        "events": reset_details,
+                    },
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to audit source-content-changed reset",
+                    run_id=str(run_id),
+                    exc_info=True,
+                )
 
         # Sprint 6.4: Audit — write log when new presentations are requested
         if created_pending > 0 and actor and tenant_id and deal_id:
@@ -388,4 +475,5 @@ class ResultPresentationRequestService:
             stale=progress.stale,
             created_pending=progress.created_pending,
             existing=progress.existing,
+            reset_pending=progress.reset_pending,
         )
