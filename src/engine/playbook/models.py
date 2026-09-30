@@ -1282,11 +1282,13 @@ class CheckDefinition(BaseModel):
 
     # ── DD Request generation contract ─────────────────────────────────
     # Опциональный override для триггера DD-запроса по check'у.
-    # Если задан — используется вместо глобального правила
-    # (services.dd_request_rules.DD_REQUEST_DEFAULT_RESULTS).
-    # Значения — по check_result.result:
-    #   "missing_required_cla", "unclear", "fail", "pass", ...
-    # None = использовать default (missing_required_cla + unclear).
+    # Если задан — используется вместо глобального набора
+    # (services.dd_request_rules.DD_REQUEST_DEFAULT_REVIEW_STATUSES).
+    # Значения — по check_result.review_status:
+    #   "clause_missing", "clause_partially_defined", "unclear",
+    #   "clause_defined", ...
+    # None = использовать default (clause_missing + clause_partially_defined
+    # + unclear). Пустой список = явно выключить DD-request для чека.
     # Работает для любых check: global и doc-type.
     dd_request_when_result: list[str] | None = None
 

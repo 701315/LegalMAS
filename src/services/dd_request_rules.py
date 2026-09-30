@@ -17,12 +17,16 @@
   allowed_values (present/missing/no/not_applicable/defined/...), т.е.
   триггер не срабатывал вообще и requests не генерировались.
 
-Решение:
-  Общее правило — по check_result.result. Значения по умолчанию:
-    missing_required_cla — обязательная клауза отсутствует;
-    unclear              — по клаузе не удалось принять решение.
-  Эти две категории соответствуют «нужно запросить у стороны доп.
-  сведения / документ».
+Решение (Commit 4d.1):
+  Общее правило — по check_result.review_status. Значения по умолчанию:
+    clause_missing           — все signal-поля = fallback (информации нет);
+    clause_partially_defined — часть signal-полей = fallback (часть не найдена);
+    unclear                  — конфликт / нужна ручная верификация.
+
+  review_status вычисляется executor'ом из structured_data, учитывая
+  presentation=signal поля чека. Это даёт точный признак «информация не
+  найдена», в отличие от result: result=pass может означать как полное
+  покрытие (clause_defined), так и частичное (clause_partially_defined).
 
   Per-check override:
     CheckDefinition.dd_request_when_result: list[str] | None
@@ -37,19 +41,30 @@ from __future__ import annotations
 from typing import Any, Iterable, Mapping
 
 __all__ = [
-    "DD_REQUEST_DEFAULT_RESULTS",
+    "DD_REQUEST_DEFAULT_REVIEW_STATUSES",
+    "DD_REQUEST_DEFAULT_RESULTS",  # backward-compat alias
     "should_trigger_dd_request",
     "normalize_dd_request_results",
 ]
 
 
-# Категории result, по умолчанию порождающие DD-request.
-DD_REQUEST_DEFAULT_RESULTS: frozenset[str] = frozenset(
+# Категории review_status, по умолчанию порождающие DD-request.
+# review_status вычисляется executor'ом (см. engine/checks/result_semantics.py)
+# из structured_data и presentation=signal полей чека. Это более точный
+# признак "информация не найдена", чем result:
+#   - clause_missing          — все signal-поля = fallback
+#   - clause_partially_defined — часть signal-полей = fallback, часть defined
+#   - unclear                 — конфликт в данных / ручная верификация
+DD_REQUEST_DEFAULT_REVIEW_STATUSES: frozenset[str] = frozenset(
     {
-        "missing_required_cla",  # mandatory clause absent
-        "unclear",               # undecidable by LLM / partial match
+        "clause_missing",
+        "clause_partially_defined",
+        "unclear",
     }
 )
+
+# Backward-compat alias (будет удалён после обновления тестов/consumer'ов).
+DD_REQUEST_DEFAULT_RESULTS = DD_REQUEST_DEFAULT_REVIEW_STATUSES
 
 
 def normalize_dd_request_results(
@@ -82,30 +97,34 @@ def should_trigger_dd_request(
     """
     Должен ли данный check_result породить DD-request.
 
+    Единственный источник правды — check_result.review_status
+    (вычисляется executor'ом на основе structured_data и signal-полей).
+
     Args:
-        check_result:      dict-строка из check_results (минимум result).
+        check_result:      dict-строка из check_results.
+                           Читается поле review_status.
         override_results:  если задан (CheckDefinition.dd_request_when_result),
-                           используется вместо общего правила. Пустой список
-                           также считается override: не срабатывает никогда.
+                           используется вместо общего набора. Пустой список
+                           значит «никогда» (явное выключение для чека).
 
     Returns:
-        True, если check_result.result входит в разрешённый набор; иначе False.
+        True, если review_status ∈ разрешённый набор; иначе False.
 
     Правила:
-        - result is None / empty / whitespace -> False.
-        - override_results is None          -> DD_REQUEST_DEFAULT_RESULTS.
-        - override_results = []             -> никогда (явное «выключить»).
+        - review_status is None / empty / whitespace -> False.
+        - override_results is None          -> DD_REQUEST_DEFAULT_REVIEW_STATUSES.
+        - override_results = []             -> никогда.
         - override_results = [X, Y]         -> {X, Y}.
     """
-    raw_result = check_result.get("result")
-    if raw_result is None:
+    raw_status = check_result.get("review_status")
+    if raw_status is None:
         return False
-    normalized = str(raw_result).strip().lower()
+    normalized = str(raw_status).strip().lower()
     if not normalized:
         return False
 
     allowed = (
-        DD_REQUEST_DEFAULT_RESULTS
+        DD_REQUEST_DEFAULT_REVIEW_STATUSES
         if override_results is None
         else normalize_dd_request_results(override_results)
     )
