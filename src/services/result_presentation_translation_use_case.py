@@ -37,6 +37,7 @@ from services.llm_usage_recorder import (
     LLMUsageRecorder,
     STAGE_RESULT_PRESENTATION_TRANSLATION,
 )
+from services.export.dd_request_loader import get_dd_request_loader
 from services.result_presentation_translation_service import (
     RESULT_PRESENTATION_TRANSLATION_PROMPT_VERSION,
     translate_result_presentation,
@@ -241,6 +242,24 @@ class ResultPresentationTranslationUseCase:
                     if isinstance(raw_val, str) and raw_val.strip():
                         structured_data_fields[field_name] = raw_val.strip()
 
+        # Explicit YAML dd_request template (source language).
+        # Only used for translation of dd_request_text/addressee.
+        # Not part of the source-content hash (see comment on mark_stale path).
+        dd_request_source_text: str | None = None
+        dd_request_source_addressee: str | None = None
+        try:
+            _dd_loader = get_dd_request_loader()
+            _explicit = _dd_loader.get_explicit_template(check_id)
+            if _explicit is not None:
+                dd_request_source_text = _explicit.get("text")
+                dd_request_source_addressee = _explicit.get("addressee")
+        except Exception:
+            logger.debug(
+                "Failed to load explicit dd_request template",
+                check_id=check_id,
+                exc_info=True,
+            )
+
         current_hash = build_presentation_source_hash(
             check_name=check_name,
             display_text=display_text,
@@ -293,6 +312,8 @@ class ResultPresentationTranslationUseCase:
                 check_name=check_name,
                 display_text=display_text,
                 review_message=review_message,
+                dd_request_source_text=dd_request_source_text,
+                dd_request_source_addressee=dd_request_source_addressee,
                 structured_data_fields=structured_data_fields or None,
                 glossary_terms=glossary_terms if glossary_terms else None,
             )
@@ -443,6 +464,8 @@ class ResultPresentationTranslationUseCase:
             display_text=translated.display_text,
             review_message=translated.review_message,
             localized_structured_data=translated.localized_structured_data,
+            dd_request_text=translated.dd_request_text,
+            dd_request_addressee=translated.dd_request_addressee,
             translation_provider=translated.provider,
             translation_model=translated.model,
             translation_metadata=translation_metadata,

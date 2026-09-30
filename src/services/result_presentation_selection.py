@@ -154,6 +154,14 @@ def apply_result_presentations(
                 presentation,
                 "localized_structured_data",
             )
+            localized_dd_request_text = _presentation_value(
+                presentation,
+                "dd_request_text",
+            )
+            localized_dd_request_addressee = _presentation_value(
+                presentation,
+                "dd_request_addressee",
+            )
 
             # Sprint 6.3: Human override takes priority over LLM translation.
             # If a QC reviewer edited the presentation, human_override_text
@@ -188,6 +196,12 @@ def apply_result_presentations(
 
             if localized_review_message:
                 row["review_message"] = localized_review_message
+
+            if localized_dd_request_text:
+                row["dd_request_text"] = localized_dd_request_text
+
+            if localized_dd_request_addressee:
+                row["dd_request_addressee"] = localized_dd_request_addressee
 
             # Matrix cells: free-text values translated for requested locale.
             if isinstance(localized_structured_data, dict) and localized_structured_data:

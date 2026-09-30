@@ -78,6 +78,29 @@ def compose_dd_request(
     explicit = loader.get_explicit_template(check_id)
     if explicit is not None:
         doc_names_str = loader.format_doc_names(doc_names, locale=locale)
+
+        # If a localized presentation was overlaid by apply_presentations_for_read
+        # (see result_presentation_selection.py), prefer its dd_request_text
+        # over the source-language YAML template.
+        localized_text = check_result.get("dd_request_text")
+        if isinstance(localized_text, str) and localized_text.strip():
+            try:
+                text = localized_text.format(
+                    doc_names=doc_names_str,
+                    check_name=check_name,
+                )
+            except (KeyError, IndexError):
+                # LLM may have dropped the placeholders; return as-is.
+                text = localized_text
+            localized_addressee = check_result.get("dd_request_addressee")
+            addressee = (
+                localized_addressee
+                if isinstance(localized_addressee, str) and localized_addressee.strip()
+                else (explicit.get("addressee") or _default_addressee(locale))
+            )
+            return text, addressee
+
+        # Source-language fallback (no localized presentation ready yet).
         text = explicit["text"].format(
             doc_names=doc_names_str,
             check_name=check_name,
