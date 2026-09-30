@@ -52,6 +52,9 @@ from services.result_presentation_read_service import (
     resolve_output_locale,
     resolve_presentation_locale,  # Deprecated alias, kept for transition
 )
+from services.check_definition_loader import (
+    load_check_definitions_for_run,
+)
 from services.result_presentation_request_service import (
     ResultPresentationProgress,
     ResultPresentationRequestService,
@@ -825,8 +828,22 @@ async def get_dd_requests(
 
         playbook = load_playbook_from_version(pb_version)
 
-        # Build {check_id: CheckDefinition}
-        checks_by_id = {check.id: check for check in playbook.checks}
+        # Build {check_id: CheckDefinition} from BOTH sources:
+        #   - global checks (playbook.checks, origin=GLOBAL_PLAYBOOK);
+        #   - doc-type checks (Run.instruction_versions → compiled_payload
+        #     → DocTypeCheckLoader.load_all_checks_for_doc).
+        #
+        # Bug history: previously only playbook.checks was used. That
+        # collection contains ONLY global checks, so any check_result
+        # produced by a doc-type check was silently skipped by
+        # build_dd_requests (`if not check_def: continue`). On NDA run
+        # 17156da9, 20 of 23 checks are doc-type; without this fix they
+        # never produced DD requests.
+        checks_by_id = await load_check_definitions_for_run(
+            session=uow.session,
+            run=run,
+            playbook_checks=playbook.checks,
+        )
 
     return build_dd_requests(check_results, documents, checks_by_id)
 
