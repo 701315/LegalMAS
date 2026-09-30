@@ -89,8 +89,18 @@ export const dealReviewKeys = {
       documentId,
     ] as const,
 
-  ddRequests: (dealId: string | null, runId: string | null) =>
-    [...dealReviewKeys.all, "dd-requests", dealId, runId] as const,
+  ddRequests: (
+    dealId: string | null,
+    runId: string | null,
+    locale: string | null | undefined,
+  ) =>
+    [
+      ...dealReviewKeys.all,
+      "dd-requests",
+      dealId,
+      runId,
+      toPresentationLocale(locale) ?? null,
+    ] as const,
 
   conditionalChecks: (dealId: string | null, runId: string | null) =>
     [...dealReviewKeys.all, "conditional-checks", dealId, runId] as const,
@@ -192,9 +202,11 @@ export const dealReviewApi = {
   async getDdRequestsForRun(
     dealId: string,
     runId: string,
+    locale?: string | null,
   ): Promise<DDRequestDTO[]> {
     const { data } = await client.get<DDRequestDTO[]>(
       `${buildDealReviewBasePath(dealId, runId)}/dd-requests`,
+      { params: { output_locale: toPresentationLocale(locale) } },
     );
     return data;
   },
@@ -309,8 +321,12 @@ export const dealReviewApi = {
     );
   },
 
-  getDdRequests(dealId: string, runId: string): Promise<DDRequestDTO[]> {
-    return dealReviewApi.getDdRequestsForRun(dealId, runId);
+  getDdRequests(
+    dealId: string,
+    runId: string,
+    locale?: string | null,
+  ): Promise<DDRequestDTO[]> {
+    return dealReviewApi.getDdRequestsForRun(dealId, runId, locale);
   },
 
   getConditionalChecks(
@@ -455,14 +471,16 @@ export function useDealReviewDocumentStructuredData(
 export function useDealReviewDdRequests(
   dealId: string | null,
   runId: string | null,
+  locale?: string | null,
   options?: QueryOptions<DDRequestDTO[]>,
 ): UseQueryResult<DDRequestDTO[], Error> {
   return useQuery<DDRequestDTO[], Error>({
-    queryKey: dealReviewKeys.ddRequests(dealId, runId),
+    queryKey: dealReviewKeys.ddRequests(dealId, runId, locale),
     queryFn: () =>
       dealReviewApi.getDdRequestsForRun(
         requireParam(dealId, "dealId"),
         requireParam(runId, "runId"),
+        locale,
       ),
     enabled: !!dealId && !!runId,
     staleTime: 60_000,
@@ -677,9 +695,10 @@ export function useDdGridV1(
 export function useDdRequests(
   dealId: string | null,
   runId: string | null,
+  locale?: string | null,
   options?: QueryOptions<DDRequestDTO[]>,
 ): UseQueryResult<DDRequestDTO[], Error> {
-  return useDealReviewDdRequests(dealId, runId, options);
+  return useDealReviewDdRequests(dealId, runId, locale, options);
 }
 
 export function useConditionalChecks(
