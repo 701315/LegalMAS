@@ -27,6 +27,9 @@ import { ReviewRequestsTable } from "../../components/requests/ReviewRequestsTab
 import { ReviewRequestSidePanel } from "../../components/requests/ReviewRequestSidePanel";
 import Button from "../../components/ui/Button";
 import { toRequestTableRowFromReview } from "../../viewAdapters/requestPresentation";
+import { ResultsLocaleSelector } from "../../components/shared/ResultsLocaleSelector";
+import { ResultPresentationStatus } from "./dd-grid-v1/ResultPresentationStatus";
+import { useDDGridV1UIStore } from "./dd-grid-v1/ddGridV1.collapseStore";
 
 interface Props {
   dealId: string;
@@ -207,6 +210,14 @@ export const RequestsTab: React.FC<Props> = ({
 
   const { canManageRequests } = useDealPermissions(dealId);
 
+  // Results output locale — shared with DD Grid / Documents via the
+  // same persistent store (useDDGridV1UIStore.outputLocale is backed
+  // by localStorage `steloom_output_locale`).
+  const outputLocale = useDDGridV1UIStore((state) => state.outputLocale);
+  const setOutputLocale = useDDGridV1UIStore(
+    (state) => state.setOutputLocale,
+  );
+
   // ── Selection state (persisted after panel close) ──────────
   const [selectedReq, setSelectedReq] = useState<DDRequest | null>(null);
   const [selectedReviewReqKey, setSelectedReviewReqKey] = useState<string | null>(null);
@@ -230,7 +241,9 @@ export const RequestsTab: React.FC<Props> = ({
   const reviewPanelRef = useRef<HTMLDivElement | null>(null);
 
   const { data: reviewRequests, isLoading: isLoadingReview } =
-    useDealReviewDdRequests(dealId, runId ?? null, { enabled: !!runId });
+    useDealReviewDdRequests(dealId, runId ?? null, outputLocale, {
+      enabled: !!runId,
+    });
 
   const isReviewMode =
     !!runId && !isLoadingReview && Array.isArray(reviewRequests);
@@ -465,16 +478,32 @@ export const RequestsTab: React.FC<Props> = ({
         <div className="flex min-h-0 flex-1 flex-col px-5">
 
           {/* ── Заголовок — выровнен с PageSection ─────────── */}
-          <div className="border-b border-[var(--border-subtle)] py-3">
-            <h2
-              id="requests-tab-title"
-              className="text-sm font-semibold text-[var(--text-primary)]"
-            >
-              {t("tab.title")}
-            </h2>
-            <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
-              {resolvedSubtitle}
-            </p>
+          <div className="flex items-start justify-between gap-3 border-b border-[var(--border-subtle)] py-3">
+            <div className="min-w-0 flex-1">
+              <h2
+                id="requests-tab-title"
+                className="text-sm font-semibold text-[var(--text-primary)]"
+              >
+                {t("tab.title")}
+              </h2>
+              <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+                {resolvedSubtitle}
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              {isReviewMode && runId && (
+                <ResultPresentationStatus
+                  dealId={dealId}
+                  runId={runId}
+                  presentationLocale={outputLocale}
+                  canRequest={false}
+                />
+              )}
+              <ResultsLocaleSelector
+                value={outputLocale}
+                onChange={setOutputLocale}
+              />
+            </div>
           </div>
 
           {!isReviewMode && (
