@@ -31,6 +31,7 @@ import { ReviewRequestSidePanel } from "../../components/requests/ReviewRequestS
 import Button from "../../components/ui/Button";
 import { toRequestTableRowFromReview } from "../../viewAdapters/requestPresentation";
 import { ResultsLocaleSelector } from "../../components/shared/ResultsLocaleSelector";
+import ExportMenu from "../../components/shared/ExportMenu";
 import { ResultPresentationStatus } from "./dd-grid-v1/ResultPresentationStatus";
 import { useDDGridV1UIStore } from "./dd-grid-v1/ddGridV1.collapseStore";
 
@@ -214,9 +215,7 @@ export const RequestsTab: React.FC<Props> = ({
   // Pending-флаг для review-mode экспорта (xlsx/docx) через новый
   // /dd-requests/export endpoint. Использует dealReviewApi напрямую:
   // single-shot запрос без React Query — файл скачивается сразу.
-  const [reviewExportFormat, setReviewExportFormat] = useState<
-    "xlsx" | "docx" | null
-  >(null);
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
 
   const { canManageRequests } = useDealPermissions(dealId);
 
@@ -467,7 +466,7 @@ export const RequestsTab: React.FC<Props> = ({
       if (!runId) return;
       try {
         setInlineMessage(null);
-        setReviewExportFormat(format);
+        setIsExportMenuOpen(false);
         const blob = await dealReviewApi.exportDdRequestsForRun(
           dealId,
           runId,
@@ -487,7 +486,9 @@ export const RequestsTab: React.FC<Props> = ({
           description: t("tab.errors.exportFailedDescription"),
         });
       } finally {
-        setReviewExportFormat(null);
+        // no-op: the menu collapses immediately on click; no spinner
+        // state is required because the download is synchronous from
+        // the user's perspective.
       }
     },
     [
@@ -549,26 +550,16 @@ export const RequestsTab: React.FC<Props> = ({
                     presentationLocale={outputLocale}
                     canRequest={false}
                   />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleReviewExport("docx")}
-                    isLoading={reviewExportFormat === "docx"}
-                    disabled={reviewExportFormat !== null}
-                    leftIcon={<FileText />}
-                  >
-                    Word
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleReviewExport("xlsx")}
-                    isLoading={reviewExportFormat === "xlsx"}
-                    disabled={reviewExportFormat !== null}
-                    leftIcon={<FileSpreadsheet />}
-                  >
-                    Excel
-                  </Button>
+                  <ExportMenu
+                    isOpen={isExportMenuOpen}
+                    onToggle={() =>
+                      setIsExportMenuOpen((prev) => !prev)
+                    }
+                    onClose={() => setIsExportMenuOpen(false)}
+                    onExportExcel={() => handleReviewExport("xlsx")}
+                    onExportWord={() => handleReviewExport("docx")}
+                    /* onExportPDF — omitted: PDF не поддерживается backend'ом */
+                  />
                 </>
               )}
               <ResultsLocaleSelector
