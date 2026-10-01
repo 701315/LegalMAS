@@ -103,7 +103,7 @@ export const ReviewRequestSidePanel: React.FC<Props> = ({
       aria-labelledby="review-request-panel-title"
     >
       {/* Header */}
-      <div className="flex items-start justify-between gap-3 border-b border-[var(--border-subtle)] px-4 py-3">
+      <div className="lg:sticky lg:top-0 lg:z-10 flex items-start justify-between gap-3 border-b border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-4 py-3">
         <div className="min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">
             {t("reviewPanel.title")}
@@ -132,7 +132,7 @@ export const ReviewRequestSidePanel: React.FC<Props> = ({
       </div>
 
       {/* Body */}
-      <div className="flex-1 space-y-5 overflow-y-auto px-4 py-3">
+      <div className="flex-1 space-y-5 px-4 py-3">
         <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-subtle)] px-4 py-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-faint)]">
             {t("reviewPanel.modeTitle")}
