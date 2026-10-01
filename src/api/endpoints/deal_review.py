@@ -30,8 +30,10 @@ Routes:
 """
 
 import uuid
+from datetime import datetime
+from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from db.models.run import Run
 from api.deps.auth import CurrentUser, get_current_user
@@ -54,6 +56,10 @@ from services.result_presentation_read_service import (
 )
 from services.check_definition_loader import (
     load_check_definitions_for_run,
+)
+from services.export.requests_builder import (
+    build_requests_docx,
+    build_requests_xlsx,
 )
 from services.result_presentation_request_service import (
     ResultPresentationProgress,
@@ -848,6 +854,135 @@ async def get_dd_requests(
 
     return build_dd_requests(
         check_results, documents, checks_by_id, locale=resolved_locale,
+    )
+
+
+@router.get(
+    "/{deal_id}/runs/{run_id}/dd-requests/export",
+    summary="Export DD requests as XLSX or DOCX",
+)
+async def export_dd_requests(
+    deal_id: str,
+    run_id: str,
+    format: Literal["xlsx", "docx"] = Query(
+        ...,
+        description="Output format: xlsx or docx.",
+    ),
+    output_locale: str | None = Query(
+        default=None,
+        min_length=2,
+        max_length=35,
+        description="Requested output locale for result presentation.",
+    ),
+    presentation_locale: str | None = Query(
+        default=None,
+        min_length=2,
+        max_length=35,
+        deprecated=True,
+        description="Deprecated: use output_locale instead.",
+    ),
+    db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Export the DD request list for one run as XLSX or DOCX.
+
+    The file content is byte-for-byte the same as the request section
+    of the multi-sheet Summary (XLSX) or the DD Report Appendix A
+    (DOCX) for the same output_locale. Useful for users who need only
+    the Requests tab and do not want the whole report.
+
+    Access: project viewer / editor / admin.
+    """
+    await require_project_role(
+        db=db,
+        user=user,
+        deal_id=uuid.UUID(deal_id),
+        allowed_roles=("admin", "editor", "viewer"),
+    )
+
+    run_uuid = uuid.UUID(run_id)
+
+    from db.repositories.runner_repo import RunnerRepository
+    from db.repositories.playbook_repo import PlaybookRepository
+    from db.models.run import Run
+    from engine.playbook.loader import load_playbook_from_version
+
+    deal = await db.get(Deal, uuid.UUID(deal_id))
+    run_for_locale = await db.get(Run, run_uuid)
+    effective_locale = output_locale or presentation_locale
+    resolved_locale = await _resolve_output_locale_or_422(
+        db,
+        tenant_id=run_for_locale.tenant_id if run_for_locale else uuid.UUID(int=0),
+        explicit_locale=effective_locale,
+        user_default_output_locale=getattr(user, "default_output_locale", None),
+        user_ui_locale=user.ui_locale,
+        deal_primary_language=deal.primary_language if deal else None,
+        run_analysis_language=run_for_locale.analysis_language if run_for_locale else None,
+    )
+
+    async with db_uow() as uow:
+        runner_repo = RunnerRepository(uow.session)
+        pb_repo = PlaybookRepository(uow.session)
+
+        check_results = await runner_repo.load_check_results_for_run(run_uuid)
+        check_results = await apply_presentations_for_read(
+            session=uow.session,
+            check_results=check_results,
+            requested_locale=resolved_locale,
+        )
+        documents = await runner_repo.load_documents_for_run(run_uuid)
+
+        run = await uow.session.get(Run, run_uuid)
+        if not run:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                headers={"X-Error-Code": "RUN_NOT_FOUND"},
+                detail="Run not found",
+            )
+
+        pb_version = await pb_repo.get_by_id(run.playbook_version_id)
+        if not pb_version:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                headers={"X-Error-Code": "PLAYBOOK_VERSION_NOT_FOUND"},
+                detail="PlaybookVersion not found",
+            )
+
+        playbook = load_playbook_from_version(pb_version)
+
+        checks_by_id = await load_check_definitions_for_run(
+            session=uow.session,
+            run=run,
+            playbook_checks=playbook.checks,
+        )
+
+    if format == "xlsx":
+        content = build_requests_xlsx(
+            check_results, documents, checks_by_id, locale=resolved_locale,
+        )
+        media_type = (
+            "application/vnd.openxmlformats-officedocument"
+            ".spreadsheetml.sheet"
+        )
+        ext = "xlsx"
+    else:
+        content = build_requests_docx(
+            check_results, documents, checks_by_id, locale=resolved_locale,
+        )
+        media_type = (
+            "application/vnd.openxmlformats-officedocument"
+            ".wordprocessingml.document"
+        )
+        ext = "docx"
+
+    ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    filename = f"dd_requests_{run_id[:8]}_{ts}.{ext}"
+
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
