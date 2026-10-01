@@ -211,6 +211,25 @@ export const dealReviewApi = {
     return data;
   },
 
+  async exportDdRequestsForRun(
+    dealId: string,
+    runId: string,
+    locale: string | null | undefined,
+    format: "xlsx" | "docx",
+  ): Promise<Blob> {
+    const { data } = await client.get<Blob>(
+      `${buildDealReviewBasePath(dealId, runId)}/dd-requests/export`,
+      {
+        params: {
+          output_locale: toPresentationLocale(locale),
+          format,
+        },
+        responseType: "blob",
+      },
+    );
+    return data;
+  },
+
   async getConditionalChecksForRun(
     dealId: string,
     runId: string,

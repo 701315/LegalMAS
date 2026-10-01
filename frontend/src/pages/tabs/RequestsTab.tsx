@@ -21,7 +21,10 @@ import {
 import { RequestsTable } from "../../components/requests/RequestsTable";
 import { RequestSidePanel } from "../../components/requests/RequestSidePanel";
 import { useDealPermissions } from "../../hooks/usePermissions";
-import { useDealReviewDdRequests } from "../../api/dealReview";
+import {
+  dealReviewApi,
+  useDealReviewDdRequests,
+} from "../../api/dealReview";
 import type { DDRequestDTO } from "../../types/dealReview";
 import { ReviewRequestsTable } from "../../components/requests/ReviewRequestsTable";
 import { ReviewRequestSidePanel } from "../../components/requests/ReviewRequestSidePanel";
@@ -207,6 +210,13 @@ export const RequestsTab: React.FC<Props> = ({
   const updateMutation = useUpdateRequest(dealId);
   const deleteMutation = useDeleteRequest(dealId);
   const exportRequestsMutation = useExportRequests();
+
+  // Pending-флаг для review-mode экспорта (xlsx/docx) через новый
+  // /dd-requests/export endpoint. Использует dealReviewApi напрямую:
+  // single-shot запрос без React Query — файл скачивается сразу.
+  const [reviewExportFormat, setReviewExportFormat] = useState<
+    "xlsx" | "docx" | null
+  >(null);
 
   const { canManageRequests } = useDealPermissions(dealId);
 
@@ -449,6 +459,46 @@ export const RequestsTab: React.FC<Props> = ({
     updateMutation.isPending ||
     deleteMutation.isPending;
 
+  // Review-mode экспорт: тот же /dd-requests/export endpoint,
+  // что обеспечивает byte-for-byte consistency с DD Report Appendix A
+  // и с Excel Summary — Request List sheet.
+  const handleReviewExport = useCallback(
+    async (format: "xlsx" | "docx") => {
+      if (!runId) return;
+      try {
+        setInlineMessage(null);
+        setReviewExportFormat(format);
+        const blob = await dealReviewApi.exportDdRequestsForRun(
+          dealId,
+          runId,
+          outputLocale,
+          format,
+        );
+        const ext = format === "xlsx" ? "xlsx" : "docx";
+        downloadBlob(blob, `dd_requests_${runId.slice(0, 8)}.${ext}`);
+      } catch (e) {
+        console.error(e);
+        setInlineMessage({
+          tone: "error",
+          title:
+            format === "docx"
+              ? t("tab.errors.exportWordFailed.title")
+              : t("tab.errors.exportExcelFailed.title"),
+          description: t("tab.errors.exportFailedDescription"),
+        });
+      } finally {
+        setReviewExportFormat(null);
+      }
+    },
+    [
+      runId,
+      dealId,
+      outputLocale,
+      downloadBlob,
+      t,
+    ],
+  );
+
   if (isLoading && !isReviewMode) {
     return (
       <div className="space-y-4">
@@ -492,12 +542,34 @@ export const RequestsTab: React.FC<Props> = ({
             </div>
             <div className="flex shrink-0 items-center gap-2">
               {isReviewMode && runId && (
-                <ResultPresentationStatus
-                  dealId={dealId}
-                  runId={runId}
-                  presentationLocale={outputLocale}
-                  canRequest={false}
-                />
+                <>
+                  <ResultPresentationStatus
+                    dealId={dealId}
+                    runId={runId}
+                    presentationLocale={outputLocale}
+                    canRequest={false}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleReviewExport("docx")}
+                    isLoading={reviewExportFormat === "docx"}
+                    disabled={reviewExportFormat !== null}
+                    leftIcon={<FileText />}
+                  >
+                    Word
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleReviewExport("xlsx")}
+                    isLoading={reviewExportFormat === "xlsx"}
+                    disabled={reviewExportFormat !== null}
+                    leftIcon={<FileSpreadsheet />}
+                  >
+                    Excel
+                  </Button>
+                </>
               )}
               <ResultsLocaleSelector
                 value={outputLocale}
