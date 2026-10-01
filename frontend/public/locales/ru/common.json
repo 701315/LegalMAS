@@ -87,6 +87,12 @@
     "days_few": "{{count}} дня назад",
     "days_many": "{{count}} дней назад",
     "days_other": "{{count}} дней назад"
+  },
+  "exportMenu": {
+    "saveShort": "Сохранить",
+    "saveLong": "Сохранить список",
+    "excel": "Excel",
+    "word": "Word",
+    "pdf": "PDF"
   }
 }
-

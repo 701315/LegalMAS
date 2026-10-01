@@ -31,7 +31,7 @@ import {
 import Button from "../../components/ui/Button";
 import ClassificationWarningBanner from "./documents/components/ClassificationWarningBanner";
 import ColumnSelectorInlinePanel from "./documents/components/ColumnSelectorInlinePanel";
-import ExportMenu from "./documents/components/ExportMenu";
+import ExportMenu from "../../components/shared/ExportMenu";
 
 interface DocumentsTabProps {
   deal: Deal;

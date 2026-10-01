@@ -5,7 +5,7 @@
 import React, { useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronRight, Download } from "lucide-react";
-import Button from "../../../../components/ui/Button";
+import Button from "../ui/Button";
 
 interface ExportMenuProps {
   isOpen: boolean;
@@ -13,7 +13,11 @@ interface ExportMenuProps {
   onClose: () => void;
   onExportExcel: () => void;
   onExportWord: () => void;
-  onExportPDF: () => void;
+  /**
+   * Optional PDF handler. When omitted, the PDF button is not rendered.
+   * Used by the Requests tab where PDF is not yet supported by the backend.
+   */
+  onExportPDF?: () => void;
 }
 
 const ExportMenu: React.FC<ExportMenuProps> = ({
@@ -24,7 +28,7 @@ const ExportMenu: React.FC<ExportMenuProps> = ({
   onExportWord,
   onExportPDF,
 }) => {
-  const { t } = useTranslation("documents");
+  const { t } = useTranslation("common");
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   React.useEffect(() => {
@@ -76,10 +80,10 @@ const ExportMenu: React.FC<ExportMenuProps> = ({
           ].join(" ")}
         >
           <span className="sm:hidden">
-            {t("documentsTab.exportMenu.saveShort")}
+            {t("exportMenu.saveShort")}
           </span>
           <span className="hidden sm:inline">
-            {t("documentsTab.exportMenu.saveLong")}
+            {t("exportMenu.saveLong")}
           </span>
         </Button>
 
@@ -99,7 +103,7 @@ const ExportMenu: React.FC<ExportMenuProps> = ({
               className="shrink-0 whitespace-nowrap"
               onClick={onExportExcel}
             >
-              {t("documentsTab.exportMenu.excel")}
+              {t("exportMenu.excel")}
             </Button>
             <Button
               size="sm"
@@ -107,16 +111,18 @@ const ExportMenu: React.FC<ExportMenuProps> = ({
               className="shrink-0 whitespace-nowrap"
               onClick={onExportWord}
             >
-              {t("documentsTab.exportMenu.word")}
+              {t("exportMenu.word")}
             </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              className="shrink-0 whitespace-nowrap"
-              onClick={onExportPDF}
-            >
-              {t("documentsTab.exportMenu.pdf")}
-            </Button>
+            {onExportPDF ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                className="shrink-0 whitespace-nowrap"
+                onClick={onExportPDF}
+              >
+                {t("exportMenu.pdf")}
+              </Button>
+            ) : null}
           </div>
         </div>
       </div>
@@ -134,7 +140,7 @@ const ExportMenu: React.FC<ExportMenuProps> = ({
             className="min-w-0 flex-1 justify-center whitespace-nowrap"
             onClick={onExportExcel}
           >
-            {t("documentsTab.exportMenu.excel")}
+            {t("exportMenu.excel")}
           </Button>
           <Button
             size="sm"
@@ -142,16 +148,18 @@ const ExportMenu: React.FC<ExportMenuProps> = ({
             className="min-w-0 flex-1 justify-center whitespace-nowrap"
             onClick={onExportWord}
           >
-            {t("documentsTab.exportMenu.word")}
+            {t("exportMenu.word")}
           </Button>
-          <Button
-            size="sm"
-            variant="secondary"
-            className="min-w-0 flex-1 justify-center whitespace-nowrap"
-            onClick={onExportPDF}
-          >
-            {t("documentsTab.exportMenu.pdf")}
-          </Button>
+          {onExportPDF ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="min-w-0 flex-1 justify-center whitespace-nowrap"
+              onClick={onExportPDF}
+            >
+              {t("exportMenu.pdf")}
+            </Button>
+          ) : null}
         </div>
       </div>
     </div>
