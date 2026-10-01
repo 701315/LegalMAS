@@ -4,23 +4,8 @@
 
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  Loader2,
-  FileSpreadsheet,
-  FileText,
-  FolderPlus,
-  AlertTriangle,
-} from "lucide-react";
-import type { DDRequest, OpenViewerAtFn } from "../../types";
-import {
-  useRequests,
-  useUpdateRequest,
-  useDeleteRequest,
-  useExportRequests,
-} from "../../api/requests";
-import { RequestsTable } from "../../components/requests/RequestsTable";
-import { RequestSidePanel } from "../../components/requests/RequestSidePanel";
-import { useDealPermissions } from "../../hooks/usePermissions";
+import { Loader2, AlertTriangle } from "lucide-react";
+import type { OpenViewerAtFn } from "../../types";
 import {
   dealReviewApi,
   useDealReviewDdRequests,
@@ -104,31 +89,29 @@ const LoadingState: React.FC = () => {
 
   return (
     <section
-      className="rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm"
+      className="flex h-full flex-col items-center justify-center px-6 py-10 text-center"
       aria-labelledby="requests-loading-title"
     >
-      <div className="flex min-h-[320px] flex-col items-center justify-center px-6 py-10 text-center">
-        <div
-          className="inline-flex items-center gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-5 py-4 text-[var(--text-secondary)]"
-          role="status"
-          aria-live="polite"
-          aria-atomic="true"
-        >
-          <Loader2
-            className="h-5 w-5 animate-spin text-[var(--accent-primary)]"
-            aria-hidden="true"
-          />
-          <div className="text-left">
-            <p
-              id="requests-loading-title"
-              className="text-sm font-medium text-[var(--text-primary)]"
-            >
-              {t("tab.loading.title")}
-            </p>
-            <p className="text-[12px] text-[var(--text-muted)]">
-              {t("tab.loading.description")}
-            </p>
-          </div>
+      <div
+        className="inline-flex items-center gap-3 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-elevated-soft)] px-5 py-4 text-[var(--text-secondary)]"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        <Loader2
+          className="h-5 w-5 animate-spin text-[var(--accent-primary)]"
+          aria-hidden="true"
+        />
+        <div className="text-left">
+          <p
+            id="requests-loading-title"
+            className="text-sm font-medium text-[var(--text-primary)]"
+          >
+            {t("tab.loading.title")}
+          </p>
+          <p className="text-[12px] text-[var(--text-muted)]">
+            {t("tab.loading.description")}
+          </p>
         </div>
       </div>
     </section>
@@ -206,18 +189,11 @@ export const RequestsTab: React.FC<Props> = ({
   onOpenViewerAt,
 }) => {
   const { t } = useTranslation("requests");
-  const { data: requests, isLoading } = useRequests(dealId);
 
-  const updateMutation = useUpdateRequest(dealId);
-  const deleteMutation = useDeleteRequest(dealId);
-  const exportRequestsMutation = useExportRequests();
-
-  // Pending-флаг для review-mode экспорта (xlsx/docx) через новый
-  // /dd-requests/export endpoint. Использует dealReviewApi напрямую:
-  // single-shot запрос без React Query — файл скачивается сразу.
+  // Local UI state for the shared ExportMenu (open/closed).
+  // Export itself is a single-shot call via dealReviewApi — no
+  // React Query mutation, the file downloads immediately.
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
-
-  const { canManageRequests } = useDealPermissions(dealId);
 
   // Results output locale — shared with DD Grid / Documents via the
   // same persistent store (useDDGridV1UIStore.outputLocale is backed
@@ -228,25 +204,19 @@ export const RequestsTab: React.FC<Props> = ({
   );
 
   // ── Selection state (persisted after panel close) ──────────
-  const [selectedReq, setSelectedReq] = useState<DDRequest | null>(null);
   const [selectedReviewReqKey, setSelectedReviewReqKey] = useState<string | null>(null);
 
   // ── Panel visibility state (independent from selection) ────
-  const [isLegacyPanelOpen, setIsLegacyPanelOpen] = useState(false);
   const [isReviewPanelOpen, setIsReviewPanelOpen] = useState(false);
 
   // ── Inline message state ───────────────────────────────────
   const [inlineMessage, setInlineMessage] = useState<InlineMessageState | null>(null);
 
   // ── Panel placement (desktop computed positioning) ─────────
-  const [legacyPanelOffsetTop, setLegacyPanelOffsetTop] = useState(0);
   const [reviewPanelOffsetTop, setReviewPanelOffsetTop] = useState(0);
-  const [legacyPanelMaxHeight, setLegacyPanelMaxHeight] = useState(MIN_PANEL_HEIGHT);
   const [reviewPanelMaxHeight, setReviewPanelMaxHeight] = useState(MIN_PANEL_HEIGHT);
 
-  const legacyLayoutRef = useRef<HTMLDivElement | null>(null);
   const reviewLayoutRef = useRef<HTMLDivElement | null>(null);
-  const legacyPanelRef = useRef<HTMLDivElement | null>(null);
   const reviewPanelRef = useRef<HTMLDivElement | null>(null);
 
   const { data: reviewRequests, isLoading: isLoadingReview } =
@@ -254,12 +224,18 @@ export const RequestsTab: React.FC<Props> = ({
       enabled: !!runId,
     });
 
-  const isReviewMode =
-    !!runId && !isLoadingReview && Array.isArray(reviewRequests);
+  // Review UI is shown whenever a run is present, regardless of data
+  // arrival state. Data-loading is handled separately via isLoadingReview.
+  //
+  // History: previously `isReviewMode` also required `!isLoadingReview`,
+  // so the first frame after mount rendered the legacy manual header
+  // (Word / Excel / New request) and then switched to the review header
+  // once data arrived — a visible "flash" of unrelated UI. The legacy
+  // manual mode operated on the dd_requests table, which is empty and
+  // unused, so it has been removed entirely.
+  const isReviewMode = !!runId;
 
-  const visibleCount = isReviewMode
-    ? (reviewRequests?.length ?? 0)
-    : (requests?.length ?? 0);
+  const visibleCount = reviewRequests?.length ?? 0;
 
   const selectedReviewReq: DDRequestDTO | null = useMemo(() => {
     if (!selectedReviewReqKey || !Array.isArray(reviewRequests)) return null;
@@ -270,20 +246,9 @@ export const RequestsTab: React.FC<Props> = ({
     return found ?? null;
   }, [selectedReviewReqKey, reviewRequests]);
 
-  const clearInlineMessage = useCallback(() => { setInlineMessage(null); }, []);
-
-  const updateLegacyPanelPlacement = useCallback(
-    (rowElement: HTMLElement | null) => {
-      const placement = computePanelPlacement({
-        rowElement,
-        layoutElement: legacyLayoutRef.current,
-        panelElement: legacyPanelRef.current,
-      });
-      setLegacyPanelOffsetTop(placement.offsetTop);
-      setLegacyPanelMaxHeight(placement.maxHeight);
-    },
-    [],
-  );
+  const clearInlineMessage = useCallback(() => {
+    setInlineMessage(null);
+  }, []);
 
   const updateReviewPanelPlacement = useCallback(
     (rowElement: HTMLElement | null) => {
@@ -299,13 +264,12 @@ export const RequestsTab: React.FC<Props> = ({
   );
 
   // ── Derived visibility (panel is open only if both selection and visibility are set) ──
-  const hasLegacyPanel = isLegacyPanelOpen && !!selectedReq;
-  const hasReviewPanel = isReviewPanelOpen && !!selectedReviewReqKey && !!selectedReviewReq;
+  const hasReviewPanel =
+    isReviewPanelOpen && !!selectedReviewReqKey && !!selectedReviewReq;
 
   // ── Body overflow lock for mobile fullscreen panel ─────────
   React.useEffect(() => {
-    const isAnyPanelOpen = hasLegacyPanel || hasReviewPanel;
-    if (!isAnyPanelOpen) return;
+    if (!hasReviewPanel) return;
 
     const originalOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -313,57 +277,18 @@ export const RequestsTab: React.FC<Props> = ({
     return () => {
       document.body.style.overflow = originalOverflow;
     };
-  }, [hasLegacyPanel, hasReviewPanel]);
+  }, [hasReviewPanel]);
 
-  // ── Escape key to close panels ─────────────────────────────
+  // ── Escape key closes the review panel ─────────────────────
   React.useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        if (hasLegacyPanel) {
-          setIsLegacyPanelOpen(false);
-          return;
-        }
-        if (hasReviewPanel) {
-          setIsReviewPanelOpen(false);
-        }
+      if (e.key === "Escape" && hasReviewPanel) {
+        setIsReviewPanelOpen(false);
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [hasLegacyPanel, hasReviewPanel]);
-
-  const handleSave = useCallback(
-    async (reqId: string, data: Partial<DDRequest>) => {
-      if (!canManageRequests) {
-        setInlineMessage({
-          tone: "warning",
-          title: t("tab.errors.noPermissions.title"),
-          description: t("tab.errors.noPermissions.editDescription"),
-        });
-        return;
-      }
-      setInlineMessage(null);
-      await updateMutation.mutateAsync({ reqId, data });
-    },
-    [updateMutation, canManageRequests, t],
-  );
-
-  const handleDelete = useCallback(
-    async (reqId: string) => {
-      if (!canManageRequests) {
-        setInlineMessage({
-          tone: "warning",
-          title: t("tab.errors.noPermissions.title"),
-          description: t("tab.errors.noPermissions.deleteDescription"),
-        });
-        return;
-      }
-      setInlineMessage(null);
-      await deleteMutation.mutateAsync(reqId);
-      setSelectedReq((current) => (current?.id === reqId ? null : current));
-    },
-    [deleteMutation, canManageRequests, t],
-  );
+  }, [hasReviewPanel]);
 
   const downloadBlob = useCallback((blob: Blob, filename: string) => {
     const url = window.URL.createObjectURL(blob);
@@ -376,62 +301,6 @@ export const RequestsTab: React.FC<Props> = ({
     window.URL.revokeObjectURL(url);
   }, []);
 
-  const handleExportWord = useCallback(async () => {
-    try {
-      setInlineMessage(null);
-      const blob = await exportRequestsMutation.mutateAsync({ dealId, format: "word" });
-      downloadBlob(blob, `dd_requests_${dealId}.docx`);
-    } catch (e) {
-      console.error(e);
-      setInlineMessage({
-        tone: "error",
-        title: t("tab.errors.exportWordFailed.title"),
-        description: t("tab.errors.exportFailedDescription"),
-      });
-    }
-  }, [dealId, exportRequestsMutation, downloadBlob, t]);
-
-  const handleExportExcel = useCallback(async () => {
-    try {
-      setInlineMessage(null);
-      const blob = await exportRequestsMutation.mutateAsync({ dealId, format: "excel" });
-      downloadBlob(blob, `dd_requests_${dealId}.xlsx`);
-    } catch (e) {
-      console.error(e);
-      setInlineMessage({
-        tone: "error",
-        title: t("tab.errors.exportExcelFailed.title"),
-        description: t("tab.errors.exportFailedDescription"),
-      });
-    }
-  }, [dealId, exportRequestsMutation, downloadBlob, t]);
-
-  const handleCreate = useCallback(() => {
-    if (!canManageRequests) {
-      setInlineMessage({
-        tone: "warning",
-        title: t("tab.errors.createUnavailable.title"),
-        description: t("tab.errors.createUnavailable.description"),
-      });
-      return;
-    }
-    setInlineMessage({
-      tone: "info",
-      title: t("tab.info.createRequest.title"),
-      description: t("tab.info.createRequest.description"),
-    });
-  }, [canManageRequests, t]);
-
-  // ── Selection handlers (set selection AND open panel) ──────
-  const handleSelectLegacyRequest = useCallback(
-    (req: DDRequest, rowElement: HTMLElement | null) => {
-      setSelectedReq(req);
-      setIsLegacyPanelOpen(true);
-      requestAnimationFrame(() => updateLegacyPanelPlacement(rowElement));
-    },
-    [updateLegacyPanelPlacement],
-  );
-
   const handleSelectReviewRequest = useCallback(
     (req: DDRequestDTO, rowElement: HTMLElement | null) => {
       const view = toRequestTableRowFromReview(req);
@@ -442,25 +311,16 @@ export const RequestsTab: React.FC<Props> = ({
     [updateReviewPanelPlacement],
   );
 
-  // ── Panel close handlers (close panel, keep selection) ─────
-  const handleCloseLegacyPanel = useCallback(() => {
-    setIsLegacyPanelOpen(false);
-    // НЕ сбрасываем selectedReq — строка остаётся активной
-  }, []);
-
   const handleCloseReviewPanel = useCallback(() => {
     setIsReviewPanelOpen(false);
-    // НЕ сбрасываем selectedReviewReqKey — строка остаётся активной
+    // Do NOT clear selectedReviewReqKey — the row stays highlighted
+    // so the user can see which request they had opened.
   }, []);
 
-  const isBusy =
-    exportRequestsMutation.isPending ||
-    updateMutation.isPending ||
-    deleteMutation.isPending;
-
-  // Review-mode экспорт: тот же /dd-requests/export endpoint,
-  // что обеспечивает byte-for-byte consistency с DD Report Appendix A
-  // и с Excel Summary — Request List sheet.
+  // Review-mode export uses the /dd-requests/export endpoint, which
+  // produces byte-for-byte the same content as the Requests section
+  // of the multi-sheet Summary (XLSX) and the DD Report Appendix A
+  // (DOCX) for the same output_locale.
   const handleReviewExport = useCallback(
     async (format: "xlsx" | "docx") => {
       if (!runId) return;
@@ -485,40 +345,34 @@ export const RequestsTab: React.FC<Props> = ({
               : t("tab.errors.exportExcelFailed.title"),
           description: t("tab.errors.exportFailedDescription"),
         });
-      } finally {
-        // no-op: the menu collapses immediately on click; no spinner
-        // state is required because the download is synchronous from
-        // the user's perspective.
       }
     },
-    [
-      runId,
-      dealId,
-      outputLocale,
-      downloadBlob,
-      t,
-    ],
+    [runId, dealId, outputLocale, downloadBlob, t],
   );
 
-  if (isLoading && !isReviewMode) {
+  // No run → no review data available at all. Show a placeholder
+  // instead of an empty table.
+  if (!isReviewMode) {
     return (
-      <div className="space-y-4">
-        <div className="sr-only" aria-live="polite" aria-atomic="true">
-          {t("tab.loading.title")}
-        </div>
-        <LoadingState />
-      </div>
+      <section
+        className="flex h-full min-h-0 flex-col"
+        aria-labelledby="requests-tab-title"
+      >
+        <header className="flex min-h-0 flex-1 flex-col items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] px-6 py-10 text-center shadow-sm">
+          <p className="text-sm text-[var(--text-muted)]">
+            {t("tab.noRun.title")}
+          </p>
+        </header>
+      </section>
     );
   }
 
-  // Вычисляем заголовок и подзаголовок в зависимости от режима и числа элементов
-  const resolvedSubtitle = isReviewMode
-    ? visibleCount > 0
-      ? t("tab.subtitles.reviewWithCount", { count: visibleCount })
-      : t("tab.subtitles.reviewEmpty")
+  // Subtitle depends only on review state: loading / has data / empty.
+  const resolvedSubtitle = isLoadingReview
+    ? t("tab.subtitles.loading")
     : visibleCount > 0
-      ? t("tab.subtitles.manualWithCount", { count: visibleCount })
-      : t("tab.subtitles.manualEmpty");
+      ? t("tab.subtitles.reviewWithCount", { count: visibleCount })
+      : t("tab.subtitles.reviewEmpty");
 
   return (
     <section
@@ -528,7 +382,7 @@ export const RequestsTab: React.FC<Props> = ({
       <header className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-card)] shadow-sm">
         <div className="flex min-h-0 flex-1 flex-col px-5">
 
-          {/* ── Заголовок — выровнен с PageSection ─────────── */}
+          {/* ── Header row ──────────────────────────────────── */}
           <div className="flex items-start justify-between gap-3 border-b border-[var(--border-subtle)] py-3">
             <div className="min-w-0 flex-1">
               <h2
@@ -542,7 +396,7 @@ export const RequestsTab: React.FC<Props> = ({
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              {isReviewMode && runId && (
+              {runId && (
                 <>
                   <ResultPresentationStatus
                     dealId={dealId}
@@ -558,7 +412,8 @@ export const RequestsTab: React.FC<Props> = ({
                     onClose={() => setIsExportMenuOpen(false)}
                     onExportExcel={() => handleReviewExport("xlsx")}
                     onExportWord={() => handleReviewExport("docx")}
-                    /* onExportPDF — omitted: PDF не поддерживается backend'ом */
+                    disabled={isLoadingReview}
+                    /* onExportPDF — omitted: PDF is not produced by the backend */
                   />
                 </>
               )}
@@ -568,51 +423,6 @@ export const RequestsTab: React.FC<Props> = ({
               />
             </div>
           </div>
-
-          {!isReviewMode && (
-            <div className="flex flex-wrap items-center justify-end gap-2 border-b border-[var(--border-subtle)] py-3">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleExportWord}
-                isLoading={exportRequestsMutation.isPending}
-                disabled={isBusy}
-                leftIcon={<FileText />}
-              >
-                Word
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleExportExcel}
-                isLoading={exportRequestsMutation.isPending}
-                disabled={isBusy}
-                leftIcon={<FileSpreadsheet />}
-              >
-                Excel
-              </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleCreate}
-                disabled={isBusy}
-                leftIcon={<FolderPlus />}
-              >
-                {t("tab.buttons.newRequest")}
-              </Button>
-            </div>
-          )}
-
-          {!isReviewMode && !canManageRequests && (
-            <div className="border-b border-[var(--border-subtle)] py-3">
-              <div className="rounded-2xl border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3 text-[var(--color-warning-text)]">
-                <p className="text-sm font-medium">{t("tab.viewOnly.title")}</p>
-                <p className="mt-1 text-sm leading-6">
-                  {t("tab.viewOnly.description")}
-                </p>
-              </div>
-            </div>
-          )}
 
           {inlineMessage && (
             <div className="border-b border-[var(--border-subtle)] py-3">
@@ -628,149 +438,75 @@ export const RequestsTab: React.FC<Props> = ({
           )}
 
           <div className="flex min-h-0 flex-1 flex-col py-4">
-            {isReviewMode ? (
-              <div
-                ref={reviewLayoutRef}
-                className={
-                  hasReviewPanel
-                    ? "grid min-h-0 min-w-0 flex-1 items-stretch gap-4 overflow-hidden lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]"
-                    : "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
-                }
-              >
-                <div className="flex min-h-0 min-w-0 flex-col overflow-hidden">
+            <div
+              ref={reviewLayoutRef}
+              className={
+                hasReviewPanel
+                  ? "grid min-h-0 min-w-0 flex-1 items-stretch gap-4 overflow-hidden lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]"
+                  : "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+              }
+            >
+              <div className="flex min-h-0 min-w-0 flex-col overflow-hidden">
+                {isLoadingReview ? (
+                  <LoadingState />
+                ) : (
                   <ReviewRequestsTable
                     requests={reviewRequests ?? []}
                     selectedRequestId={selectedReviewReqKey}
                     onRowClick={handleSelectReviewRequest}
                   />
-                </div>
-
-                {/* ── Review Panel ──────────────────────────── */}
-                {hasReviewPanel && selectedReviewReq && (
-                  <>
-                    {/* Mobile backdrop */}
-                    <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden" />
-
-                    {/* Mobile fullscreen panel */}
-                    <div className="fixed inset-0 z-50 flex min-h-0 flex-col bg-[var(--bg-card)] lg:hidden">
-                      <div className="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-4">
-                        <span className="text-sm font-semibold text-[var(--text-primary)]">
-                          {t("tab.detailsPanel.title")}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={handleCloseReviewPanel}
-                          className="shrink-0 rounded-lg p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]"
-                          aria-label={t("panel.closeAria")}
-                        >
-                          {t("tab.detailsPanel.back")}
-                        </button>
-                      </div>
-                      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[var(--bg-elevated-soft)]">
-                        <ReviewRequestSidePanel
-                          request={selectedReviewReq}
-                          onClose={handleCloseReviewPanel}
-                          onOpenAtLocation={onOpenViewerAt}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Desktop inline panel */}
-                    <div
-                      className="hidden min-w-0 self-start overflow-y-auto overscroll-contain rounded-2xl bg-[var(--bg-elevated-soft)] lg:block"
-                      style={{
-                        marginTop: reviewPanelOffsetTop,
-                        maxHeight: reviewPanelMaxHeight,
-                      }}
-                    >
-                      <div ref={reviewPanelRef}>
-                        <ReviewRequestSidePanel
-                          request={selectedReviewReq}
-                          onClose={handleCloseReviewPanel}
-                          onOpenAtLocation={onOpenViewerAt}
-                        />
-                      </div>
-                    </div>
-                  </>
                 )}
               </div>
-            ) : (
-              <div
-                ref={legacyLayoutRef}
-                className={
-                  hasLegacyPanel
-                    ? "grid min-h-0 min-w-0 flex-1 items-stretch gap-4 overflow-hidden lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]"
-                    : "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
-                }
-              >
-                <div className="flex min-h-0 min-w-0 flex-col overflow-hidden">
-                  <RequestsTable
-                    requests={requests ?? []}
-                    selectedRequestId={selectedReq?.id ?? null}
-                    onRowClick={handleSelectLegacyRequest}
-                    onCreateClick={handleCreate}
-                    onExportWord={handleExportWord}
-                    onExportExcel={handleExportExcel}
-                    canManageRequests={canManageRequests}
-                  />
-                </div>
 
-                {/* ── Legacy (Manual) Panel ─────────────────── */}
-                {hasLegacyPanel && (
-                  <>
-                    {/* Mobile backdrop */}
-                    <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden" />
+              {/* ── Review Panel ──────────────────────────── */}
+              {hasReviewPanel && selectedReviewReq && (
+                <>
+                  {/* Mobile backdrop */}
+                  <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden" />
 
-                    {/* Mobile fullscreen panel */}
-                    <div className="fixed inset-0 z-50 flex min-h-0 flex-col bg-[var(--bg-card)] lg:hidden">
-                      <div className="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-4">
-                        <span className="text-sm font-semibold text-[var(--text-primary)]">
-                          {t("tab.detailsPanel.title")}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={handleCloseLegacyPanel}
-                          className="shrink-0 rounded-lg p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]"
-                          aria-label={t("panel.closeAria")}
-                        >
-                          {t("tab.detailsPanel.back")}
-                        </button>
-                      </div>
-                      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[var(--bg-elevated-soft)]">
-                        <RequestSidePanel
-                          request={selectedReq}
-                          onClose={handleCloseLegacyPanel}
-                          onSave={handleSave}
-                          onDelete={handleDelete}
-                          isSaving={updateMutation.isPending}
-                          canManageRequests={canManageRequests}
-                        />
-                      </div>
+                  {/* Mobile fullscreen panel */}
+                  <div className="fixed inset-0 z-50 flex min-h-0 flex-col bg-[var(--bg-card)] lg:hidden">
+                    <div className="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b border-[var(--border-subtle)] px-4">
+                      <span className="text-sm font-semibold text-[var(--text-primary)]">
+                        {t("tab.detailsPanel.title")}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleCloseReviewPanel}
+                        className="shrink-0 rounded-lg p-2 text-[var(--text-muted)] transition hover:bg-[var(--bg-elevated-soft)] hover:text-[var(--text-primary)]"
+                        aria-label={t("panel.closeAria")}
+                      >
+                        {t("tab.detailsPanel.back")}
+                      </button>
                     </div>
-
-                    {/* Desktop inline panel */}
-                    <div
-                      className="hidden min-w-0 self-start overflow-y-auto overscroll-contain rounded-2xl bg-[var(--bg-elevated-soft)] lg:block"
-                      style={{
-                        marginTop: legacyPanelOffsetTop,
-                        maxHeight: legacyPanelMaxHeight,
-                      }}
-                    >
-                      <div ref={legacyPanelRef}>
-                        <RequestSidePanel
-                          request={selectedReq}
-                          onClose={handleCloseLegacyPanel}
-                          onSave={handleSave}
-                          onDelete={handleDelete}
-                          isSaving={updateMutation.isPending}
-                          canManageRequests={canManageRequests}
-                        />
-                      </div>
+                    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[var(--bg-elevated-soft)]">
+                      <ReviewRequestSidePanel
+                        request={selectedReviewReq}
+                        onClose={handleCloseReviewPanel}
+                        onOpenAtLocation={onOpenViewerAt}
+                      />
                     </div>
-                  </>
-                )}
-              </div>
-            )}
+                  </div>
+
+                  {/* Desktop inline panel */}
+                  <div
+                    className="hidden min-w-0 self-start overflow-y-auto overscroll-contain rounded-2xl bg-[var(--bg-elevated-soft)] lg:block"
+                    style={{
+                      marginTop: reviewPanelOffsetTop,
+                      maxHeight: reviewPanelMaxHeight,
+                    }}
+                  >
+                    <div ref={reviewPanelRef}>
+                      <ReviewRequestSidePanel
+                        request={selectedReviewReq}
+                        onClose={handleCloseReviewPanel}
+                        onOpenAtLocation={onOpenViewerAt}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </header>

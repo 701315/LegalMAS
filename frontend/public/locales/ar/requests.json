@@ -103,6 +103,7 @@
     },
     "title": "Requests",
     "subtitles": {
+      "loading": "İstekler yükleniyor...",
       "reviewWithCount_one": "Request generated based on analysis results: 1",
       "reviewWithCount_other": "Requests generated based on analysis results: {{count}}",
       "reviewEmpty": "Requests based on analysis results have not been generated yet",
@@ -116,6 +117,9 @@
     "viewOnly": {
       "title": "View-only mode",
       "description": "Export is available, but creating, editing, and deleting requests are restricted by project permissions."
+    },
+    "noRun": {
+      "title": "Henüz analiz yapılmadı. DD isteklerini görmek için projeyi analiz edin."
     },
     "detailsPanel": {
       "title": "Request Details",
