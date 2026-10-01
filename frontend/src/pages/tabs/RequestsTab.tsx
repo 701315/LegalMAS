@@ -633,7 +633,7 @@ export const RequestsTab: React.FC<Props> = ({
                 ref={reviewLayoutRef}
                 className={
                   hasReviewPanel
-                    ? "grid min-h-0 min-w-0 flex-1 items-start gap-4 overflow-hidden lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]"
+                    ? "grid min-h-0 min-w-0 flex-1 items-stretch gap-4 overflow-hidden lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]"
                     : "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
                 }
               >
@@ -699,7 +699,7 @@ export const RequestsTab: React.FC<Props> = ({
                 ref={legacyLayoutRef}
                 className={
                   hasLegacyPanel
-                    ? "grid min-h-0 min-w-0 flex-1 items-start gap-4 overflow-hidden lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]"
+                    ? "grid min-h-0 min-w-0 flex-1 items-stretch gap-4 overflow-hidden lg:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]"
                     : "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
                 }
               >
