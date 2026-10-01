@@ -14,17 +14,13 @@ from __future__ import annotations
 from typing import Any
 
 from api.schemas.deal_review import (
-    CheckItemDTO,
     ConditionalCheckDTO,
     DDRequestDTO,
-    DocumentDetailDTO,
-    DocumentSummaryDTO,
     ExtractedValueDTO,
 )
-
 from engine.playbook.models import CheckDefinition
-from services.dd_request_rules import should_trigger_dd_request
 from services.dd_request_composer import compose_dd_request
+from services.dd_request_rules import should_trigger_dd_request
 
 
 def build_dd_requests(
@@ -150,7 +146,7 @@ def build_dd_requests(
 
         dd_requests.append(
             DDRequestDTO(
-                request_id="",  # UUID генерируется на фронте или в API
+                request_id=f"ddreq:{check_id}",
                 priority=check_def.severity,
                 check_id=check_id,
                 check_name=localized_check_name,
