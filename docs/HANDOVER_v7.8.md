@@ -1,19 +1,44 @@
-# Handover + Plan v7.7 — Steloom
+# Handover + Plan v7.8 — Steloom
 
-**Дата:** 2026-09-30 (обновлено после multi-page viewer + review_status v2 mapping)
-**Master HEAD:** `42f2a26`
-**Базис:** v7.6 + 3 UI fixes (viewer highlight / multi-page / analysis-results status)
+**Дата:** 2026-10-01 (обновлено после Requests UI cleanup + a11y fixes + legacy removal)
+**Master HEAD:** `d692e18`
+**Базис:** v7.7 + Requests UI cleanup (export / a11y / layout / legacy removal)
 **Как использовать:** вставить целиком в первое сообщение нового диалога.
 
-> **Отличие от v7.6.** Три новые закрытые задачи в UI viewer/dashboard:
->   • viewer highlight fallback (2026-09-29)
->   • multi-page viewer (2026-09-29)
->   • analysis-results status mapping v2 (2026-09-30)
-> Раздел 2 дополнен тремя подсекциями. Раздел 4 (backlog) без изменений:
-> T4 / T3 / T1 / T5 / ревью юриста / B3.6 / B7.4.5 / R-* — актуальны.
-> Остальное содержимое — как в v7.6.
+> **Отличие от v7.7.** Девять закрытых задач в Requests tab и shared UI:
+>   • 500 на /dd-requests/export (NameError db_uow) — fixed
+>   • request_id='' → ddreq:{check_id} (React duplicate key + rowRefs + selection)
+>   • a11y: aria-hidden → inert + focus restore + useId (shared + Admin)
+>   • side panel: sticky header (close button stays visible on scroll)
+>   • Requests grid: items-start → items-stretch (scroll fix + selection below fold)
+>   • refactor: Admin ExportMenu → shared (−149 lines)
+>   • UX: tooltip для disabled "Add Member"
+>   • refactor: legacy manual DD-requests UI removed (−248 lines)
+>   • i18n: tab.subtitles.loading + tab.noRun.title (4 locales)
+> Раздел 2 дополнен одной подсекцией (Session 2026-10-01). Раздел 4
+> дополнен тремя новыми блоками (legacy cleanup Phase 2, pre-commit/CI
+> hardening, cosmetic backlog). Playbook-часть (T1–T5, R-*, B7.4.5,
+> ревью юриста, B3.6) — без изменений.
 
 ---
+
+## Changelog v7.7 → v7.8
+
+| # | Что | Где |
+|---|---|---|
+| 1 | Requests export: 500 `NameError: db_uow` — fixed | Р. 2 |
+| 2 | Requests DTO: `request_id=''` → `ddreq:{check_id}` | Р. 2 |
+| 3 | a11y: `aria-hidden` → `inert` + focus restore + useId | Р. 2 |
+| 4 | Side panel: sticky header (close button stays visible) | Р. 2 |
+| 5 | Requests grid: `items-start` → `items-stretch` | Р. 2 |
+| 6 | Refactor: Admin ExportMenu → shared (−149 lines) | Р. 2 |
+| 7 | UX: tooltip «Add Member disabled» (4 locales) | Р. 2 |
+| 8 | Refactor: legacy manual DD-requests UI removed (−248 lines) | Р. 2 |
+| 9 | i18n: `tab.subtitles.loading` + `tab.noRun.title` | Р. 2 |
+| 10 | Новые блоки backlog: legacy cleanup Phase 2, pre-commit/CI | Р. 4 |
+
+---
+
 
 ## Changelog v7.6 → v7.7
 
@@ -118,13 +143,41 @@ Post-tag только после `git log --oneline -1` подтверждает
 
 ---
 
+### Принцип №6 (новый): «Handover обновляется в конце сессии»
+
+Последний коммит сессии — `docs(handover): vX.Y`. Обновлять:
+- Раздел 1 — HEAD + свежая история (последние 15 коммитов);
+- Changelog vX.Y-1 → vX.Y;
+- Раздел 2 — новая подсекция «Session YYYY-MM-DD»;
+- Раздел 4 — новые backlog-items; закрытые — перенести в Р. 2;
+- Раздел 10 — команды старта + рекомендация.
+
+Handover без обновления = технический долг, эквивалентный
+недоукомплектованному тесту.
+
+---
+
+
 ## Раздел 1. Текущее состояние master
 
 ```
-master = 42f2a26   [origin/master]   ✅ pushed
+master = d692e18   [origin/master]   ✅ pushed
 Working tree: clean
 
 История (свежая):
+d692e18  refactor(requests): remove legacy manual DD-requests mode from UI
+dba05f2  fix(admin): explain why "Add Member" is disabled in Project Members
+132d04c  refactor(admin): use shared ExportMenu instead of local copy
+2fc33b3  fix(requests): restore scroll in Requests list when side panel is open
+1905395  fix(requests): pin side-panel header so close button stays visible on scroll
+50c5f0e  fix(a11y): restore focus before closing export slideout; use inert
+446fec9  fix(review): generate stable request_id in review presenter
+05399e8  fix(api): import db_uow at top-level in deal_review
+d36acd5  feat(frontend): Requests tab review export via shared ExportMenu
+5d2604f  refactor(frontend): move ExportMenu to shared/, optional PDF
+a43500b  feat(frontend): Word/Excel export on Requests tab (review mode)
+f8aea12  feat(api): /dd-requests/export endpoint (xlsx/docx)
+c26524e  feat(export): standalone Requests builders (xlsx/docx)
 42f2a26  Merge fix/analysis-results-status-mapping — review_status v2 family mapping
 856361c  fix(overview): map v2 review_status family in Analysis results widget
 527327e  Merge feat/viewer-multipage — multi-page viewer
@@ -498,6 +551,62 @@ Backend для `field_extraction` эмитит v2-семейство
   Ровно совпадает с SQL-ожиданием.
 
 ---
+### 🆕 Session 2026-10-01 — Requests UI cleanup + a11y + legacy removal
+
+**Цель.** Привести вкладку Requests к production-состоянию: убрать
+мигание legacy-шапки при загрузке, закрыть a11y-warnings, удалить
+мёртвую legacy-ветку UI (backend оставлен намеренно).
+
+**Что сделано (9 задач, 6 коммитов).**
+
+**1. `/dd-requests/export` 500 — `NameError: db_uow`** (`05399e8`).
+Импорт `db_uow` потерян при копировании хендлера. Ruff F821
+формально подтвердил. Фикс: top-level import + удалены 7 локальных
+дублей + F401/I001.
+
+**2. `request_id=''` → `ddreq:{check_id}`** (`446fec9`).
+Следствия пустого id: React `duplicate key ''`, rowRefs collapse,
+isSelected на всех строках, автоскролл сломан. `check_id` уникален
+(словарь `results_by_check`). Empirically: 29 empty → 0 empty.
+
+**3. a11y `Blocked aria-hidden`** (`50c5f0e`).
+Фокус оставался на кнопке внутри свёрнутого слайд-аута с
+`aria-hidden`. Фикс: `inert={!isOpen}`, focus-restore до закрытия,
+`useId()` вместо хардкод-id. В shared ExportMenu и AdminPage
+ExportMenu.
+
+**4. Sticky header в side panels** (`1905395`).
+Два вложенных `overflow-y-auto` — sticky не цеплялся. Фикс: header
+`lg:sticky lg:top-0`, body без `overflow-y-auto`. Обе панели.
+
+**5. Requests grid: `items-start` → `items-stretch`** (`2fc33b3`).
+При открытой панели grid-child'ы = auto высота → `overflow-auto` не
+активировался → скролл и клики ниже fold не работали. Побочно починил
+selection.
+
+**6. Admin ExportMenu → shared** (`132d04c`).
+−149 строк, +`disabled`, +`triggerLabel`. Dead keys
+`admin.clients.export.{excel,word,pdf}` — в backlog.
+
+**7. Tooltip «Add Member disabled»** (`dba05f2`).
+Кнопка серая при `availableUsersList.length === 0`. Аудит БД: 1 user
+в тенанте, он же member. Не баг, UX. `<span title={...}>` вокруг
+`<Button disabled>` в 4 локалях.
+
+**8. Legacy manual DD-requests UI removed** (`d692e18`).
+`isReviewMode = !!runId` (было: + `!isLoadingReview` → мигание).
+Удалены: `useRequests`, `useUpdateRequest`, `useDeleteRequest`,
+`useExportRequests`, `useDealPermissions`, legacy-ветка JSX, 7
+хендлеров, 6 стейтов/refs. Пустое состояние для сделок без run'а +
+`LoadingState`. **−248 строк.**
+
+**9. i18n**: `tab.subtitles.loading` + `tab.noRun.title` в 4 локалях.
+
+**Verify.** tsc clean, build 14/14, все UI-сценарии, console без
+`duplicate key`, `Blocked aria-hidden`, `missingKey`.
+
+---
+
 
 ## Раздел 3. Отменённые гипотезы (не делать снова)
 
@@ -540,6 +649,50 @@ Backend для `field_extraction` эмитит v2-семейство
 - 4.3 ⏳ Ревью юриста `CONSIDER_PACKAGE_v1.md` — 19 пунктов.
 - 4.4 🔀 Заменена на T4 (30 файлов, не 7).
 - 4.5 ⏳ Финальный `audit_v4`.
+
+### 🆕 Requests legacy cleanup — Phase 2 (blocked on product decision)
+
+Phase 1 (UI) — DONE in `d692e18`. Phase 2 — WAITING product confirmation.
+
+Backend (remove): `src/api/endpoints/requests.py`,
+`src/db/models/dd_request.py`, `src/db/repositories/dd_request_repo.py`,
+`src/api/schemas/requests.py`, router registration in `src/api/main.py`,
+imports in `src/db/models/__init__.py` + `src/db/repositories/__init__.py`.
+DO NOT touch alembic migrations.
+
+Frontend (stubs): `frontend/src/api/requests.ts`,
+`frontend/src/components/requests/RequestsTable.tsx`,
+`frontend/src/components/requests/RequestSidePanel.tsx`,
+i18n keys `tab.buttons.newRequest`, `tab.viewOnly.*`,
+`tab.subtitles.manual*`, `tab.errors.createUnavailable.*`,
+`tab.info.createRequest.*`, `tab.errors.noPermissions.*`,
+`panel.*`, `source.*`, `status.*`, `statuses.*`, `table.*`, `shared.*`.
+
+Precondition: `dd_requests` table stays empty in prod (audit: 0 rows).
+
+---
+
+### 🆕 Pre-commit / CI hardening (HIGH priority)
+
+`NameError: db_uow` reached master → 500 on `/dd-requests/export`.
+Ruff F821 would have caught it. Ruff is configured but not enforced.
+
+To add:
+- `.pre-commit-config.yaml` with `ruff` + `ruff-format`
+- CI step: `ruff check src/ tests/`
+- pytest smoke test for `/dd-requests/export` via `TestClient`
+
+---
+
+### 🆕 Cosmetic / infra backlog (session 2026-10-01)
+
+- Blob-over-HTTP warning on export — vanishes on HTTPS-prod.
+- `mkdir: missing operand` in frontend start script.
+- `[vite:css] @import must precede` in `theme.css`.
+- Dead keys `admin.clients.export.{excel,word,pdf}` after `132d04c`.
+
+---
+
 
 ### Точечные наблюдения Stream A (вне R-* backlog)
 
@@ -880,35 +1033,39 @@ SELECT id, status, created_at FROM runs ORDER BY created_at DESC LIMIT 5;
 "
 ```
 
+**`master` на старте = `d692e18`.**
+
 **Первая задача нового диалога — выбор из:**
+1. **T4** — v3 для 28 doc-type YAML — HIGH.
+2. **Pre-commit / CI hardening** — ruff hook + smoke test — HIGH.
+3. **T3** — NDA/Employment на demo — MEDIUM.
+4. **T1** — global checks presence — MEDIUM.
+5. **T5** — `vehicle_supply_check` fallback — LOW.
+6. **Ревью юриста `CONSIDER_PACKAGE_v1.md`** — MEDIUM.
+7. **Волна 4: B3.6** — архитектурная, 3–5 дней.
 
-1. **T4** — продолжить v3 для следующих doc-type файлов (30 из 42 остались) — HIGH.
-2. **T3** — загрузить NDA/Employment на demo, проверить новые checks (5 + 13) — MEDIUM.
-3. **T1** — global checks presence (4 записи `GLOBAL_PLAYBOOK` без presence, out of scope v3) — MEDIUM.
-4. **T5** — fallback processing на `vehicle_supply_check` — LOW.
-5. **Ревью юриста `CONSIDER_PACKAGE_v1.md`** — если доступен — MEDIUM.
-6. **Волна 4: B3.6 (layout_element_ids)** — архитектурная, 3–5 дней.
-
-**Рекомендация:** начать с **T4** — основная задача (Layer 2 bulk-roll продолжается). Или **T3**, если есть подходящие документы для runtime-проверки новых checks.
+**Рекомендация.** Начать с **Pre-commit / CI hardening** (30–60 минут,
+высокий effect), затем **T4**.
 
 ---
 
 ## Раздел 11. История коммитов (последние 15)
+
+d692e18 refactor(requests): remove legacy manual DD-requests mode from UI
+dba05f2 fix(admin): explain why "Add Member" is disabled in Project Members
+132d04c refactor(admin): use shared ExportMenu instead of local copy
+2fc33b3 fix(requests): restore scroll in Requests list when side panel is open
+1905395 fix(requests): pin side-panel header so close button stays visible on scroll
+50c5f0e fix(a11y): restore focus before closing export slideout; use inert
+446fec9 fix(review): generate stable request_id in review presenter
+05399e8 fix(api): import db_uow at top-level in deal_review
+d36acd5 feat(frontend): Requests tab review export via shared ExportMenu
+5d2604f refactor(frontend): move ExportMenu to shared/, optional PDF
+a43500b feat(frontend): Word/Excel export on Requests tab (review mode)
+f8aea12 feat(api): /dd-requests/export endpoint (xlsx/docx)
+c26524e feat(export): standalone Requests builders (xlsx/docx)
 42f2a26 Merge fix/analysis-results-status-mapping — review_status v2 family mapping
 856361c fix(overview): map v2 review_status family in Analysis results widget
-527327e Merge feat/viewer-multipage — multi-page viewer
-31ad8a3 feat(viewer): multi-page scroll with lazy render and deterministic auto-scroll
-25df781 Merge fix/viewer-highlight-fallback — DD Grid viewer highlight
-343dc10 fix(dd-grid): populate layout_element_ids from check_result.bbox
-4c6fbc2 Merge B7.9.2 — anchor sync fix
-2dd7086 fix(db): B7.9.2 — sync cr.* location from primary anchor
-4260c16 fix(extraction): B7.9.2 — _extract_numeric_core delegates to universal parser
-a73bfa4 fix(anchors): support comma-separated marker lists in clause_ref parser
-dd677b2 feat(anchors): universal clause_ref parser (B7.9.2)
-372965e docs(playbook): clarify prompt_template vs llm_prompt_extraction usage
-59c98c7 fix(playbooks): NDA — v3-калибровка nda_parties_and_type_check + токены
-1e12749 Merge feat/v3-doc-type-calibration: v3-промт + 13 M&A/IC checks + bulk-калибровка 10 doc-type + доделка B0.4
-12c45bb (tag: post-B7.9.3-canonical-check-marker-...) Merge branch 'fix/B7.9.3-canonical-check-marker'
 
 ---
 
@@ -1060,26 +1217,30 @@ text
 
 ---
 
-## Конец документа v7.7.
+## Конец документа v7.8.
 
 **Ближайший шаг нового диалога:**
 
-1. **Changelog v7.6 → v7.7** (в начале документа) — три закрытые UI-задачи.
-2. Раздел 0 — принципы работы.
-3. Раздел 1 — состояние master (HEAD = `42f2a26`, все теги).
-4. Раздел 4 — открытый backlog (T1–T5, ревью юриста, B7.4.5, R-*).
-5. Раздел 10 — команды старта.
+1. **Changelog v7.7 → v7.8** (в начале документа) — Requests UI cleanup.
+2. Раздел 0 — принципы работы (включая новый Принцип №6 про handover).
+3. Раздел 1 — состояние master (HEAD = `d692e18`, все теги).
+4. Раздел 2 — новая подсекция Session 2026-10-01 (Requests UI + a11y + legacy).
+5. Раздел 4 — открытый backlog (T1–T5, legacy cleanup Phase 2,
+   pre-commit/CI, cosmetic, ревью юриста, B7.4.5, R-*).
+6. Раздел 10 — команды старта + рекомендованный первый шаг.
 
 **Рекомендуемый первый шаг (выбор из открытого backlog):**
 
-1. **T4 (HIGH)** — Layer 2 bulk-roll: 28 doc-type YAML файлов
-   (Group 1 ownership → Group 9 special). Шаблон — `docs/TASK_CHECK_CALIBRATION_DOC_TYPE.md` (v3).
-2. **T3 (MEDIUM)** — runtime verify NDA/Employment на demo
-   (нужны свежие документы соответствующих типов).
-3. **T1 (MEDIUM)** — 4 записи `origin=GLOBAL_PLAYBOOK` без `presence_signal`.
-4. **T5 (LOW)** — `vehicle_supply_check`: LLM не отдаёт валидный JSON.
-5. **Ревью юриста `CONSIDER_PACKAGE_v1.md`** (19 пунктов) — если доступен юрист.
+1. **Pre-commit / CI hardening (HIGH)** — `.pre-commit-config.yaml`
+   с ruff + ruff-format; CI-шаг `ruff check src/ tests/`; smoke-тест
+   `/dd-requests/export`. 30–60 минут, high leverage. Закрывает класс
+   ошибок вида `NameError: db_uow`.
+2. **T4 (HIGH)** — Layer 2 bulk-roll: 28 doc-type YAML файлов.
+   Шаблон — `docs/TASK_CHECK_CALIBRATION_DOC_TYPE.md` (v3).
+3. **T3 (MEDIUM)** — runtime verify NDA/Employment на demo.
+4. **T1 (MEDIUM)** — 4 записи `origin=GLOBAL_PLAYBOOK` без `presence_signal`.
+5. **Ревью юриста `CONSIDER_PACKAGE_v1.md`** (19 пунктов).
+6. **T5 (LOW)** — `vehicle_supply_check`: LLM не отдаёт валидный JSON.
 
 **Волна 4 (B3.6 — layout_element_ids end-to-end)** — архитектурная, 3–5 дней.
-Рекомендуется после закрытия T4, тогда наш viewer-highlight-fallback
-станет избыточным. Отдельный трек.
+Рекомендуется после закрытия T4.
