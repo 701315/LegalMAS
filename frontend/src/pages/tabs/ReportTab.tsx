@@ -8,6 +8,7 @@ import { useRun } from "../../api/runs";
 import { useRequestExport, useExportStatus, downloadExport } from "../../api/exports";
 import type { ExportType } from "../../types/exports";
 import { EXPORT_TYPE_LABEL } from "../../constants";
+import { useDDGridV1UIStore } from "./dd-grid-v1/ddGridV1.collapseStore";
 
 import {
   FileText,
@@ -123,6 +124,10 @@ export const ReportTab: React.FC<Props> = ({ runId }) => {
   const { data: run } = useRun(runId);
   const requestExport = useRequestExport();
 
+  // Shared output locale selector (Requests / DD Grid / Report tabs).
+  // The chosen value drives the language of every export.
+  const outputLocale = useDDGridV1UIStore((state) => state.outputLocale);
+
   const [activeExportId, setActiveExportId] = useState<string | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -177,6 +182,7 @@ export const ReportTab: React.FC<Props> = ({ runId }) => {
       const exp = await requestExport.mutateAsync({
         runId: run.id,
         exportType,
+        outputLocale,
       });
 
       setActiveExportId(exp.id);
