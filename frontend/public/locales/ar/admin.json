@@ -134,6 +134,7 @@
       "description": "You do not have permission to manage the team of this project."
     },
     "addMember": "Add Member",
+    "addMemberDisabledTooltip": "All users from this organization are already members of this project.",
     "errors": {
       "actionFailed": "Failed to perform action",
       "checkForm": "Please check the form data",

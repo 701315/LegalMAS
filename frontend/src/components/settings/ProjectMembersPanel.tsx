@@ -84,6 +84,11 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
 
   const membersList = members ?? [];
   const availableUsersList = availableUsers ?? [];
+  const isAddMemberDisabled = availableUsersList.length === 0;
+  const addMemberDisabledReason =
+    isAddMemberDisabled && !isAvailableUsersLoading
+      ? t("projectMembers.addMemberDisabledTooltip")
+      : undefined;
 
   const isCreateLoading = createMutation.isPending;
   const isUpdateLoading = updateMutation.isPending;
@@ -227,16 +232,21 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
       rightSlot={
         <div className="flex flex-wrap items-center gap-2">
           {backButton}
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            leftIcon={<UserPlus size={14} />}
-            onClick={openCreateForm}
-            disabled={availableUsersList.length === 0}
+          <span
+            title={addMemberDisabledReason}
+            className="inline-flex"
           >
-            {t("projectMembers.addMember")}
-          </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              leftIcon={<UserPlus size={14} />}
+              onClick={openCreateForm}
+              disabled={isAddMemberDisabled}
+            >
+              {t("projectMembers.addMember")}
+            </Button>
+          </span>
         </div>
       }
     >
@@ -278,16 +288,21 @@ const ProjectMembersPanel: React.FC<ProjectMembersPanelProps> = ({
               </p>
 
               <div className="mt-5 flex justify-center">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  leftIcon={<UserPlus size={14} />}
-                  onClick={openCreateForm}
-                  disabled={availableUsersList.length === 0}
+                <span
+                  title={addMemberDisabledReason}
+                  className="inline-flex"
                 >
-                  {t("projectMembers.addMember")}
-                </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    leftIcon={<UserPlus size={14} />}
+                    onClick={openCreateForm}
+                    disabled={isAddMemberDisabled}
+                  >
+                    {t("projectMembers.addMember")}
+                  </Button>
+                </span>
               </div>
             </div>
           ) : (
