@@ -35,13 +35,20 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from db.models.run import Run
+
 from api.deps.auth import CurrentUser, get_current_user
 from api.deps.security import require_project_role
-from db.repositories.playbook_repo import PlaybookRepository
+from db.models.deal import Deal
+from db.models.run import Run
 from db.repositories.audit_repo import AuditRepository
+from db.repositories.playbook_repo import PlaybookRepository
 from db.repositories.run_repo import RunRepository
 from db.session import get_db
+from db.uow import db_uow
+from ops.metrics import get_metrics
+from services.check_definition_loader import (
+    load_check_definitions_for_run,
+)
 from services.deal_review_service import (
     build_conditional_checks,
     build_dd_grid_v1_response,
@@ -49,23 +56,20 @@ from services.deal_review_service import (
     build_dd_requests,
     build_extracted_values,
 )
-from services.result_presentation_read_service import (
-    apply_presentations_for_read,
-    resolve_output_locale,
-    resolve_presentation_locale,  # Deprecated alias, kept for transition
-)
-from services.check_definition_loader import (
-    load_check_definitions_for_run,
-)
 from services.export.requests_builder import (
     build_requests_docx,
     build_requests_xlsx,
+)
+from services.outbox_service import OutboxService
+from services.result_presentation_read_service import (
+    apply_presentations_for_read,
+    resolve_output_locale,
 )
 from services.result_presentation_request_service import (
     ResultPresentationProgress,
     ResultPresentationRequestService,
 )
-from services.outbox_service import OutboxService
+
 from ..schemas.deal_review import (
     CheckItemDTO,
     ConditionalCheckDTO,
@@ -79,9 +83,6 @@ from ..schemas.deal_review import (
     ResultPresentationProgressDTO,
     ResultPresentationRequestDTO,
 )
-
-from db.models.deal import Deal
-from ops.metrics import get_metrics
 
 router = APIRouter(prefix="/deals", tags=["deal_review"])
 
@@ -397,7 +398,6 @@ async def get_documents_for_run(
 
     run_uuid = uuid.UUID(run_id)
     from db.repositories.runner_repo import RunnerRepository
-    from db.uow import db_uow
 
     async with db_uow() as uow:
         runner_repo = RunnerRepository(uow.session)
@@ -509,7 +509,6 @@ async def get_document_detail_for_run(
     )
 
     from db.repositories.runner_repo import RunnerRepository
-    from db.uow import db_uow
 
     async with db_uow() as uow:
         runner_repo = RunnerRepository(uow.session)
@@ -650,7 +649,6 @@ async def get_document_structured_data_for_run(
     )
 
     from db.repositories.runner_repo import RunnerRepository
-    from db.uow import db_uow
 
     async with db_uow() as uow:
         runner_repo = RunnerRepository(uow.session)
@@ -785,10 +783,9 @@ async def get_dd_requests(
 
     run_uuid = uuid.UUID(run_id)
 
-    from db.repositories.runner_repo import RunnerRepository
-    from db.repositories.playbook_repo import PlaybookRepository
-    from db.uow import db_uow
     from db.models.run import Run
+    from db.repositories.playbook_repo import PlaybookRepository
+    from db.repositories.runner_repo import RunnerRepository
     from engine.playbook.loader import load_playbook_from_version
 
     deal = await db.get(Deal, uuid.UUID(deal_id))
@@ -903,9 +900,9 @@ async def export_dd_requests(
 
     run_uuid = uuid.UUID(run_id)
 
-    from db.repositories.runner_repo import RunnerRepository
-    from db.repositories.playbook_repo import PlaybookRepository
     from db.models.run import Run
+    from db.repositories.playbook_repo import PlaybookRepository
+    from db.repositories.runner_repo import RunnerRepository
     from engine.playbook.loader import load_playbook_from_version
 
     deal = await db.get(Deal, uuid.UUID(deal_id))
@@ -1038,7 +1035,6 @@ async def get_conditional_checks(
     )
 
     from db.repositories.runner_repo import RunnerRepository
-    from db.uow import db_uow
     async with db_uow() as uow:
         runner_repo = RunnerRepository(uow.session)
         check_results = await runner_repo.load_check_results_for_run(run_uuid)
@@ -1103,7 +1099,6 @@ async def get_extracted_values(
     )
 
     from db.repositories.runner_repo import RunnerRepository
-    from db.uow import db_uow
     async with db_uow() as uow:
         runner_repo = RunnerRepository(uow.session)
         check_results = await runner_repo.load_check_results_for_run(run_uuid)
@@ -1170,10 +1165,9 @@ async def get_dd_matrix(
         run_analysis_language=run_for_locale.analysis_language if run_for_locale else None,
     )
 
-    from db.repositories.runner_repo import RunnerRepository
     from db.repositories.playbook_repo import PlaybookRepository
     from db.repositories.run_repo import RunRepository
-    from db.uow import db_uow
+    from db.repositories.runner_repo import RunnerRepository
     from engine.playbook.loader import load_playbook_from_version
 
     async with db_uow() as uow:
