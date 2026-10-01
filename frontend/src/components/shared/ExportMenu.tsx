@@ -2,7 +2,7 @@
 // src/pages/tabs/documents/components/ExportMenu.tsx
 // =============================================================
 
-import React, { useRef } from "react";
+import React, { useCallback, useId, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronRight, Download } from "lucide-react";
 import Button from "../ui/Button";
@@ -30,6 +30,32 @@ const ExportMenu: React.FC<ExportMenuProps> = ({
 }) => {
   const { t } = useTranslation("common");
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const slideoutId = useId();
+
+  const restoreFocusToTrigger = useCallback(() => {
+    triggerRef.current?.focus();
+  }, []);
+
+  const closeAndRestoreFocus = useCallback(() => {
+    restoreFocusToTrigger();
+    onClose();
+  }, [restoreFocusToTrigger, onClose]);
+
+  /**
+   * Wrap an export handler so the focus returns to the trigger button
+   * *before* the parent closes the menu (which collapses the slideout
+   * and applies `inert`). Ordering matters: if we focused after the
+   * parent state change, React would apply `inert` while focus is still
+   * inside the container, and the browser would move focus to <body>.
+   */
+  const handleExport = useCallback(
+    (handler: () => void) => () => {
+      restoreFocusToTrigger();
+      handler();
+    },
+    [restoreFocusToTrigger],
+  );
 
   React.useEffect(() => {
     if (!isOpen) return;
@@ -42,7 +68,7 @@ const ExportMenu: React.FC<ExportMenuProps> = ({
     };
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") closeAndRestoreFocus();
     };
 
     window.addEventListener("mousedown", handlePointerDown);
@@ -52,18 +78,19 @@ const ExportMenu: React.FC<ExportMenuProps> = ({
       window.removeEventListener("mousedown", handlePointerDown);
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, closeAndRestoreFocus]);
 
   return (
     <div ref={containerRef} className="contents">
       <div className="relative flex shrink-0 items-center">
         <Button
+          ref={triggerRef}
           type="button"
           size="sm"
           variant={isOpen ? "outline" : "secondary"}
           onClick={onToggle}
           aria-expanded={isOpen}
-          aria-controls="documents-export-slideout"
+          aria-controls={slideoutId}
           leftIcon={<Download className="h-4 w-4" />}
           rightIcon={
             <ChevronRight
@@ -88,20 +115,20 @@ const ExportMenu: React.FC<ExportMenuProps> = ({
         </Button>
 
         <div
-          id="documents-export-slideout"
+          id={slideoutId}
           className={`ml-2 hidden shrink-0 origin-left items-center gap-2 overflow-hidden transition-all duration-300 ease-out sm:flex ${
             isOpen
               ? "max-w-[340px] translate-x-0 opacity-100"
               : "pointer-events-none max-w-0 -translate-x-2 opacity-0"
           }`}
-          aria-hidden={!isOpen}
+          inert={!isOpen}
         >
           <div className="flex shrink-0 items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated-soft)] px-2 py-1.5 shadow-sm">
             <Button
               size="sm"
               variant="secondary"
               className="shrink-0 whitespace-nowrap"
-              onClick={onExportExcel}
+              onClick={handleExport(onExportExcel)}
             >
               {t("exportMenu.excel")}
             </Button>
@@ -109,7 +136,7 @@ const ExportMenu: React.FC<ExportMenuProps> = ({
               size="sm"
               variant="secondary"
               className="shrink-0 whitespace-nowrap"
-              onClick={onExportWord}
+              onClick={handleExport(onExportWord)}
             >
               {t("exportMenu.word")}
             </Button>
@@ -118,7 +145,7 @@ const ExportMenu: React.FC<ExportMenuProps> = ({
                 size="sm"
                 variant="secondary"
                 className="shrink-0 whitespace-nowrap"
-                onClick={onExportPDF}
+                onClick={handleExport(onExportPDF)}
               >
                 {t("exportMenu.pdf")}
               </Button>
@@ -131,14 +158,14 @@ const ExportMenu: React.FC<ExportMenuProps> = ({
         className={`basis-full overflow-hidden transition-all duration-200 ease-out sm:hidden ${
           isOpen ? "mt-2 max-h-16 opacity-100" : "max-h-0 opacity-0"
         }`}
-        aria-hidden={!isOpen}
+        inert={!isOpen}
       >
         <div className="flex w-full items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated-soft)] p-2 shadow-sm">
           <Button
             size="sm"
             variant="secondary"
             className="min-w-0 flex-1 justify-center whitespace-nowrap"
-            onClick={onExportExcel}
+            onClick={handleExport(onExportExcel)}
           >
             {t("exportMenu.excel")}
           </Button>
@@ -146,7 +173,7 @@ const ExportMenu: React.FC<ExportMenuProps> = ({
             size="sm"
             variant="secondary"
             className="min-w-0 flex-1 justify-center whitespace-nowrap"
-            onClick={onExportWord}
+            onClick={handleExport(onExportWord)}
           >
             {t("exportMenu.word")}
           </Button>
@@ -155,7 +182,7 @@ const ExportMenu: React.FC<ExportMenuProps> = ({
               size="sm"
               variant="secondary"
               className="min-w-0 flex-1 justify-center whitespace-nowrap"
-              onClick={onExportPDF}
+              onClick={handleExport(onExportPDF)}
             >
               {t("exportMenu.pdf")}
             </Button>
