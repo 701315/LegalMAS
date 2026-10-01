@@ -29,20 +29,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.i18n.export_translator import normalize_export_locale
 from core.logging import get_logger
-import db
 from db.models.playbook import PlaybookVersion
-from db.models.result import CheckResult
 from db.repositories import (
     DealRepository,
-    ResultRepository,
     RunnerRepository,
     RunRepository,
 )
 from ops.metrics import METRICS
+from services.export.dd_grid_v1_excel_builder import build_dd_grid_v1_excel
 from services.export.report_builder import build_report_docx
 from services.export.summary_builder import build_summary_excel
-from services.export.dd_grid_v1_excel_builder import build_dd_grid_v1_excel
-
+from services.result_presentation_read_service import (
+    apply_presentations_for_read,
+)
 from storage.artifact_store import ArtifactStore
 from storage.exports import ExportSuffix
 
@@ -52,42 +51,6 @@ logger = get_logger(__name__)
 # ---------------------------------------------------------------------------
 # Database Data Retrieval
 # ---------------------------------------------------------------------------
-
-
-async def _load_check_results(run_id: str, db: AsyncSession) -> list[dict[str, Any]]:
-    """
-    Fetch check results from DB for a given run_id
-    and return as a list of dictionaries (core is agnostic of ORM models).
-    """
-    repo = ResultRepository(db)
-    results: list[CheckResult] = await repo.get_by_run(uuid.UUID(run_id))
-
-    rows: list[dict[str, Any]] = []
-    for r in results:
-        rows.append(
-            {
-                # Base attributes
-                "check_id": r.check_id,
-                "check_name": r.check_name,
-                "result": r.result,
-                "severity": r.severity,
-                "value_text": r.value_text or "",
-                "confidence": r.confidence or 0.0,
-                "detector_used": getattr(r, "detector_used", "") or "",
-                "quality_flags": getattr(r, "quality_flags", {}) or {},
-                "qc_status": getattr(r, "qc_status", "pending") or "pending",
-                "document_id": str(r.document_id) if r.document_id else "",
-                "page": getattr(r, "page", None),
-                "clause_uid": getattr(r, "clause_uid", "") or "",
-                # Stage 8 attributes
-                "structured_data": getattr(r, "structured_data", {}) or {},
-                "conditional_check_triggered": getattr(r, "conditional_check_triggered", False)
-                or False,
-                "trigger_name": getattr(r, "trigger_name", "") or "",
-            }
-        )
-
-    return rows
 
 
 async def _load_documents_metadata(run_id: str, db: AsyncSession) -> dict[str, dict[str, Any]]:
@@ -184,9 +147,42 @@ async def export_core(
     # 1. Dataset Retrieval
     logger.info("Loading export dataset", run_id=run_id, deal_id=deal_id)
 
-    check_results = await _load_check_results(run_id, db)
+    # Canonical check_results loader — the same one used by every
+    # deal_review.* endpoint. Returns the full row shape (id, origin,
+    # display_text, review_status, review_message, needs_manual_review,
+    # element_id, bbox, primary_anchor_id, ...) required by the
+    # presentation overlay and by the DD-request rules engine.
+    #
+    # Replaces a local, stale _load_check_results() that only returned a
+    # subset of the canonical fields and, crucially, did not include the
+    # row `id`. Without the row `id`, apply_presentations_for_read()
+    # silently skipped every row, the localized review_status family
+    # never made it into the export payload, and no DD requests were
+    # triggered in the Word report's Appendix A.
+    runner_repo = RunnerRepository(db)
+    check_results = await runner_repo.load_check_results_for_run(uuid.UUID(run_id))
+
     documents = await _load_documents_metadata(run_id, db)
     deal_name = await _load_deal_name(deal_id, db)
+
+    # Apply locale-specific result presentation overlay on top of raw
+    # check_results. This mirrors what deal_review.* endpoints do before
+    # building reviewer-facing payloads — the same helper is the single
+    # source of truth for the localized review_status family.
+    #
+    # Required here because:
+    #   - report_builder._build_dd_requests_for_report uses
+    #     should_trigger_dd_request(), which expects the localized
+    #     review_status family (clause_missing / clause_partially_defined
+    #     / unclear), not the raw DB values (missing_required_cla,
+    #     no_issue_detected, pass).
+    #   - Without the overlay, no DD requests are triggered and the
+    #     Word report's Appendix A renders "no requests".
+    check_results = await apply_presentations_for_read(
+        session=db,
+        check_results=check_results,
+        requested_locale=locale,
+    )
 
     # 1.1. Retrieve Run and Playbook details for reproducibility headers
     run_repo = RunRepository(db)
@@ -217,9 +213,28 @@ async def export_core(
             if pb_obj.name:
                 playbook_profile_str = pb_obj.name
 
-    # 1.2. Load CheckDefinition metadata for new Excel builder layout mapping
+    # 1.2. Load CheckDefinition metadata for the Excel / report builders.
+    #
+    # Canonical loader — the same helper used by every deal_review.*
+    # endpoint. It merges global playbook checks with doc-type checks
+    # from the Run's frozen instruction snapshot (Run.instruction_versions
+    # → compiled_payload → DocTypeCheckLoader).
+    #
+    # Previously this block loaded playbook.checks directly and passed
+    # them to the builders. The DD-request rules engine
+    # (report_builder._build_dd_requests_for_report) uses checks_by_id
+    # to resolve each check's CheckDefinition and skips any check that
+    # is not present — so any doc-type check_id (about 31 of 34 here)
+    # was silently dropped, and only global checks could ever trigger a
+    # DD request.
+    #
+    # We pass playbook.checks explicitly as required by the loader's
+    # contract: load_check_definitions_for_run() builds the base dict
+    # from playbook_checks, then merges doc-type checks on top. Passing
+    # an empty list would drop global checks from the result.
     from db.repositories.playbook_repo import PlaybookRepository
     from engine.playbook.loader import load_playbook_from_version
+    from services.check_definition_loader import load_check_definitions_for_run
 
     pb_repo = PlaybookRepository(db)
     checks_by_id: dict[str, Any] = {}
@@ -229,15 +244,20 @@ async def export_core(
             pb_version = await pb_repo.get_by_id(run_obj.playbook_version_id)
             if pb_version:
                 playbook = load_playbook_from_version(pb_version)
-                checks_by_id = {check.id: check for check in playbook.checks}
+                checks_by_id = await load_check_definitions_for_run(
+                    session=db,
+                    run=run_obj,
+                    playbook_checks=playbook.checks,
+                )
                 logger.info(
-                    "Loaded CheckDefinitions for Excel export",
+                    "Loaded CheckDefinitions for export",
                     run_id=run_id,
                     checks_count=len(checks_by_id),
+                    global_count=len(playbook.checks),
                 )
         except Exception as e:
             logger.warning(
-                "Failed to load CheckDefinitions for Excel export",
+                "Failed to load CheckDefinitions for export",
                 run_id=run_id,
                 error=str(e),
             )
@@ -260,11 +280,13 @@ async def export_core(
 
     # 3. DD Grid Excel compilation via DDGridV1Data mapper
     try:
-        from db.repositories.runner_repo import RunnerRepository
-        from db.repositories.run_check_plan_item_repo import RunCheckPlanItemRepository
         from classifiers.yaml_registry import YAMLRegistry
+        from db.repositories.run_check_plan_item_repo import RunCheckPlanItemRepository
         from services.dd_grid_v1_builder import build_dd_grid_v1
 
+        # RunnerRepository comes from the module-level import — no need
+        # to re-import it locally, and the local import shadowed the
+        # module-level name, breaking the earlier call in this function.
         runner_repo = RunnerRepository(db)
         plan_item_repo = RunCheckPlanItemRepository(db)
 
@@ -417,4 +439,3 @@ async def export_core(
     }
 
 
-    

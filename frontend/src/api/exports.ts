@@ -32,6 +32,7 @@ export const exportQueryKeys = {
 export interface RequestExportPayload {
   runId: string;
   exportType: ExportType;
+  outputLocale?: string;
 }
 
 export function isExportProcessing(
@@ -142,12 +143,14 @@ export const exportsApi = {
    */
   request: async (
     runId: string,
-    exportType: ExportType
+    exportType: ExportType,
+    outputLocale?: string
   ): Promise<ExportRecord> => {
     const response = await client.post<ExportRecord>(
       `/api/v1/runs/${runId}/export`,
       {
         export_type: exportType,
+        output_locale: outputLocale ?? null,
         // requested_by / requester_role можно будет добавить,
         // когда появится реальная авторизация.
       }
@@ -196,8 +199,8 @@ export function useRequestExport() {
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ runId, exportType }: RequestExportPayload) =>
-      exportsApi.request(runId, exportType),
+    mutationFn: ({ runId, exportType, outputLocale }: RequestExportPayload) =>
+      exportsApi.request(runId, exportType, outputLocale),
 
     onSuccess: (data) => {
       qc.setQueryData(exportQueryKeys.detail(data.id), data);

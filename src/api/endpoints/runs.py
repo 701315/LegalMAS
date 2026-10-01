@@ -23,7 +23,12 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps.auth import CurrentUser, get_current_user
-from api.deps.security import get_scoped_run, get_scoped_deal, require_project_role
+from api.deps.security import get_scoped_deal, get_scoped_run, require_project_role
+from api.schemas.instruction_overrides import RunInstructionSnapshotResponse
+from api.schemas.instructions import EffectiveInstructionResponse
+from api.schemas.pagination import PaginatedResponse as PaginatedResponseSchema
+from api.schemas.results import CheckResultResponse
+from api.schemas.run_check_plan import RunCheckPlanItemResponse, RunCheckPlanResponse
 from api.schemas.runs import (
     ClassificationReportResponse,
     DealRunSummaryResponse,
@@ -31,24 +36,21 @@ from api.schemas.runs import (
     RunPipelineProgressResponse,
     RunResponse,
 )
-from api.schemas.instructions import EffectiveInstructionResponse
-
-from db.models.run import Run
-from db.models.deal import Deal
-from db.repositories.run_repo import RunRepository
-
-from api.schemas.pagination import PaginatedResponse as PaginatedResponseSchema
-from api.schemas.results import CheckResultResponse
 from core.config import settings
 from core.constants import LanguageDiscoveryStatus, RunCheckPlanItemStatus, RunStatus
 from core.error_catalog import render_error_message
 from core.logging import get_logger
+from db.models.deal import Deal
+from db.models.run import Run
 from db.repositories.audit_repo import AuditRepository
 from db.repositories.deal_repo import DealRepository
 from db.repositories.export_repo import ExportRepository
 from db.repositories.playbook_repo import PlaybookRepository
 from db.repositories.result_repo import ResultRepository
+from db.repositories.run_check_plan_item_repo import RunCheckPlanItemRepository
+from db.repositories.run_repo import RunRepository
 from db.session import get_db
+from engine.checks.snapshot_policy import check_snapshot_integrity
 from mas_queue.task_dispatcher import send_task_with_context
 from services.effective_instruction_service import (
     EffectiveInstructionNotFoundError,
@@ -57,10 +59,6 @@ from services.effective_instruction_service import (
 from services.run_analytics_service import RunAnalyticsService, RunNotFoundError
 from services.run_pipeline_progress_service import RunPipelineProgressService
 from services.run_progress_service import subscribe_run_progress
-from api.schemas.instruction_overrides import RunInstructionSnapshotResponse
-from engine.checks.snapshot_policy import check_snapshot_integrity
-from api.schemas.run_check_plan import RunCheckPlanItemResponse, RunCheckPlanResponse
-from db.repositories.run_check_plan_item_repo import RunCheckPlanItemRepository
 
 logger = get_logger(__name__)
 
@@ -511,7 +509,7 @@ async def get_effective_instruction(
     summary="Detailed classification quality report for run",
 )
 async def get_classification_report(
-    run: Run = Depends(get_scoped_run), 
+    run: Run = Depends(get_scoped_run),
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
     service: RunAnalyticsService = Depends(get_run_analytics_service),
@@ -548,6 +546,14 @@ class RunExportCreate(BaseModel):
         "aggregated_json",
     ]
 
+    # Explicit output locale chosen by the user in the UI. Requests,
+    # DD Grid and Report tabs share the same locale selector. When
+    # omitted, the backend falls back to user.ui_locale and then "en".
+    # Exports must honour the user's explicit choice, not the interface
+    # language — otherwise switching to English in the UI still
+    # produces a Russian report.
+    output_locale: str | None = None
+
 
 class RunExportResponse(BaseModel):
     """
@@ -569,7 +575,7 @@ class RunExportResponse(BaseModel):
 )
 async def start_run_export(
     data: RunExportCreate,
-    run: Run = Depends(get_scoped_run), 
+    run: Run = Depends(get_scoped_run),
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
 ):
@@ -595,7 +601,17 @@ async def start_run_export(
 
     requested_by = getattr(user, "id", None)
     requester_role = getattr(user, "global_role", "user")
-    user_locale = getattr(user, "ui_locale", "en") or "en"
+
+    # Locale resolution priority:
+    #   1. explicit output_locale from the request body (set by the UI
+    #      locale selector shared across Requests / DD Grid / Report);
+    #   2. user.ui_locale as a fallback;
+    #   3. "en".
+    effective_locale = (
+        data.output_locale
+        or getattr(user, "ui_locale", None)
+        or "en"
+    )
 
     export = await export_repo.create(
         deal_id=run.deal_id,
@@ -614,17 +630,19 @@ async def start_run_export(
             "workers.export_by_id",
             kwargs={
                 "export_id": str(export.id),
-                "presentation_locale": user_locale,
+                "output_locale": effective_locale,
+                "presentation_locale": effective_locale,
             },
             queue="default",
         )
-        
+
         logger.info(
             "Export task queued",
             extra={
                 "export_id": str(export.id),
                 "run_id": str(run.id),
-                "presentation_locale": user_locale,
+                "output_locale": effective_locale,
+                "presentation_locale": effective_locale,
             },
         )
 
@@ -928,4 +946,3 @@ async def get_run_check_plan_item(
     return RunCheckPlanItemResponse.model_validate(item)
 
 
-    
