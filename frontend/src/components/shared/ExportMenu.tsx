@@ -1,5 +1,5 @@
 // =============================================================
-// src/pages/tabs/documents/components/ExportMenu.tsx
+// src/components/shared/ExportMenu.tsx
 // =============================================================
 
 import React, { useCallback, useId, useRef } from "react";
@@ -18,6 +18,15 @@ interface ExportMenuProps {
    * Used by the Requests tab where PDF is not yet supported by the backend.
    */
   onExportPDF?: () => void;
+  /** When true, the trigger button is disabled. */
+  disabled?: boolean;
+  /**
+   * Override the trigger button label. When omitted, falls back to
+   * common.exportMenu.saveShort / saveLong. Pass a translated string
+   * when the caller wants a different wording, e.g. AdminPage passes
+   * "Save client list" from admin.clients.export.button.
+   */
+  triggerLabel?: React.ReactNode;
 }
 
 const ExportMenu: React.FC<ExportMenuProps> = ({
@@ -27,6 +36,8 @@ const ExportMenu: React.FC<ExportMenuProps> = ({
   onExportExcel,
   onExportWord,
   onExportPDF,
+  disabled = false,
+  triggerLabel,
 }) => {
   const { t } = useTranslation("common");
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -89,6 +100,7 @@ const ExportMenu: React.FC<ExportMenuProps> = ({
           size="sm"
           variant={isOpen ? "outline" : "secondary"}
           onClick={onToggle}
+          disabled={disabled}
           aria-expanded={isOpen}
           aria-controls={slideoutId}
           leftIcon={<Download className="h-4 w-4" />}
@@ -107,10 +119,10 @@ const ExportMenu: React.FC<ExportMenuProps> = ({
           ].join(" ")}
         >
           <span className="sm:hidden">
-            {t("exportMenu.saveShort")}
+            {triggerLabel ?? t("exportMenu.saveShort")}
           </span>
           <span className="hidden sm:inline">
-            {t("exportMenu.saveLong")}
+            {triggerLabel ?? t("exportMenu.saveLong")}
           </span>
         </Button>
 
