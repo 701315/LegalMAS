@@ -126,3 +126,4 @@ psycopg2-binary==2.9.12
 
 # Layout & Docling extraction
 PyMuPDF==1.28.2
+matplotlib==3.9.2

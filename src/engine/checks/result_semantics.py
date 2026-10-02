@@ -475,6 +475,74 @@ def _is_grid_display_presentation(check: Any | None, field_name: str) -> bool:
     presentation = _get_field_presentation(check, field_name)
     return presentation in {"fact", "summary"}
 
+
+# ---------------------------------------------------------------------------
+# PUBLIC API (stable contract for cross-module consumers)
+# ---------------------------------------------------------------------------
+#
+# These thin wrappers expose the presentation/label contract of extraction
+# fields to consumers outside this module (FactBundle, exports, report
+# renderers). They must not contain business logic — only forwarding to the
+# private resolvers above.
+
+
+def get_field_presentation(check: Any | None, field_name: str) -> str:
+    """
+    Public API: presentation role for an extraction field.
+
+    Returns one of: "summary", "fact", "signal", "diagnostic".
+    Default: "fact" when no config found (backward compatible).
+    """
+    return _get_field_presentation(check, field_name)
+
+
+def get_field_label(check: Any | None, field_name: str) -> str:
+    """
+    Public API: human-readable label for an extraction field.
+
+    Priority: ExtractionFieldConfig.label → humanized field_name.
+    """
+    return _get_field_label(check, field_name)
+
+
+def is_human_visible_field(check: Any | None, field_name: str) -> bool:
+    """
+    Public API: True if extraction field should be visible to end user.
+
+    Visible presentations: "fact", "summary".
+    Hidden: "signal" (internal machine signals), "diagnostic" (notes).
+
+    Used by DD Grid columns, FactBundle Extracted Values, and report exports
+    to keep the "what to show" contract consistent across the project.
+    """
+    return _is_grid_display_presentation(check, field_name)
+
+
+
+def get_field_config(check: Any | None, field_name: str) -> Any | None:
+    """
+    Public API: ExtractionFieldConfig for a check + field_name.
+
+    Returns None when check has no extraction config, or field is not
+    declared in the playbook. Consumers must treat None as "unknown field"
+    and fall back to conservative defaults (do not drop the field).
+    """
+    return _find_extraction_field_config(check, field_name)
+
+
+def is_field_fallback_value(check: Any | None, field_name: str, value: Any) -> bool:
+    """
+    Public API: True if value matches one of ExtractionFieldConfig.fallback_texts.
+
+    Fallback texts are populated by the playbook loader from
+    description-side 'Fallback: "X" / "Y".' markers, or by explicit
+    `fallback_texts: [...]` in YAML. An empty list means the field has
+    no declared fallbacks and this function returns False.
+
+    Display-only semantic — does not affect gate semantics.
+    """
+    return _is_field_fallback_value(check, field_name, value)
+
 def _get_field_unit(check: Any | None, field_name: str) -> str | None:
     """Get unit for an extraction field (e.g. 'days', 'RUB')."""
     field_cfg = _find_extraction_field_config(check, field_name)

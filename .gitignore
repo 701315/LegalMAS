@@ -81,3 +81,9 @@ docs/*.pdf
 # Pipeline artifacts (выходные данные analysis)
 artifacts/
 docs/*.md.bak-*
+
+# Designer templates (3MB+, не место в репо)
+*.dotx
+
+# Test reports (локальные артефакты)
+_test_output/

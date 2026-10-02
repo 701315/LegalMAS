@@ -37,6 +37,7 @@ from db.repositories import (
 )
 from ops.metrics import METRICS
 from services.export.dd_grid_v1_excel_builder import build_dd_grid_v1_excel
+from services.export.fact_bundle import build_fact_bundle
 from services.export.report_builder import build_report_docx
 from services.export.summary_builder import build_summary_excel
 from services.result_presentation_read_service import (
@@ -84,6 +85,7 @@ async def _load_documents_metadata(run_id: str, db: AsyncSession) -> dict[str, d
             "classification_requires_review": bool(
                 payload.get("classification_requires_review") or False
             ),
+            "language": payload.get("language") or "",
         }
 
     return docs
@@ -358,7 +360,18 @@ async def export_core(
 
     # 5. Word report compilation via direct check_results evaluation
     try:
-        report_bytes = build_report_docx(
+        # 5.0. Build fact_bundle — единый контракт данных для report_builder
+        #      и LLM-нарративов. Переиспользует overlay'd check_results
+        #      (см. шаг 1.1), documents (шаг 1) и checks_by_id (шаг 1.2).
+        #
+        #      fact_bundle строится здесь, а не внутри report_builder,
+        #      потому что:
+        #      - позже его же можно передать в llm_narratives.py (Этап 2);
+        #      - можно залогировать его объём для observability;
+        #      - report_builder останется чистым рендерером.
+        from datetime import datetime, timezone
+
+        fact_bundle = build_fact_bundle(
             check_results=check_results,
             documents=documents,
             checks_by_id=checks_by_id,
@@ -366,11 +379,102 @@ async def export_core(
             run_id=run_id,
             playbook_version=playbook_version_str,
             playbook_profile=playbook_profile_str,
-            environment_hash=env_hash_str,
             checks_mode=checks_mode_str,
             pipeline_strategy=pipeline_strategy_str,
+            environment_hash=env_hash_str,
             locale=locale,
+            generated_at=datetime.now(timezone.utc).isoformat(),
         )
+
+        # 5.0.1. LLM narratives (Purpose of Report).
+        #
+        #      Генерируем нарративы ПОСЛЕ build_fact_bundle (он нужен как
+        #      source of truth), но ДО build_report_docx_v2 (он их рендерит).
+        #
+        #      Fallback: если LLM недоступна или упала — generate_report_narratives
+        #      сам вернёт детерминированные шаблоны. Никаких исключений наружу.
+        narratives: dict[str, str] = {}
+        try:
+            from services.export.llm_narratives import (
+                generate_report_narratives,
+            )
+
+            narratives = await generate_report_narratives(
+                fact_bundle, locale=locale
+            )
+            logger.info(
+                "LLM narratives generated",
+                extra={
+                    "run_id": run_id,
+                    "deal_id": deal_id,
+                    "narrative_keys": list(narratives.keys()),
+                },
+            )
+        except Exception as narr_exc:  # noqa: BLE001
+            logger.warning(
+                "LLM narratives generation failed, using fallbacks",
+                extra={"run_id": run_id, "error": str(narr_exc)},
+            )
+
+        logger.info(
+            "FactBundle built for Word report",
+            extra={
+                "run_id": run_id,
+                "deal_id": deal_id,
+                "totals": fact_bundle.totals,
+                "global_checks_count": len(fact_bundle.global_checks.by_check),
+                "doc_type_groups_count": len(fact_bundle.doc_type_checks.by_doc_type),
+                "requests_count": len(fact_bundle.requests),
+                "extracted_values_count": len(fact_bundle.extracted_values),
+            },
+        )
+
+        # 5.1. Word report rendering.
+        #
+        #      Используем новый v2 path (report_sections_v2.build_report_docx_v2),
+        #      который собирает Big4-структуру из FactBundle:
+        #      Definitions / Purpose / Terms / Key Findings / Detailed Report /
+        #      Extracted Values / Appendix A/B/C.
+        #
+        #      Fallback: если v2 падает — откатываемся на v1 (build_report_docx),
+        #      чтобы не терять функциональность.
+        report_bytes: bytes
+        try:
+            from services.export.report_sections_v2 import build_report_docx_v2
+
+            report_bytes = build_report_docx_v2(
+                fact_bundle=fact_bundle,
+                narratives=narratives,   # ← было None
+                style="corporate_blue",
+            )
+            logger.info(
+                "DD Report v2 built successfully",
+                run_id=run_id,
+                deal_id=deal_id,
+                size_bytes=len(report_bytes),
+            )
+        except Exception as v2_exc:  # noqa: BLE001
+            logger.error(
+                "DD Report v2 failed, falling back to v1",
+                run_id=run_id,
+                deal_id=deal_id,
+                error=str(v2_exc),
+                exc_info=True,
+            )
+            # Fallback на v1
+            report_bytes = build_report_docx(
+                check_results=check_results,
+                documents=documents,
+                checks_by_id=checks_by_id,
+                deal_name=deal_name,
+                run_id=run_id,
+                playbook_version=playbook_version_str,
+                playbook_profile=playbook_profile_str,
+                environment_hash=env_hash_str,
+                checks_mode=checks_mode_str,
+                pipeline_strategy=pipeline_strategy_str,
+                locale=locale,
+            )
         refs["report"] = store.save_export_artifact(
             tenant_id=tenant_id,
             deal_id=deal_id,

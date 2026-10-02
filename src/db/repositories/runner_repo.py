@@ -245,6 +245,9 @@ class RunnerRepository:
                     getattr(d, "classification_requires_review", False) or False
                 ),
                 "applicable_triggers": d.applicable_triggers or [],
+                "language": d.language or (
+                    d.detected_languages[0] if d.detected_languages else ""
+                ),
             }
         return docs_dict
 
