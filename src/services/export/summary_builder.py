@@ -33,6 +33,7 @@ from engine.playbook.models import CheckDefinition
 from services.dd_request_rules import should_trigger_dd_request
 from services.dd_request_composer import compose_dd_request
 
+from engine.checks.result_semantics import get_display_clause_ref
 logger = get_logger(__name__)
 
 _FONT_HEADER = Font(bold=True, size=11)
@@ -152,7 +153,9 @@ def _get_top_risks(
             "severity": cr.get("severity", "medium"),
             "document_name": doc_info.get("name", t_export("fallback.unknown", locale)),
             "doc_type": doc_info.get("doc_type", t_export("fallback.generic", locale)),
-            "clause_uid": cr.get("clause_uid", ""),
+            "clause_uid": get_display_clause_ref(
+                cr.get("result", ""), cr.get("clause_uid", "")
+            ),
             "page": cr.get("page"),
             "evidence_snippet": (cr.get("display_text") or cr.get("value_text", ""))[:200],
             "structured_data": cr.get("structured_data") or {},

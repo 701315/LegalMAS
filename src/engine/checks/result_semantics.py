@@ -530,6 +530,40 @@ def get_field_config(check: Any | None, field_name: str) -> Any | None:
     return _find_extraction_field_config(check, field_name)
 
 
+def get_display_clause_ref(result: str, clause_uid: str) -> str:
+    """
+    Clause-ссылка для отображения в отчётах и экспортах.
+
+    Контекст:
+        В БД `clause_uid` хранит reference из playbook — «где искали».
+        При result ∈ {missing_required_cla, missing_required_clause}
+        этот reference НЕ является фактической локацией находки.
+        Показывать его пользователю — вводить в заблуждение.
+
+    Правила:
+        - result ∈ {"missing_required_cla", "missing_required_clause"} → ""
+        - result = None / "" → clause_uid (legacy, не нормализуем)
+        - иначе → clause_uid
+
+    Применение:
+        Все клиентские экспорты (Word v1/v2, DD Grid Excel, Summary Excel)
+        должны использовать эту функцию, чтобы данные были согласованы
+        между форматами.
+
+    Args:
+        result: код результата проверки из CheckResult.result.
+        clause_uid: reference из CheckResult.clause_uid.
+
+    Returns:
+        Отображаемая clause-ссылка, либо пустая строка.
+    """
+    if not clause_uid:
+        return ""
+    if result in ("missing_required_cla", "missing_required_clause"):
+        return ""
+    return clause_uid
+
+
 def is_field_fallback_value(check: Any | None, field_name: str, value: Any) -> bool:
     """
     Public API: True if value matches one of ExtractionFieldConfig.fallback_texts.

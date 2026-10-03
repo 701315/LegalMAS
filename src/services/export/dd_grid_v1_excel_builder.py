@@ -36,6 +36,7 @@ from core.logging import get_logger
 from engine.playbook.models import CheckDefinition
 from services.dd_grid_v1_builder import DDGridV1Data
 
+from engine.checks.result_semantics import get_display_clause_ref
 logger = get_logger(__name__)
 
 
@@ -730,7 +731,9 @@ def _build_extracted_values_sheet(
                 "field_value": display_value,
                 "field_format": _infer_field_format(field_name, display_value),
                 "page": cr.get("page"),
-                "clause_uid": cr.get("clause_uid", ""),
+                "clause_uid": get_display_clause_ref(
+                    cr.get("result", ""), cr.get("clause_uid", "")
+                ),
             })
 
     for row_idx, row in enumerate(extracted_rows, 2):

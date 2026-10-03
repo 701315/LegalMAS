@@ -42,6 +42,7 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
 
+from engine.checks.result_semantics import get_display_clause_ref
 from services.export.fact_bundle import (
     FactBundle,
     GlobalChecksFacts,
@@ -543,6 +544,30 @@ def _append_field(paragraph, field_code: str) -> None:
 # ---------------------------------------------------------------------------
 
 
+
+
+def _set_table_header_repeat(table) -> None:
+    """
+    Пометить первую строку таблицы как повторяющуюся шапку.
+
+    Word будет повторять её на каждой новой странице, куда попадает
+    таблица. Критично для длинных таблиц (4.1, 4.2, 5.x, Appendix A).
+
+    См. w:tblHeader в OOXML.
+    """
+    if not table.rows:
+        return
+    first_row = table.rows[0]
+    tr = first_row._tr
+    trPr = tr.get_or_add_trPr()
+    # Убираем старый, если есть (идемпотентно)
+    for old_el in trPr.findall(qn("w:tblHeader")):
+        trPr.remove(old_el)
+    tblHeader = OxmlElement("w:tblHeader")
+    tblHeader.set(qn("w:val"), "true")
+    trPr.append(tblHeader)
+
+
 def _style_table_header(table) -> None:
     """Полужирный шрифт в первой строке таблицы."""
     for cell in table.rows[0].cells:
@@ -1015,6 +1040,7 @@ def _add_overall_summary(
         cells[2].text = str(value)
 
     _style_table_header(table)
+    _set_table_header_repeat(table)
 
     # Assessment sentence
     doc.add_paragraph("")
@@ -1108,6 +1134,7 @@ def _add_manual_review_section(
         cells[4].text = _humanize_clause(cr.get("clause_uid", ""))
 
     _style_table_header(table)
+    _set_table_header_repeat(table)
 
 
 # ---------------------------------------------------------------------------
@@ -1334,13 +1361,17 @@ def _add_detailed_report_global(
         cells[1].text = _safe_text(cr.get("_document_name", ""), 50)
         cells[2].text = _humanize_value(cr.get("result", ""), fb.meta.locale)
         cells[3].text = _humanize_value(cr.get("severity", ""), fb.meta.locale)
-        cells[4].text = _humanize_clause(cr.get("clause_uid", ""), fb.meta.locale)
+        _clause = get_display_clause_ref(
+            cr.get("result", ""), cr.get("clause_uid", "")
+        )
+        cells[4].text = _humanize_clause(_clause, fb.meta.locale)
         cells[5].text = _safe_text(
             cr.get("review_message") or cr.get("display_text", ""),
             350,
         )
 
     _style_table_header(table)
+    _set_table_header_repeat(table)
 
 
 def _is_issue_row(row: dict) -> bool:
@@ -1418,13 +1449,17 @@ def _add_detailed_report_doctype(
             cells[1].text = _safe_text(cr.get("_document_name", ""), 50)
             cells[2].text = _humanize_value(cr.get("result", ""), fb.meta.locale)
             cells[3].text = _humanize_value(cr.get("severity", ""), fb.meta.locale)
-            cells[4].text = _humanize_clause(cr.get("clause_uid", ""), fb.meta.locale)
+            _clause = get_display_clause_ref(
+                cr.get("result", ""), cr.get("clause_uid", "")
+            )
+            cells[4].text = _humanize_clause(_clause, fb.meta.locale)
             cells[5].text = _safe_text(
                 cr.get("review_message") or cr.get("display_text", ""),
                 350,
             )
 
         _style_table_header(table)
+        _set_table_header_repeat(table)
 
 # ---------------------------------------------------------------------------
 # SECTION: Extracted Values (Landscape)
@@ -1577,6 +1612,7 @@ def _render_extracted_table(
         cells[3].text = _safe_text(" / ".join(loc_parts), 60)
 
     _style_table_header(table)
+    _set_table_header_repeat(table)
 
 
 # ---------------------------------------------------------------------------
@@ -1646,6 +1682,7 @@ def _add_appendix_requests(
         cells[5].text = _safe_text(", ".join(docs), 200)
 
     _style_table_header(table)
+    _set_table_header_repeat(table)
 
 
 # ---------------------------------------------------------------------------
@@ -1770,6 +1807,7 @@ def _add_appendix_documents(doc: Document, fb: FactBundle) -> None:
         cells[5].text = f"{conf:.2f}" if conf else ""
 
     _style_table_header(table)
+    _set_table_header_repeat(table)
 
 
 # ---------------------------------------------------------------------------
