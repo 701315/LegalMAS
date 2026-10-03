@@ -796,6 +796,27 @@ def _humanize_language(lang: str, locale: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+
+
+def _enable_update_fields_on_open(doc: Document) -> None:
+    """
+    Включить обновление полей (включая TOC) при открытии документа Word.
+
+    Добавляет <w:updateFields w:val="true"/> в word/settings.xml.
+    Word при открытии покажет диалог «Обновить поля?» — после «Да»
+    TOC и другие поля (page numbers) обновятся автоматически.
+
+    Это стандартный OOXML-механизм, работает во всех версиях Word.
+    """
+    settings = doc.settings.element
+    # Убираем старый, если есть (идемпотентно)
+    for el in settings.findall(qn("w:updateFields")):
+        settings.remove(el)
+    update_fields = OxmlElement("w:updateFields")
+    update_fields.set(qn("w:val"), "true")
+    settings.append(update_fields)
+
+
 def _add_toc(doc: Document) -> None:
     """Добавляет автообновляемое поле TOC."""
     doc.add_heading("Table of Contents", level=1)
@@ -1894,6 +1915,9 @@ def build_report_docx_v2(
 
     # ---------- Header / Footer на все секции ----------
     _apply_headers_footers(doc, fact_bundle)
+
+    # ---------- Update fields on open (TOC, page numbers) ----------
+    _enable_update_fields_on_open(doc)
 
     # ---------- Save ----------
     output = io.BytesIO()
