@@ -143,10 +143,17 @@ def compute_element_offsets_for_normalized_text(
     sub-chunk text, offsets сразу в его координатах.
 
     Returns:
-        ([(element_id, start, end), ...], ok)
-        ok = True если ВСЕ непустые элементы найдены в порядке документа.
-        ok = False если хотя бы один не найден - caller должен
-        отказаться от element_spans для этого чанка.
+        ([(element_id, start, end), ...], all_found)
+        offsets содержит только НАЙДЕННЫЕ элементы (в порядке _seq).
+        all_found = True если ВСЕ непустые элементы найдены.
+
+    Семантика all_found различается для двух сценариев:
+      - leaf.text: ожидаем all_found=True. Если False - данные битые,
+        caller должен отказаться от element_spans.
+      - subtext (sub-chunk): all_found может быть False (subtext содержит
+        только часть элементов). offsets для найденных элементов корректны.
+
+    Не bail при первом ненайденном - продолжаем поиск до конца.
     """
     sorted_els = sorted(
         [el for el in layout_elements if el.get("element_id")],
@@ -155,6 +162,7 @@ def compute_element_offsets_for_normalized_text(
 
     offsets: list[tuple[str, int, int]] = []
     cursor = 0
+    all_found = True
     for el in sorted_els:
         eid = el.get("element_id")
         if not eid:
@@ -164,8 +172,9 @@ def compute_element_offsets_for_normalized_text(
             continue
         pos = source_text.find(el_text_norm, cursor)
         if pos < 0:
-            return [], False
+            all_found = False
+            continue
         offsets.append((str(eid), pos, pos + len(el_text_norm)))
         cursor = pos + len(el_text_norm)
 
-    return offsets, True
+    return offsets, all_found

@@ -75,15 +75,35 @@ def test_post_normalize_page_boundary_collapsed_to_two_newlines():
     assert offsets == [("el_1", 0, 7), ("el_2", 9, 26)]
 
 
-def test_post_normalize_element_not_found():
+def test_post_normalize_partial_match_keeps_found_offsets():
+    """Пропущенные элементы не bail'ят - offsets найденных сохраняются."""
     els = [
         {"element_id": "el_1", "text": "ДОГОВОР", "page": 1, "_seq": 0},
         {"element_id": "el_2", "text": "ОТСУТСТВУЕТ", "page": 1, "_seq": 1},
+        {"element_id": "el_3", "text": "Между ООО Ромашка", "page": 1, "_seq": 2},
     ]
     src = "ДОГОВОР\n\nМежду ООО Ромашка"
-    offsets, ok = compute_element_offsets_for_normalized_text(els, src)
-    assert ok is False
-    assert offsets == []
+    offsets, all_found = compute_element_offsets_for_normalized_text(els, src)
+    assert all_found is False
+    # el_1 и el_3 найдены, el_2 пропущен
+    assert [eid for eid, _, _ in offsets] == ["el_1", "el_3"]
+
+
+def test_post_normalize_subchunk_scenario():
+    """
+    Sub-chunk содержит только первые 2 из 3 элементов leaf'а.
+    all_found=False, но offsets корректны для найденных.
+    """
+    els = [
+        {"element_id": "el_1", "text": "ДОГОВОР", "page": 1, "_seq": 0},
+        {"element_id": "el_2", "text": "Между", "page": 1, "_seq": 1},
+        {"element_id": "el_3", "text": "Ромашка", "page": 1, "_seq": 2},
+    ]
+    # subtext содержит только el_1 и el_2
+    src = "ДОГОВОР\n\nМежду"
+    offsets, all_found = compute_element_offsets_for_normalized_text(els, src)
+    assert all_found is False
+    assert offsets == [("el_1", 0, 7), ("el_2", 9, 14)]
 
 
 def test_post_normalize_duplicate_text_uses_cursor():
