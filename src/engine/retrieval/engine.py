@@ -428,8 +428,30 @@ class RetrievalEngine:
             + settings.RUNNER_METADATA_WEIGHT * meta_norm
         )
 
-        # Top-K по комбинированному score
-        idx = np.argsort(-scores)[:top_k]
+        # ── Hard filter: excluded_unit_types ────────────────────────────
+        # Soft penalty в _compute_metadata_scores недостаточен: после
+        # min-max нормализации и weighted sum исключённый chunk с малым
+        # corpus может остаться в top-K. Hard filter до top-K гарантирует
+        # семантически корректное поведение: excluded — значит исключён.
+        if self.excluded_unit_types_lower:
+            _allowed: list[int] = []
+            for i in range(len(self.chunks)):
+                meta = self.chunks[i].get("metadata") or {}
+                ut = str(meta.get("unit_type") or "").strip().lower()
+                ut = ut.replace("-", "_").replace(" ", "_")
+                if ut and ut in self.excluded_unit_types_lower:
+                    continue
+                _allowed.append(i)
+        else:
+            _allowed = list(range(len(self.chunks)))
+
+        # Top-K по комбинированному score среди allowed.
+        if _allowed:
+            _allowed_scores = scores[_allowed]
+            _sorted_local = np.argsort(-_allowed_scores)[:top_k]
+            idx = np.array([_allowed[j] for j in _sorted_local], dtype=int)
+        else:
+            idx = np.array([], dtype=int)
 
         result: list[dict] = []
         for i in idx:

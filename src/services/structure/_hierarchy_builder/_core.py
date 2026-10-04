@@ -1243,6 +1243,7 @@ def _build_synthetic_preamble_node_from_run(
         node_origin="synthetic_preamble",
         content_mode="full_text",
         citability="high",
+        semantic_node_type="preamble",
         own_element_ids=list(own_element_ids),
         subtree_element_ids=list(own_element_ids),
         own_text=own_text,

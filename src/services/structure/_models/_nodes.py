@@ -214,6 +214,11 @@ class MutableHierarchyNode:
     content_mode: str = "full_text"
     citability: str = "low"
 
+    # B3.5/Gap3: semantic_node_type как явное поле модели (не только в diagnostics).
+    # До этого fix значение хранилось только в diagnostics dict и не доходило
+    # до legal_unit_builder.
+    semantic_node_type: str | None = None
+
     own_element_ids: list[str] = field(default_factory=list)
     subtree_element_ids: list[str] = field(default_factory=list)
     own_text: str | None = None
@@ -254,6 +259,7 @@ class MutableHierarchyNode:
 
         self.children = _ensure_mutable_nodes(self.children, "MutableHierarchyNode.children")
         self.range_end_reason = _normalize_range_end_reason(self.range_end_reason)
+        self.semantic_node_type = _norm_opt_str(self.semantic_node_type)
         self.diagnostics = _ensure_dict(self.diagnostics, "MutableHierarchyNode.diagnostics")
 
         inferred_scope, inferred_raw_uid = split_effective_uid(self.effective_uid)
@@ -347,6 +353,9 @@ class FrozenHierarchyNode:
     content_mode: str = "full_text"
     citability: str = "low"
 
+    # B3.5/Gap3: см. комментарий в MutableHierarchyNode.semantic_node_type.
+    semantic_node_type: str | None = None
+
     own_element_ids: tuple[str, ...] = ()
     subtree_element_ids: tuple[str, ...] = ()
     own_text: str | None = None
@@ -384,6 +393,7 @@ class FrozenHierarchyNode:
         end_page = _normalize_positive_int(self.end_page, "FrozenHierarchyNode.end_page")
         children = _ensure_frozen_nodes(self.children, "FrozenHierarchyNode.children")
         range_end_reason = _normalize_range_end_reason(self.range_end_reason)
+        semantic_node_type = _norm_opt_str(self.semantic_node_type)
         diagnostics_dict = _ensure_dict(self.diagnostics, "FrozenHierarchyNode.diagnostics")
 
         inferred_scope, inferred_raw_uid = split_effective_uid(effective_uid)
@@ -448,6 +458,7 @@ class FrozenHierarchyNode:
         object.__setattr__(self, "end_page", end_page)
         object.__setattr__(self, "children", children)
         object.__setattr__(self, "range_end_reason", range_end_reason)
+        object.__setattr__(self, "semantic_node_type", semantic_node_type)
         object.__setattr__(self, "diagnostics", MappingProxyType(dict(diagnostics_dict)))
 
     def to_dict(self) -> dict[str, Any]:
@@ -469,6 +480,7 @@ class FrozenHierarchyNode:
             "start_page": self.start_page,
             "end_page": self.end_page,
             "range_end_reason": self.range_end_reason,
+            "semantic_node_type": self.semantic_node_type,
             "diagnostics": dict(self.diagnostics),
             "children": [child.to_dict() for child in self.children],
         }
@@ -561,6 +573,7 @@ def _freeze_node(
             node_origin=node.node_origin,
             content_mode=node.content_mode,
             citability=node.citability,
+            semantic_node_type=node.semantic_node_type,
             own_element_ids=tuple(node.own_element_ids),
             subtree_element_ids=tuple(node.subtree_element_ids),
             own_text=node.own_text,
