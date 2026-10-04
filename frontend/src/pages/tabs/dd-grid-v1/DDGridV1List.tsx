@@ -936,8 +936,11 @@ export const DDGridV1List: React.FC<DDGridV1ListProps> = ({
             e.stopPropagation();
 
             if (row.drawerContent) {
-              // B5 fix: не первый field, а field с самым точным location.
               // Приоритет: per_field → clause_uid/page → [0].
+              // per_field — точный anchor от LLM (verified).
+              // canonical_check — reference, который может указывать
+              // на правильный пункт при сопоставлении с sizedChunks
+              // (chunk-level fallback в viewer).
               const fields = row.drawerContent.fields ?? [];
               const bestField =
                 fields.find((f) => f.location_source === "per_field") ??
@@ -949,6 +952,7 @@ export const DDGridV1List: React.FC<DDGridV1ListProps> = ({
                   documentId: row.v1Row.documentId,
                   page: bestField.location_page ?? undefined,
                   clauseUid: bestField.location_clause_uid ?? undefined,
+                  clauseRef: bestField.location_clause_ref ?? undefined,
                   elementId: undefined,
                   segmentId: undefined,
                   chunkId: undefined,

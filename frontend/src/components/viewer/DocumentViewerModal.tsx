@@ -36,6 +36,9 @@ export interface SizedChunkMeta {
   id: string;
   elementIds: string[];
   clauseUids: string[];
+  // Human-readable number, e.g. "6.3" / "1" — fallback match
+  // when clauseUid is missing (per_field LLM не возвращает uid).
+  rawUids: string[];
 }
 
 interface DocumentViewerModalProps {
@@ -442,6 +445,56 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
   // напрямую, даже без chunkIndex. Пусто → fallback на chunk-bbox.
   const anchorTargetElementIds = new Set(location?.layoutElementIds ?? []);
 
+  // ── Chunk-level fallback по clauseUid ────────────────────────────────
+  // Backend anchor (layoutElementIds) для canonical_check указывает на
+  // элементы сегмента («где искали», обычно не на целевом пункте).
+  // Реальное место находки можно восстановить через sizedChunks:
+  // clauseUid ↔ chunk.clauseUids → chunk.elementIds (точные элементы).
+  //
+  // Проверено на liability_sanctions:
+  //   clause_uid = 'main_contract:6.3'
+  //   chunk.main_contract:6.3 → element_ids на page 4
+  //   backend anchor → element на page 5 (неверно)
+  //
+  // Fallback не влияет на per_field случаи — они уже работают через
+  // layoutElementIds.
+  const clauseFallbackElementIds = (() => {
+    if (!sizedChunks?.length) return null;
+    const ids = new Set<string>();
+
+    // Приоритет 1: exact clauseUid match.
+    const clauseUid = location?.clauseUid;
+    if (clauseUid) {
+      for (const chunk of sizedChunks) {
+        if (chunk.clauseUids?.includes(clauseUid)) {
+          (chunk.elementIds ?? []).forEach((id) => ids.add(id));
+        }
+      }
+    }
+
+    // Приоритет 2: extract number from clauseRef ("п. 1" / "cl. 6.3")
+    // → match chunk.rawUids. Используется когда per_field LLM вернула
+    // только clause_ref без clause_uid (top-level uid = retrieval rank-0,
+    // не место находки).
+    if (ids.size === 0) {
+      const ref = location?.clauseRef;
+      if (ref) {
+        const num = ref
+          .replace(/^(cl\.|п\.|clause\s+|section\s+)\s*/i, "")
+          .trim();
+        if (num) {
+          for (const chunk of sizedChunks) {
+            if (chunk.rawUids?.includes(num)) {
+              (chunk.elementIds ?? []).forEach((id) => ids.add(id));
+            }
+          }
+        }
+      }
+    }
+
+    return ids.size > 0 ? ids : null;
+  })();
+
   const overlaysForPage = (pageNum: number) => {
     if (!layoutElements || layoutElements.length === 0) return [];
     return layoutElements
@@ -449,7 +502,10 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
       .map((el) => ({
         bbox: el.bbox,
         chunkIndex: elementToChunkIndex.get(el.elementId) ?? null,
-        isAnchorTarget: anchorTargetElementIds.has(el.elementId),
+        // Приоритет: backend anchor → chunk-level fallback по clauseUid.
+        isAnchorTarget:
+          anchorTargetElementIds.has(el.elementId) ||
+          (clauseFallbackElementIds?.has(el.elementId) ?? false),
       }));
   };
 
@@ -627,20 +683,18 @@ const DocumentViewerModal: React.FC<DocumentViewerModalProps> = ({
                               const y = top * scaleX;
                               const height = (bottom - top) * scaleX;
 
-                              const isEven = (ov.chunkIndex ?? 0) % 2 === 0;
                               const isActive =
                                 activeChunkIndex >= 0 &&
                                 ov.chunkIndex === activeChunkIndex;
 
-                              // B5: anchor target — максимальный
-                              // визуальный приоритет.
+                              // Только anchor или active chunk. Декоративная
+                              // полосатость chunks убрана: пользователь принимал
+                              // её за подсветку anchor'а.
                               const bgClass = ov.isAnchorTarget
                                 ? "bg-[var(--accent-primary)]/28 ring-2 ring-[var(--accent-primary)]"
                                 : isActive
                                   ? "bg-[var(--accent-primary)]/18 ring-2 ring-[var(--accent-primary)]/80"
-                                  : isEven
-                                    ? "bg-white/55"
-                                    : "bg-black/8";
+                                  : "";
 
                               return (
                                 <div

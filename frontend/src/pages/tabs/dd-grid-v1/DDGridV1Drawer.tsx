@@ -220,10 +220,17 @@ function buildViewerPayload(
       : undefined;
   const anchorStale = raw.anchor_stale || undefined;
 
+  const clauseRef =
+    typeof raw.location_clause_ref === "string" &&
+    raw.location_clause_ref.trim().length > 0
+      ? raw.location_clause_ref.trim()
+      : undefined;
+
   return {
     documentId,
     page: explicitPage,
     clauseUid,
+    clauseRef,
     elementId: undefined,
     segmentId: undefined,
     chunkId: undefined,

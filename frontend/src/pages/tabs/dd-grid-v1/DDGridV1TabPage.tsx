@@ -172,6 +172,9 @@ function parseSizedChunks(payload: unknown): SizedChunkMeta[] | undefined {
       clauseUids: Array.isArray(chunk.clause_uids)
         ? chunk.clause_uids.map(String)
         : [],
+      rawUids: Array.isArray(chunk.raw_uids)
+        ? chunk.raw_uids.map(String)
+        : [],
     }))
     .filter((chunk) => chunk.id.length > 0);
 }

@@ -1354,38 +1354,78 @@ def _build_cell_value(
             location_confidence=None,
         )
 
-    # Есть результат — единый путь через resolve + format.
-    # If read-side presentation overlay provided localized_structured_data,
-    # replace only free-text values and keep location/qc metadata intact.
-    structured_data = _merge_localized_structured_data(
-        check.id,
-        check_result.get("structured_data"),
-        check_result.get("localized_structured_data"),
+    # ─────────────────────────────────────────────────────────────────
+    # Semantic layer (canonical) — источник истины для cell_state /
+    # location / fallback detection. НЕ зависит от output_locale.
+    #
+    # RATIONALE:
+    #   _resolve_cell_state опирается на _is_missing_value,
+    #   _NOT_DEFINED_STATUS_VALUES, _is_field_fallback_value — все
+    #   эти правила работают на canonical (RU) значениях.
+    #   После overlay localized_structured_data значения становятся
+    #   EN ("Not set", "Not applicable"), и семантические проверки
+    #   перестают распознавать absence → ложное defined → fallback
+    #   на top-level anchor (misleading location).
+    #
+    #   Чтобы это работало для ЛЮБОГО языка overlay — semantic
+    #   checks всегда выполняются на canonical payload.
+    # ─────────────────────────────────────────────────────────────────
+    canonical_sd = _normalize_structured_data(
+        check.id, check_result.get("structured_data"),
     )
-
-    value_payload = _extract_field_payload(structured_data, column.value_field)
-    status_payload = _extract_field_payload(structured_data, column.status_field)
-
-    raw_value = _extract_raw_value(value_payload)
-    status_field_value = _extract_raw_value(status_payload)
+    canonical_value_payload = _extract_field_payload(
+        canonical_sd, column.value_field,
+    )
+    canonical_status_payload = _extract_field_payload(
+        canonical_sd, column.status_field,
+    )
+    canonical_raw_value = _extract_raw_value(canonical_value_payload)
+    canonical_status_value = _extract_raw_value(canonical_status_payload)
 
     if column.format == "presence_only":
-        raw_value = status_field_value
+        canonical_raw_value = canonical_status_value
 
     cell_state = _resolve_cell_state(
         check=check,
         check_result=check_result,
         column=column,
-        raw_value=raw_value,
-        status_field_value=status_field_value,
+        raw_value=canonical_raw_value,
+        status_field_value=canonical_status_value,
     )
+
+    # ─────────────────────────────────────────────────────────────────
+    # Display layer (localized) — используется ТОЛЬКО для рендера
+    # display_value. Overlay переводит free-text значения на язык
+    # пользователя, но не влияет на семантику.
+    # ─────────────────────────────────────────────────────────────────
+    localized_sd = _merge_localized_structured_data(
+        check.id,
+        check_result.get("structured_data"),
+        check_result.get("localized_structured_data"),
+    )
+    localized_value_payload = _extract_field_payload(
+        localized_sd, column.value_field,
+    )
+    localized_status_payload = _extract_field_payload(
+        localized_sd, column.status_field,
+    )
+    localized_raw_value = _extract_raw_value(localized_value_payload)
+    if column.format == "presence_only":
+        localized_raw_value = _extract_raw_value(localized_status_payload)
 
     display_value = _format_display_value(
         cell_state=cell_state,
-        raw_value=raw_value,
+        raw_value=localized_raw_value,
         column=column,
         localization_map=localization_map,
     )
+
+    # raw_value в DTO — canonical для semantics (совместимость с UI-логикой,
+    # где raw_value используется как reference value, а не display).
+    raw_value = canonical_raw_value
+    status_field_value = canonical_status_value
+    value_payload = canonical_value_payload
+    status_payload = canonical_status_payload
 
     # Canonical clause_uid из CheckResult (post-B0.2). Один extractor,
     # доступен всем fallback'ам и финальному return.
@@ -1507,6 +1547,20 @@ def _build_cell_value(
             location_confidence = location_confidence or "medium"
             location_source = "canonical_check"
 
+    # ── Per-field uid нормализация ──────────────────────────────────────
+    # При location_source == "per_field" top-level CheckResult.clause_uid
+    # указывает на retrieval rank-0 («где искали»), а не на место находки
+    # («где нашли»). LLM возвращает per-field location только с clause_ref
+    # (без clause_uid) — поэтому используем per-field uid, если он есть,
+    # иначе None. UI сматчит по clause_ref через chunk.rawUids.
+    if location_source == "per_field":
+        _pf_uid: str | None = None
+        if isinstance(value_payload, dict):
+            _pf_loc = value_payload.get("location")
+            if isinstance(_pf_loc, dict):
+                _pf_uid = _safe_str_or_none(_pf_loc.get("clause_uid"))
+        location_clause_uid = _pf_uid
+
     (
         location_clause_ref,
         location_page,
@@ -1547,7 +1601,7 @@ def _build_cell_value(
         top_risk_field,
         top_risk_value,
         top_risk_display,
-    ) = _compute_cell_risk(check, structured_data)
+    ) = _compute_cell_risk(check, canonical_sd)
 
     return CellValueDTO(
         cell_state=cell_state,

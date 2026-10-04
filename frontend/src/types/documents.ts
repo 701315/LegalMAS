@@ -273,6 +273,10 @@ export type OpenViewerAtPayload = {
   documentId: string;
   page?: number;
   clauseUid?: string;
+  // Human-readable clause reference ("п. 1", "cl. 6.3").
+  // Fallback для viewer: если clauseUid не совпал с chunk.clauseUids,
+  // извлекаем номер и матчим chunk.rawUids.
+  clauseRef?: string;
   elementId?: string;
 
   segmentId?: string;
