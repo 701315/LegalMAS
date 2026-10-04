@@ -38,6 +38,9 @@ LegalUnitBuilder — построение semantic layer LegalUnit поверх 
 from __future__ import annotations
 
 import re
+from engine.content.element_offsets import (
+    compute_element_offsets_for_normalized_text,
+)
 import uuid
 from typing import Any
 
@@ -1543,6 +1546,36 @@ class LegalUnitBuilder:
             else:
                 retrieval_text = exact_text
 
+        # ── B3.5: element_spans в координатах chunk["text"] ─────────────
+        # chunk["text"] для legal_unit = retrieval_text (или exact_text,
+        # если context_prefix пуст). Offsets считаем против этого текста —
+        # это то, что увидит retrieval и extraction.
+        element_spans: list[list[Any]] = []
+        offsets_source = retrieval_text or exact_text
+        if element_index is not None and own_element_ids and offsets_source:
+            _layout_elements: list[dict[str, Any]] = []
+            for _eid in own_element_ids:
+                _info = element_index.get(_eid)
+                if not isinstance(_info, dict):
+                    continue
+                _layout_elements.append(
+                    {
+                        "element_id": _eid,
+                        "text": _info.get("text") or "",
+                        "page": _info.get("page"),
+                        "_seq": int(_info.get("_seq", 0)),
+                    }
+                )
+            if _layout_elements:
+                _offsets, _all_found = compute_element_offsets_for_normalized_text(
+                    _layout_elements, offsets_source,
+                )
+                if _offsets:
+                    for _eid, _start, _end in _offsets:
+                        _info = element_index.get(_eid)
+                        _page = _info.get("page") if isinstance(_info, dict) else None
+                        element_spans.append([_eid, _page, _start, _end])
+
         heading_text = semantic_title or title or None
         source_element_ids = list(own_element_ids)
         path_ids = current_path_ids + ([effective_uid] if effective_uid else [])
@@ -1622,6 +1655,7 @@ class LegalUnitBuilder:
             path_ids=path_ids,
             source_element_ids=source_element_ids,
             heading_text=heading_text,
+            element_spans=element_spans,
 
             diagnostics={
                 "unit_type_source": (
@@ -1641,6 +1675,7 @@ class LegalUnitBuilder:
                 "has_exact_text": exact_text is not None,
                 "has_retrieval_text": retrieval_text is not None,
                 "has_context_prefix": context_prefix is not None,
+                "has_element_spans": bool(element_spans),
             },
         )
 

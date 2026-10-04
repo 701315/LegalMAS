@@ -347,6 +347,9 @@ def build_retrieval_units_from_legal_units(
             "start_page": page_start,
             "end_page": page_end,
             "element_ids": element_ids,
+            # B3.5: element_spans из LegalUnit (в координатах chunk["text"]).
+            # Используется extraction Priority 0 через owner-chunk в chunk_map.
+            "element_spans": list(getattr(unit, "element_spans", []) or []),
             "token_count": count_tokens(text),
             "segment_id": snapshot_segment_id,
             "segment_type": snapshot_segment_type,

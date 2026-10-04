@@ -501,6 +501,11 @@ class LegalUnit:
     source_element_ids: list[str] = field(default_factory=list)
     heading_text: str | None = None
 
+    # B3.5: element_spans = [[element_id, page, start, end], ...] в координатах
+    # retrieval_text (chunk["text"]). Используется в extraction._resolve_field_anchor
+    # для точной локации цитаты (Priority 0).
+    element_spans: list[list[Any]] = field(default_factory=list)
+
 
     @property
     def is_heading_only(self) -> bool:
@@ -551,6 +556,7 @@ class LegalUnit:
             "path_ids": list(self.path_ids),
             "source_element_ids": list(self.source_element_ids),
             "heading_text": self.heading_text,
+            "element_spans": [list(sp) for sp in self.element_spans],
 
             "diagnostics": dict(self.diagnostics),
             "is_heading_only": self.is_heading_only,
@@ -649,7 +655,11 @@ class LegalUnit:
             children_unit_ids=list(raw.get("children_unit_ids") or []),
             path_ids=list(raw.get("path_ids") or []),
             source_element_ids=list(raw.get("source_element_ids") or []),
-            heading_text=raw.get("heading_text") or None,            
+            heading_text=raw.get("heading_text") or None,
+            element_spans=[
+                list(sp) for sp in (raw.get("element_spans") or [])
+                if isinstance(sp, (list, tuple))
+            ],
         )
 
 
