@@ -10,6 +10,9 @@ from core.logging import get_logger
 from engine.content.chunk_ids import build_subclause_chunk_id
 from engine.content.chunking import build_chunk_summary, split_text_to_sized_chunks
 from engine.retrieval.tokenization import count_tokens
+from engine.content.element_offsets import (
+    compute_element_offsets_for_normalized_text,
+)
 
 logger = get_logger(__name__)
 
@@ -345,6 +348,7 @@ def build_sized_chunks_from_leaf(
     max_tokens: int,
     overlap_ratio: float,
     total_pages: int | None = None,
+    element_info_map: dict[str, dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     """
     Строит subclause chunks из leaf chunks.
@@ -353,6 +357,13 @@ def build_sized_chunks_from_leaf(
     через _SUBCLAUSE_PROPAGATED_KEYS вместо жёстко прописанного списка.
     Это гарантирует что downstream видит citability_hint и semantic_node_type
     в каждом subclause chunk без обращения к clause tree.
+
+    B3.5: element_info_map ({element_id: {"text", "page", "_seq", ...}})
+    позволяет построить sub_meta["element_spans"] = [[eid, page, start, end], ...]
+    для каждого sub-chunk. Offsets считаются против финального subtext
+    (post-normalize), что даёт точную локацию цитаты в extraction.
+    Если element_info_map не передан - element_spans не строится
+    (backward compatibility для legacy caller'ов).
     """
     short_clause_max_tokens = int(target_tokens * 0.9)
     long_clause_min_tokens = int(max_tokens * 1.2)
@@ -402,6 +413,45 @@ def build_sized_chunks_from_leaf(
         start_page = metadata.get("start_page")
         end_page = metadata.get("end_page")
         element_ids = [str(e) for e in metadata.get("element_ids") or []]
+
+        # ── B3.5: element-level offsets для точной локации citation ────────
+        # layout_elements_for_leaf - подмножество element_info_map, отвечающее
+        # element_ids этого leaf. _seq берём из info (element_ids могут
+        # приходить в произвольном порядке - сортировка по _seq обязательна).
+        layout_elements_for_leaf: list[dict[str, Any]] = []
+        if element_info_map:
+            for eid in element_ids:
+                info = element_info_map.get(eid)
+                if not isinstance(info, dict):
+                    continue
+                layout_elements_for_leaf.append(
+                    {
+                        "element_id": eid,
+                        "text": info.get("text") or "",
+                        "page": info.get("page"),
+                        "_seq": int(info.get("_seq", 0)),
+                    }
+                )
+
+        # leaf_offsets строится против text (финальный, post-normalize).
+        # all_found=False - значит не все элементы найдены: offset'ы найденных
+        # всё равно корректны и используются (partial match лучше, чем пусто).
+        leaf_offsets: list[tuple[str, int, int]] = []
+        if layout_elements_for_leaf:
+            leaf_offsets, all_found = compute_element_offsets_for_normalized_text(
+                layout_elements_for_leaf, text,
+            )
+            if not all_found:
+                logger.warning(
+                    "chunk_canonicalization: not all elements found in leaf text, "
+                    "using partial element_spans",
+                    extra={
+                        "doc_id": str(doc_id),
+                        "effective_uid": effective_uid,
+                        "found": len(leaf_offsets),
+                        "expected": len(layout_elements_for_leaf),
+                    },
+                )
 
         if "position_ratio" in metadata:
             position_ratio = metadata.get("position_ratio")
@@ -498,6 +548,28 @@ def build_sized_chunks_from_leaf(
             for key in _SUBCLAUSE_PROPAGATED_KEYS:
                 if key in metadata:
                     sub_meta[key] = metadata[key]
+
+            # ── B3.5: element_spans для sub-chunk ─────────────────────────
+            # Offsets пересчитываются против subtext (не переиспользуют
+            # leaf_offsets напрямую), чтобы корректно работать для split'ов.
+            # Для неразбитого leaf'а subtext == text - функция вернёт те же
+            # offset'ы, что и для leaf.
+            if layout_elements_for_leaf:
+                if subtext == text:
+                    sub_offsets = leaf_offsets
+                else:
+                    sub_offsets, _ = compute_element_offsets_for_normalized_text(
+                        layout_elements_for_leaf, subtext,
+                    )
+                if sub_offsets:
+                    element_spans: list[list[Any]] = []
+                    for eid, s, e in sub_offsets:
+                        page = None
+                        if element_info_map:
+                            info = element_info_map.get(eid) or {}
+                            page = info.get("page")
+                        element_spans.append([eid, page, s, e])
+                    sub_meta["element_spans"] = element_spans
 
             sized.append(
                 {
