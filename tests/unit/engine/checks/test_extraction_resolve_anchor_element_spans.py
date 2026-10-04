@@ -1,10 +1,4 @@
-"""Юнит-тест: _resolve_field_anchor использует element_spans для точной page.
-
-ВАЖНО: resolve_quote_in_source имеет минимальную длину quote
-(см. citation_resolver._MIN_QUOTE_LEN). Короткие цитаты ("ДОГОВОР")
-не матчатся, anchor возвращается NONE, и _resolve_field_anchor = None.
-Поэтому все тесты используют quote длиной >= 15 символов.
-"""
+"""Тест: Priority 0 использует element_spans через owner-chunk из chunk_map."""
 from engine.checks.extraction import ExtractionExecutor
 
 
@@ -13,93 +7,89 @@ LONG_SOURCE = "ДОГОВОР КРАТКОСРОЧНОЙ АРЕНДЫ\n\nМеж�
 
 
 class _Dummy(ExtractionExecutor):
-    """ExtractionExecutor без полного __init__ - метод _resolve_field_anchor
-    не использует self."""
-    def __init__(self):  # noqa
+    def __init__(self):
         pass
 
 
-def test_element_spans_overrides_field_page_for_multi_page_chunk():
-    """LLM вернула field_page=1 (start_page чанка), но цитата на стр. 2."""
+def _ctx_with_spans(spans):
+    return {"metadata": {"element_spans": spans}}
+
+
+def test_owner_chunk_uses_element_spans_for_precise_page():
+    """chunk_map содержит один чанк [0:47]; spans на стр.1 и стр.2."""
     ex = _Dummy()
-    element_spans = [
-        ["ru:node:1:0000", 1, 0, 28],
-        ["ru:node:2:0000", 2, 30, 47],
+    spans = [
+        ["el_1", 1, 0, 28],
+        ["el_2", 2, 30, 47],
     ]
+    chunk_map = [(0, 47, _ctx_with_spans(spans), None)]
     anchor = ex._resolve_field_anchor(
         quote=LONG_QUOTE,
         source_text=LONG_SOURCE,
         fallback_clause_uid=None,
         fallback_page=None,
-        element_spans=element_spans,
+        chunk_map=chunk_map,
         field_page=1,
     )
     assert anchor is not None
     assert anchor.page == 2
 
 
-def test_element_spans_exact_single_element_page():
-    """Одна страница, один элемент - обычный случай."""
+def test_owner_chunk_second_in_chain():
+    """Два context'а: anchor попадает во второй; span сдвигается."""
     ex = _Dummy()
-    element_spans = [["el_1", 5, 30, 47]]
+    chunk1_text = "ДОГОВОР КРАТКОСРОЧНОЙ АРЕНДЫ"
+    chunk2_text = "Между ООО Ромашка"
+    full = chunk1_text + "\n\n" + chunk2_text
+
+    chunk1_start = 0
+    chunk1_end = len(chunk1_text)
+    chunk2_start = chunk1_end + 2
+    chunk2_end = chunk2_start + len(chunk2_text)
+
+    spans_c2 = [["el_x", 5, 0, len(chunk2_text)]]
+
+    chunk_map = [
+        (chunk1_start, chunk1_end, {"metadata": {}}, None),
+        (chunk2_start, chunk2_end, _ctx_with_spans(spans_c2), None),
+    ]
+
     anchor = ex._resolve_field_anchor(
         quote=LONG_QUOTE,
-        source_text=LONG_SOURCE,
+        source_text=full,
         fallback_clause_uid=None,
         fallback_page=None,
-        element_spans=element_spans,
-        field_page=None,
+        chunk_map=chunk_map,
+        field_page=1,
     )
     assert anchor is not None
     assert anchor.page == 5
 
 
-def test_element_spans_none_uses_field_page():
-    """Backward compatibility: без element_spans работаем как раньше."""
+def test_no_chunk_map_uses_field_page():
     ex = _Dummy()
     anchor = ex._resolve_field_anchor(
         quote=LONG_QUOTE,
         source_text=LONG_SOURCE,
         fallback_clause_uid=None,
         fallback_page=None,
-        element_spans=None,
+        chunk_map=None,
         field_page=7,
     )
     assert anchor is not None
     assert anchor.page == 7
 
 
-def test_element_spans_empty_list_falls_back_to_field_page():
-    """Пустой список - тоже fallback (не ошибка)."""
+def test_no_element_spans_uses_field_page():
     ex = _Dummy()
+    chunk_map = [(0, 47, {"metadata": {}}, None)]
     anchor = ex._resolve_field_anchor(
         quote=LONG_QUOTE,
         source_text=LONG_SOURCE,
         fallback_clause_uid=None,
         fallback_page=None,
-        element_spans=[],
+        chunk_map=chunk_map,
         field_page=7,
     )
     assert anchor is not None
     assert anchor.page == 7
-
-
-def test_element_spans_malformed_entries_ignored():
-    """Битые записи в element_spans не ломают резолв."""
-    ex = _Dummy()
-    element_spans = [
-        "not-a-list",
-        ["el_1"],  # слишком короткий
-        ["el_2", "not-int", 30, 47],  # page - не int
-        ["el_3", 3, 30, 47],  # валидный
-    ]
-    anchor = ex._resolve_field_anchor(
-        quote=LONG_QUOTE,
-        source_text=LONG_SOURCE,
-        fallback_clause_uid=None,
-        fallback_page=None,
-        element_spans=element_spans,
-        field_page=1,
-    )
-    assert anchor is not None
-    assert anchor.page == 3  # валидный элемент победил
