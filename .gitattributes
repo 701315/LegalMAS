@@ -1,0 +1,38 @@
+# Normalize line endings across the repo.
+# All text files must be committed with LF, regardless of developer OS.
+# This prevents future CRLF/LF mixing issues that were observed in 2026-09.
+
+* text=auto eol=lf
+
+# Explicitly force LF for common text types.
+*.py        text eol=lf
+*.pyi       text eol=lf
+*.yaml      text eol=lf
+*.yml       text eol=lf
+*.json      text eol=lf
+*.toml      text eol=lf
+*.ini       text eol=lf
+*.cfg       text eol=lf
+*.txt       text eol=lf
+*.md        text eol=lf
+*.rst       text eol=lf
+*.sh        text eol=lf
+*.bash      text eol=lf
+*.sql       text eol=lf
+Dockerfile  text eol=lf
+Makefile    text eol=lf
+.gitignore  text eol=lf
+.gitattributes text eol=lf
+
+# Binary — don't touch.
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.ico       binary
+*.pdf       binary
+*.zip       binary
+*.tar.gz    binary
+*.whl       binary
+*.so        binary
+*.pyc       binary
