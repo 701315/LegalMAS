@@ -77,6 +77,7 @@ from engine.checks.instruction_snapshot import (
     build_doc_type_loader,
     freeze_instruction_snapshot,
 )
+from engine.checks.result_saver import save_not_applicable_result
 from db.repositories.playbook_repo import PlaybookRepository
 from db.repositories.result_repo import ResultRepository
 from db.repositories.run_repo import RunRepository
@@ -1079,6 +1080,29 @@ def run_single_check(
                             check_id=check_id,
                             duration_sec=round(duration, 2),
                         )
+
+                        # ── Persist canonical not-applicable result ─────────
+                        try:
+                            await save_not_applicable_result(
+                                repo=result_repo,
+                                run_id=run_uuid,
+                                doc=doc,
+                                check_id=check_id,
+                                playbook_version_id=effective_pb_version_id,
+                                plan_item_id=plan_item_uuid,
+                            )
+                        except CheckResultPersistError:
+                            raise
+                        except Exception:
+                            logger.exception(
+                                "run_single_check: failed to persist "
+                                "not-applicable result (falling back to skipped mark)",
+                                run_id=run_id,
+                                deal_id=deal_id,
+                                doc_id=doc_id,
+                                check_id=check_id,
+                            )
+
                         await plan_item_repo.mark_terminal(plan_item_uuid, "skipped")
                         await _enqueue_finalize_via_outbox(
                             session=uow.session,
@@ -1465,6 +1489,30 @@ def finalize_run_if_ready(
 
             run_snap: RunSnapshot = snapshot_run(run_obj)
 
+            # ── SHORT-CIRCUIT: Защита идемпотентности финализации ─────────
+            # Если Run УЖЕ находится в терминальном статусе (COMPLETED / FAILED),
+            # мы мгновенно выходим без повторного выполнения сайд-эффектов
+            # (генерации резюме, авто-перевода и спама в audit_logs).
+            if run_snap.status in (
+                RunStatus.COMPLETED.value,
+                RunStatus.COMPLETED_WITH_ERRORS.value,
+                RunStatus.FAILED.value,
+            ):
+                logger.info(
+                    "finalize_run_if_ready: run is already terminal, skipping side-effects",
+                    run_id=run_id,
+                    status=run_snap.status,
+                )
+                return {
+                    "status": run_snap.status,
+                    "total_checks": run_snap.total_checks,
+                    "completed_checks": run_snap.completed_checks,
+                    "has_errors": run_snap.has_errors,
+                    "already_terminal": True,
+                }
+
+            initial_status = run_snap.status
+
             progress_stats = await plan_item_repo.get_run_progress_stats(run_uuid)
             terminal_items = int(progress_stats["terminal_items"] or 0)
             total_items = int(progress_stats["total_items"] or 0)
@@ -1492,6 +1540,95 @@ def finalize_run_if_ready(
                     "run_status": run_snap.status,
                 }
 
+
+            # ── PIPELINE COMPLETION GUARD (multi-doc, production) ────────
+            # Защита от race между orchestrator и finalize.
+            #
+            # Проблема: orchestrator создаёт DSE следующей стадии в отдельной
+            # транзакции. count_active_for_run может вернуть 0, пока commit
+            # ещё не произошёл. Проверять Document.status недостаточно —
+            # ENRICHED остаётся навсегда после завершения stage-pipeline.
+            #
+            # Правильная проверка (multi-doc aware):
+            # для КАЖДОГО документа сделки в этом run проверяем:
+            #   - либо статус терминальный (COMPLETED / FAILED / QUARANTINE /
+            #     DUPLICATE / DELETED) — дальше pipeline не работает;
+            #   - либо у документа уже есть plan items в этом run —
+            #     checks запланированы и/или выполняются.
+            # Если хоть один не терминальный документ не имеет ни одного
+            # plan item — postpone.
+            #
+            # Это гарантирует:
+            #   • run закроется только после того, как все документы либо
+            #     прошли через checks, либо терминально упали;
+            #   • параллельная обработка не блокируется — пока doc1 идёт
+            #     по checks, doc2 может строить структуру; guard ждёт doc2;
+            #   • производительность O(N) на любое N документов (один SQL
+            #     с outer join + group by).
+            if run_snap.deal_id is not None:
+                from sqlalchemy import and_, func, select  # noqa: PLC0415
+                from db.models.document import Document as _DocModel  # noqa: PLC0415
+                from db.models.run_check_plan_item import (  # noqa: PLC0415
+                    RunCheckPlanItem as _PlanItemModel,
+                )
+                from core.constants import DocumentStatus as _DocStatus  # noqa: PLC0415
+
+                _TERMINAL_DOC_STATUSES: frozenset[str] = frozenset({
+                    _DocStatus.COMPLETED.value,
+                    _DocStatus.FAILED.value,
+                    _DocStatus.QUARANTINE.value,
+                    _DocStatus.DUPLICATE.value,
+                    _DocStatus.DELETED.value,
+                })
+
+                _docs_stmt = (
+                    select(
+                        _DocModel.id,
+                        _DocModel.status,
+                        func.count(_PlanItemModel.id).label("plan_count"),
+                    )
+                    .select_from(_DocModel)
+                    .outerjoin(
+                        _PlanItemModel,
+                        and_(
+                            _PlanItemModel.document_id == _DocModel.id,
+                            _PlanItemModel.run_id == run_uuid,
+                        ),
+                    )
+                    .where(_DocModel.deal_id == run_snap.deal_id)
+                    .group_by(_DocModel.id, _DocModel.status)
+                )
+                _docs_res = await uow.session.execute(_docs_stmt)
+
+                docs_without_plans: list[str] = []
+                for _doc_id, _doc_status, _plan_count in _docs_res:
+                    if _doc_status in _TERMINAL_DOC_STATUSES:
+                        continue
+                    if int(_plan_count or 0) == 0:
+                        docs_without_plans.append(str(_doc_id))
+
+                if docs_without_plans:
+                    logger.info(
+                        "finalize_run_if_ready: documents still without plan items, postponing",
+                        run_id=run_id,
+                        deal_id=str(run_snap.deal_id),
+                        docs_without_plans_count=len(docs_without_plans),
+                        docs_without_plans_sample=docs_without_plans[:5],
+                        active_stage_executions=active_stage_executions,
+                        terminal_items=terminal_items,
+                        total_items=total_items,
+                        run_status=run_snap.status,
+                    )
+                    return {
+                        "status": "WAITING_FOR_PIPELINE",
+                        "docs_without_plans_count": len(docs_without_plans),
+                        "active_stage_executions": active_stage_executions,
+                        "terminal_items": terminal_items,
+                        "total_items": total_items,
+                        "run_status": run_snap.status,
+                    }
+            # ── КОНЕЦ PIPELINE COMPLETION GUARD ──────────────────────────
+
             updated_run = await run_repo.finalize_run_if_finished(run_uuid)
             if updated_run is None:
                 raise ValueError(f"Run not found during finalize: {run_uuid}")
@@ -1510,10 +1647,16 @@ def finalize_run_if_ready(
                 has_errors=updated_snap.has_errors,
             )
 
-            if updated_snap.status in (
-                RunStatus.COMPLETED.value,
-                RunStatus.COMPLETED_WITH_ERRORS.value,
-                RunStatus.FAILED.value,
+            # ── STATE TRANSITION SIDE-EFFECTS ──────────────────────────────
+            # Сайд-эффекты (Summary, Auto-Translation, Audit Log) выполняются
+            # СТРОГО ЕДИНОЖДЫ — в момент перехода из нетерминального статуса (RUNNING).
+            if (
+                initial_status != updated_snap.status
+                and updated_snap.status in (
+                    RunStatus.COMPLETED.value,
+                    RunStatus.COMPLETED_WITH_ERRORS.value,
+                    RunStatus.FAILED.value,
+                )
             ):
                 if updated_snap.status == RunStatus.COMPLETED.value:
                     action = "ANALYSIS_COMPLETED"
