@@ -36,10 +36,8 @@
 import uuid
 from datetime import UTC, datetime
 
-
 from sqlalchemy import desc, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-
 
 from core.constants import DocumentClassificationOutcome, RunStatus
 from core.logging import get_logger
@@ -48,7 +46,6 @@ from ..models.document import Document
 from ..models.result import CheckResult
 from ..models.run import Job, Run
 from .run_check_plan_item_repo import RunCheckPlanItemRepository
-
 
 logger = get_logger(__name__)
 
@@ -403,6 +400,26 @@ class RunRepository:
         )
 
 
+    async def list_stale_running_runs(
+        self,
+        cutoff: datetime,
+    ) -> list[Run]:
+        """
+        Вернуть runs в статусе 'running', начатые раньше cutoff.
+
+        Используется reap_stale_runs для обнаружения зависших runs.
+        """
+        stmt = (
+            select(Run)
+            .where(
+                Run.status == RunStatus.RUNNING.value,
+                Run.started_at < cutoff,
+            )
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+
     async def mark_run_failed(
         self,
         run_id: uuid.UUID,
@@ -685,6 +702,6 @@ class JobRepository:
         if job:
             await self.session.flush()
         return job
-    
 
-    
+
+
