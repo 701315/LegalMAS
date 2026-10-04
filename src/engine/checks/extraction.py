@@ -241,6 +241,7 @@ class ExtractionExecutor:
         chunk_map: list[tuple[int, int, dict[str, Any], Any]] | None = None,
         field_page: int | None = None,
         field_clause_ref: str | None = None,
+        element_spans: list[list[Any]] | None = None,
     ) -> CheckAnchor | None:
         """
         Построить CheckAnchor из per-field цитаты (B3).
@@ -284,8 +285,48 @@ class ExtractionExecutor:
         #      resolve_quote_in_source, дополнительных действий не требует.
         updates: dict[str, Any] = {}
 
-        # ── Приоритет 1: field_location ──────────────────────────────────
-        if isinstance(field_page, int) and not isinstance(field_page, bool) and field_page >= 1:
+        # ── Приоритет 0 (B3.5): element_spans ─────────────────────────────
+        # Если доступны element_spans (sub_meta["element_spans"] из чанка)
+        # и резолвер нашёл span цитаты — определяем точную страницу по
+        # element'у с максимальным пересечением span'а.
+        # Это точнее, чем field_page от LLM, которая = start_page чанка,
+        # а не страница конкретной цитаты.
+        if (
+            element_spans
+            and anchor.span_start is not None
+            and anchor.span_end is not None
+        ):
+            _best_page: int | None = None
+            _best_overlap = 0
+            for _sp in element_spans:
+                if not isinstance(_sp, (list, tuple)) or len(_sp) < 4:
+                    continue
+                _pg = _sp[1]
+                _s = _sp[2]
+                _e = _sp[3]
+                if (
+                    not isinstance(_pg, int)
+                    or isinstance(_pg, bool)
+                    or _pg < 1
+                    or not isinstance(_s, int)
+                    or not isinstance(_e, int)
+                ):
+                    continue
+                _ov = max(0, min(_e, anchor.span_end) - max(_s, anchor.span_start))
+                if _ov > _best_overlap:
+                    _best_overlap = _ov
+                    _best_page = _pg
+            if _best_page is not None:
+                updates["page"] = _best_page
+
+        # ── Приоритет 1: field_location (fallback) ───────────────────────
+        # Применяется только если element_spans не дали точной страницы.
+        if (
+            "page" not in updates
+            and isinstance(field_page, int)
+            and not isinstance(field_page, bool)
+            and field_page >= 1
+        ):
             updates["page"] = field_page
 
         if field_clause_ref and chunk_map:
@@ -649,6 +690,24 @@ class ExtractionExecutor:
         # 3b. Build per-field anchors from final structured_data (B3.1c).
         # Anchors collected AFTER rules/LLM merge settled — one anchor per field,
         # no duplicates, no ordering dependency between branches.
+
+        # ── B3.5: union element_spans из chunk_map ─────────────────────────
+        # element_spans = [[eid, page, start, end], ...] в координатах
+        # source_text соответствующего chunk'а. Используется в
+        # _resolve_field_anchor для точной page локации цитаты.
+        _union_element_spans: list[list[Any]] = []
+        if chunk_map:
+            for _entry in chunk_map:
+                if not isinstance(_entry, (list, tuple)) or len(_entry) < 3:
+                    continue
+                _ctx = _entry[2]
+                if not isinstance(_ctx, dict):
+                    continue
+                _m = _ctx.get("metadata") or {}
+                _spans = _m.get("element_spans")
+                if isinstance(_spans, list):
+                    _union_element_spans.extend(_spans)
+
         for field_cfg in extraction_cfg.fields or []:
             payload = structured.get(field_cfg.name)
             if not payload:
@@ -689,6 +748,7 @@ class ExtractionExecutor:
                 chunk_map=chunk_map,
                 field_page=field_page,
                 field_clause_ref=field_clause_ref,
+                element_spans=_union_element_spans or None,
             )
             if field_anchor is not None:
                 anchors.append(field_anchor)
