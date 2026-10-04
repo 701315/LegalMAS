@@ -59,6 +59,7 @@ from engine.content.clause_tree_builder import ClauseTreeBuilder
 # LLM fallback imports (lazy — после основных импортов)
 from engine.llm.client import LLMClient
 from engine.prompts.loader import load_prompt as _load_prompt
+from mas_queue.async_helpers import log_task_exception
 from services.llm_usage_recorder import (
     LLMUsageRecorder,
     STAGE_STRUCTURE_LEGAL_UNIT_CLASSIFICATION,
@@ -538,7 +539,6 @@ def _classify_unit_type_with_llm(
     tenant_id: str | None = None,
     deal_id: str | None = None,
     run_id: str | None = None,
-    session: Any = None,
 ) -> tuple[LegalUnitType, float, str, dict | None]:
     """
     LLM fallback для классификации LegalUnit когда rule-based не сработал.
@@ -550,7 +550,7 @@ def _classify_unit_type_with_llm(
         tokens_info: dict с prompt_tokens, completion_tokens, total_tokens или None
     """
     if not _LLM_AVAILABLE:
-        return LegalUnitType.UNKNOWN, 0.0, "none"
+        return LegalUnitType.UNKNOWN, 0.0, "none", None
     
     try:
         # Формируем контекст предков
@@ -586,7 +586,7 @@ def _classify_unit_type_with_llm(
                     "llm_error": error_details,
                 },
             )
-            return LegalUnitType.UNKNOWN, 0.0, "empty_response"
+            return LegalUnitType.UNKNOWN, 0.0, "empty_response", None
         
         # Парсим JSON ответ
         import json
@@ -602,7 +602,7 @@ def _classify_unit_type_with_llm(
                     "raw_response": response.text[:200],
                 },
             )
-            return LegalUnitType.UNKNOWN, 0.0, "parse_error"
+            return LegalUnitType.UNKNOWN, 0.0, "parse_error", None
         
         unit_type_str = json_data.get("unit_type", "unknown").upper().strip()
         confidence = float(json_data.get("confidence", 0.5))
@@ -642,15 +642,22 @@ def _classify_unit_type_with_llm(
             },
         )
         
-        # Записать в LLM usage ledger (best-effort, без блокировки)
-        if session and tenant_id and deal_id and run_id:
+        # Записать в LLM usage ledger (best-effort, без блокировки).
+        #
+        # Используем record_event_isolated (classmethod), который сам создаёт
+        # изолированную транзакцию через transactional_session(). Это НЕ требует
+        # внешней session — только tenant_id/deal_id/run_id.
+        #
+        # _classify_unit_type_with_llm — sync-функция, но вызывается внутри
+        # running event loop (structure_builder.py: run_async(_wrapper())).
+        # Поэтому используем asyncio.create_task() для планирования корутины
+        # в текущем loop. add_done_callback логирует ошибки фоновой задачи.
+        if tenant_id and deal_id and run_id:
             try:
-                recorder = LLMUsageRecorder(session)
-                # Создаём task для асинхронной записи (не блокируем основной поток)
-                import asyncio
-                loop = asyncio.get_event_loop()
-                loop.create_task(
-                    recorder.record_event(
+                import asyncio  # local import — избегаем циклов на импорте
+
+                task = asyncio.create_task(
+                    LLMUsageRecorder.record_event_isolated(
                         tenant_id=uuid.UUID(tenant_id) if isinstance(tenant_id, str) else tenant_id,
                         deal_id=uuid.UUID(deal_id) if isinstance(deal_id, str) else deal_id,
                         document_id=uuid.UUID(document_id) if isinstance(document_id, str) else uuid.UUID(document_id),
@@ -666,6 +673,7 @@ def _classify_unit_type_with_llm(
                         request_uid=f"legal_unit_class:{run_id}:{document_id}:{title[:30]}",
                     )
                 )
+                task.add_done_callback(log_task_exception)
             except Exception as exc:
                 logger.warning(
                     "LegalUnit LLM usage recording failed",
@@ -691,7 +699,7 @@ def _classify_unit_type_with_llm(
                 "error_type": type(e).__name__,
             },
         )
-        return LegalUnitType.UNKNOWN, 0.0, "error"
+        return LegalUnitType.UNKNOWN, 0.0, "error", None
 
 
 # ---------------------------------------------------------------------------
@@ -757,7 +765,6 @@ def _classify_unit_type(
     run_id: str | None = None,
     level: int = 1,
     ancestor_titles: list[str] | None = None,
-    session: Any = None,
 ) -> tuple[LegalUnitType, dict | None]:
 
     if is_technical_fallback:
@@ -830,7 +837,6 @@ def _classify_unit_type(
             tenant_id=tenant_id,
             deal_id=deal_id,
             run_id=run_id,
-            session=session,
         )
         
         if unit_type_llm != LegalUnitType.UNKNOWN and confidence >= 0.6:
@@ -1608,7 +1614,6 @@ class LegalUnitBuilder:
                 run_id=run_id,
                 level=level,
                 ancestor_titles=current_ancestor_titles,
-                session=None,  # Session передаётся из build_from_clause_tree если нужно
             )
             clause_function = _classify_clause_function(
                 title=semantic_title or title,

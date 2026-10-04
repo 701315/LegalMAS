@@ -44,7 +44,11 @@ import asyncio
 from collections.abc import Coroutine
 from typing import Any, TypeVar
 
+from core.logging import get_logger
+
 T = TypeVar("T")
+
+logger = get_logger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -171,3 +175,40 @@ def close_worker_loop() -> None:
     finally:
         loop.close()
         _worker_loop = None
+
+
+# ---------------------------------------------------------------------------
+# Fire-and-forget task callbacks
+# ---------------------------------------------------------------------------
+
+def log_task_exception(task: asyncio.Task) -> None:
+    """
+    Callback для asyncio.Task.add_done_callback.
+
+    Логирует необработанные исключения фоновых задач, созданных через
+    asyncio.create_task() без последующего await (fire-and-forget).
+
+    Зачем нужен:
+    - create_task без await не пробрасывает исключение наверх;
+    - без callback падение задачи остаётся незамеченным;
+    - с callback — warning в structured logs, что не блокирует pipeline,
+      но даёт observability.
+
+    Поведение:
+    - cancelled task → тихо выходим (это нормально при shutdown);
+    - task с исключением → logger.warning с полной информацией;
+    - task без исключения → ничего не логируем.
+    """
+    if task.cancelled():
+        return
+
+    exc = task.exception()
+    if exc is None:
+        return
+
+    logger.warning(
+        "Background task failed",
+        error=str(exc),
+        error_type=type(exc).__name__,
+        task_name=task.get_name() if hasattr(task, "get_name") else None,
+    )
