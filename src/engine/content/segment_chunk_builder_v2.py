@@ -904,6 +904,15 @@ class SegmentChunkBuilderV2:
         # Computed once here so all segment snapshots reuse the same map.
         bbox_map = _build_element_bbox_map(layout)
 
+        # ── B3.5: единый element_index на документ ──────────────────────────
+        # Используется дважды:
+        #   1) как element_info_map в build_sized_chunks_from_leaf - для
+        #      построения sub_meta["element_spans"] (page per element);
+        #   2) как аргумент LegalUnitBuilder.build_from_clause_tree.
+        # Раньше строился внутри _build_single_segment_snapshot (один раз
+        # на segment); теперь - один раз на документ.
+        element_index = ClauseTreeBuilder.build_element_index(layout)
+
         logger.debug(
             "SegmentChunkBuilderV2: layout loaded",
             extra={
@@ -937,6 +946,7 @@ class SegmentChunkBuilderV2:
                 layout=layout,
                 layout_meta=layout_meta if isinstance(layout_meta, dict) else {},
                 bbox_map=bbox_map,
+                element_index=element_index,
                 layout_ref=layout_ref,
                 file_graph_ref=file_graph_ref,
                 file_graph_segment=graph_segment,
@@ -1088,8 +1098,9 @@ class SegmentChunkBuilderV2:
         segment: DocumentSegment,
         layout: dict[str, Any],
         layout_meta: dict[str, Any],
-        bbox_map: dict[str, tuple[int, list[float]]],
-        layout_ref: str,
+        bbox_map: dict[str, tuple[int, list[float]]] | None = None,
+        element_index: dict[str, Any] | None = None,
+        layout_ref: str = "",
         file_graph_ref: str,
         file_graph_segment: dict[str, Any],
         params: dict[str, Any],
@@ -1384,6 +1395,7 @@ class SegmentChunkBuilderV2:
                 max_tokens=effective_max_tokens,
                 overlap_ratio=effective_overlap_ratio,
                 total_pages=total_pages,
+                element_info_map=element_index,
             )
 
         invalid_subclause_kinds = [
@@ -1534,9 +1546,8 @@ class SegmentChunkBuilderV2:
             },
         )
 
-        # ── vNext: reusable layout element index for legal unit extraction ──
-        element_index = ClauseTreeBuilder.build_element_index(layout)
-
+        # ── vNext: element_index уже построен на уровне документа (см. выше) ──
+        # Используется ниже для LegalUnitBuilder.build_from_clause_tree.
 
         # ── Этап 5 + Phase 12: legal units + semantic enrichment ─────────────
         legal_units_snapshot: LegalUnitsSnapshot | None = None

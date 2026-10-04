@@ -69,12 +69,17 @@ _TOKEN_EDGE_PUNCT: str = ".,;:!?()[]{}\"'-…`"
 
 # Разделитель между элементами при materialize_text_from_element_ids
 # (см. clause_tree_builder.ClauseTreeBuilder.materialize_text_from_element_ids).
-_ELEMENT_SEPARATOR = "\n\n"
 
 
 # ---------------------------------------------------------------------------
 # Внутренние helpers
 # ---------------------------------------------------------------------------
+
+
+from engine.content.element_offsets import (
+    compute_element_offsets as _compute_element_offsets,
+    span_to_element_ids as _span_to_element_ids,
+)
 
 
 def _compute_content_hash(source_text: str) -> str:
@@ -291,84 +296,6 @@ def _fuzzy_span(
 
     compactness = m / span_len
     return span[0], span[1], compactness
-
-
-def _compute_element_offsets(
-    layout_elements: list[dict[str, Any]],
-    source_text: str,
-) -> tuple[list[tuple[str, int, int]], bool]:
-    """
-    Воспроизвести логику materialize_text_from_element_ids и вернуть
-    offsets каждого элемента в source_text.
-
-    Возвращает:
-    - [(element_id, start, end), ...] для непустых элементов;
-    - bool: True если суммарный offset совпал с len(source_text)
-      (layout_elements согласованы с source_text).
-
-    Расхождение offset — не ошибка, а сигнал, что caller передал
-    layout_elements не из этой клаузы. Тогда element_ids лучше не
-    возвращать (см. resolve_quote_in_source).
-    """
-    sorted_els = sorted(
-        [el for el in layout_elements if el.get("element_id")],
-        key=lambda el: int(el.get("_seq", 0)),
-    )
-
-    pieces: list[tuple[str, str | None]] = []
-    last_page: int | None = None
-
-    for el in sorted_els:
-        text = (el.get("text") or "").strip()
-        page = el.get("page")
-
-        if not text:
-            if isinstance(page, int):
-                last_page = page
-            continue
-
-        if (
-            last_page is not None
-            and isinstance(page, int)
-            and page != last_page
-        ):
-            pieces.append(("", None))
-
-        pieces.append((text, str(el["element_id"])))
-        last_page = page if isinstance(page, int) else last_page
-
-    if not pieces:
-        return [], len(source_text) == 0
-
-    offsets: list[tuple[str, int, int]] = []
-    offset = 0
-    for i, (text, el_id) in enumerate(pieces):
-        if i > 0:
-            offset += len(_ELEMENT_SEPARATOR)
-        start = offset
-        offset += len(text)
-        end = offset
-        if el_id is not None:
-            offsets.append((el_id, start, end))
-
-    return offsets, offset == len(source_text)
-
-
-def _span_to_element_ids(
-    span_start: int,
-    span_end: int,
-    element_offsets: list[tuple[str, int, int]],
-) -> list[str]:
-    """
-    Найти element_ids, чьи [start, end) пересекаются со span.
-
-    Span в координатах source_text; offsets тоже в source_text.
-    """
-    result: list[str] = []
-    for el_id, el_start, el_end in element_offsets:
-        if el_end > span_start and el_start < span_end:
-            result.append(el_id)
-    return result
 
 
 def _round_trip_matches(
