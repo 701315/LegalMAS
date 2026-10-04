@@ -232,6 +232,36 @@ class ExtractionExecutor:
 
 
     @staticmethod
+    def _apply_anchor_page_to_field_location(
+        payload: dict[str, Any],
+        anchor: CheckAnchor,
+    ) -> None:
+        """
+        B3.5: обновить per-field location.page точной страницей из anchor.
+
+        UI читает structured_data[field]['location']['page'], а check-level
+        anchor идёт в check_results.page (уже правильный). Раньше эти
+        значения расходились: anchor.page = точная страница из element_spans
+        через Priority 0, а per-field location.page оставалось LLM-значением
+        = start_page чанка.
+
+        Обновляем только location.page. Другие поля (quote, clause_ref,
+        location_confidence) не трогаем — это независимые атрибуты
+        LLM-ответа.
+        """
+        if not isinstance(payload, dict):
+            return
+        loc = payload.get("location")
+        if not isinstance(loc, dict):
+            return
+        page = getattr(anchor, "page", None)
+        if not isinstance(page, int) or isinstance(page, bool) or page < 1:
+            return
+        if loc.get("page") == page:
+            return
+        loc["page"] = page
+
+    @staticmethod
     def _resolve_field_anchor(
         *,
         quote: str,
@@ -753,6 +783,17 @@ class ExtractionExecutor:
             )
             if field_anchor is not None:
                 anchors.append(field_anchor)
+                # B3.5: обновить per-field location.page значением anchor.
+                # Только для точных методов (EXACT_SPAN / FUZZY_SPAN) —
+                # CLAUSE_ONLY / PAGE_ONLY не несут точной страницы,
+                # перезапись ими испортит LLM-значение.
+                if field_anchor.anchor_method in (
+                    CheckAnchorMethod.EXACT_SPAN,
+                    CheckAnchorMethod.FUZZY_SPAN,
+                ):
+                    self._apply_anchor_page_to_field_location(
+                        payload, field_anchor,
+                    )
 
 
         # 4. Дополнительная валидация required-полей после merge rules + LLM.
