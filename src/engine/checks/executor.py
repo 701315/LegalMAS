@@ -1328,67 +1328,58 @@ class CheckExecutor:
             extraction_contexts: list[dict[str, Any]] = []
 
             for c, rc in zip(contexts, retrieved_chunks):
-                ctx_meta = dict(c.get("metadata") or {})
+                # B3.5: pass-through metadata from retrieval chunk as-is.
+                # Раньше здесь был whitelist из 15 полей, который терял
+                # unit_type / element_spans / semantic_node_type / topic_tags /
+                # citability / clause_function и любые будущие поля metadata.
+                # Теперь — полная копия + нормализация ключевых полей идентичности
+                # (fallback на rc.* сохранён).
+                ctx_meta_full = dict(c.get("metadata") or {})
+
+                # Ключевые identity/provenance поля: нормализуем как раньше.
+                # Если в metadata нет — fallback на RetrievedChunk (rc.*).
+                if not ctx_meta_full.get("clause_uid"):
+                    ctx_meta_full["clause_uid"] = (
+                        ctx_meta_full.get("effective_uid")
+                        or getattr(rc, "clause_uid", None)
+                    )
+                if not ctx_meta_full.get("effective_uid"):
+                    ctx_meta_full["effective_uid"] = (
+                        ctx_meta_full.get("clause_uid")
+                        or getattr(rc, "clause_uid", None)
+                    )
+                if ctx_meta_full.get("page") is None:
+                    ctx_meta_full["page"] = (
+                        ctx_meta_full.get("start_page")
+                        or getattr(rc, "page", None)
+                    )
+                if ctx_meta_full.get("start_page") is None:
+                    ctx_meta_full["start_page"] = getattr(rc, "start_page", None)
+                if ctx_meta_full.get("end_page") is None:
+                    ctx_meta_full["end_page"] = getattr(rc, "end_page", None)
+                if not ctx_meta_full.get("path_titles"):
+                    ctx_meta_full["path_titles"] = list(
+                        getattr(rc, "path_titles", []) or []
+                    )
+                if not ctx_meta_full.get("element_ids"):
+                    ctx_meta_full["element_ids"] = list(
+                        getattr(rc, "element_ids", []) or []
+                    )
+                if ctx_meta_full.get("chunk_id") is None:
+                    ctx_meta_full["chunk_id"] = (
+                        c.get("id")
+                        or getattr(rc, "chunk_id", None)
+                        or getattr(rc, "element_id", None)
+                    )
+                if ctx_meta_full.get("chunk_index") is None:
+                    ctx_meta_full["chunk_index"] = getattr(rc, "chunk_index", None)
 
                 extraction_contexts.append(
                     {
                         "id": c.get("id") or rc.element_id,
                         "text": c.get("text") or rc.text or "",
                         "score_breakdown": c.get("score_breakdown"),
-                        "metadata": {
-                            "clause_uid": (
-                                ctx_meta.get("clause_uid")
-                                or ctx_meta.get("effective_uid")
-                                or rc.clause_uid
-                            ),
-                            "effective_uid": (
-                                ctx_meta.get("effective_uid")
-                                or ctx_meta.get("clause_uid")
-                                or rc.clause_uid
-                            ),
-                            "page": (
-                                ctx_meta.get("page")
-                                or ctx_meta.get("start_page")
-                                or rc.page
-                            ),
-                            "start_page": (
-                                ctx_meta.get("start_page")
-                                if ctx_meta.get("start_page") is not None
-                                else rc.start_page
-                            ),
-                            "end_page": (
-                                ctx_meta.get("end_page")
-                                if ctx_meta.get("end_page") is not None
-                                else rc.end_page
-                            ),
-                            "path_titles": ctx_meta.get("path_titles") or rc.path_titles,
-                            "element_ids": ctx_meta.get("element_ids") or rc.element_ids,
-                            "bbox_union": ctx_meta.get("bbox_union"),
-
-                            # canonical retrieval provenance
-                            "chunk_id": (
-                                ctx_meta.get("chunk_id")
-                                or c.get("id")
-                                or getattr(rc, "chunk_id", None)
-                                or rc.element_id
-                            ),
-                            "chunk_index": (
-                                ctx_meta.get("chunk_index")
-                                if ctx_meta.get("chunk_index") is not None
-                                else getattr(rc, "chunk_index", None)
-                            ),
-
-                            # IMPORTANT:
-                            # Preserve segment-aware provenance from the original retrieval chunk metadata.
-                            # RetrievedChunk currently does not carry full segment metadata,
-                            # so using only rc.* would lose segment_id/segment_type in context_trace
-                            # and extraction provenance.
-                            "segment_id": ctx_meta.get("segment_id"),
-                            "segment_type": ctx_meta.get("segment_type"),
-                            "segment_title": ctx_meta.get("segment_title"),
-                            "segment_order": ctx_meta.get("segment_order"),
-                            "is_primary_segment": ctx_meta.get("is_primary_segment"),
-                        },
+                        "metadata": ctx_meta_full,
                     }
                 )
 
