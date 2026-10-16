@@ -3892,6 +3892,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни indemnification_liability_check_presence по правилу из пункта 0 task.
         - Перед остальными полями заполни indemnification_liability_check_presence:
           "present" — если в тексте есть хотя бы один фрагмент об IP-индемнити или гарантии ненарушения;
           "missing" — если таких фрагментов нет вообще;
@@ -4279,6 +4280,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни registration_cross_border_check_presence по правилу из пункта 0 task.
         - Перед остальными полями заполни registration_cross_border_check_presence:
           "present" — если в тексте есть хотя бы один фрагмент о регистрации, валютном контроле, налоге у источника или экспортном контроле;
           "missing" — если таких фрагментов нет вообще;
@@ -4679,6 +4681,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни software_data_check_presence по правилу из пункта 0 task.
         - Перед остальными полями заполни software_data_check_presence:
           "present" — если в тексте есть хотя бы один фрагмент об escrow, депонировании или передаче исходного кода;
           "missing" — если таких фрагментов нет вообще;
@@ -5032,6 +5035,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни knowhow_trade_secret_link_check_presence по правилу из пункта 0 task.
         - Перед остальными полями заполни knowhow_trade_secret_link_check_presence:
           "present" — если в тексте есть хотя бы один фрагмент об идентификации ноу-хау, режиме коммерческой тайны или порядке передачи;
           "missing" — если таких фрагментов нет вообще;
@@ -5385,6 +5389,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни ip_wind_down_destruction_check_presence по правилу из пункта 0 task.
         - Перед остальными полями заполни ip_wind_down_destruction_check_presence:
           "present" — если в тексте есть хотя бы один фрагмент об уничтожении/возврате копий, переходном периоде или сертификате уничтожения;
           "missing" — если таких фрагментов нет вообще;
@@ -5738,6 +5743,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни oss_dependencies_check_presence по правилу из пункта 0 task.
         - Перед остальными полями заполни oss_dependencies_check_presence:
           "present" — если в тексте есть хотя бы один фрагмент об OSS, реестре компонентов или вирусных лицензиях;
           "missing" — если таких фрагментов нет вообще;
@@ -6101,6 +6107,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни ip_modification_adaptation_check_presence по правилу из пункта 0 task.
         - Перед остальными полями заполни ip_modification_adaptation_check_presence:
           "present" — если в тексте есть хотя бы один фрагмент о праве на модификацию/переработку, объёме изменений или атрибуции;
           "missing" — если таких фрагментов нет вообще;
@@ -6481,6 +6488,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни support_updates_maintenance_check_presence по правилу из пункта 0 task.
         - Перед остальными полями заполни support_updates_maintenance_check_presence:
           "present" — если в тексте есть хотя бы один фрагмент о технической поддержке, обновлениях, сроке поддержки или её прекращении;
           "missing" — если таких фрагментов нет вообще;
@@ -6859,6 +6867,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни field_of_use_restrictions_check_presence по правилу из пункта 0 task.
         - Перед остальными полями заполни field_of_use_restrictions_check_presence:
           "present" — если в тексте есть хотя бы один фрагмент об ограничении по сфере, цели или типу пользователей;
           "missing" — если таких фрагментов нет вообще;
@@ -7215,6 +7224,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни license_renewal_conditions_check_presence по правилу из пункта 0 task.
         - Перед остальными полями заполни license_renewal_conditions_check_presence:
           "present" — если в тексте есть хотя бы один фрагмент о продлении, автопродлении, уведомлении о продлении или возобновлении;
           "missing" — если таких фрагментов нет вообще;
@@ -7582,6 +7592,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни survival_post_termination_rights_check_presence по правилу из пункта 0 task.
         - Перед остальными полями заполни survival_post_termination_rights_check_presence:
           "present" — если в тексте есть хотя бы один фрагмент о сохранении прав, вечной лицензии, правах конечных пользователей или производных произведениях после прекращения;
           "missing" — если таких фрагментов нет вообще;
@@ -7944,6 +7955,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни reverse_engineering_restrictions_check_presence по правилу из пункта 0 task.
         - Перед остальными полями заполни reverse_engineering_restrictions_check_presence:
           "present" — если в тексте есть хотя бы один фрагмент о декомпиляции, дизассемблировании, reverse engineering или исключении для совместимости;
           "missing" — если таких фрагментов нет вообще;
