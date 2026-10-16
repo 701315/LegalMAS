@@ -805,9 +805,15 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1300
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "parties_and_representatives_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_prompt_extraction: |
         <role>
@@ -815,41 +821,153 @@ checks_v8:
         идентификацию работодателя, представительного органа работников, подписантов
         и основания их полномочий.
         Не анализируй содержание обязательств, индексацию, охрану труда или споры.
+        Не оценивай риски.
+        Анализируй только текст договора.
         </role>
+
         <context>
         {context}
         </context>
+
         <task>
-        Заполни строго следующие 11 полей + evidence (всего 12 ключей):
-        1. employer_details_status — "defined" или "not_defined".
-        2. employer_details_value — наименование и реквизиты работодателя.
-        3. employer_type — legal_entity / individual_entrepreneur / not_defined.
-        4. employer_representative_status — "defined" или "not_defined".
-        5. employer_representative_value — ФИО и должность представителя работодателя.
-        6. employer_authority_doc — документ, подтверждающий полномочия представителя работодателя.
-        7. employee_representative_body_status — "defined" или "not_defined".
-        8. employee_representative_body_value — наименование представительного органа работников.
-        9. employee_representative_type — union / elected / council / other / not_defined.
-        10. employee_representative_person — ФИО и должность представителя работников.
-        11. employee_authority_doc — документ, подтверждающий полномочия представителя работников.
-        Если данные отсутствуют в тексте:
-        - статус = "not_defined"
-        - текстовое поле = "Данные не определены"
+        Заполни строго следующие поля:
+
+        0. parties_and_representatives_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (employer_details_status, employer_representative_status,
+              employee_representative_body_status) ≠ "not_defined";
+           - "missing" — если все три содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - employer_details_status = "not_defined";
+           - employer_type = "not_defined";
+           - employer_representative_status = "not_defined";
+           - employee_representative_body_status = "not_defined";
+           - employee_representative_type = "not_defined";
+           - employer_details_value, employer_representative_value = "Данные не определены";
+           - employer_authority_doc, employee_authority_doc = "Данные не определены";
+           - employee_representative_body_value, employee_representative_person = "Данные не определены";
+           - не выполняй остальные шаги.
+
+        1. employer_details_status:
+           - "defined" — если работодатель прямо идентифицируется по наименованию, ИНН, ОГРН;
+           - "not_defined" — если работодатель прямо не идентифицируется.
+
+        2. employer_details_value:
+           Краткая идентификация работодателя: наименование + ИНН/ОГРН, если прямо указаны.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        3. employer_type:
+           - "legal_entity" — если прямо указано юридическое лицо (ООО, АО, ПАО и т.д.);
+           - "individual_entrepreneur" — если прямо указан ИП;
+           - "not_defined" — если тип не указан.
+
+        4. employer_representative_status:
+           - "defined" — если представитель работодателя прямо указан (ФИО, должность);
+           - "not_defined" — если представитель не указан.
+
+        5. employer_representative_value:
+           ФИО и должность представителя работодателя.
+           Если данных нет — "Данные не определены".
+
+        6. employer_authority_doc:
+           Документ, подтверждающий полномочия представителя работодателя (Устав, доверенность, приказ).
+           Если данных нет — "Данные не определены".
+
+        7. employee_representative_body_status:
+           - "defined" — если представительный орган работников прямо указан;
+           - "not_defined" — если орган не указан.
+
+        8. employee_representative_body_value:
+           Наименование представительного органа работников.
+           Если данных нет — "Данные не определены".
+
+        9. employee_representative_type:
+           - "union" — первичная профсоюзная организация;
+           - "elected" — непосредственно избранные представители;
+           - "council" — иной представительный орган (совет трудового коллектива);
+           - "other" — иной представитель, прямо указанный в тексте;
+           - "not_defined" — тип не указан.
+
+        10. employee_representative_person:
+            ФИО и должность представителя работников.
+            Если данных нет — "Данные не определены".
+
+        11. employee_authority_doc:
+            Документ, подтверждающий полномочия представителя работников (протокол собрания, доверенность).
+            Если данных нет — "Данные не определены".
         </task>
-        <rules>
-        - Используй только текст договора.
-        - employee_representative_type: "union" — первичная профсоюзная организация;
-        "elected" — непосредственно избранные представители;
-        "council" — иной представительный орган (совет трудового коллектива и т.п.);
-        "other" — иной представитель, прямо указанный в тексте;
-        "not_defined" — тип не указан.
-        - Верни только JSON.
-        </rules>
+
+        <context_rules>
+        - Перед остальными полями заполни parties_and_representatives_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_value/*_doc/*_person = "Данные не определены".
+        - Используй только релевантные фрагменты контекста.
+        - Не делай предположений по типовой структуре коллективного договора.
+        - Не смешивай сведения о работодателе и о представителях работников.
+        - Если в разных фрагментах указаны разные данные и конфликт нельзя разрешить по тексту, верни "Не удалось определить", а для status/type enum используй "not_defined".
+        - Если основание полномочий не указано прямо, не выводи его из должности или из закона.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни упоминания сторон, ни их представителей, ни реквизитов.
+           → presence = "missing";
+             все *_status = "not_defined";
+             все *_value / *_doc / *_person = "Данные не определены".
+
+        2. Частичная идентификация.
+           Работодатель указан, но представительный орган работников не назван
+           (или наоборот).
+           → presence = "present";
+             определённые поля = "defined";
+             неопределённые поля = "not_defined" с fallback "Данные не определены".
+
+        3. Противоречие между фрагментами.
+           В преамбуле указан один представитель, в подписях — другой.
+           → presence = "unclear";
+             соответствующий *_status = "not_defined";
+             соответствующий *_value = "Не удалось определить".
+
+        4. Отсылка на внешний документ.
+           Полномочия подтверждаются ссылкой на протокол, устав или доверенность
+           без цитирования содержания.
+           → presence = "present";
+             соответствующий *_status = "defined";
+             *_doc содержит формулировку вида "Устав", "Протокол № 3 от 15.01.2026".
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для parties_and_representatives_check_presence используй только: "present", "missing", "unclear".
+        - Для status-полей используй только: "defined" или "not_defined".
+        - Для employer_type используй только: "legal_entity", "individual_entrepreneur", "not_defined".
+        - Для employee_representative_type используй только: "union", "elected", "council", "other", "not_defined".
+        - Fallback при отсутствии данных:
+          * все *_value, *_doc, *_person → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_value, *_doc, *_person → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
 
       fields:
+        - name: "parties_and_representatives_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие идентификации сторон / представителей в коллективном договоре. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "employer_details_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус идентификации работодателя."
           required: true
@@ -864,12 +982,14 @@ checks_v8:
         - name: "employer_type"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["legal_entity", "individual_entrepreneur", "not_defined"]
           description: "Тип работодателя."
           required: true
         - name: "employer_representative_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания представителя работодателя."
           required: true
@@ -890,6 +1010,7 @@ checks_v8:
         - name: "employee_representative_body_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус идентификации представительного органа работников."
           required: true
@@ -904,6 +1025,7 @@ checks_v8:
         - name: "employee_representative_type"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["union", "elected", "council", "other", "not_defined"]
           description: "Тип представительного органа работников."
           required: true
@@ -921,6 +1043,8 @@ checks_v8:
           label: "Основание полномочий представителей работников"
           description: "Документ, подтверждающий полномочия представителя работников."
           required: false
+
+      store_payload: true
 
   - id: term_scope_coverage_check
     name: "Срок действия, сфера действия и распространение на всех работников"
@@ -1153,52 +1277,171 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1300
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "term_scope_coverage_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист по трудовому праву. Извлеки из коллективного договора
         срок действия, сферу действия и распространение на всех работников.
         Не анализируй содержание обязательств, индексацию или охрану труда.
+        Не оценивай риски.
+        Анализируй только текст договора.
         </role>
+
         <context>
         {context}
         </context>
+
         <task>
-        Заполни строго следующие 11 полей + evidence (всего 12 ключей):
-        1. term_specified_status — "defined" или "not_defined".
-        2. start_date_value — дата начала действия.
-        3. end_date_value — дата окончания действия.
-        4. term_duration_years — длительность срока в годах.
-        5. term_within_legal_limit — within_limit / exceeds_limit / not_defined.
-        6. extension_clause_status — "defined" или "not_defined".
-        7. extension_clause_details — условие о продлении.
-        8. scope_of_application_status — "defined" или "not_defined".
-        9. scope_of_application_value — сфера действия.
-        10. universal_coverage_status — "defined" или "not_defined".
-        11. universal_coverage_details — распространение на всех работников.
-        Если данные отсутствуют в тексте:
-        - статус = "not_defined"
-        - текстовое поле = "Данные не определены"
+        Заполни строго следующие поля:
+
+        0. term_scope_coverage_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (term_specified_status, extension_clause_status,
+              scope_of_application_status, universal_coverage_status) ≠ "not_defined";
+           - "missing" — если все четыре содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - term_specified_status = "not_defined";
+           - term_within_legal_limit = "not_defined";
+           - extension_clause_status = "not_defined";
+           - scope_of_application_status = "not_defined";
+           - universal_coverage_status = "not_defined";
+           - start_date_value, end_date_value, term_duration_years = "Данные не определены";
+           - extension_clause_details, scope_of_application_value, universal_coverage_details = "Данные не определены";
+           - не выполняй остальные шаги.
+
+        1. term_specified_status:
+           - "defined" — если в тексте прямо указан срок действия (даты начала/окончания
+             или длительность в годах);
+           - "not_defined" — если срок прямо не указан.
+
+        2. start_date_value:
+           Дата начала действия договора в формате ДД.ММ.ГГГГ.
+           Если данных нет — "Данные не определены".
+
+        3. end_date_value:
+           Дата окончания действия договора в формате ДД.ММ.ГГГГ.
+           Если данных нет — "Данные не определены".
+
+        4. term_duration_years:
+           Длительность срока в годах, как указано в договоре (например: "3", "2").
+           Если данных нет — "Данные не определены".
+
+        5. term_within_legal_limit:
+           - "within_limit" — если срок ≤ 3 лет;
+           - "exceeds_limit" — если срок > 3 лет (нарушение ст. 43 ч. 2 ТК РФ);
+           - "not_defined" — если срок не указан или невозможно определить.
+           Важно: не выводи срок из нормы закона — только из текста договора.
+
+        6. extension_clause_status:
+           - "defined" — если в тексте прямо указано условие о продлении (пролонгации);
+           - "not_defined" — если условие о продлении не указано.
+
+        7. extension_clause_details:
+           Краткое описание условия о продлении.
+           Если данных нет — "Данные не определены".
+
+        8. scope_of_application_status:
+           - "defined" — если сфера действия прямо указана (организация, филиал,
+             подразделение);
+           - "not_defined" — если сфера не указана.
+
+        9. scope_of_application_value:
+           Сфера действия договора: "организация", "филиал", "подразделение" или
+           краткое описание из текста.
+           Если данных нет — "Данные не определены".
+
+        10. universal_coverage_status:
+            - "defined" — если прямо указано, что договор распространяется на всех
+              работников организации (в т.ч. без упоминания профсоюза;
+              формулировка «независимо от членства в профсоюзе» усиливает, но не обязательна);
+            - "not_defined" — если распространение прямо не указано.
+
+        11. universal_coverage_details:
+            Краткое описание условия о распространении.
+            Если данных нет — "Данные не определены".
         </task>
-        <rules>
-        - Используй только текст договора.
-        - Не выводи срок из нормы ст. 43 ТК РФ — только из текста договора.
-        - term_within_legal_limit = "within_limit", если срок ≤ 3 лет;
-        "exceeds_limit", если > 3 лет (нарушение ст. 43 ч. 2 ТК РФ);
-        "not_defined", если срок не указан.
-        - universal_coverage_status = "defined", если прямо указано, что договор
-        распространяется на всех работников организации (в т.ч. без упоминания
-        профсоюза).
-        - Верни только JSON.
-        </rules>
+
+        <context_rules>
+        - Перед остальными полями заполни term_scope_coverage_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_value/*_details/*_years = "Данные не определены".
+        - Используй только релевантные фрагменты контекста.
+        - Не выводи срок, сферу или покрытие из норм ТК РФ — только из текста договора.
+        - term_within_legal_limit оценивай только если term_specified_status = "defined" и длительность можно определить.
+        - universal_coverage_status = "defined" при любой прямой формулировке о распространении на всех работников, даже без упоминания профсоюза.
+        - Если в разных фрагментах указаны разные даты или сроки и конфликт нельзя разрешить по тексту: статус → "not_defined", текстовое поле → "Не удалось определить".
+        - Не используй пустые строки.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни срока, ни сферы действия, ни указания на распространение.
+           → presence = "missing";
+             все *_status = "not_defined";
+             все *_value / *_details / *_years = "Данные не определены".
+
+        2. Срок указан, но сфера не раскрыта.
+           Даты начала и окончания есть, но нет указания на сферу действия
+           и распространение.
+           → presence = "present";
+             term_specified_status = "defined";
+             scope_of_application_status = "not_defined";
+             universal_coverage_status = "not_defined".
+
+        3. Противоречие в датах.
+           В преамбуле указан один срок, в заключительных положениях — другой.
+           → presence = "unclear";
+             term_specified_status = "not_defined";
+             start_date_value, end_date_value = "Не удалось определить".
+
+        4. Отсылка на приказ о введении в действие.
+           Срок определяется ссылкой на приказ или распоряжение без указания
+           конкретных дат в тексте договора.
+           → presence = "present";
+             term_specified_status = "defined";
+             start_date_value содержит формулировку вида "Согласно Приказу №... от ...".
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для term_scope_coverage_check_presence используй только: "present", "missing", "unclear".
+        - Для status-полей используй только: "defined" или "not_defined".
+        - Для term_within_legal_limit используй только: "within_limit", "exceeds_limit", "not_defined".
+        - Fallback при отсутствии данных:
+          * start_date_value, end_date_value, term_duration_years → "Данные не определены";
+          * extension_clause_details, scope_of_application_value, universal_coverage_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_value / *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
 
       fields:
+        - name: "term_scope_coverage_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по сроку/сфере/покрытию. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "term_specified_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания срока действия."
           required: true
@@ -1230,12 +1473,14 @@ checks_v8:
         - name: "term_within_legal_limit"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["within_limit", "exceeds_limit", "not_defined"]
           description: "Соответствие срока требованиям ст. 43 ч. 2 ТК РФ (≤ 3 лет)."
           required: true
         - name: "extension_clause_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус условия о продлении."
           required: true
@@ -1249,6 +1494,7 @@ checks_v8:
         - name: "scope_of_application_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания сферы действия."
           required: true
@@ -1263,6 +1509,7 @@ checks_v8:
         - name: "universal_coverage_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус распространения на всех работников."
           required: true
@@ -1274,6 +1521,8 @@ checks_v8:
           label: "Распространение"
           description: "Распространение на всех работников независимо от членства в профсоюзе."
           required: false
+
+      store_payload: true
 
   - id: no_worsening_principle_check
     name: "Принцип недопустимости ухудшения положения работников (ст. 9, 50 ТК РФ)"
@@ -1469,9 +1718,15 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 1200
+
       compact_output: false
-      llm_max_tokens: 1100
-      store_payload: true
+
+      presence_signal:
+        field: "no_worsening_principle_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_prompt_extraction: |
         <role>
@@ -1484,33 +1739,79 @@ checks_v8:
         {context}
         </context>
         <task>
-        Заполни строго следующие 6 полей + evidence (всего 7 ключей):
+        0. no_worsening_principle_check_presence: определи, есть ли в договоре фрагменты,
+           касающиеся принципа недопустимости ухудшения положения работников, дополнительных
+           гарантий или ухудшающих условий.
+           - "present" — есть хотя бы один фрагмент по теме (прямое указание, декларация
+             о дополнительных гарантиях, формулировки-маркеры ухудшения).
+           - "missing" — фрагментов по теме нет вообще.
+           - "unclear" — фрагменты есть, но они противоречат друг другу и вывод невозможен.
+
         1. no_worsening_clause_status — explicit / implicit / not_defined.
         2. no_worsening_clause_details — формулировка о недопустимости ухудшения.
-        3. additional_guarantees_status — "defined" или "not_defined".
+        3. additional_guarantees_status — defined / not_defined.
         4. additional_guarantees_details — указание на дополнительные гарантии.
         5. potential_worsening_status — detected / not_detected / unclear.
         6. potential_worsening_details — описание потенциально ухудшающих условий.
+
         Если данные отсутствуют в тексте:
         - статус = "not_defined" (или "not_detected" для potential_worsening_status)
         - текстовое поле = "Данные не определены"
         </task>
-        <rules>
-        - Используй только текст договора.
-        - no_worsening_clause_status: "explicit" — прямое указание;
-        "implicit" — принцип подразумевается, но прямого указания нет;
-        "not_defined" — вопрос не раскрыт.
-        - potential_worsening_status: "detected" — выявлены формулировки-маркеры
-        (снижение ниже ТК, замена гарантии, отказ от права, приостановление норм ТК);
-        "not_detected" — таких формулировок не выявлено;
-        "unclear" — формулировка неоднозначная.
-        - Верни только JSON.
-        </rules>
+        <context_rules>
+        - no_worsening_principle_check_presence и все статусные поля попарно не пересекаются
+          по значениям present/missing/unclear; их объединение покрывает все допустимые значения.
+        - no_worsening_clause_status: "explicit" — прямое указание на недопустимость ухудшения;
+          "implicit" — принцип подразумевается, но прямого «не хуже ТК» нет;
+          "not_defined" — вопрос не раскрыт.
+        - additional_guarantees_status: "defined" — есть указание на дополнительные гарантии
+          к ТК РФ; "not_defined" — указание отсутствует.
+        - potential_worsening_status: "detected" — выявлены формулировки-маркеры ухудшения
+          (снижение ниже ТК, замена гарантии, отказ от права, приостановление норм ТК);
+          "not_detected" — таких формулировок не выявлено;
+          "unclear" — формулировка неоднозначная.
+        - Если no_worsening_clause_status ∈ {explicit, implicit} ИЛИ
+          additional_guarantees_status = "defined" ИЛИ
+          potential_worsening_status ∈ {detected, unclear}, то
+          no_worsening_principle_check_presence = "present".
+        - Если все статусные поля = "not_defined"/"not_detected", то
+          no_worsening_principle_check_presence = "missing".
+        </context_rules>
+        <edge_cases>
+        1. Полное отсутствие фрагментов о недопустимости ухудшения, дополнительных
+           гарантиях и ухудшающих условиях → no_worsening_principle_check_presence = "missing",
+           все статусы = "not_defined"/"not_detected".
+        2. Прямое указание «не может ухудшать положение» + выявленное ухудшение
+           (например, снижение выходного пособия ниже ТК) → presence = "present",
+           no_worsening_clause_status = "explicit", potential_worsening_status = "detected".
+        3. Декларация о дополнительных гарантиях без прямого «не ухудшает» →
+           presence = "present", no_worsening_clause_status = "implicit",
+           additional_guarantees_status = "defined".
+        4. Противоречие: в одном разделе «не ухудшает», в другом — снижение гарантии
+           ниже ТК без оговорки → presence = "unclear",
+           potential_worsening_status = "unclear".
+        </edge_cases>
+        <output_expectations>
+        - Все 7 полей (1 presence + 6 substantive) обязательны.
+        - Статусные поля возвращают только значения из allowed_values.
+        - Текстовые поля без данных — строго "Данные не определены".
+        - Не используй None, null или пустые строки.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
 
       fields:
+        - name: "no_worsening_principle_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие фрагментов о принципе недопустимости ухудшения положения работников."
+          required: true
         - name: "no_worsening_clause_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["explicit", "implicit", "not_defined"]
           description: "Статус принципа недопустимости ухудшения."
           required: true
@@ -1525,6 +1826,7 @@ checks_v8:
         - name: "additional_guarantees_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания на дополнительные гарантии."
           required: true
@@ -1538,6 +1840,7 @@ checks_v8:
         - name: "potential_worsening_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["detected", "not_detected", "unclear"]
           description: "Статус выявления потенциально ухудшающих условий."
           required: true
@@ -1549,6 +1852,8 @@ checks_v8:
           label: "Потенциально ухудшающие условия"
           description: "Описание выявленных формулировок-маркеров ухудшения."
           required: false
+
+      store_payload: true
 
   - id: wage_indexation_check
     name: "Механизм индексации заработной платы (ст. 134 ТК РФ)"
@@ -1751,9 +2056,15 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 1200
+
       compact_output: false
-      llm_max_tokens: 1100
-      store_payload: true
+
+      presence_signal:
+        field: "wage_indexation_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_prompt_extraction: |
         <role>
@@ -1765,35 +2076,73 @@ checks_v8:
         {context}
         </context>
         <task>
-        Заполни строго следующие 6 полей + evidence (всего 7 ключей):
+        0. wage_indexation_check_presence: определи, есть ли в договоре фрагменты,
+           касающиеся индексации заработной платы, её механизма, основы, периодичности
+           или порядка принятия решения.
+           - "present" — есть хотя бы один фрагмент по теме (конкретный механизм,
+             декларация, упоминание ИПЦ/инфляции, периодичность).
+           - "missing" — фрагментов по теме нет вообще.
+           - "unclear" — фрагменты есть, но противоречат друг другу и вывод невозможен.
+
         1. indexation_mechanism_status — concrete / declarative / not_defined.
         2. indexation_mechanism_details — формулировка механизма индексации.
         3. indexation_basis — CPI / fixed_percentage / profit_linked / other / not_defined.
         4. indexation_frequency — annual / semi_annual / quarterly / other / not_defined.
-        5. decision_procedure_status — "defined" или "not_defined".
+        5. decision_procedure_status — defined / not_defined.
         6. decision_procedure_details — порядок принятия решения об индексации.
+
         Если данные отсутствуют в тексте:
         - статус/enum = "not_defined"
         - текстовое поле = "Данные не определены"
         </task>
-        <rules>
-        - Используй только текст договора.
-        - indexation_mechanism_status: "concrete" — есть основа, периодичность
-        и/или порядок; "declarative" — только общая декларация без параметров;
-        "not_defined" — ни механизма, ни декларации.
-        - indexation_basis: "CPI" — привязка к ИПЦ / инфляции;
-        "fixed_percentage" — фиксированный процент;
-        "profit_linked" — привязка к прибыли;
-        "other" — иной механизм, прямо указанный в тексте;
-        "not_defined" — основа не указана.
+        <context_rules>
+        - wage_indexation_check_presence и все статусные поля попарно не пересекаются
+          по значениям present/missing/unclear; их объединение покрывает все допустимые значения.
+        - indexation_mechanism_status: "concrete" — есть основа, периодичность и/или порядок;
+          "declarative" — только общая декларация без параметров;
+          "not_defined" — ни механизма, ни декларации.
+        - indexation_basis: "CPI" — привязка к ИПЦ/инфляции; "fixed_percentage" — фиксированный %;
+          "profit_linked" — привязка к прибыли; "other" — иной механизм; "not_defined".
         - indexation_frequency: annual / semi_annual / quarterly / other / not_defined.
-        - Верни только JSON.
-        </rules>
+        - decision_procedure_status: "defined" — порядок указан; "not_defined" — не указан.
+        - Если indexation_mechanism_status ∈ {concrete, declarative} ИЛИ
+          indexation_basis ≠ "not_defined" ИЛИ indexation_frequency ≠ "not_defined", то
+          wage_indexation_check_presence = "present".
+        - Если все поля = "not_defined", то wage_indexation_check_presence = "missing".
+        </context_rules>
+        <edge_cases>
+        1. Полное отсутствие упоминаний индексации, ИПЦ, инфляции, повышения оплаты труда →
+           wage_indexation_check_presence = "missing", все статусы = "not_defined".
+        2. Декларация «работодатель обеспечивает повышение уровня оплаты труда» без
+           конкретных параметров → presence = "present",
+           indexation_mechanism_status = "declarative", basis/frequency = "not_defined".
+        3. Конкретный механизм (ИПЦ, ежегодно, порядок решения) → presence = "present",
+           indexation_mechanism_status = "concrete", basis = "CPI", frequency = "annual".
+        4. Противоречие: в одном разделе «ежегодно», в другом «по решению комиссии
+           не реже раза в два года» → presence = "unclear",
+           indexation_frequency = "other" с пояснением в details.
+        </edge_cases>
+        <output_expectations>
+        - Все 7 полей (1 presence + 6 substantive) обязательны.
+        - Статусные и enum-поля возвращают только значения из allowed_values.
+        - Текстовые поля без данных — строго "Данные не определены".
+        - Не используй None, null или пустые строки.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
 
       fields:
+        - name: "wage_indexation_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие фрагментов о механизме индексации заработной платы."
+          required: true
         - name: "indexation_mechanism_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["concrete", "declarative", "not_defined"]
           description: "Статус механизма индексации."
           required: true
@@ -1808,18 +2157,21 @@ checks_v8:
         - name: "indexation_basis"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["CPI", "fixed_percentage", "profit_linked", "other", "not_defined"]
           description: "Основа для индексации."
           required: true
         - name: "indexation_frequency"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["annual", "semi_annual", "quarterly", "other", "not_defined"]
           description: "Периодичность индексации."
           required: true
         - name: "decision_procedure_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус порядка принятия решения."
           required: true
@@ -1830,6 +2182,8 @@ checks_v8:
           label: "Порядок принятия решения"
           description: "Порядок принятия решения об индексации."
           required: false
+
+      store_payload: true
 
   - id: union_activity_guarantees_check
     name: "Гарантии профсоюзной деятельности (ст. 374–377 ТК РФ, ФЗ-10)"
@@ -2052,9 +2406,15 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 1300
+
       compact_output: false
-      llm_max_tokens: 1200
-      store_payload: true
+
+      presence_signal:
+        field: "union_activity_guarantees_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_prompt_extraction: |
         <role>
@@ -2066,37 +2426,78 @@ checks_v8:
         {context}
         </context>
         <task>
-        Заполни строго следующие 10 полей + evidence (всего 11 ключей):
-        1. premises_provided_status — "defined" или "not_defined".
-        2. premises_provided_details — предоставление помещения (включая оргтехнику, связь, транспорт).
-        3. release_from_work_status — "defined" или "not_defined".
+        0. union_activity_guarantees_check_presence: определи, есть ли в договоре
+           фрагменты, касающиеся гарантий профсоюзной деятельности (помещение,
+           освобождение от работы, взносы, защита от увольнения, доступ к информации).
+           - "present" — есть хотя бы один фрагмент по любой из пяти гарантий.
+           - "missing" — фрагментов по теме нет вообще.
+           - "unclear" — фрагменты есть, но противоречат друг другу и вывод невозможен.
+
+        1. premises_provided_status — defined / not_defined.
+        2. premises_provided_details — предоставление помещения, оргтехники, связи, транспорта.
+        3. release_from_work_status — defined / not_defined.
         4. release_from_work_details — освобождение от основной работы.
-        5. dues_transfer_status — "defined" или "not_defined".
+        5. dues_transfer_status — defined / not_defined.
         6. dues_transfer_details — перечисление профсоюзных взносов.
-        7. dismissal_protection_status — "defined" или "not_defined".
+        7. dismissal_protection_status — defined / not_defined.
         8. dismissal_protection_details — защита от увольнения.
-        9. information_access_status — "defined" или "not_defined".
+        9. information_access_status — defined / not_defined.
         10. information_access_details — предоставление информации профсоюзу.
+
         Если данные отсутствуют в тексте:
         - статус = "not_defined"
         - текстовое поле = "Данные не определены"
         </task>
-        <rules>
-        - Используй только текст договора.
-        - Для каждого аспекта: если гарантия прямо указана — статус "defined",
-        иначе "not_defined".
-        - "premises_provided_details" включает: помещение, оргтехнику, средства связи, транспорт.
-        - "dismissal_protection_details" — только гарантии от увольнения (согласие
-        вышестоящего профсоюза, запрет увольнения). Не путать с общими гарантиями.
-        - "dues_transfer_details" — перечисление взносов (ставка, периодичность,
-        условие о заявлении работника).
-        - Верни только JSON.
-        </rules>
+        <context_rules>
+        - union_activity_guarantees_check_presence и все статусные поля попарно не
+          пересекаются по значениям present/missing/unclear; их объединение покрывает
+          все допустимые значения.
+        - Для каждого из 5 аспектов: "defined" — гарантия прямо указана в тексте;
+          "not_defined" — гарантия не упомянута.
+        - premises_provided_details включает: помещение, оргтехнику, средства связи, транспорт.
+        - dismissal_protection_details — только гарантии от увольнения (согласие
+          вышестоящего профсоюза, запрет увольнения). Не путать с общими гарантиями.
+        - dues_transfer_details — перечисление взносов (ставка, периодичность,
+          условие о заявлении работника).
+        - Если хотя бы один из 5 статусов = "defined", то
+          union_activity_guarantees_check_presence = "present".
+        - Если все 5 статусов = "not_defined", то
+          union_activity_guarantees_check_presence = "missing".
+        </context_rules>
+        <edge_cases>
+        1. Полное отсутствие фрагментов о профсоюзных гарантиях (помещение, взносы,
+           освобождение, защита, информация) → union_activity_guarantees_check_presence = "missing",
+           все статусы = "not_defined".
+        2. Частичные гарантии (например, помещение и взносы указаны, защита от увольнения
+           и информация — нет) → presence = "present", соответствующие статусы = "defined",
+           остальные = "not_defined".
+        3. Все пять гарантий прямо указаны → presence = "present", все статусы = "defined".
+        4. Противоречие: в одном разделе «предоставляет помещение», в другом —
+           «помещение не предоставляется в связи с отсутствием свободных площадей» →
+           presence = "unclear", premises_provided_status = "not_defined" с пояснением
+           в details.
+        </edge_cases>
+        <output_expectations>
+        - Все 11 полей (1 presence + 10 substantive) обязательны.
+        - Статусные поля возвращают только значения из allowed_values.
+        - Текстовые поля без данных — строго "Данные не определены".
+        - Не используй None, null или пустые строки.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
 
       fields:
+        - name: "union_activity_guarantees_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие фрагментов о гарантиях профсоюзной деятельности."
+          required: true
         - name: "premises_provided_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус предоставления помещения профсоюзу."
           required: true
@@ -2111,6 +2512,7 @@ checks_v8:
         - name: "release_from_work_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус освобождения от основной работы."
           required: true
@@ -2124,6 +2526,7 @@ checks_v8:
         - name: "dues_transfer_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус перечисления профсоюзных взносов."
           required: true
@@ -2138,6 +2541,7 @@ checks_v8:
         - name: "dismissal_protection_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус защиты от увольнения."
           required: true
@@ -2152,6 +2556,7 @@ checks_v8:
         - name: "information_access_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус предоставления информации профсоюзу."
           required: true
@@ -2162,6 +2567,8 @@ checks_v8:
           label: "Информация для профсоюза"
           description: "Предоставление информации профсоюзу."
           required: false
+
+      store_payload: true
 
   - id: multiple_unions_check
     name: "Множественность профсоюзов: единый представительный орган (ст. 37 ТК РФ)"
@@ -2359,9 +2766,15 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 1000
+
       compact_output: false
-      llm_max_tokens: 900
-      store_payload: true
+
+      presence_signal:
+        field: "multiple_unions_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_prompt_extraction: |
         <role>
@@ -2374,32 +2787,79 @@ checks_v8:
         {context}
         </context>
         <task>
-        Заполни строго следующие 5 полей + evidence (всего 6 ключей):
-        1. multiple_unions_status — "defined" или "not_defined".
+        0. multiple_unions_check_presence: определи, есть ли в договоре фрагменты,
+           касающиеся множественности профсоюзов, единого представительного органа
+           или порядка представительства работников.
+           - "present" — есть хотя бы один фрагмент по теме (упоминание нескольких
+             профсоюзов, единого органа, способа представительства).
+           - "missing" — фрагментов по теме нет вообще.
+           - "unclear" — фрагменты есть, но противоречат друг другу и вывод невозможен.
+
+        1. multiple_unions_status — defined / not_defined.
         2. multiple_unions_details — указание на наличие нескольких профсоюзов.
-        3. unified_body_status — "defined" или "not_defined".
+        3. unified_body_status — defined / not_defined.
         4. unified_body_details — создание единого представительного органа.
         5. representation_method — unified_body / majority_union / no_unified_body /
            elected_at_meeting / other / not_defined.
+
         Если данные отсутствуют в тексте:
         - статус/enum = "not_defined"
         - текстовое поле = "Данные не определены"
         </task>
-        <rules>
-        - Используй только текст договора.
-        - representation_method: "unified_body" — создан единый представительный орган
-        (пропорционально, ст. 37 ч. 2 ТК РФ); "majority_union" — профсоюз >50% ведёт
-        переговоры от имени всех (ст. 37 ч. 3 ТК РФ); "no_unified_body" — единый орган
-        не создан, право у крупнейшей ППО (ст. 37 ч. 5 ТК РФ); "elected_at_meeting" —
-        представитель избран на общем собрании без создания органа; "other" — иной
-        порядок, прямо указанный в тексте; "not_defined" — порядок не указан.
-        - Верни только JSON.
-        </rules>
+        <context_rules>
+        - multiple_unions_check_presence и все статусные поля попарно не пересекаются
+          по значениям present/missing/unclear; их объединение покрывает все допустимые значения.
+        - multiple_unions_status: "defined" — прямо указано наличие нескольких профсоюзов;
+          "not_defined" — не указано.
+        - unified_body_status: "defined" — создание единого представительного органа
+          прямо указано; "not_defined" — не указано.
+        - representation_method: "unified_body" — единый орган на пропорциональной основе
+          (ст. 37 ч. 2 ТК РФ); "majority_union" — профсоюз >50% ведёт переговоры
+          (ст. 37 ч. 3 ТК РФ); "no_unified_body" — право у крупнейшей ППО
+          (ст. 37 ч. 5 ТК РФ); "elected_at_meeting" — избран на общем собрании;
+          "other" — иной порядок; "not_defined" — не указан.
+        - Если multiple_unions_status = "defined" ИЛИ unified_body_status = "defined"
+          ИЛИ representation_method ≠ "not_defined", то
+          multiple_unions_check_presence = "present".
+        - Если все поля = "not_defined", то multiple_unions_check_presence = "missing".
+        </context_rules>
+        <edge_cases>
+        1. Полное отсутствие упоминаний множественности профсоюзов, единого органа
+           или порядка представительства → multiple_unions_check_presence = "missing",
+           все поля = "not_defined".
+        2. Указание «в организации действуют две профсоюзные организации, создан
+           единый представительный орган» → presence = "present",
+           multiple_unions_status = "defined", unified_body_status = "defined",
+           representation_method = "unified_body".
+        3. Один профсоюз, множественность не упомянута (преамбула: «Работодатель
+           и первичная профсоюзная организация…») → presence = "missing",
+           все поля = "not_defined".
+        4. Противоречие: в преамбуле «единый представительный орган», в разделе
+           о переговорах «переговоры ведёт профсоюз, объединяющий более половины
+           работников» → presence = "unclear",
+           representation_method = "other" с пояснением в details.
+        </edge_cases>
+        <output_expectations>
+        - Все 6 полей (1 presence + 5 substantive) обязательны.
+        - Статусные и enum-поля возвращают только значения из allowed_values.
+        - Текстовые поля без данных — строго "Данные не определены".
+        - Не используй None, null или пустые строки.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
 
       fields:
+        - name: "multiple_unions_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие фрагментов о порядке представительства при множественности профсоюзов."
+          required: true
         - name: "multiple_unions_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания на наличие нескольких профсоюзов."
           required: true
@@ -2414,6 +2874,7 @@ checks_v8:
         - name: "unified_body_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус создания единого представительного органа."
           required: true
@@ -2427,9 +2888,12 @@ checks_v8:
         - name: "representation_method"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["unified_body", "majority_union", "no_unified_body", "elected_at_meeting", "other", "not_defined"]
           description: "Способ определения представителя работников."
           required: true
+
+      store_payload: true
 
   - id: job_security_retraining_check
     name: "Гарантии занятости и профессиональной переподготовки (ст. 180, 196 ТК РФ)"
@@ -2638,9 +3102,15 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 1200
+
       compact_output: false
-      llm_max_tokens: 1100
-      store_payload: true
+
+      presence_signal:
+        field: "job_security_retraining_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_prompt_extraction: |
         <role>
@@ -2652,33 +3122,84 @@ checks_v8:
         {context}
         </context>
         <task>
-        Заполни строго следующие 8 полей + evidence (всего 9 ключей):
+        0. job_security_retraining_check_presence: определи, есть ли в договоре
+           фрагменты, касающиеся гарантий занятости, переподготовки, повышенного
+           выходного пособия или приоритетного трудоустройства при сокращении.
+           - "present" — есть хотя бы один фрагмент по теме (конкретные гарантии,
+             декларация о содействии занятости, упоминание переподготовки и т.п.).
+           - "missing" — фрагментов по теме нет вообще.
+           - "unclear" — фрагменты есть, но противоречат друг другу и вывод невозможен.
+
         1. job_security_status — concrete / declarative / not_defined.
         2. job_security_details — формулировка гарантий занятости.
-        3. retraining_obligation_status — "defined" или "not_defined".
+        3. retraining_obligation_status — defined / not_defined.
         4. retraining_obligation_details — обязательство по переподготовке.
-        5. enhanced_severance_status — "defined" или "not_defined".
+        5. enhanced_severance_status — defined / not_defined.
         6. enhanced_severance_details — повышенное выходное пособие.
-        7. priority_rehiring_status — "defined" или "not_defined".
+        7. priority_rehiring_status — defined / not_defined.
         8. priority_rehiring_details — приоритетное трудоустройство.
+
         Если данные отсутствуют в тексте:
         - статус/enum = "not_defined"
         - текстовое поле = "Данные не определены"
         </task>
-        <rules>
-        - Используй только текст договора.
-        - job_security_status: "concrete" — указаны конкретные мероприятия;
-        "declarative" — общие декларации без конкретики;
-        "not_defined" — вопрос не раскрыт.
-        - enhanced_severance_details — обязательно указывай размер (в среднемесячных
-        заработках или рублях), если он указан в тексте.
-        - Верни только JSON.
-        </rules>
+        <context_rules>
+        - job_security_retraining_check_presence и все статусные поля попарно не
+          пересекаются по значениям present/missing/unclear; их объединение покрывает
+          все допустимые значения.
+        - job_security_status: "concrete" — указаны конкретные мероприятия
+          (переподготовка, сохранение рабочих мест, преимущественное право);
+          "declarative" — общие декларации без конкретики;
+          "not_defined" — вопрос не раскрыт.
+        - retraining_obligation_status: "defined" — обязательство по переподготовке
+          прямо указано; "not_defined" — не указано.
+        - enhanced_severance_status: "defined" — повышенное выходное пособие указано;
+          "not_defined" — не указано. В details обязательно фиксируй размер
+          (в среднемесячных заработках или рублях), если он есть в тексте.
+        - priority_rehiring_status: "defined" — приоритетное право на повторное
+          трудоустройство указано; "not_defined" — не указано.
+        - Если job_security_status ∈ {concrete, declarative} ИЛИ хотя бы один
+          из остальных статусов = "defined", то
+          job_security_retraining_check_presence = "present".
+        - Если все поля = "not_defined", то
+          job_security_retraining_check_presence = "missing".
+        </context_rules>
+        <edge_cases>
+        1. Полное отсутствие фрагментов о занятости, переподготовке, выходном
+           пособии и трудоустройстве → job_security_retraining_check_presence = "missing",
+           все статусы = "not_defined".
+        2. Декларация «работодатель содействует занятости» без конкретных
+           мероприятий → presence = "present",
+           job_security_status = "declarative", остальные = "not_defined".
+        3. Конкретные гарантии (переподготовка + повышенное пособие + приоритет
+           при трудоустройстве) → presence = "present",
+           job_security_status = "concrete", все статусы = "defined".
+        4. Противоречие: в одном разделе «сохранение рабочих мест при сокращении»,
+           в другом — «сокращение без дополнительных гарантий» →
+           presence = "unclear", job_security_status = "not_defined" с пояснением
+           в details.
+        </edge_cases>
+        <output_expectations>
+        - Все 9 полей (1 presence + 8 substantive) обязательны.
+        - Статусные и enum-поля возвращают только значения из allowed_values.
+        - Текстовые поля без данных — строго "Данные не определены".
+        - Не используй None, null или пустые строки.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
 
       fields:
+        - name: "job_security_retraining_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие фрагментов о гарантиях занятости и переподготовки."
+          required: true
         - name: "job_security_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["concrete", "declarative", "not_defined"]
           description: "Статус гарантий занятости."
           required: true
@@ -2693,6 +3214,7 @@ checks_v8:
         - name: "retraining_obligation_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус обязательства по переподготовке."
           required: true
@@ -2706,6 +3228,7 @@ checks_v8:
         - name: "enhanced_severance_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус повышенного выходного пособия."
           required: true
@@ -2720,6 +3243,7 @@ checks_v8:
         - name: "priority_rehiring_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус приоритетного трудоустройства."
           required: true
@@ -2730,6 +3254,8 @@ checks_v8:
           label: "Приоритетное трудоустройство"
           description: "Приоритетное право на повторное трудоустройство."
           required: false
+
+      store_payload: true
 
   - id: reorganization_succession_check
     name: "Действие договора при реорганизации, смене собственника, ликвидации (ст. 43, 75 ТК РФ)"
@@ -2941,9 +3467,15 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 1200
+
       compact_output: false
-      llm_max_tokens: 1100
-      store_payload: true
+
+      presence_signal:
+        field: "reorganization_succession_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_prompt_extraction: |
         <role>
@@ -2956,39 +3488,89 @@ checks_v8:
         {context}
         </context>
         <task>
-        Заполни строго следующие 7 полей + evidence (всего 8 ключей):
-        1. reorganization_clause_status — "defined" или "not_defined".
+        0. reorganization_succession_check_presence: определи, есть ли в договоре
+           фрагменты, касающиеся судьбы договора при реорганизации, смене собственника
+           или ликвидации.
+           - "present" — есть хотя бы один фрагмент по теме (положение о реорганизации,
+             смене собственника, ликвидации, правопреемстве).
+           - "missing" — фрагментов по теме нет вообще.
+           - "unclear" — фрагменты есть, но противоречат друг другу и вывод невозможен.
+
+        1. reorganization_clause_status — defined / not_defined.
         2. reorganization_action_code — continues / renegotiation / terminates / not_defined.
         3. reorganization_action_details — что происходит с договором при реорганизации.
-        4. ownership_change_status — "defined" или "not_defined".
+        4. ownership_change_status — defined / not_defined.
         5. ownership_change_details — положение о смене собственника (со сроком, если указан).
-        6. liquidation_status — "defined" или "not_defined".
+        6. liquidation_status — defined / not_defined.
         7. liquidation_details — положение о ликвидации.
+
         Если данные отсутствуют в тексте:
         - статус/enum = "not_defined"
         - текстовое поле = "Данные не определены"
         </task>
-        <rules>
-        - Используй только текст договора.
+        <context_rules>
+        - reorganization_succession_check_presence и все статусные поля попарно не
+          пересекаются по значениям present/missing/unclear; их объединение покрывает
+          все допустимые значения.
+        - reorganization_clause_status: "defined" — положение о реорганизации прямо
+          указано; "not_defined" — не указано.
         - reorganization_action_code: "continues" — договор продолжает действие;
-        "renegotiation" — стороны обязуются начать переговоры по новому договору
-        / пересмотреть действующий; "terminates" — договор прекращается;
-        "not_defined" — не указано.
-        - При смене собственника обязательно фиксируй срок в ownership_change_details,
-        если он указан (по ст. 43 ч. 8 ТК РФ — 3 месяца).
-        - Верни только JSON.
-        </rules>
+          "renegotiation" — стороны обязуются начать переговоры / пересмотреть договор;
+          "terminates" — договор прекращается; "not_defined" — не указано.
+        - ownership_change_status: "defined" — положение о смене собственника указано;
+          "not_defined" — не указано. В details обязательно фиксируй срок, если он
+          указан (по ст. 43 ч. 8 ТК РФ — 3 месяца).
+        - liquidation_status: "defined" — положение о ликвидации указано;
+          "not_defined" — не указано.
+        - Если reorganization_clause_status = "defined" ИЛИ
+          ownership_change_status = "defined" ИЛИ liquidation_status = "defined", то
+          reorganization_succession_check_presence = "present".
+        - Если все поля = "not_defined", то
+          reorganization_succession_check_presence = "missing".
+        </context_rules>
+        <edge_cases>
+        1. Полное отсутствие фрагментов о реорганизации, смене собственника
+           и ликвидации → reorganization_succession_check_presence = "missing",
+           все поля = "not_defined".
+        2. Только реорганизация («договор продолжает действовать до окончания
+           срока») без смены собственника и ликвидации → presence = "present",
+           reorganization_clause_status = "defined",
+           reorganization_action_code = "continues", остальные = "not_defined".
+        3. Все три сценария раскрыты (реорганизация + смена собственника со сроком
+           3 месяца + ликвидация) → presence = "present", все статусы = "defined".
+        4. Противоречие: в одном разделе «договор сохраняет действие при
+           реорганизации», в другом — «договор прекращается при любом изменении
+           организационно-правовой формы» → presence = "unclear",
+           reorganization_action_code = "not_defined" с пояснением в details.
+        </edge_cases>
+        <output_expectations>
+        - Все 8 полей (1 presence + 7 substantive) обязательны.
+        - Статусные и enum-поля возвращают только значения из allowed_values.
+        - Текстовые поля без данных — строго "Данные не определены".
+        - Не используй None, null или пустые строки.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
 
       fields:
+        - name: "reorganization_succession_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие фрагментов о действии договора при реорганизации, смене собственника, ликвидации."
+          required: true
         - name: "reorganization_clause_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус положения о реорганизации."
           required: true
         - name: "reorganization_action_code"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["continues", "renegotiation", "terminates", "not_defined"]
           description: "Что происходит с договором при реорганизации."
           required: true
@@ -3003,6 +3585,7 @@ checks_v8:
         - name: "ownership_change_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус положения о смене собственника."
           required: true
@@ -3017,6 +3600,7 @@ checks_v8:
         - name: "liquidation_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус положения о ликвидации."
           required: true
@@ -3028,6 +3612,8 @@ checks_v8:
           label: "Ликвидация"
           description: "Положение о ликвидации."
           required: false
+
+      store_payload: true
 
   - id: social_benefits_detail_check
     name: "Детализация финансовых и социальных льгот (ст. 41 ТК РФ)"
@@ -3241,9 +3827,15 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1400
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "social_benefits_detail_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_prompt_extraction: |
         <role>
@@ -3256,35 +3848,86 @@ checks_v8:
         {context}
         </context>
         <task>
-        Заполни строго следующие 8 полей + evidence (всего 9 ключей):
+        0. social_benefits_detail_check_presence: определи, есть ли в договоре
+           фрагменты, касающиеся социальных и финансовых льгот (материальная помощь,
+           ДМС, компенсации, премии, надбавки, питание, проезд и т.п.).
+           - "present" — есть хотя бы один фрагмент по теме (конкретный перечень,
+             декларация о социальных гарантиях, упоминание сумм/условий).
+           - "missing" — фрагментов по теме нет вообще.
+           - "unclear" — фрагменты есть, но противоречат друг другу и вывод невозможен.
+
         1. benefits_list_status — defined / declarative / not_defined.
         2. benefits_list_value — перечень выявленных льгот.
         3. benefits_with_amounts_status — yes / partially / no / not_defined.
         4. benefits_with_amounts_details — конкретные суммы/размеры.
         5. benefits_with_conditions_status — yes / partially / no / not_defined.
         6. benefits_with_conditions_details — условия получения льгот.
-        7. payment_timing_status — "defined" или "not_defined".
+        7. payment_timing_status — defined / not_defined.
         8. payment_timing_details — сроки выплат.
+
         Если данные отсутствуют в тексте:
         - статус/enum = "not_defined"
         - текстовое поле = "Данные не определены"
         </task>
-        <rules>
-        - Используй только текст договора.
+        <context_rules>
+        - social_benefits_detail_check_presence и все статусные поля попарно не
+          пересекаются по значениям present/missing/unclear; их объединение покрывает
+          все допустимые значения.
+        - benefits_list_status: "defined" — есть конкретный перечень льгот;
+          "declarative" — общая декларация без перечня;
+          "not_defined" — льготы не упоминаются.
         - benefits_with_amounts_status и benefits_with_conditions_status:
-        "yes" — у большинства льгот указаны суммы/условия; "partially" — у части;
-        "no" — все декларативные; "not_defined" — льготы не упоминаются.
+          "yes" — у большинства льгот указаны суммы/условия;
+          "partially" — у части льгот; "no" — все декларативные;
+          "not_defined" — льготы не упоминаются.
+        - payment_timing_status: "defined" — сроки выплат указаны;
+          "not_defined" — не указаны.
         - В benefits_list_value перечисляй льготы через точку с запятой.
         - В benefits_with_amounts_details фиксируй суммы для каждой льготы
-        (через точку с запятой), включая размер в рублях, % или среднемесячных
-        заработках, как указано в тексте.
-        - Верни только JSON.
-        </rules>
+          (через точку с запятой), включая размер в рублях, % или среднемесячных
+          заработках, как указано в тексте.
+        - Если benefits_list_status ∈ {defined, declarative} ИЛИ хотя бы один
+          из остальных статусов ≠ "not_defined", то
+          social_benefits_detail_check_presence = "present".
+        - Если все поля = "not_defined", то
+          social_benefits_detail_check_presence = "missing".
+        </context_rules>
+        <edge_cases>
+        1. Полное отсутствие фрагментов о социальных льготах, выплатах, ДМС,
+           компенсациях → social_benefits_detail_check_presence = "missing",
+           все статусы = "not_defined".
+        2. Декларация «работодатель обеспечивает социальные гарантии» без
+           конкретного перечня и сумм → presence = "present",
+           benefits_list_status = "declarative", остальные = "not_defined".
+        3. Конкретный перечень с суммами и условиями (ДМС + матпомощь +
+           компенсация проезда с размерами) → presence = "present",
+           benefits_list_status = "defined", amounts = "yes"/"partially".
+        4. Противоречие: в одном разделе «материальная помощь — 15 000 рублей»,
+           в другом — «размер материальной помощи определяется локальным актом»
+           без конкретики → presence = "unclear",
+           benefits_with_amounts_status = "partially" с пояснением в details.
+        </edge_cases>
+        <output_expectations>
+        - Все 9 полей (1 presence + 8 substantive) обязательны.
+        - Статусные и enum-поля возвращают только значения из allowed_values.
+        - Текстовые поля без данных — строго "Данные не определены".
+        - Не используй None, null или пустые строки.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
 
       fields:
+        - name: "social_benefits_detail_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие фрагментов о социальных и финансовых льготах."
+          required: true
         - name: "benefits_list_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
           description: "Статус перечня социальных льгот."
           required: true
@@ -3299,6 +3942,7 @@ checks_v8:
         - name: "benefits_with_amounts_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["yes", "partially", "no", "not_defined"]
           description: "Указаны ли конкретные суммы льгот."
           required: true
@@ -3312,6 +3956,7 @@ checks_v8:
         - name: "benefits_with_conditions_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["yes", "partially", "no", "not_defined"]
           description: "Указаны ли условия получения льгот."
           required: true
@@ -3325,6 +3970,7 @@ checks_v8:
         - name: "payment_timing_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус сроков выплат."
           required: true
@@ -3335,6 +3981,8 @@ checks_v8:
           label: "Сроки выплат"
           description: "Сроки выплат социальных льгот."
           required: false
+
+      store_payload: true
 
   - id: amendment_control_registration_check
     name: "Порядок изменений, уведомительная регистрация и контрольная комиссия (ст. 44, 50, 51 ТК РФ)"
@@ -3560,9 +4208,15 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1300
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "amendment_control_registration_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_prompt_extraction: |
         <role>
@@ -3575,33 +4229,86 @@ checks_v8:
         {context}
         </context>
         <task>
-        Заполни строго следующие 9 полей + evidence (всего 10 ключей):
-        1. amendment_procedure_status — "defined" или "not_defined".
+        0. amendment_control_registration_check_presence: определи, есть ли в договоре
+           фрагменты, касающиеся порядка внесения изменений, уведомительной регистрации
+           в органе по труду или контрольной комиссии.
+           - "present" — есть хотя бы один фрагмент по теме (порядок изменений,
+             регистрация, срок, контрольная комиссия, отчётность).
+           - "missing" — фрагментов по теме нет вообще.
+           - "unclear" — фрагменты есть, но противоречат друг другу и вывод невозможен.
+
+        1. amendment_procedure_status — defined / not_defined.
         2. amendment_procedure_details — порядок внесения изменений и дополнений.
-        3. notification_registration_status — "defined" или "not_defined".
+        3. notification_registration_status — defined / not_defined.
         4. notification_registration_details — обязательство по уведомительной регистрации.
-        5. notification_deadline_status — "defined" или "not_defined".
+        5. notification_deadline_status — defined / not_defined.
         6. notification_deadline_value — срок направления на регистрацию.
-        7. control_commission_status — "defined" или "not_defined".
+        7. control_commission_status — defined / not_defined.
         8. control_commission_details — создание контрольной комиссии.
         9. control_commission_reporting — периодичность отчётности.
+
         Если данные отсутствуют в тексте:
         - статус = "not_defined"
         - текстовое поле = "Данные не определены"
         </task>
-        <rules>
-        - Используй только текст договора.
-        - Не выводи обязательство регистрации из нормы ст. 50 ТК РФ — только из текста
-        договора. Если в договоре нет срока — notification_deadline_status = "not_defined".
+        <context_rules>
+        - amendment_control_registration_check_presence и все статусные поля попарно
+          не пересекаются по значениям present/missing/unclear; их объединение
+          покрывает все допустимые значения.
+        - amendment_procedure_status: "defined" — порядок внесения изменений прямо
+          указан; "not_defined" — не указан.
+        - notification_registration_status: "defined" — обязательство по уведомительной
+          регистрации прямо указано; "not_defined" — не указано. Не выводи из нормы
+          ст. 50 ТК РФ — только из текста договора.
+        - notification_deadline_status: "defined" — срок направления на регистрацию
+          указан; "not_defined" — не указан.
+        - control_commission_status: "defined" — создание контрольной комиссии
+          прямо указано; "not_defined" — не указано.
         - В control_commission_reporting фиксируй периодичность строго как указано
-        в тексте («ежеквартально», «раз в год», «по мере необходимости» и т.п.).
-        - Верни только JSON.
-        </rules>
+          в тексте («ежеквартально», «раз в год», «по мере необходимости» и т.п.).
+        - Если amendment_procedure_status = "defined" ИЛИ
+          notification_registration_status = "defined" ИЛИ
+          control_commission_status = "defined", то
+          amendment_control_registration_check_presence = "present".
+        - Если все статусы = "not_defined", то
+          amendment_control_registration_check_presence = "missing".
+        </context_rules>
+        <edge_cases>
+        1. Полное отсутствие фрагментов о порядке изменений, регистрации
+           и контрольной комиссии → amendment_control_registration_check_presence = "missing",
+           все статусы = "not_defined".
+        2. Только порядок изменений («по взаимному согласию сторон») без
+           регистрации и комиссии → presence = "present",
+           amendment_procedure_status = "defined", остальные = "not_defined".
+        3. Все три аспекта раскрыты (порядок изменений + регистрация со сроком
+           7 дней + комиссия с ежеквартальной отчётностью) → presence = "present",
+           все статусы = "defined".
+        4. Противоречие: в одном разделе «изменения по соглашению сторон»,
+           в другом — «изменения в одностороннем порядке работодателем» →
+           presence = "unclear", amendment_procedure_status = "not_defined"
+           с пояснением в details.
+        </edge_cases>
+        <output_expectations>
+        - Все 10 полей (1 presence + 9 substantive) обязательны.
+        - Статусные поля возвращают только значения из allowed_values.
+        - Текстовые поля без данных — строго "Данные не определены".
+        - Не используй None, null или пустые строки.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
 
       fields:
+        - name: "amendment_control_registration_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие фрагментов о порядке изменений, регистрации и контрольной комиссии."
+          required: true
         - name: "amendment_procedure_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус порядка внесения изменений."
           required: true
@@ -3616,6 +4323,7 @@ checks_v8:
         - name: "notification_registration_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус обязательства по уведомительной регистрации."
           required: true
@@ -3630,6 +4338,7 @@ checks_v8:
         - name: "notification_deadline_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус срока направления на регистрацию."
           required: true
@@ -3643,6 +4352,7 @@ checks_v8:
         - name: "control_commission_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус создания контрольной комиссии."
           required: true
@@ -3661,6 +4371,8 @@ checks_v8:
           label: "Периодичность отчётности"
           description: "Периодичность отчётности контрольной комиссии."
           required: false
+
+      store_payload: true
 
   - id: dispute_resolution_liability_check
     name: "Разрешение разногласий и ответственность сторон (ст. 398–418, 55 ТК РФ)"
@@ -3880,9 +4592,15 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1300
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "dispute_resolution_liability_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_prompt_extraction: |
         <role>
@@ -3895,33 +4613,86 @@ checks_v8:
         {context}
         </context>
         <task>
-        Заполни строго следующие 8 полей + evidence (всего 9 ключей):
-        1. dispute_procedure_status — "defined" или "not_defined".
+        0. dispute_resolution_liability_check_presence: определи, есть ли в договоре
+           фрагменты, касающиеся разрешения разногласий (переговоры, примирительная
+           комиссия, посредник, арбитраж) или ответственности сторон.
+           - "present" — есть хотя бы один фрагмент по теме (процедура, комиссия,
+             посредник, арбитраж, ответственность, отсылка к КоАП).
+           - "missing" — фрагментов по теме нет вообще.
+           - "unclear" — фрагменты есть, но противоречат друг другу и вывод невозможен.
+
+        1. dispute_procedure_status — defined / not_defined.
         2. dispute_procedure_details — поэтапная процедура разрешения разногласий.
-        3. conciliation_commission_status — "defined" или "not_defined".
-        4. conciliator_mediator_status — "defined" или "not_defined".
-        5. labor_arbitration_status — "defined" или "not_defined".
-        6. liability_status — "defined" или "not_defined".
-        7. liability_details — ответственность сторон (со ссылкой на норму или конкретные санкции).
-        8. koap_reference_status — "defined" или "not_defined".
+        3. conciliation_commission_status — defined / not_defined.
+        4. conciliator_mediator_status — defined / not_defined.
+        5. labor_arbitration_status — defined / not_defined.
+        6. liability_status — defined / not_defined.
+        7. liability_details — ответственность сторон (отсылки на нормы или санкции).
+        8. koap_reference_status — defined / not_defined.
+
         Если данные отсутствуют в тексте:
         - статус = "not_defined"
         - текстовое поле = "Данные не определены"
         </task>
-        <rules>
-        - Используй только текст договора.
-        - Не выводи процедуру из норм ст. 398–418 ТК РФ — только из текста договора.
-        - koap_reference_status = "defined" только если прямо упомянута административная
-        ответственность (в т.ч. через отсылку к КоАП РФ или к ст. 5.28–5.31).
-        - В liability_details фиксируй как отсылки на нормы (ст. 55 ТК РФ),
-        так и конкретные санкции, указанные в тексте.
-        - Верни только JSON.
-        </rules>
+        <context_rules>
+        - dispute_resolution_liability_check_presence и все статусные поля попарно
+          не пересекаются по значениям present/missing/unclear; их объединение
+          покрывает все допустимые значения.
+        - dispute_procedure_status: "defined" — поэтапная процедура прямо указана;
+          "not_defined" — не указана. Не выводи из норм ст. 398–418 ТК РФ.
+        - conciliation_commission_status: "defined" — примирительная комиссия
+          прямо упомянута; "not_defined" — не упомянута.
+        - conciliator_mediator_status: "defined" — посредник/медиатор прямо
+          упомянут; "not_defined" — не упомянут.
+        - labor_arbitration_status: "defined" — трудовой арбитраж прямо упомянут;
+          "not_defined" — не упомянут.
+        - liability_status: "defined" — ответственность сторон прямо указана;
+          "not_defined" — не указана. В details фиксируй отсылки на нормы
+          (ст. 55 ТК РФ) и конкретные санкции.
+        - koap_reference_status: "defined" — прямо упомянута административная
+          ответственность (отсылка к КоАП РФ или ст. 5.28–5.31);
+          "not_defined" — не упомянута.
+        - Если хотя бы один из 6 статусов = "defined", то
+          dispute_resolution_liability_check_presence = "present".
+        - Если все статусы = "not_defined", то
+          dispute_resolution_liability_check_presence = "missing".
+        </context_rules>
+        <edge_cases>
+        1. Полное отсутствие фрагментов о разрешении разногласий и ответственности →
+           dispute_resolution_liability_check_presence = "missing",
+           все статусы = "not_defined".
+        2. Только примирительная комиссия без арбитража и ответственности →
+           presence = "present", dispute_procedure_status = "defined",
+           conciliation_commission_status = "defined", остальные = "not_defined".
+        3. Полная процедура (переговоры → комиссия → посредник → арбитраж) +
+           ответственность + отсылка к КоАП → presence = "present",
+           все статусы = "defined".
+        4. Противоречие: в одном разделе «разногласия разрешаются переговорами»,
+           в другом — «все споры передаются в суд без досудебного урегулирования» →
+           presence = "unclear", dispute_procedure_status = "not_defined"
+           с пояснением в details.
+        </edge_cases>
+        <output_expectations>
+        - Все 9 полей (1 presence + 8 substantive) обязательны.
+        - Статусные поля возвращают только значения из allowed_values.
+        - Текстовые поля без данных — строго "Данные не определены".
+        - Не используй None, null или пустые строки.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
 
       fields:
+        - name: "dispute_resolution_liability_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие фрагментов о разрешении разногласий и ответственности сторон."
+          required: true
         - name: "dispute_procedure_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус процедуры разрешения разногласий."
           required: true
@@ -3936,24 +4707,28 @@ checks_v8:
         - name: "conciliation_commission_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус примирительной комиссии."
           required: true
         - name: "conciliator_mediator_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус посредника/медиатора."
           required: true
         - name: "labor_arbitration_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус трудового арбитража."
           required: true
         - name: "liability_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус ответственности сторон."
           required: true
@@ -3968,9 +4743,12 @@ checks_v8:
         - name: "koap_reference_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус ссылки на административную ответственность (ст. 5.28–5.31 КоАП РФ)."
           required: true
+
+      store_payload: true
 
   - id: working_hours_and_leave_check
     name: "Рабочее время и отпуска (ст. 92, 117 ТК РФ)"
@@ -4155,9 +4933,15 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 1100
+
       compact_output: false
-      llm_max_tokens: 1000
-      store_payload: true
+
+      presence_signal:
+        field: "working_hours_and_leave_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_prompt_extraction: |
         <role>
@@ -4169,29 +4953,78 @@ checks_v8:
         {context}
         </context>
         <task>
-        Заполни строго следующие 6 полей + evidence (всего 7 ключей):
-        1. working_hours_status — "defined" или "not_defined".
+        0. working_hours_and_leave_check_presence: определи, есть ли в договоре
+           фрагменты, касающиеся режима рабочего времени, ежегодного отпуска
+           или дополнительных отпусков.
+           - "present" — есть хотя бы один фрагмент по теме (рабочее время,
+             ежегодный отпуск, дополнительный отпуск, сменность).
+           - "missing" — фрагментов по теме нет вообще.
+           - "unclear" — фрагменты есть, но противоречат друг другу и вывод невозможен.
+
+        1. working_hours_status — defined / not_defined.
         2. working_hours_details — режим рабочего времени.
-        3. annual_leave_status — "defined" или "not_defined".
+        3. annual_leave_status — defined / not_defined.
         4. annual_leave_details — продолжительность ежегодного отпуска.
-        5. additional_leave_status — "defined" или "not_defined".
+        5. additional_leave_status — defined / not_defined.
         6. additional_leave_details — дополнительные отпуска.
+
         Если данные отсутствуют в тексте:
         - статус = "not_defined"
         - текстовое поле = "Данные не определены"
         </task>
-        <rules>
-        - Используй только текст договора.
-        - Не выводи нормы рабочего времени из ТК РФ — только из текста договора.
-        - В additional_leave_details фиксируй все дополнительные отпуска,
-        в т.ч. за вредные условия труда (минимум 7 к.д. по ст. 117 ТК РФ).
-        - Верни только JSON.
-        </rules>
+        <context_rules>
+        - working_hours_and_leave_check_presence и все статусные поля попарно не
+          пересекаются по значениям present/missing/unclear; их объединение покрывает
+          все допустимые значения.
+        - working_hours_status: "defined" — режим рабочего времени прямо указан
+          (норма часов, сменность, сокращённое/неполное время);
+          "not_defined" — не указан. Не выводи нормы из ТК РФ.
+        - annual_leave_status: "defined" — продолжительность ежегодного отпуска
+          прямо указана; "not_defined" — не указана.
+        - additional_leave_status: "defined" — дополнительные отпуска прямо
+          указаны (в т.ч. за вредные условия); "not_defined" — не указаны.
+          В details фиксируй все дополнительные отпуска, в т.ч. за вредные
+          условия труда (минимум 7 к.д. по ст. 117 ТК РФ).
+        - Если хотя бы один из 3 статусов = "defined", то
+          working_hours_and_leave_check_presence = "present".
+        - Если все статусы = "not_defined", то
+          working_hours_and_leave_check_presence = "missing".
+        </context_rules>
+        <edge_cases>
+        1. Полное отсутствие фрагментов о рабочем времени и отпусках →
+           working_hours_and_leave_check_presence = "missing",
+           все статусы = "not_defined".
+        2. Только рабочее время («40 часов в неделю») без отпусков →
+           presence = "present", working_hours_status = "defined",
+           annual_leave_status = "not_defined", additional_leave_status = "not_defined".
+        3. Все три аспекта раскрыты (40 ч/нед + 28 к.д. + доп. отпуск 7 дней
+           за вредные условия) → presence = "present", все статусы = "defined".
+        4. Противоречие: в одном разделе «рабочее время — 40 часов в неделю»,
+           в другом — «36 часов в неделю для всех работников» →
+           presence = "unclear", working_hours_status = "not_defined"
+           с пояснением в details.
+        </edge_cases>
+        <output_expectations>
+        - Все 7 полей (1 presence + 6 substantive) обязательны.
+        - Статусные поля возвращают только значения из allowed_values.
+        - Текстовые поля без данных — строго "Данные не определены".
+        - Не используй None, null или пустые строки.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
 
       fields:
+        - name: "working_hours_and_leave_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие фрагментов о рабочем времени и отпусках."
+          required: true
         - name: "working_hours_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус режима рабочего времени."
           required: true
@@ -4206,6 +5039,7 @@ checks_v8:
         - name: "annual_leave_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус ежегодного отпуска."
           required: true
@@ -4220,6 +5054,7 @@ checks_v8:
         - name: "additional_leave_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус дополнительных отпусков."
           required: true
@@ -4231,6 +5066,8 @@ checks_v8:
           label: "Дополнительные отпуска"
           description: "Дополнительные отпуска (в т.ч. за вредные условия)."
           required: false
+
+      store_payload: true
 
   - id: occupational_safety_check
     name: "Охрана труда и вредные условия (ст. 147, 212–231 ТК РФ)"
@@ -4430,9 +5267,15 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1300
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "occupational_safety_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_prompt_extraction: |
         <role>
@@ -4444,34 +5287,83 @@ checks_v8:
         {context}
         </context>
         <task>
-        Заполни строго следующие 8 полей + evidence (всего 9 ключей):
-        1. safety_measures_status — "defined" или "not_defined".
+        0. occupational_safety_check_presence: определи, есть ли в договоре фрагменты,
+           касающиеся охраны труда, финансирования, СИЗ, СОУТ или гарантий
+           за вредные/опасные условия.
+           - "present" — есть хотя бы один фрагмент по теме (мероприятия, финансирование,
+             СИЗ, СОУТ, доплата за вредность, молоко, ЛПП).
+           - "missing" — фрагментов по теме нет вообще.
+           - "unclear" — фрагменты есть, но противоречат друг другу и вывод невозможен.
+
+        1. safety_measures_status — defined / not_defined.
         2. safety_measures_details — мероприятия по охране труда и финансирование.
-        3. ppei_provision_status — "defined" или "not_defined".
+        3. ppei_provision_status — defined / not_defined.
         4. ppei_provision_details — обеспечение СИЗ.
-        5. sout_status_code — "defined" или "not_defined".
+        5. sout_status_code — defined / not_defined.
         6. sout_status_details — результаты СОУТ / класс условий труда.
-        7. hazardous_guarantees_status — "defined" или "not_defined".
+        7. hazardous_guarantees_status — defined / not_defined.
         8. hazardous_guarantees_details — гарантии за вредные/опасные условия.
+
         Если данные отсутствуют в тексте:
         - статус = "not_defined"
         - текстовое поле = "Данные не определены"
         </task>
-        <rules>
-        - Используй только текст договора.
+        <context_rules>
+        - occupational_safety_check_presence и все статусные поля попарно не
+          пересекаются по значениям present/missing/unclear; их объединение покрывает
+          все допустимые значения.
+        - safety_measures_status: "defined" — мероприятия и/или финансирование охраны
+          труда прямо указаны; "not_defined" — не указаны. В details фиксируй
+          как мероприятия, так и источник финансирования (процент / сумма).
+        - ppei_provision_status: "defined" — обеспечение СИЗ прямо указано;
+          "not_defined" — не указано.
+        - sout_status_code: "defined" — результаты СОУТ или класс условий труда
+          прямо указаны; "not_defined" — не указаны.
+        - hazardous_guarantees_status: "defined" — гарантии за вредные/опасные
+          условия прямо указаны; "not_defined" — не указаны. В details фиксируй
+          все гарантии: доплата, дополнительный отпуск, молоко, ЛПП, сокращённая
+          рабочая неделя.
         - Не выводи нормы охраны труда из ТК РФ — только из текста договора.
-        - В safety_measures_details фиксируй как мероприятия, так и источник
-        финансирования (процент / сумма).
-        - В hazardous_guarantees_details фиксируй все гарантии за вредность:
-        доплата, дополнительный отпуск, молоко, лечебно-профилактическое питание,
-        сокращённая рабочая неделя.
-        - Верни только JSON.
-        </rules>
+        - Если хотя бы один из 4 статусов = "defined", то
+          occupational_safety_check_presence = "present".
+        - Если все статусы = "not_defined", то
+          occupational_safety_check_presence = "missing".
+        </context_rules>
+        <edge_cases>
+        1. Полное отсутствие фрагментов об охране труда, СИЗ, СОУТ и гарантиях
+           за вредность → occupational_safety_check_presence = "missing",
+           все статусы = "not_defined".
+        2. Частичное покрытие (только СИЗ и СОУТ без финансирования и гарантий
+           за вредность) → presence = "present", ppei_provision_status = "defined",
+           sout_status_code = "defined", остальные = "not_defined".
+        3. Все четыре аспекта раскрыты (финансирование 0,2% + СИЗ + СОУТ 3.1 +
+           доплата 4% и молоко) → presence = "present", все статусы = "defined".
+        4. Противоречие: в одном разделе «доплата за вредность 4%», в другом —
+           «доплаты за вредные условия не предусмотрены в связи с отсутствием
+           рабочих мест с классом 3.1 и выше» → presence = "unclear",
+           hazardous_guarantees_status = "not_defined" с пояснением в details.
+        </edge_cases>
+        <output_expectations>
+        - Все 9 полей (1 presence + 8 substantive) обязательны.
+        - Статусные поля возвращают только значения из allowed_values.
+        - Текстовые поля без данных — строго "Данные не определены".
+        - Не используй None, null или пустые строки.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
 
       fields:
+        - name: "occupational_safety_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие фрагментов об охране труда и вредных условиях."
+          required: true
         - name: "safety_measures_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус мероприятий по охране труда."
           required: true
@@ -4486,6 +5378,7 @@ checks_v8:
         - name: "ppei_provision_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус обеспечения СИЗ."
           required: true
@@ -4499,6 +5392,7 @@ checks_v8:
         - name: "sout_status_code"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус СОУТ / класса условий труда."
           required: true
@@ -4513,6 +5407,7 @@ checks_v8:
         - name: "hazardous_guarantees_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус гарантий за вредные/опасные условия."
           required: true
@@ -4524,6 +5419,8 @@ checks_v8:
           label: "Гарантии за вредные условия"
           description: "Гарантии за вредные/опасные условия труда (доплата, молоко, ЛПП и т.п.)."
           required: false
+
+      store_payload: true
 
   - id: collective_agreement_content_scope
     name: "Обязательные разделы коллективного договора (ст. 41 ТК РФ)"
@@ -4732,9 +5629,15 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1400
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "collective_agreement_content_scope_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_prompt_extraction: |
         <role>
@@ -4746,7 +5649,14 @@ checks_v8:
         {context}
         </context>
         <task>
-        Заполни строго следующие 8 полей + evidence (всего 9 ключей):
+        0. collective_agreement_content_scope_presence: определи, есть ли в договоре
+           фрагменты, касающиеся хотя бы одной из 6 канонических тем ст. 41 ТК РФ
+           (оплата труда, занятость, рабочее время, охрана труда, социальные
+           гарантии, обучение).
+           - "present" — есть хотя бы один фрагмент по любой из 6 тем.
+           - "missing" — фрагментов по всем 6 темам нет вообще.
+           - "unclear" — фрагменты есть, но противоречат друг другу и вывод невозможен.
+
         1. payment_obligations_status — defined / declarative / not_defined.
         2. employment_obligations_status — defined / declarative / not_defined.
         3. worktime_obligations_status — defined / declarative / not_defined.
@@ -4755,62 +5665,106 @@ checks_v8:
         6. educational_obligations_status — defined / declarative / not_defined.
         7. overall_completeness_status — complete / partial / minimal / not_defined.
         8. missing_sections_details — перечень отсутствующих тем.
+
         Если данные отсутствуют в тексте:
         - статус = "not_defined"
         - текстовое поле = "Данные не определены"
         </task>
-        <rules>
-        - Используй только текст договора.
-        - defined = есть конкретные обязательства по теме.
-        - declarative = только общая декларация без конкретики.
-        - not_defined = тема не раскрыта.
-        - overall_completeness_status: complete = 6 defined; partial = 4–5; minimal = ≤3;
-        not_defined = ни одной.
+        <context_rules>
+        - collective_agreement_content_scope_presence и все статусные поля попарно
+          не пересекаются по значениям present/missing/unclear; их объединение
+          покрывает все допустимые значения.
+        - Для каждой из 6 тем: "defined" — есть конкретные обязательства;
+          "declarative" — только общая декларация без конкретики;
+          "not_defined" — тема не упомянута.
+        - overall_completeness_status: "complete" — все 6 тем = "defined";
+          "partial" — 4–5 тем = "defined"; "minimal" — ≤3 тем = "defined"
+          (но хотя бы одна); "not_defined" — ни одна тема не раскрыта.
         - В missing_sections_details перечисли темы со статусом "not_defined"
-        (через точку с запятой).
-        - Верни только JSON.
-        </rules>
+          через точку с запятой.
+        - Если хотя бы один из 6 тематических статусов ∈ {defined, declarative}, то
+          collective_agreement_content_scope_presence = "present".
+        - Если все 6 тематических статусов = "not_defined", то
+          collective_agreement_content_scope_presence = "missing".
+        </context_rules>
+        <edge_cases>
+        1. Полное отсутствие фрагментов по всем 6 темам ст. 41 ТК РФ →
+           collective_agreement_content_scope_presence = "missing",
+           все статусы = "not_defined", overall = "not_defined".
+        2. Частичное покрытие (оплата труда + охрана труда = defined, остальные
+           not_defined) → presence = "present", overall = "minimal",
+           missing_sections_details перечисляет 4 отсутствующие темы.
+        3. Все 6 тем раскрыты с конкретными обязательствами →
+           presence = "present", все тематические = "defined",
+           overall = "complete", missing = "Данные не определены".
+        4. Противоречие: в преамбуле «договор охватывает все вопросы ст. 41 ТК РФ»,
+           но по факту раскрыты только 2 темы → presence = "present",
+           overall = "minimal" (фактическое покрытие, а не декларация),
+           missing перечисляет 4 фактически отсутствующие темы.
+        </edge_cases>
+        <output_expectations>
+        - Все 9 полей (1 presence + 8 substantive) обязательны.
+        - Статусные поля возвращают только значения из allowed_values.
+        - Текстовые поля без данных — строго "Данные не определены".
+        - Не используй None, null или пустые строки.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
 
       fields:
+        - name: "collective_agreement_content_scope_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие фрагментов по каноническим темам ст. 41 ТК РФ."
+          required: true
         - name: "payment_obligations_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
           description: "Статус обязательств по оплате труда."
           required: true
         - name: "employment_obligations_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
           description: "Статус обязательств по занятости и переобучению."
           required: true
         - name: "worktime_obligations_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
           description: "Статус обязательств по рабочему времени и времени отдыха."
           required: true
         - name: "safety_obligations_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
           description: "Статус обязательств по охране труда."
           required: true
         - name: "social_obligations_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
           description: "Статус обязательств по социальным гарантиям."
           required: true
         - name: "educational_obligations_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
           description: "Статус обязательств по обучению."
           required: true
         - name: "overall_completeness_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["complete", "partial", "minimal", "not_defined"]
           description: "Общая полнота обязательных разделов."
           required: true
@@ -4822,6 +5776,8 @@ checks_v8:
           label: "Отсутствующие разделы"
           description: "Перечень отсутствующих обязательных тем ст. 41 ТК РФ."
           required: false
+
+      store_payload: true
 
   - id: remuneration_system_check
     name: "Системы оплаты труда, надбавки и даты выплат (ст. 41, 129–144, 136 ТК РФ)"
@@ -5038,9 +5994,15 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1400
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "remuneration_system_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_prompt_extraction: |
         <role>
@@ -5052,7 +6014,13 @@ checks_v8:
         {context}
         </context>
         <task>
-        Заполни строго следующие 9 полей + evidence (всего 10 ключей):
+        0. remuneration_system_check_presence: определи, есть ли в договоре фрагменты,
+           касающиеся систем оплаты труда, окладов, надбавок, дат выплат или МРОТ.
+           - "present" — есть хотя бы один фрагмент по теме (система оплаты, оклады,
+             надбавки, даты выплат, МРОТ, районный коэффициент).
+           - "missing" — фрагментов по теме нет вообще.
+           - "unclear" — фрагменты есть, но противоречат друг другу и вывод невозможен.
+
         1. remuneration_system_status — defined / declarative / not_defined.
         2. remuneration_system_details — системы и формы оплаты труда.
         3. salary_amounts_status — defined / partial / not_defined.
@@ -5062,25 +6030,68 @@ checks_v8:
         7. payment_dates_status — defined / not_defined.
         8. payment_dates_details — даты и сроки выплат.
         9. mrot_compliance_status — defined / not_defined.
+
         Если данные отсутствуют в тексте:
         - статус = "not_defined"
         - текстовое поле = "Данные не определены"
         </task>
-        <rules>
-        - Используй только текст договора.
-        - В salary_amounts_details фиксируй конкретные цифры по категориям.
-        - В bonuses_and_allowances_details фиксируй надбавки/премии с размерами
-        (% или руб.).
-        - В payment_dates_details фиксируй конкретные числа/периоды выплат.
-        - mrot_compliance_status = "defined" только если прямо упомянут МРОТ
-        или региональное соглашение.
-        - Верни только JSON.
-        </rules>
+        <context_rules>
+        - remuneration_system_check_presence и все статусные поля попарно не
+          пересекаются по значениям present/missing/unclear; их объединение покрывает
+          все допустимые значения.
+        - remuneration_system_status: "defined" — системы/формы оплаты прямо указаны;
+          "declarative" — только декларация без конкретики;
+          "not_defined" — не раскрыто.
+        - salary_amounts_status: "defined" — у большинства категорий есть размеры;
+          "partial" — у части есть конкретика; "not_defined" — размеры не указаны.
+          В details фиксируй конкретные цифры по категориям.
+        - bonuses_and_allowances_status: "defined" — надбавки/премии с размерами;
+          "declarative" — упоминание без размеров; "not_defined" — не указаны.
+          В details фиксируй надбавки/премии с размерами (% или руб.).
+        - payment_dates_status: "defined" — есть сроки/даты выплат;
+          "not_defined" — не указаны. В details фиксируй конкретные числа/периоды.
+        - mrot_compliance_status: "defined" — прямо упомянут МРОТ или региональное
+          соглашение; "not_defined" — нет.
+        - Если remuneration_system_status ∈ {defined, declarative} ИЛИ хотя бы
+          один из остальных статусов ≠ "not_defined", то
+          remuneration_system_check_presence = "present".
+        - Если все поля = "not_defined", то
+          remuneration_system_check_presence = "missing".
+        </context_rules>
+        <edge_cases>
+        1. Полное отсутствие фрагментов об оплате труда, окладах, надбавках,
+           датах выплат и МРОТ → remuneration_system_check_presence = "missing",
+           все статусы = "not_defined".
+        2. Декларация «оплата труда в соответствии с ТК РФ» без конкретики →
+           presence = "present", remuneration_system_status = "declarative",
+           остальные = "not_defined".
+        3. Полное покрытие (система + оклады + надбавки + даты + МРОТ) →
+           presence = "present", все статусы = "defined".
+        4. Противоречие: в одном разделе «выплата 5 и 20 числа», в другом —
+           «выплата не позднее 10 числа каждого месяца» → presence = "unclear",
+           payment_dates_status = "not_defined" с пояснением в details.
+        </edge_cases>
+        <output_expectations>
+        - Все 10 полей (1 presence + 9 substantive) обязательны.
+        - Статусные и enum-поля возвращают только значения из allowed_values.
+        - Текстовые поля без данных — строго "Данные не определены".
+        - Не используй None, null или пустые строки.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
 
       fields:
+        - name: "remuneration_system_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие фрагментов о системах оплаты труда, надбавках и датах выплат."
+          required: true
         - name: "remuneration_system_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
           description: "Статус систем оплаты труда."
           required: true
@@ -5095,6 +6106,7 @@ checks_v8:
         - name: "salary_amounts_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
           description: "Статус конкретных размеров окладов/ставок."
           required: true
@@ -5109,6 +6121,7 @@ checks_v8:
         - name: "bonuses_and_allowances_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "declarative", "not_defined"]
           description: "Статус надбавок и премий."
           required: true
@@ -5123,6 +6136,7 @@ checks_v8:
         - name: "payment_dates_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус дат и сроков выплат."
           required: true
@@ -5137,9 +6151,12 @@ checks_v8:
         - name: "mrot_compliance_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус упоминания МРОТ / регионального соглашения."
           required: true
+
+      store_payload: true
 
   - id: collective_agreement_conclusion_negotiations
     name: "Процедура коллективных переговоров (ст. 36–38 ТК РФ)"
@@ -5323,9 +6340,15 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 1100
+
       compact_output: false
-      llm_max_tokens: 1000
-      store_payload: true
+
+      presence_signal:
+        field: "collective_agreement_conclusion_negotiations_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_prompt_extraction: |
         <role>
@@ -5336,7 +6359,14 @@ checks_v8:
         {context}
         </context>
         <task>
-        Заполни строго следующие 7 полей + evidence (всего 8 ключей):
+        0. collective_agreement_conclusion_negotiations_presence: определи, есть ли
+           в договоре фрагменты, касающиеся процедуры коллективных переговоров,
+           инициатора, сроков или порядка урегулирования разногласий.
+           - "present" — есть хотя бы один фрагмент по теме (процедура переговоров,
+             инициатор, примирительные процедуры, сроки).
+           - "missing" — фрагментов по теме нет вообще.
+           - "unclear" — фрагменты есть, но противоречат друг другу и вывод невозможен.
+
         1. negotiations_procedure_status — defined / declarative / not_defined.
         2. negotiations_procedure_details — описание процедуры переговоров.
         3. initiator_reference_status — defined / not_defined.
@@ -5344,22 +6374,68 @@ checks_v8:
         5. conciliation_procedure_details — порядок урегулирования разногласий.
         6. negotiation_deadline_status — defined / not_defined.
         7. negotiation_deadline_details — сроки проведения переговоров.
+
         Если данные отсутствуют в тексте:
         - статус = "not_defined"
         - текстовое поле = "Данные не определены"
         </task>
-        <rules>
-        - Используй только текст договора.
-        - defined = порядок прямо описан в тексте.
-        - declarative = только упоминание без конкретики.
-        - not_defined = не раскрыто.
-        - Верни только JSON.
-        </rules>
+        <context_rules>
+        - collective_agreement_conclusion_negotiations_presence и все статусные
+          поля попарно не пересекаются по значениям present/missing/unclear;
+          их объединение покрывает все допустимые значения.
+        - negotiations_procedure_status: "defined" — порядок переговоров конкретно
+          описан; "declarative" — только упоминание переговоров без порядка;
+          "not_defined" — не раскрыто.
+        - initiator_reference_status: "defined" — инициатор переговоров прямо
+          упомянут; "not_defined" — не упомянут.
+        - conciliation_procedure_status: "defined" — порядок урегулирования
+          разногласий прямо указан; "not_defined" — не указан.
+        - negotiation_deadline_status: "defined" — сроки проведения переговоров
+          прямо указаны; "not_defined" — не указаны.
+        - Если negotiations_procedure_status ∈ {defined, declarative} ИЛИ
+          initiator_reference_status = "defined" ИЛИ
+          conciliation_procedure_status = "defined" ИЛИ
+          negotiation_deadline_status = "defined", то
+          collective_agreement_conclusion_negotiations_presence = "present".
+        - Если все статусы = "not_defined", то
+          collective_agreement_conclusion_negotiations_presence = "missing".
+        </context_rules>
+        <edge_cases>
+        1. Полное отсутствие фрагментов о коллективных переговорах, инициаторе,
+           сроках и примирительных процедурах →
+           collective_agreement_conclusion_negotiations_presence = "missing",
+           все статусы = "not_defined".
+        2. Декларация «стороны ведут коллективные переговоры» без конкретики →
+           presence = "present", negotiations_procedure_status = "declarative",
+           остальные = "not_defined".
+        3. Полное описание (процедура + инициатор + сроки 3 месяца + порядок
+           ст. 38 ТК РФ) → presence = "present", все статусы = "defined".
+        4. Противоречие: в преамбуле «переговоры проведены в течение трёх месяцев»,
+           в заключительных положениях — «срок переговоров не ограничен» →
+           presence = "unclear", negotiation_deadline_status = "not_defined"
+           с пояснением в details.
+        </edge_cases>
+        <output_expectations>
+        - Все 8 полей (1 presence + 7 substantive) обязательны.
+        - Статусные поля возвращают только значения из allowed_values.
+        - Текстовые поля без данных — строго "Данные не определены".
+        - Не используй None, null или пустые строки.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
 
       fields:
+        - name: "collective_agreement_conclusion_negotiations_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие фрагментов о процедуре коллективных переговоров."
+          required: true
         - name: "negotiations_procedure_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
           description: "Статус описания процедуры коллективных переговоров."
           required: true
@@ -5374,12 +6450,14 @@ checks_v8:
         - name: "initiator_reference_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус упоминания инициатора переговоров."
           required: true
         - name: "conciliation_procedure_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус порядка урегулирования разногласий."
           required: true
@@ -5393,6 +6471,7 @@ checks_v8:
         - name: "negotiation_deadline_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания сроков переговоров."
           required: true
@@ -5404,6 +6483,8 @@ checks_v8:
           label: "Сроки переговоров"
           description: "Сроки проведения коллективных переговоров."
           required: false
+
+      store_payload: true
 
   - id: collective_agreement_appendices_check
     name: "Приложения к коллективному договору (ст. 41 ч. 1 ТК РФ)"
@@ -5573,45 +6654,159 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 700
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "collective_agreement_appendices_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист по трудовому праву. Извлеки из коллективного договора
         сведения о приложениях и их полноте (ст. 41 ч. 1 ТК РФ).
+        Не анализируй другие темы коллективного договора.
+        Не оценивай риски.
+        Анализируй только текст договора.
         </role>
+
         <context>
         {context}
         </context>
+
         <task>
-        Заполни строго следующие 4 поля + evidence (всего 5 ключей):
-        1. appendices_mentioned_status — defined / not_defined.
-        2. appendices_list — перечень приложений.
-        3. appendices_integrity_status — complete / incomplete / unclear / not_defined.
-        4. appendices_integrity_details — комментарий к полноте.
-        Если данные отсутствуют в тексте:
-        - статус = "not_defined"
-        - текстовое поле = "Данные не определены"
+        Заполни строго следующие поля:
+
+        0. collective_agreement_appendices_check_presence:
+           Агрегатное signal-поле — наличие приложений к коллективному
+           договору.
+           - "present" — если хотя бы одно из содержательных полей
+             (appendices_mentioned_status, appendices_integrity_status)
+             ≠ "not_defined";
+           - "missing" — если оба содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - appendices_mentioned_status = "not_defined";
+           - appendices_integrity_status = "not_defined";
+           - appendices_list, appendices_integrity_details
+             = "Данные не определены";
+           - не выполняй остальные шаги.
+
+        1. appendices_mentioned_status:
+           - "defined" — если приложения упомянуты в тексте договора;
+           - "not_defined" — если не упомянуты.
+
+        2. appendices_list:
+           Краткое user-facing перечисление приложений
+           (например: "Приложение № 1 — Положение об оплате труда;
+           Приложение № 2 — Правила внутреннего трудового распорядка").
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        3. appendices_integrity_status:
+           Используй только одно из значений:
+           - "complete" — все приложения перечислены с номерами
+             и названиями;
+           - "incomplete" — приложения упомянуты без полного перечня;
+           - "unclear" — неясно, приложены ли (есть ссылка, но нет
+             подтверждения);
+           - "not_defined" — приложений нет.
+
+        4. appendices_integrity_details:
+           Краткое user-facing описание полноты приложений.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
         </task>
-        <rules>
-        - Используй только текст договора.
-        - Если приложение упомянуто — обязательно фиксируй в appendices_list
-        с номером и названием, если они указаны.
+
+        <context_rules>
+        - Перед остальными полями заполни collective_agreement_appendices_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — оба *_status = "not_defined", все *_details = "Данные не определены".
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона вместо текста договора.
+        - Не делай выводов по типовой структуре договора.
+        - Если приложение упомянуто — обязательно фиксируй в appendices_list с номером и названием, если они указаны.
         - complete = все упомянутые приложения имеют номер и название.
         - incomplete = упомянуто без полного перечня.
         - unclear = неясно, приложены ли (например, есть ссылка, но файла нет).
-        - Верни только JSON.
-        </rules>
+        - Если в разных фрагментах указаны противоречивые сведения — статус → "not_defined", текстовое поле → "Не удалось определить".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни упоминания приложений, ни перечня,
+           ни указания на неотъемлемую часть.
+           → presence = "missing";
+             appendices_mentioned_status = "not_defined";
+             appendices_integrity_status = "not_defined";
+             все *_details = "Данные не определены".
+
+        2. Неполное раскрытие или прямое исключение.
+           а) Общая фраза: "Стороны руководствуются приложениями"
+              без номеров и названий.
+              → presence = "present";
+                appendices_mentioned_status = "defined";
+                appendices_integrity_status = "incomplete".
+           б) Прямо указано, что приложений к договору нет.
+              → presence = "present";
+                appendices_mentioned_status = "defined";
+                appendices_integrity_status = "not_defined";
+                appendices_integrity_details содержит дословную
+                формулировку отсутствия.
+
+        3. Противоречие между фрагментами.
+           В одной части договора есть перечень приложений,
+           в другой — ссылка на иные приложения.
+           → presence = "unclear";
+             appendices_integrity_status = "unclear";
+             appendices_integrity_details = "Не удалось определить".
+
+        4. Специфика темы — полный перечень с указанием неотъемлемой части.
+           Перечислены все приложения с номерами и названиями, указано,
+           что они являются неотъемлемой частью договора.
+           → presence = "present";
+             appendices_mentioned_status = "defined";
+             appendices_integrity_status = "complete";
+             appendices_list содержит полный перечень.
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для collective_agreement_appendices_check_presence используй только: "present", "missing", "unclear".
+        - Для appendices_mentioned_status используй только: "defined", "not_defined".
+        - Для appendices_integrity_status используй только: "complete", "incomplete", "unclear", "not_defined".
+        - Fallback при отсутствии данных:
+          * appendices_list, appendices_integrity_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
 
       fields:
+        - name: "collective_agreement_appendices_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие приложений к коллективному договору. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "appendices_mentioned_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус упоминания приложений."
           required: true
+
         - name: "appendices_list"
           type: "string"
           presentation: "fact"
@@ -5620,12 +6815,15 @@ checks_v8:
           label: "Перечень приложений"
           description: "Список упомянутых приложений с номерами и названиями."
           required: false
+
         - name: "appendices_integrity_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["complete", "incomplete", "unclear", "not_defined"]
           description: "Статус полноты приложений."
           required: true
+
         - name: "appendices_integrity_details"
           type: "string"
           presentation: "fact"
@@ -5634,6 +6832,8 @@ checks_v8:
           label: "Полнота приложений"
           description: "Комментарий о полноте приложений."
           required: false
+
+      store_payload: true
 
   - id: enhanced_labor_guarantees_check
     name: "Повышенные гарантии: командировки, диспансеризация, донорство, обучение (ст. 164–188 ТК РФ)"
@@ -5831,50 +7031,185 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1200
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "enhanced_labor_guarantees_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист по трудовому праву. Извлеки из коллективного договора
         сведения о повышенных гарантиях сверх ТК РФ (ст. 164–188 ТК РФ).
+        Не анализируй другие темы коллективного договора.
+        Не оценивай риски.
+        Анализируй только текст договора.
         </role>
+
         <context>
         {context}
         </context>
+
         <task>
-        Заполни строго следующие 8 полей + evidence (всего 9 ключей):
-        1. business_trips_status — defined / declarative / not_defined.
-        2. business_trips_details — гарантии при командировках.
-        3. dispensarization_status — defined / declarative / not_defined.
-        4. dispensarization_details — гарантии при диспансеризации.
-        5. donor_guarantees_status — defined / declarative / not_defined.
-        6. donor_guarantees_details — гарантии донорам.
-        7. educational_guarantees_status — defined / declarative / not_defined.
-        8. educational_guarantees_details — гарантии при обучении.
-        Если данные отсутствуют в тексте:
-        - статус = "not_defined"
-        - текстовое поле = "Данные не определены"
+        Заполни строго следующие поля:
+
+        0. enhanced_labor_guarantees_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (business_trips_status, dispensarization_status,
+              donor_guarantees_status, educational_guarantees_status)
+             ≠ "not_defined";
+           - "missing" — если все четыре содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - business_trips_status = "not_defined";
+           - dispensarization_status = "not_defined";
+           - donor_guarantees_status = "not_defined";
+           - educational_guarantees_status = "not_defined";
+           - все *_details = "Данные не определены";
+           - не выполняй остальные шаги.
+
+        1. business_trips_status:
+           Используй только одно из значений:
+           - "defined" — если прямо указаны конкретные гарантии сверх
+             ТК РФ (повышенный размер суточных, дополнительные
+             компенсации);
+           - "declarative" — если есть только упоминание без улучшений
+             (цитирование нормы ТК РФ);
+           - "not_defined" — если тема не раскрыта.
+
+        2. business_trips_details:
+           Краткое user-facing описание гарантий (размер суточных,
+           дополнительные компенсации).
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        3. dispensarization_status:
+           Используй только одно из значений:
+           - "defined" — конкретные гарантии сверх ТК РФ;
+           - "declarative" — только упоминание без улучшений;
+           - "not_defined" — тема не раскрыта.
+
+        4. dispensarization_details:
+           Краткое user-facing описание гарантий при диспансеризации.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        5. donor_guarantees_status:
+           Используй только одно из значений:
+           - "defined" — конкретные гарантии сверх ТК РФ;
+           - "declarative" — только упоминание без улучшений;
+           - "not_defined" — тема не раскрыта.
+
+        6. donor_guarantees_details:
+           Краткое user-facing описание гарантий донорам
+           (дополнительные дни, компенсации).
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        7. educational_guarantees_status:
+           Используй только одно из значений:
+           - "defined" — конкретные гарантии сверх ТК РФ;
+           - "declarative" — только упоминание без улучшений;
+           - "not_defined" — тема не раскрыта.
+
+        8. educational_guarantees_details:
+           Краткое user-facing описание гарантий при обучении
+           (уровень оплаты учебного отпуска).
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
         </task>
-        <rules>
-        - Используй только текст договора.
+
+        <context_rules>
+        - Перед остальными полями заполни enhanced_labor_guarantees_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details = "Данные не определены".
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона вместо текста договора.
+        - Не делай выводов по типовой структуре договора.
         - defined = гарантии сверх ТК РФ.
-        - declarative = только упоминание без улучшений.
+        - declarative = только упоминание без улучшений (цитирование нормы ТК РФ).
         - not_defined = тема не раскрыта.
         - В business_trips_details фиксируй конкретный размер суточных и компенсаций.
-        - В educational_guarantees_details фиксируй уровень оплаты учебного отпуска
-        (% или средний заработок).
-        - Верни только JSON.
-        </rules>
+        - В educational_guarantees_details фиксируй уровень оплаты учебного отпуска (% или средний заработок).
+        - Если в разных фрагментах указаны противоречивые сведения — статус → "not_defined", текстовое поле → "Не удалось определить".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни гарантий при командировках, ни при
+           диспансеризации, ни для доноров, ни при совмещении работы
+           с обучением.
+           → presence = "missing";
+             все *_status = "not_defined";
+             все *_details = "Данные не определены".
+
+        2. Неполное раскрытие или прямое исключение.
+           а) Общая фраза: "Работникам предоставляются гарантии,
+              предусмотренные ТК РФ" — только цитирование нормы.
+              → presence = "present";
+                соответствующий *_status = "declarative";
+                соответствующий *_details содержит указание на отсутствие
+                улучшений.
+           б) Прямо указано, что повышенные гарантии по конкретной
+              теме не предоставляются.
+              → presence = "present";
+                соответствующий *_status = "defined";
+                соответствующий *_details содержит дословную
+                формулировку отказа.
+
+        3. Противоречие между фрагментами.
+           В разных частях договора указаны противоречивые гарантии
+           по одной теме (например, разные размеры суточных).
+           → presence = "unclear";
+             соответствующий *_status = "not_defined";
+             соответствующий *_details = "Не удалось определить".
+
+        4. Специфика темы — полное раскрытие с улучшениями.
+           По всем четырём темам указаны конкретные гарантии сверх
+           ТК РФ.
+           → presence = "present";
+             все *_status = "defined";
+             все *_details содержат конкретику.
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для enhanced_labor_guarantees_check_presence используй только: "present", "missing", "unclear".
+        - Для всех *_status используй только: "defined", "declarative", "not_defined".
+        - Fallback при отсутствии данных:
+          * все *_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
 
       fields:
+        - name: "enhanced_labor_guarantees_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по повышенным гарантиям. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "business_trips_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "declarative", "not_defined"]
           description: "Статус гарантий при командировках."
           required: true
+
         - name: "business_trips_details"
           type: "string"
           presentation: "fact"
@@ -5883,12 +7218,15 @@ checks_v8:
           label: "Командировки"
           description: "Повышенные гарантии при командировках (суточные, компенсации)."
           required: false
+
         - name: "dispensarization_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "declarative", "not_defined"]
           description: "Статус гарантий при диспансеризации."
           required: true
+
         - name: "dispensarization_details"
           type: "string"
           presentation: "fact"
@@ -5897,12 +7235,15 @@ checks_v8:
           label: "Диспансеризация"
           description: "Гарантии при прохождении диспансеризации."
           required: false
+
         - name: "donor_guarantees_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "low"
           allowed_values: ["defined", "declarative", "not_defined"]
           description: "Статус гарантий донорам."
           required: true
+
         - name: "donor_guarantees_details"
           type: "string"
           presentation: "fact"
@@ -5910,12 +7251,15 @@ checks_v8:
           label: "Донорство"
           description: "Гарантии работникам-донорам."
           required: false
+
         - name: "educational_guarantees_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "declarative", "not_defined"]
           description: "Статус гарантий при совмещении с обучением."
           required: true
+
         - name: "educational_guarantees_details"
           type: "string"
           presentation: "fact"
@@ -5924,6 +7268,8 @@ checks_v8:
           label: "Обучение"
           description: "Гарантии при совмещении работы с обучением."
           required: false
+
+      store_payload: true
 
   - id: union_participation_check
     name: "Участие профсоюза в управлении: ЛНА, увольнения, информация, контроль (ст. 22, 53, 370, 372, 373 ТК РФ)"
@@ -6121,49 +7467,185 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1200
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "union_participation_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист по трудовому праву. Извлеки из коллективного договора
         сведения о процедурных правах профсоюза (ст. 22, 53, 370, 372, 373 ТК РФ).
+        Не анализируй другие темы коллективного договора.
+        Не оценивай риски.
+        Анализируй только текст договора.
         </role>
+
         <context>
         {context}
         </context>
+
         <task>
-        Заполни строго следующие 8 полей + evidence (всего 9 ключей):
-        1. lna_participation_status — defined / declarative / not_defined.
-        2. lna_participation_details — участие в принятии ЛНА.
-        3. dismissal_coordination_status — defined / declarative / not_defined.
-        4. dismissal_coordination_details — согласование увольнений.
-        5. information_rights_status — defined / declarative / not_defined.
-        6. information_rights_details — право на информацию.
-        7. control_rights_status — defined / declarative / not_defined.
-        8. control_rights_details — право на контроль.
-        Если данные отсутствуют в тексте:
-        - статус = "not_defined"
-        - текстовое поле = "Данные не определены"
+        Заполни строго следующие поля:
+
+        0. union_participation_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (lna_participation_status, dismissal_coordination_status,
+              information_rights_status, control_rights_status)
+             ≠ "not_defined";
+           - "missing" — если все четыре содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - lna_participation_status = "not_defined";
+           - dismissal_coordination_status = "not_defined";
+           - information_rights_status = "not_defined";
+           - control_rights_status = "not_defined";
+           - все *_details = "Данные не определены";
+           - не выполняй остальные шаги.
+
+        1. lna_participation_status:
+           Используй только одно из значений:
+           - "defined" — если прямо закреплено процедурное право
+             профсоюза на участие в принятии ЛНА (учёт мнения);
+           - "declarative" — если есть только общая формулировка
+             без описания процедуры;
+           - "not_defined" — если тема не раскрыта.
+
+        2. lna_participation_details:
+           Краткое user-facing описание участия профсоюза в принятии ЛНА.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        3. dismissal_coordination_status:
+           Используй только одно из значений:
+           - "defined" — если прямо закреплена процедура согласования
+             увольнений с профсоюзом;
+           - "declarative" — если есть только общая формулировка
+             без процедуры;
+           - "not_defined" — если тема не раскрыта.
+
+        4. dismissal_coordination_details:
+           Краткое user-facing описание согласования увольнений
+           (категории увольнений, требующих согласования).
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        5. information_rights_status:
+           Используй только одно из значений:
+           - "defined" — если прямо закреплено право профсоюза
+             на получение конкретной информации;
+           - "declarative" — если только общая формулировка;
+           - "not_defined" — если тема не раскрыта.
+
+        6. information_rights_details:
+           Краткое user-facing описание права на информацию.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        7. control_rights_status:
+           Используй только одно из значений:
+           - "defined" — если прямо закреплено право профсоюза
+             на контроль (в т.ч. правовая инспекция труда);
+           - "declarative" — если только общая формулировка;
+           - "not_defined" — если тема не раскрыта.
+
+        8. control_rights_details:
+           Краткое user-facing описание права на контроль.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
         </task>
-        <rules>
-        - Используй только текст договора.
+
+        <context_rules>
+        - Перед остальными полями заполни union_participation_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details = "Данные не определены".
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона вместо текста договора.
+        - Не делай выводов по типовой структуре договора.
         - defined = процедурное право прямо закреплено.
         - declarative = только общая формулировка.
         - not_defined = не раскрыто.
-        - В dismissal_coordination_details фиксируй категории увольнений
-        (по п. 2, 3, 5 ч. 1 ст. 81 ТК РФ или иным основаниям).
-        - Верни только JSON.
-        </rules>
+        - В dismissal_coordination_details фиксируй категории увольнений (по п. 2, 3, 5 ч. 1 ст. 81 ТК РФ или иным основаниям).
+        - Если в разных фрагментах указаны противоречивые сведения — статус → "not_defined", текстовое поле → "Не удалось определить".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни участия профсоюза в принятии ЛНА, ни согласования
+           увольнений, ни права на информацию, ни права на контроль.
+           → presence = "missing";
+             все *_status = "not_defined";
+             все *_details = "Данные не определены".
+
+        2. Неполное раскрытие или прямое исключение.
+           а) Общая фраза: "Профсоюз участвует в управлении организацией"
+              без конкретных процедурных прав.
+              → presence = "present";
+                соответствующий *_status = "declarative";
+                соответствующий *_details содержит указание
+                на отсутствие конкретики.
+           б) Прямо указано, что конкретное процедурное право профсоюза
+              не применяется (например, согласование увольнений
+              не предусмотрено).
+              → presence = "present";
+                соответствующий *_status = "defined";
+                соответствующий *_details содержит дословную
+                формулировку отказа.
+
+        3. Противоречие между фрагментами.
+           В разных частях договора указаны противоречивые условия
+           о процедурных правах профсоюза.
+           → presence = "unclear";
+             соответствующий *_status = "not_defined";
+             соответствующий *_details = "Не удалось определить".
+
+        4. Специфика темы — полный набор процедурных прав.
+           Закреплены участие в принятии ЛНА, согласование увольнений,
+           право на информацию и контроль с конкретными процедурами.
+           → presence = "present";
+             все *_status = "defined";
+             все *_details содержат конкретику.
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для union_participation_check_presence используй только: "present", "missing", "unclear".
+        - Для всех *_status используй только: "defined", "declarative", "not_defined".
+        - Fallback при отсутствии данных:
+          * все *_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
 
       fields:
+        - name: "union_participation_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по процедурным правам профсоюза. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "lna_participation_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
           description: "Статус участия профсоюза в принятии ЛНА."
           required: true
+
         - name: "lna_participation_details"
           type: "string"
           presentation: "fact"
@@ -6172,12 +7654,15 @@ checks_v8:
           label: "Участие в ЛНА"
           description: "Участие профсоюза в принятии локальных нормативных актов."
           required: false
+
         - name: "dismissal_coordination_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
           description: "Статус согласования увольнений."
           required: true
+
         - name: "dismissal_coordination_details"
           type: "string"
           presentation: "fact"
@@ -6186,12 +7671,15 @@ checks_v8:
           label: "Согласование увольнений"
           description: "Категории увольнений, требующих согласования с профсоюзом."
           required: false
+
         - name: "information_rights_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "declarative", "not_defined"]
           description: "Статус права профсоюза на информацию."
           required: true
+
         - name: "information_rights_details"
           type: "string"
           presentation: "fact"
@@ -6199,12 +7687,15 @@ checks_v8:
           label: "Право на информацию"
           description: "Право профсоюза на получение информации."
           required: false
+
         - name: "control_rights_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "declarative", "not_defined"]
           description: "Статус права профсоюза на контроль."
           required: true
+
         - name: "control_rights_details"
           type: "string"
           presentation: "fact"
@@ -6212,6 +7703,8 @@ checks_v8:
           label: "Право на контроль"
           description: "Право профсоюза на осуществление контроля."
           required: false
+
+      store_payload: true
 
   - id: labor_personal_data_check
     name: "Персональные данные работников (ст. 86–90 ТК РФ, 152-ФЗ)"
@@ -6407,52 +7900,186 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1200
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "labor_personal_data_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист по трудовому праву. Извлеки из коллективного договора
         сведения об обработке персональных данных работников
         (ст. 86–90 ТК РФ, 152-ФЗ).
+        Не анализируй другие темы коллективного договора.
+        Не оценивай риски.
+        Анализируй только текст договора.
         </role>
+
         <context>
         {context}
         </context>
+
         <task>
-        Заполни строго следующие 8 полей + evidence (всего 9 ключей):
-        1. pd_processing_status — defined / declarative / not_defined.
-        2. pd_processing_details — порядок обработки ПДн.
-        3. pd_consent_status — defined / declarative / not_defined.
-        4. pd_consent_details — получение согласия работника.
-        5. pd_transfer_status — defined / declarative / not_defined.
-        6. pd_transfer_details — передача третьим лицам.
-        7. pd_protection_status — defined / declarative / not_defined.
-        8. pd_protection_details — меры защиты ПДн.
-        Если данные отсутствуют в тексте:
-        - статус = "not_defined"
-        - текстовое поле = "Данные не определены"
+        Заполни строго следующие поля:
+
+        0. labor_personal_data_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (pd_processing_status, pd_consent_status,
+              pd_transfer_status, pd_protection_status)
+             ≠ "not_defined";
+           - "missing" — если все четыре содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - pd_processing_status = "not_defined";
+           - pd_consent_status = "not_defined";
+           - pd_transfer_status = "not_defined";
+           - pd_protection_status = "not_defined";
+           - все *_details = "Данные не определены";
+           - не выполняй остальные шаги.
+
+        1. pd_processing_status:
+           Используй только одно из значений:
+           - "defined" — если прямо закреплён порядок обработки ПДн
+             работников;
+           - "declarative" — если есть только общая формулировка
+             без процедуры;
+           - "not_defined" — если тема не раскрыта.
+
+        2. pd_processing_details:
+           Краткое user-facing описание порядка обработки ПДн.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        3. pd_consent_status:
+           Используй только одно из значений:
+           - "defined" — если прямо закреплён порядок получения
+             согласия работника;
+           - "declarative" — если только общая формулировка;
+           - "not_defined" — если тема не раскрыта.
+
+        4. pd_consent_details:
+           Краткое user-facing описание порядка получения согласия.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        5. pd_transfer_status:
+           Используй только одно из значений:
+           - "defined" — если прямо закреплены условия передачи ПДн
+             третьим лицам (категории получателей, случаи);
+           - "declarative" — если только общая формулировка;
+           - "not_defined" — если тема не раскрыта.
+
+        6. pd_transfer_details:
+           Краткое user-facing описание передачи ПДн
+           (категории получателей).
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        7. pd_protection_status:
+           Используй только одно из значений:
+           - "defined" — если прямо закреплены конкретные меры защиты
+             ПДн (шифрование, ограничение доступа, назначение
+             ответственного);
+           - "declarative" — если только общая формулировка;
+           - "not_defined" — если тема не раскрыта.
+
+        8. pd_protection_details:
+           Краткое user-facing описание мер защиты ПДн.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
         </task>
-        <rules>
-        - Используй только текст договора.
+
+        <context_rules>
+        - Перед остальными полями заполни labor_personal_data_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details = "Данные не определены".
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона вместо текста договора.
+        - Не делай выводов по типовой структуре договора.
         - defined = обязательство прямо закреплено.
         - declarative = только общая формулировка.
         - not_defined = не раскрыто.
-        - В pd_transfer_details фиксируй категории получателей (госорганы, контрагенты,
-        аудиторы и т.п.).
-        - В pd_protection_details фиксируй конкретные меры (шифрование, ограничение
-        доступа, назначение ответственного и т.п.).
-        - Верни только JSON.
-        </rules>
+        - В pd_transfer_details фиксируй категории получателей (госорганы, контрагенты, аудиторы и т.п.).
+        - В pd_protection_details фиксируй конкретные меры (шифрование, ограничение доступа, назначение ответственного и т.п.).
+        - Если в разных фрагментах указаны противоречивые сведения — статус → "not_defined", текстовое поле → "Не удалось определить".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни порядка обработки ПДн, ни согласия,
+           ни передачи третьим лицам, ни мер защиты.
+           → presence = "missing";
+             все *_status = "not_defined";
+             все *_details = "Данные не определены".
+
+        2. Неполное раскрытие или прямое исключение.
+           а) Общая фраза: "Работодатель соблюдает законодательство
+              о персональных данных" без процедуры.
+              → presence = "present";
+                соответствующий *_status = "declarative";
+                соответствующий *_details содержит указание
+                на отсутствие конкретики.
+           б) Прямо указано, что конкретное обязательство
+              не применяется.
+              → presence = "present";
+                соответствующий *_status = "defined";
+                соответствующий *_details содержит дословную
+                формулировку отказа.
+
+        3. Противоречие между фрагментами.
+           В разных частях договора указаны противоречивые условия
+           обработки ПДн.
+           → presence = "unclear";
+             соответствующий *_status = "not_defined";
+             соответствующий *_details = "Не удалось определить".
+
+        4. Специфика темы — полный набор процедурных обязательств.
+           Закреплены порядок обработки, согласие работника, условия
+           передачи третьим лицам и конкретные меры защиты.
+           → presence = "present";
+             все *_status = "defined";
+             все *_details содержат конкретику.
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для labor_personal_data_check_presence используй только: "present", "missing", "unclear".
+        - Для всех *_status используй только: "defined", "declarative", "not_defined".
+        - Fallback при отсутствии данных:
+          * все *_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
 
       fields:
+        - name: "labor_personal_data_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по персональным данным работников. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "pd_processing_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
           description: "Статус описания обработки ПДн."
           required: true
+
         - name: "pd_processing_details"
           type: "string"
           presentation: "fact"
@@ -6461,12 +8088,15 @@ checks_v8:
           label: "Обработка ПДн"
           description: "Порядок обработки персональных данных работников."
           required: false
+
         - name: "pd_consent_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
           description: "Статус согласия на обработку."
           required: true
+
         - name: "pd_consent_details"
           type: "string"
           presentation: "fact"
@@ -6475,12 +8105,15 @@ checks_v8:
           label: "Согласие на обработку"
           description: "Порядок получения согласия работника."
           required: false
+
         - name: "pd_transfer_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
           description: "Статус передачи ПДн третьим лицам."
           required: true
+
         - name: "pd_transfer_details"
           type: "string"
           presentation: "fact"
@@ -6488,12 +8121,15 @@ checks_v8:
           label: "Передача ПДн"
           description: "Условия передачи ПДн третьим лицам."
           required: false
+
         - name: "pd_protection_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
           description: "Статус мер защиты ПДн."
           required: true
+
         - name: "pd_protection_details"
           type: "string"
           presentation: "fact"
@@ -6502,6 +8138,12 @@ checks_v8:
           label: "Защита ПДн"
           description: "Меры защиты персональных данных."
           required: false
+
+      store_payload: true
+
+
+
+
 
 # ════════════════════════════════════════════════════════════════════════════
 # БЛОК 5: DD_REQUEST_TEMPLATES
