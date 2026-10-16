@@ -2752,18 +2752,25 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1000
+
+      compact_output: false
+
       presence_signal:
         field: "corporate_procedure_compliance_check_presence"
         present_values: ["present"]
         missing_values: ["missing"]
         unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
-        Ты — российский юрист. Извлеки из текста договора корпоративные процедуры:
+        Ты — российский юрист. Твоя задача — извлечь из текста договора купли-продажи
+        корпоративных прав (долей/акций) сведения о корпоративных процедурах:
         преимущественное право, корпоративные одобрения, уставные ограничения и ФАС.
-        Не анализируй механизм перехода права, цену, заверения или ковенанты.
+        Не анализируй механизм перехода права, цену, заверения, ковенанты,
+        порядок оплаты и иные нерелевантные темы.
+        Не оценивай риски.
+        Анализируй только текст договора.
         </role>
 
         <context>
@@ -2774,51 +2781,122 @@ checks_v8:
         Заполни строго следующие поля:
 
         0. corporate_procedure_compliance_check_presence:
-           Агрегатное signal-поле — наличие регулирования по теме.
-           - "present" — если хотя бы одно из содержательных статусных полей
-             (preemptive_rights_status, corporate_approval_status, charter_restrictions_status, fas_clearance_status) = "defined";
-           - "missing" — если все четыре поля = "not_defined";
-           - "unclear" — если по фрагментам есть противоречие или неоднозначность.
+           - "missing" — если фрагментов по теме в тексте нет вообще
+             (следствие: все содержательные поля = "not_defined");
+           - "present" — если фрагменты по теме есть: либо хотя бы одно
+             содержательное поле ≠ "not_defined", либо тема упомянута,
+             но прямо исключена / отложена на будущее / раскрыта только общей фразой;
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
 
            Если presence = "missing":
            - preemptive_rights_status = "not_defined";
            - corporate_approval_status = "not_defined";
+           - corporate_approval_type = "not_defined";
            - charter_restrictions_status = "not_defined";
            - fas_clearance_status = "not_defined";
            - preemptive_rights_details = "Данные не определены";
            - corporate_approval_details = "Данные не определены";
            - charter_restrictions_details = "Данные не определены";
            - fas_clearance_details = "Данные не определены";
-           - corporate_approval_type = "not_defined";
            - не выполняй остальные шаги.
 
-        1. preemptive_rights_status — "defined" если соблюдение или отказ от преимущественного права прямо урегулированы, иначе "not_defined".
-        2. preemptive_rights_details — формулировка о преимущественном праве.
-        3. corporate_approval_status — "defined" если корпоративное одобрение прямо упомянуто или прямо указано, что оно не требуется, иначе "not_defined".
-        4. corporate_approval_details — формулировка о корпоративном одобрении.
-        5. corporate_approval_type — "general_meeting" / "board" / "sole_participant" / "not_defined".
-        6. charter_restrictions_status — "defined" если проверка уставных ограничений прямо указана, иначе "not_defined".
-        7. charter_restrictions_details — формулировка об уставных ограничениях.
-        8. fas_clearance_status — "defined" если согласование ФАС прямо упомянуто (требуется или не требуется), иначе "not_defined".
-        9. fas_clearance_details — формулировка о ФАС.
+        1. preemptive_rights_status:
+           - "defined" — если соблюдение или отказ от преимущественного права
+             прямо урегулированы в тексте;
+           - "not_defined" — если преимущественное право прямо не урегулировано.
 
-        Если данные отсутствуют в тексте договора:
-        - статус = "not_defined"
-        - текст = "Данные не определены"
+        2. preemptive_rights_details:
+           Краткая формулировка о преимущественном праве на русском языке.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        3. corporate_approval_status:
+           - "defined" — если корпоративное одобрение прямо упомянуто или прямо
+             указано, что оно не требуется;
+           - "not_defined" — иначе.
+
+        4. corporate_approval_details:
+           Краткая формулировка о корпоративном одобрении на русском языке.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        5. corporate_approval_type:
+           - "general_meeting" — одобрение от общего собрания;
+           - "board" — одобрение от совета директоров / наблюдательного совета;
+           - "sole_participant" — одобрение от единственного участника / акционера;
+           - "not_defined" — орган прямо не назван или одобрение не упомянуто.
+
+        6. charter_restrictions_status:
+           - "defined" — если проверка уставных ограничений прямо указана
+             (не общая фраза о соответствии уставу, а прямое подтверждение
+             отсутствия ограничений на продажу третьим лицам);
+           - "not_defined" — иначе.
+
+        7. charter_restrictions_details:
+           Краткая формулировка об уставных ограничениях на русском языке.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        8. fas_clearance_status:
+           - "defined" — если согласование ФАС прямо упомянуто
+             (требуется или не требуется);
+           - "not_defined" — иначе.
+
+        9. fas_clearance_details:
+           Краткая формулировка о ФАС-согласовании на русском языке.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
         </task>
 
         <context_rules>
         - Перед остальными полями заполни corporate_procedure_compliance_check_presence по правилу из пункта 0 task.
         - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
-        - Если presence = "missing" — все содержательные статусы (*_status) = "not_defined", все текстовые/числовые поля = "Данные не определены".
-        - Используй только текст договора.
-        - corporate_approval_type:
-          * "general_meeting" — если одобрение исходит от общего собрания;
-          * "board" — если одобрение исходит от совета директоров / наблюдательного совета;
-          * "sole_participant" — если одобрение исходит от единственного участника / акционера;
-          * "not_defined" — если орган прямо не назван или одобрение не упомянуто.
-        - Проверка уставных ограничений: это не общая фраза о соответствии уставу, а прямое подтверждение отсутствия ограничений на продажу третьим лицам.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details = "Данные не определены", corporate_approval_type = "not_defined".
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона, обычную практику или предположения вместо текста договора.
+        - Не делай выводов по типовой структуре договора.
+        - Не смешивай сведения о разных процедурах (преимущественное право / одобрение / устав / ФАС) между собой.
+        - corporate_approval_type = "general_meeting" / "board" / "sole_participant" — только при прямом указании органа в тексте.
+        - Проверка уставных ограничений — только при прямом подтверждении отсутствия ограничений на отчуждение, а не при общей фразе о соответствии уставу.
+        - Если в разных фрагментах указаны разные данные и конфликт нельзя разрешить по тексту:
+          * status-поля → "not_defined";
+          * текстовые поля → "Не удалось определить".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
         </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В договоре нет ни преимущественного права, ни корпоративного одобрения,
+           ни уставных ограничений, ни ФАС-согласования.
+           → presence = "missing";
+             все *_status = "not_defined";
+             все *_details = "Данные не определены".
+
+        2. Процедуры урегулированы частично.
+           Например, указан отказ от преимущественного права, но корпоративное
+           одобрение и ФАС не упомянуты.
+           → presence = "present";
+             preemptive_rights_status = "defined";
+             corporate_approval_status = "not_defined";
+             charter_restrictions_status = "not_defined";
+             fas_clearance_status = "not_defined".
+
+        3. Противоречие между фрагментами.
+           В разных частях договора указаны разные органы одобрения
+           или разные сведения о преимущественном праве.
+           → presence = "unclear";
+             соответствующий *_status = "not_defined";
+             соответствующий *_details = "Не удалось определить".
+
+        4. Прямое указание, что одобрение / ФАС не требуется.
+           В тексте прямо сказано: "одобрение не требуется",
+           "антимонопольное согласование не требуется".
+           → presence = "present";
+             соответствующий *_status = "defined";
+             *_details содержит формулировку из текста.
+        </edge_cases>
 
         <output_expectations>
         - Все свободные текстовые поля заполняй на русском языке.
@@ -2826,11 +2904,12 @@ checks_v8:
         - Для status-полей используй только: "defined" или "not_defined".
         - Для corporate_approval_type используй только: "general_meeting", "board", "sole_participant", "not_defined".
         - Fallback при отсутствии данных:
-          * все текстовые/числовые поля $\rightarrow$ "Данные не определены".
+          * preemptive_rights_details, corporate_approval_details, charter_restrictions_details, fas_clearance_details → "Данные не определены".
         - Fallback при противоречии или неоднозначности:
-          * все содержательные поля $\rightarrow$ "Не удалось определить".
+          * все *_details → "Не удалось определить".
         - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
         - name: "corporate_procedure_compliance_check_presence"
           type: "string"
@@ -2838,73 +2917,98 @@ checks_v8:
           risk_weight: "info"
           allowed_values: ["present", "missing", "unclear"]
           display_in_grid: false
-          description: "Наличие заверений по корпоративным процедурам в договоре. Внутреннее агрегатное signal-поле."
+          description: "Наличие регулирования по корпоративным процедурам. Внутреннее агрегатное signal-поле."
           required: true
+
         - name: "preemptive_rights_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус урегулирования преимущественного права."
+          display_in_grid: false
+          description: "Статус урегулирования преимущественного права. Внутреннее enum-поле."
           required: true
+
         - name: "preemptive_rights_details"
           type: "string"
           presentation: "fact"
-          label: "Преимущественное право"
-          description: "Формулировка о соблюдении или отказе от преимущественного права."
-          required: false
           display_in_grid: true
           display_priority: 1
+          label: "Преимущественное право"
+          description: >
+            Формулировка о соблюдении или отказе от преимущественного права
+            на русском языке, например: "все участники отказались от преимущественного права".
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: false
+
         - name: "corporate_approval_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия корпоративного одобрения."
+          display_in_grid: false
+          description: "Статус наличия корпоративного одобрения. Внутреннее enum-поле."
           required: true
+
         - name: "corporate_approval_details"
           type: "string"
           presentation: "fact"
-          label: "Корпоративное одобрение"
-          description: "Формулировка о корпоративном одобрении сделки."
-          required: false
           display_in_grid: true
           display_priority: 2
+          label: "Корпоративное одобрение"
+          description: >
+            Формулировка о корпоративном одобрении сделки на русском языке,
+            например: "решение единственного участника от 01.03.2024".
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: false
+
         - name: "corporate_approval_type"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["general_meeting", "board", "sole_participant", "not_defined"]
-          description: "Тип органа корпоративного одобрения."
+          display_in_grid: false
+          description: "Тип органа корпоративного одобрения. Внутреннее enum-поле."
           required: true
+
         - name: "charter_restrictions_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус проверки уставных ограничений."
+          display_in_grid: false
+          description: "Статус проверки уставных ограничений. Внутреннее enum-поле."
           required: true
+
         - name: "charter_restrictions_details"
           type: "string"
           presentation: "fact"
-          label: "Уставные ограничения"
-          description: "Формулировка о проверке уставных ограничений на отчуждение."
-          required: false
           display_in_grid: false
+          label: "Уставные ограничения"
+          description: >
+            Формулировка о проверке уставных ограничений на отчуждение.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: false
+
         - name: "fas_clearance_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус упоминания ФАС-согласования."
+          display_in_grid: false
+          description: "Статус упоминания ФАС-согласования. Внутреннее enum-поле."
           required: true
+
         - name: "fas_clearance_details"
           type: "string"
           presentation: "fact"
-          label: "ФАС-согласование"
-          description: "Формулировка о ФАС-согласовании или его ненужности."
-          required: false
           display_in_grid: false
+          label: "ФАС-согласование"
+          description: >
+            Формулировка о ФАС-согласовании или его ненужности.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: false
+
       store_payload: true
 
   - id: price_and_payment_mechanics
@@ -6050,21 +6154,27 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1600
+
+      compact_output: false
+
       presence_signal:
         field: "post_closing_obligations_check_presence"
         present_values: ["present"]
         missing_values: ["missing"]
         unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
-        Ты — российский юрист. Извлеки из текста договора купли-продажи корпоративных
-        прав post-closing обязательства: ограничение конкуренции (non-compete),
-        запрет переманивания (non-solicit), распределение налоговых рисков target,
-        налоговую indemnity и порядок взаимодействия сторон при налоговых проверках.
-        Не анализируй заверения о налогах target как warranty, цену или механизм
-        перехода права.
+        Ты — российский юрист. Твоя задача — извлечь из текста договора купли-продажи
+        корпоративных прав post-closing обязательства: ограничение конкуренции
+        (non-compete), запрет переманивания (non-solicit), распределение налоговых
+        рисков target, налоговую indemnity и порядок взаимодействия сторон
+        при налоговых проверках.
+        Не анализируй заверения о налогах target как warranty, цену, механизм
+        перехода права и иные нерелевантные темы.
+        Не оценивай риски.
+        Анализируй только текст договора.
         </role>
 
         <context>
@@ -6075,11 +6185,13 @@ checks_v8:
         Заполни строго следующие поля:
 
         0. post_closing_obligations_check_presence:
-           Агрегатное signal-поле — наличие регулирования по теме.
-           - "present" — если хотя бы одно из содержательных статусных полей
-             (non_compete_status, non_solicit_status, tax_allocation_status, tax_indemnity_status) = "defined";
-           - "missing" — если все эти четыре поля = "not_defined";
-           - "unclear" — если по фрагментам есть противоречие или неоднозначность.
+           - "missing" — если фрагментов по теме в тексте нет вообще
+             (следствие: все содержательные поля = "not_defined");
+           - "present" — если фрагменты по теме есть: либо хотя бы одно
+             содержательное поле ≠ "not_defined", либо тема упомянута,
+             но прямо исключена / отложена на будущее / раскрыта только общей фразой;
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
 
            Если presence = "missing":
            - non_compete_status = "not_defined";
@@ -6087,9 +6199,9 @@ checks_v8:
            - non_compete_territory_status = "not_defined";
            - non_solicit_status = "not_defined";
            - tax_allocation_status = "not_defined";
+           - pre_closing_tax_liability = "not_defined";
            - tax_indemnity_status = "not_defined";
            - tax_audit_cooperation_status = "not_defined";
-           - pre_closing_tax_liability = "not_defined";
            - non_compete_details = "Данные не определены";
            - non_compete_duration_details = "Данные не определены";
            - non_compete_territory_details = "Данные не определены";
@@ -6099,76 +6211,130 @@ checks_v8:
            - tax_audit_cooperation_details = "Данные не определены";
            - не выполняй остальные шаги.
 
-        1. non_compete_status — "defined" если ограничение конкуренции (non-compete)
-           на post-closing период прямо предусмотрено, иначе "not_defined".
-        2. non_compete_details — условия non-compete (срок, территория, виды деятельности).
-        3. non_compete_duration_status — "defined" если срок non-compete прямо указан,
-           иначе "not_defined".
-        4. non_compete_duration_details — срок действия non-compete ограничения.
-        5. non_compete_territory_status — "defined" если территория non-compete прямо указана,
-           иначе "not_defined".
-        6. non_compete_territory_details — территория действия non-compete ограничения.
-        7. non_solicit_status — "defined" если запрет переманивания сотрудников, клиентов
-           или контрагентов (non-solicit) прямо предусмотрен, иначе "not_defined".
-        8. non_solicit_details — условия non-solicit.
-        9. tax_allocation_status — "defined" если распределение налоговых рисков target
-           между сторонами прямо описано, иначе "not_defined".
-        10. tax_allocation_details — формулировка о распределении налоговых рисков.
-        11. pre_closing_tax_liability — "seller" / "buyer" / "shared" / "not_defined".
-        12. tax_indemnity_status — "defined" если налоговая indemnity / компенсация
-            налоговых потерь прямо предусмотрена, иначе "not_defined".
-        13. tax_indemnity_details — формулировка о налоговой indemnity.
-        14. tax_audit_cooperation_status — "defined" если порядок взаимодействия сторон
-            при налоговых проверках или налоговых спорах после closing прямо предусмотрен,
-            иначе "not_defined".
-        15. tax_audit_cooperation_details — формулировка о порядке взаимодействия
-            при налоговых проверках.
+        1. non_compete_status:
+           - "defined" — если ограничение конкуренции (non-compete) на post-closing
+             период прямо предусмотрено;
+           - "not_defined" — иначе.
 
-        Если данные отсутствуют в тексте договора:
-        - статус = "not_defined"
-        - текст = "Данные не определены"
+        2. non_compete_details:
+           Условия non-compete (срок, территория, виды деятельности).
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        3. non_compete_duration_status:
+           - "defined" — если срок non-compete прямо указан;
+           - "not_defined" — иначе.
+
+        4. non_compete_duration_details:
+           Срок действия non-compete ограничения.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        5. non_compete_territory_status:
+           - "defined" — если территория non-compete прямо указана;
+           - "not_defined" — иначе.
+
+        6. non_compete_territory_details:
+           Территория действия non-compete ограничения.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        7. non_solicit_status:
+           - "defined" — если запрет переманивания сотрудников, клиентов
+             или контрагентов (non-solicit) прямо предусмотрен;
+           - "not_defined" — иначе.
+
+        8. non_solicit_details:
+           Условия non-solicit.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        9. tax_allocation_status:
+           - "defined" — если распределение налоговых рисков target между
+             сторонами прямо описано;
+           - "not_defined" — иначе.
+
+        10. tax_allocation_details:
+            Формулировка о распределении налоговых рисков.
+            Если данных нет — "Данные не определены".
+            Если данные противоречивы — "Не удалось определить".
+
+        11. pre_closing_tax_liability:
+            - "seller" — ответственность за pre-closing налоги target прямо
+              возложена на продавца;
+            - "buyer" — прямо возложена на покупателя;
+            - "shared" — прямо распределена между обеими сторонами;
+            - "not_defined" — распределение прямо не определено или налоговые
+              риски не упомянуты.
+
+        12. tax_indemnity_status:
+            - "defined" — если налоговая indemnity / компенсация налоговых потерь
+              прямо предусмотрена как отдельный механизм;
+            - "not_defined" — иначе.
+
+        13. tax_indemnity_details:
+            Формулировка о налоговой indemnity.
+            Если данных нет — "Данные не определены".
+            Если данные противоречивы — "Не удалось определить".
+
+        14. tax_audit_cooperation_status:
+            - "defined" — если порядок взаимодействия сторон при налоговых
+              проверках или налоговых спорах после closing прямо предусмотрен;
+            - "not_defined" — иначе.
+
+        15. tax_audit_cooperation_details:
+            Формулировка о порядке взаимодействия при налоговых проверках.
+            Если данных нет — "Данные не определены".
+            Если данные противоречивы — "Не удалось определить".
         </task>
 
         <context_rules>
         - Перед остальными полями заполни post_closing_obligations_check_presence по правилу из пункта 0 task.
         - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
-        - Если presence = "missing" — все содержательные статусы (*_status) = "not_defined", все текстовые/числовые поля = "Данные не определены".
-        - Используй только текст договора.
-        - pre_closing_tax_liability:
-          * "seller" — если ответственность за pre-closing налоговые обязательства target прямо возложена на продавца;
-          * "buyer" — если ответственность прямо возложена на покупателя;
-          * "shared" — если ответственность прямо распределена между обеими сторонами;
-          * "not_defined" — если распределение прямо не определено или налоговые риски не упомянуты.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details = "Данные не определены", pre_closing_tax_liability = "not_defined".
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона, обычную практику или предположения вместо текста договора.
+        - Не делай выводов по типовой структуре договора.
         - non_compete_status = "defined" только если ограничение конкуренции прямо установлено именно на post-closing период; не принимай interim-period ограничения как non-compete.
         - non_solicit_status = "defined" только если запрет переманивания прямо сформулирован; не выводи из общих обязательств добросовестности.
         - tax_indemnity_status = "defined" только если специальная налоговая indemnity предусмотрена как отдельный механизм; не путай с общим warranty о налогах target.
         - tax_audit_cooperation_status = "defined" только если порядок взаимодействия при налоговых проверках или спорах прямо описан в договоре.
+        - pre_closing_tax_liability = "seller" / "buyer" / "shared" — только при прямом указании на сторону в тексте.
+        - Если в разных фрагментах указаны разные данные и конфликт нельзя разрешить по тексту:
+          * status-поля → "not_defined";
+          * текстовые поля → "Не удалось определить".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
         </context_rules>
 
         <edge_cases>
         1. Полное отсутствие темы.
-           Договор регламентирует исключительно порядок корпоративного одобрения, не устанавливая условия по post-closing обязательствам.
+           В договоре нет ни non-compete, ни non-solicit, ни налоговых оговорок.
            → presence = "missing";
-             все содержательные статусы = "not_defined";
-             все текстовые значения = "Данные не определены".
+             все *_status = "not_defined";
+             все *_details = "Данные не определены".
 
-        2. Non-compete без ограничения территории.
-           В договоре зафиксирован запрет на неконкуренцию Продавца в течение 3 лет без указания территориального охвата.
+        2. Неполное раскрытие темы.
+           Non-compete установлен, но без указания территории; либо указана
+           только общая ссылка на налоговое законодательство без распределения рисков.
            → presence = "present";
+             соответствующий *_status = "defined" (для non-compete);
              non_compete_territory_status = "not_defined";
-             non_compete_territory_details = "Данные не определены".
+             tax_allocation_status = "not_defined".
 
-        3. Противоречие в pre-closing tax-liability.
-           В одном месте указано, что Продавец несет полную ответственность за все старые налоги, в другом — что риски переходят к Покупателю «как есть».
+        3. Противоречие между фрагментами.
+           В разных частях договора указаны разные сроки non-compete
+           или разное распределение pre-closing налогов.
            → presence = "unclear";
-             pre_closing_tax_liability = "not_defined";
-             tax_allocation_details = "Не удалось определить".
+             соответствующий *_status = "not_defined";
+             соответствующий *_details = "Не удалось определить".
 
-        4. Оговорка о налоговом сотрудничестве.
-           Стороны обязуются незамедлительно уведомлять друг друга о получении любых запросов налоговых органов в отношении pre-closing периодов target.
-           → presence = "present";
-             tax_audit_cooperation_status = "defined";
-             tax_audit_cooperation_details = "письменное уведомление в течение 3 рабочих дней с даты запроса ФНС".
+        4. Специфика темы.
+           Указана общая warranty о налогах target, но без специальной
+           налоговой indemnity и без порядка взаимодействия при проверках.
+           → tax_indemnity_status = "not_defined";
+             tax_audit_cooperation_status = "not_defined";
+             presence = "present" (если другие содержательные поля определены).
         </edge_cases>
 
         <output_expectations>
@@ -6177,9 +6343,9 @@ checks_v8:
         - Для status-полей используй только: "defined" или "not_defined".
         - Для pre_closing_tax_liability используй только: "seller", "buyer", "shared", "not_defined".
         - Fallback при отсутствии данных:
-          * все текстовые/числовые поля $\rightarrow$ "Данные не определены".
+          * все *_details → "Данные не определены".
         - Fallback при противоречии или неоднозначности:
-          * все содержательные поля $\rightarrow$ "Не удалось определить".
+          * все *_details → "Не удалось определить".
         - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
@@ -6190,115 +6356,154 @@ checks_v8:
           risk_weight: "info"
           allowed_values: ["present", "missing", "unclear"]
           display_in_grid: false
-          description: "Наличие заверений по post-closing обязательствам в договоре. Внутреннее агрегатное signal-поле."
+          description: "Наличие регулирования по post-closing обязательствам. Внутреннее агрегатное signal-поле."
           required: true
+
         - name: "non_compete_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия non-compete clause."
+          display_in_grid: false
+          description: "Статус наличия non-compete clause. Внутреннее enum-поле."
           required: true
+
         - name: "non_compete_details"
           type: "string"
           presentation: "fact"
-          label: "Non-compete"
-          description: "Условия non-compete продавца."
-          required: false
           display_in_grid: true
           display_priority: 1
+          label: "Non-compete"
+          description: >
+            Условия non-compete продавца: срок, территория, виды деятельности.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: false
+
         - name: "non_compete_duration_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания срока non-compete."
+          display_in_grid: false
+          description: "Статус указания срока non-compete. Внутреннее enum-поле."
           required: true
+
         - name: "non_compete_duration_details"
           type: "string"
           presentation: "fact"
-          label: "Срок non-compete"
-          description: "Срок действия non-compete ограничения."
-          required: false
           display_in_grid: false
+          label: "Срок non-compete"
+          description: >
+            Срок действия non-compete ограничения.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: false
+
         - name: "non_compete_territory_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания территории non-compete."
+          display_in_grid: false
+          description: "Статус указания территории non-compete. Внутреннее enum-поле."
           required: true
+
         - name: "non_compete_territory_details"
           type: "string"
           presentation: "fact"
-          label: "Территория non-compete"
-          description: "Территория действия non-compete ограничения."
-          required: false
           display_in_grid: false
+          label: "Территория non-compete"
+          description: >
+            Территория действия non-compete ограничения.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: false
+
         - name: "non_solicit_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия non-solicit clause."
+          display_in_grid: false
+          description: "Статус наличия non-solicit clause. Внутреннее enum-поле."
           required: true
+
         - name: "non_solicit_details"
           type: "string"
           presentation: "fact"
-          label: "Non-solicit"
-          description: "Условия запрета на переманивание сотрудников и клиентов."
-          required: false
           display_in_grid: true
           display_priority: 2
+          label: "Non-solicit"
+          description: >
+            Условия запрета на переманивание сотрудников и клиентов.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: false
+
         - name: "tax_allocation_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения распределения налоговых рисков."
+          display_in_grid: false
+          description: "Статус определения распределения налоговых рисков. Внутреннее enum-поле."
           required: true
+
         - name: "tax_allocation_details"
           type: "string"
           presentation: "fact"
-          label: "Распределение налоговых рисков"
-          description: "Формулировка о распределении налоговых рисков target."
-          required: false
           display_in_grid: false
+          label: "Распределение налоговых рисков"
+          description: >
+            Формулировка о распределении налоговых рисков target.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: false
+
         - name: "pre_closing_tax_liability"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["seller", "buyer", "shared", "not_defined"]
-          description: "Кто несёт ответственность за pre-closing налоги target."
+          display_in_grid: false
+          description: "Кто несёт ответственность за pre-closing налоги target. Внутреннее enum-поле."
           required: true
+
         - name: "tax_indemnity_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия налоговой индемнити."
+          display_in_grid: false
+          description: "Статус наличия налоговой индемнити. Внутреннее enum-поле."
           required: true
+
         - name: "tax_indemnity_details"
           type: "string"
           presentation: "fact"
-          label: "Налоговая индемнити"
-          description: "Формулировка налоговой индемнити."
-          required: false
           display_in_grid: true
           display_priority: 3
+          label: "Налоговая индемнити"
+          description: >
+            Формулировка налоговой индемнити.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: false
+
         - name: "tax_audit_cooperation_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "low"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия порядка взаимодействия сторон при налоговых проверках после closing."
+          display_in_grid: false
+          description: "Статус наличия порядка взаимодействия сторон при налоговых проверках после closing. Внутреннее enum-поле."
           required: true
+
         - name: "tax_audit_cooperation_details"
           type: "string"
           presentation: "fact"
-          label: "Налоговые проверки"
-          description: "Порядок взаимодействия сторон при налоговых проверках и спорах после closing."
-          required: false
           display_in_grid: false
+          label: "Налоговые проверки"
+          description: >
+            Порядок взаимодействия сторон при налоговых проверках и спорах после closing.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: false
+
       store_payload: true
 
   - id: termination_and_disputes_check
@@ -6508,20 +6713,26 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1100
+
+      compact_output: false
+
       presence_signal:
         field: "termination_and_disputes_check_presence"
         present_values: ["present"]
         missing_values: ["missing"]
         unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
-        Ты — российский юрист. Извлеки из текста договора купли-продажи корпоративных
-        прав doc-type специфику расторжения и walk-away mechanics: основания расторжения,
-        long-stop date, break fee, reverse break fee и ограничение уступки прав по договору.
-        Не анализируй претензионный порядок, подсудность, конфиденциальность и применимое
-        право — они покрываются отдельными global checks.
+        Ты — российский юрист. Твоя задача — извлечь из текста договора купли-продажи
+        корпоративных прав doc-type специфику расторжения и walk-away mechanics:
+        основания расторжения, long-stop date, break fee, reverse break fee
+        и ограничение уступки прав по договору.
+        Не анализируй претензионный порядок, подсудность, конфиденциальность
+        и применимое право — они покрываются отдельными global checks.
+        Не оценивай риски.
+        Анализируй только текст договора.
         </role>
 
         <context>
@@ -6532,11 +6743,13 @@ checks_v8:
         Заполни строго следующие поля:
 
         0. termination_and_disputes_check_presence:
-           Агрегатное signal-поле — наличие регулирования по теме.
-           - "present" — если хотя бы одно из содержательных статусных полей
-             (termination_grounds_status, long_stop_date_status, break_fee_status, reverse_break_fee_status, assignment_restriction_status) = "defined";
-           - "missing" — если все пять полей = "not_defined";
-           - "unclear" — если по фрагментам есть противоречие или неоднозначность.
+           - "missing" — если фрагментов по теме в тексте нет вообще
+             (следствие: все содержательные поля = "not_defined");
+           - "present" — если фрагменты по теме есть: либо хотя бы одно
+             содержательное поле ≠ "not_defined", либо тема упомянута,
+             но прямо исключена / отложена на будущее / раскрыта только общей фразой;
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
 
            Если presence = "missing":
            - termination_grounds_status = "not_defined";
@@ -6551,65 +6764,97 @@ checks_v8:
            - assignment_restriction_details = "Данные не определены";
            - не выполняй остальные шаги.
 
-        1. termination_grounds_status — "defined" если основания расторжения или
-           одностороннего отказа от договора прямо указаны, иначе "not_defined".
-        2. termination_grounds_details — основания расторжения или отказа.
-        3. long_stop_date_status — "defined" если long-stop date прямо указана,
-           иначе "not_defined".
-        4. long_stop_date_details — дата или формулировка о long-stop date.
-        5. break_fee_status — "defined" если специальный break fee прямо предусмотрен,
-           иначе "not_defined".
-        6. break_fee_details — размер и условия уплаты break fee.
-        7. reverse_break_fee_status — "defined" если специальный reverse break fee прямо
-           предусмотрен, иначе "not_defined".
-        8. reverse_break_fee_details — размер и условия уплаты reverse break fee.
-        9. assignment_restriction_status — "defined" если ограничение на уступку прав
-           по договору без согласия другой стороны прямо указано, иначе "not_defined".
-        10. assignment_restriction_details — формулировка об ограничении уступки.
+        1. termination_grounds_status:
+           - "defined" — если основания расторжения или одностороннего отказа
+             от договора прямо указаны;
+           - "not_defined" — иначе.
 
-        Если данные отсутствуют в тексте договора:
-        - статус = "not_defined"
-        - текст = "Данные не определены"
+        2. termination_grounds_details:
+           Основания расторжения или отказа на русском языке.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        3. long_stop_date_status:
+           - "defined" — если long-stop date прямо указана;
+           - "not_defined" — иначе.
+
+        4. long_stop_date_details:
+           Дата или формулировка о long-stop date.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        5. break_fee_status:
+           - "defined" — если специальный break fee прямо предусмотрен;
+           - "not_defined" — иначе.
+
+        6. break_fee_details:
+           Размер и условия уплаты break fee.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        7. reverse_break_fee_status:
+           - "defined" — если специальный reverse break fee прямо предусмотрен;
+           - "not_defined" — иначе.
+
+        8. reverse_break_fee_details:
+           Размер и условия уплаты reverse break fee.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        9. assignment_restriction_status:
+           - "defined" — если ограничение на уступку прав по договору
+             без согласия другой стороны прямо указано;
+           - "not_defined" — иначе.
+
+        10. assignment_restriction_details:
+            Формулировка об ограничении уступки.
+            Если данных нет — "Данные не определены".
+            Если данные противоречивы — "Не удалось определить".
         </task>
 
         <context_rules>
         - Перед остальными полями заполни termination_and_disputes_check_presence по правилу из пункта 0 task.
         - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
-        - Если presence = "missing" — все содержательные статусы (*_status) = "not_defined", все текстовые/числовые поля = "Данные не определены".
-        - Используй только текст договора.
-        - Не анализируй претензионный порядок, подсудность, конфиденциальность
-          и применимое право — эти вопросы покрываются global checks.
-        - termination_grounds_status = "defined" только если основания расторжения или
-          одностороннего отказа прямо описаны; не выводи их из общих норм ГК РФ.
-        - break_fee_status = "defined" только если специальный break fee прямо
-          предусмотрен как договорное условие; не путай с неустойкой по ст. 330 ГК РФ.
-        - reverse_break_fee_status = "defined" только если специальный reverse break fee
-          прямо предусмотрен как отдельное договорное условие.
-        - assignment_restriction_status = "defined" только если ограничение уступки прав
-          прямо сформулировано; не выводи из общих положений об уступке по ст. 382 ГК РФ.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details = "Данные не определены".
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона, обычную практику или предположения вместо текста договора.
+        - Не делай выводов по типовой структуре договора.
+        - Не анализируй претензионный порядок, подсудность, конфиденциальность и применимое право — эти вопросы покрываются global checks.
+        - termination_grounds_status = "defined" только если основания расторжения или одностороннего отказа прямо описаны; не выводи их из общих норм ГК РФ.
+        - break_fee_status = "defined" только если специальный break fee прямо предусмотрен как договорное условие; не путай с неустойкой по ст. 330 ГК РФ.
+        - reverse_break_fee_status = "defined" только если специальный reverse break fee прямо предусмотрен как отдельное договорное условие.
+        - assignment_restriction_status = "defined" только если ограничение уступки прав прямо сформулировано; не выводи из общих положений об уступке по ст. 382 ГК РФ.
+        - Если в разных фрагментах указаны разные данные и конфликт нельзя разрешить по тексту:
+          * status-поля → "not_defined";
+          * текстовые поля → "Не удалось определить".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
         </context_rules>
 
         <edge_cases>
         1. Полное отсутствие темы.
-           Договор регламентирует исключительно порядок корпоративного одобрения, не устанавливая условия расторжения или уступки прав.
+           В договоре нет ни оснований расторжения, ни long-stop date,
+           ни break fee, ни ограничения уступки прав.
            → presence = "missing";
-             все содержательные статусы = "not_defined";
-             все текстовые значения = "Данные не определены".
+             все *_status = "not_defined";
+             все *_details = "Данные не определены".
 
-        2. Расторжение по закону.
-           В тексте написано: "Договор может быть расторгнут в соответствии с законодательством РФ", без указания конкретных walk-away условий или break fees.
-           → presence = "missing"; (нет специальных contractual условий)
+        2. Расторжение только по закону.
+           "Договор может быть расторгнут в соответствии с законодательством РФ"
+           без указания конкретных walk-away условий или break fees.
+           → presence = "present" (тема упомянута общей фразой);
              termination_grounds_status = "not_defined";
              termination_grounds_details = "Данные не определены".
 
         3. Противоречие в размере break fee.
-           В одном месте указан break fee в размере 100 тыс. рублей, в другом — в размере 20% от Цены сделки.
+           В разных частях договора указаны разные размеры break fee.
            → presence = "unclear";
              break_fee_status = "not_defined";
              break_fee_details = "Не удалось определить".
 
-        4. Разрешение уступки аффилированным лицам.
-           В тексте прямо указано: "Уступка прав по договору допускается без согласия Продавца только в пользу аффилированных лиц Покупателя".
+        4. Специфика темы.
+           Уступка прав допускается без согласия только в пользу
+           аффилированных лиц Покупателя.
            → presence = "present";
              assignment_restriction_status = "defined";
              assignment_restriction_details = "допускается свободная уступка только в пользу аффилированных лиц Покупателя".
@@ -6620,9 +6865,9 @@ checks_v8:
         - Для termination_and_disputes_check_presence используй только: "present", "missing", "unclear".
         - Для status-полей используй только: "defined" или "not_defined".
         - Fallback при отсутствии данных:
-          * все текстовые/числовые поля $\rightarrow$ "Данные не определены".
+          * все *_details → "Данные не определены".
         - Fallback при противоречии или неоднозначности:
-          * все содержательные поля $\rightarrow$ "Не удалось определить".
+          * все *_details → "Не удалось определить".
         - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
@@ -6633,79 +6878,107 @@ checks_v8:
           risk_weight: "info"
           allowed_values: ["present", "missing", "unclear"]
           display_in_grid: false
-          description: "Наличие заверений по расторжению / уступке прав в договоре. Внутреннее агрегатное signal-поле."
+          description: "Наличие регулирования по расторжению / уступке прав. Внутреннее агрегатное signal-поле."
           required: true
+
         - name: "termination_grounds_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания оснований расторжения."
+          display_in_grid: false
+          description: "Статус указания оснований расторжения. Внутреннее enum-поле."
           required: true
+
         - name: "termination_grounds_details"
           type: "string"
           presentation: "fact"
-          label: "Основания расторжения"
-          description: "Основания расторжения договора."
-          required: false
           display_in_grid: true
           display_priority: 1
+          label: "Основания расторжения"
+          description: >
+            Основания расторжения договора или одностороннего отказа.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: false
+
         - name: "long_stop_date_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания long-stop date."
+          display_in_grid: false
+          description: "Статус указания long-stop date. Внутреннее enum-поле."
           required: true
+
         - name: "long_stop_date_details"
           type: "string"
           presentation: "fact"
-          label: "Long-stop date"
-          description: "Предельная дата, после которой стороны вправе отказаться от сделки."
-          required: false
           display_in_grid: true
           display_priority: 2
+          label: "Long-stop date"
+          description: >
+            Предельная дата, после которой стороны вправе отказаться от сделки.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: false
+
         - name: "break_fee_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия break fee."
+          display_in_grid: false
+          description: "Статус наличия break fee. Внутреннее enum-поле."
           required: true
+
         - name: "break_fee_details"
           type: "string"
           presentation: "fact"
-          label: "Break fee"
-          description: "Размер и условия уплаты break fee."
-          required: false
           display_in_grid: true
           display_priority: 3
+          label: "Break fee"
+          description: >
+            Размер и условия уплаты break fee.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: false
+
         - name: "reverse_break_fee_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия reverse break fee."
+          display_in_grid: false
+          description: "Статус наличия reverse break fee. Внутреннее enum-поле."
           required: true
+
         - name: "reverse_break_fee_details"
           type: "string"
           presentation: "fact"
-          label: "Reverse break fee"
-          description: "Размер и условия уплаты reverse break fee."
-          required: false
           display_in_grid: false
+          label: "Reverse break fee"
+          description: >
+            Размер и условия уплаты reverse break fee.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: false
+
         - name: "assignment_restriction_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус ограничения на уступку прав."
+          display_in_grid: false
+          description: "Статус ограничения на уступку прав. Внутреннее enum-поле."
           required: true
+
         - name: "assignment_restriction_details"
           type: "string"
           presentation: "fact"
-          label: "Ограничение уступки прав"
-          description: "Формулировка об ограничении уступки прав по договору."
-          required: false
           display_in_grid: false
+          label: "Ограничение уступки прав"
+          description: >
+            Формулировка об ограничении уступки прав по договору.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: false
+
       store_payload: true
 
 
