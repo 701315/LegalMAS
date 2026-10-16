@@ -4856,19 +4856,28 @@ checks_v8:
       min_snippet_length: 35
       max_snippet_length: 600
     extraction:
-      store_payload: true
-
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1400
+
+      compact_output: false
+
+      presence_signal:
+        field: "foreign_currency_terms_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
-        Ты — российский юрист по договорной работе. Извлеки из текста договора
-        займа сведения о валютной конструкции, источнике курса, дате пересчёта,
+        Ты — российский юрист. Твоя задача — извлечь из текста договора займа
+        сведения о валютной конструкции, источнике курса, дате пересчёта,
         наличии валютного коридора и распределении валютных рисков
-        (ст. 317 ГК РФ, 173-ФЗ).
-        Не анализируй процентную ставку по ст. 809 ГК РФ или общую ответственность.
+        (ст. 140, 317 ГК РФ, 173-ФЗ).
+        Не анализируй процентную ставку, неустойку, обеспечение и иные
+        нерелевантные темы.
+        Не оценивай риски.
+        Анализируй только текст договора.
         </role>
 
         <context>
@@ -4876,210 +4885,281 @@ checks_v8:
         </context>
 
         <task>
-        Заполни строго следующие 10 полей + evidence (всего 11 ключей).
-        Верни все ключи, даже если данные отсутствуют.
+        Заполни строго следующие поля:
 
-        1.  currency_reference_type — "rub_equivalent" / "foreign_currency_obligation" /
-            "not_applicable":
-              - "rub_equivalent" — долг выражен в валюте/у.е., но расчёты
-                в рублях (законно по ст. 317(2) ГК РФ);
-              - "foreign_currency_obligation" — прямые расчёты в иностранной
-                валюте (риск 173-ФЗ для резидентов);
-              - "not_applicable" — чистый рублёвый заём без валютной оговорки.
-        2.  currency_clause_display — user-facing строка:
-              - "Эквивалент валюты (долг в [ВАЛЮТА], расчёты в рублях)";
-              - "Эквивалент валюты (условные единицы, расчёты в рублях)";
-              - "Прямые расчёты в валюте (внимание: риск нарушения 173-ФЗ
-                для резидентов)";
-              - "Не применимо (заём в рублях РФ без валютной оговорки)".
-        3.  conversion_rate_source — "cb_rate" / "commercial_bank_rate" /
-            "fixed_rate" / "not_applicable" / "not_defined":
-              - "cb_rate" — курс ЦБ РФ;
-              - "commercial_bank_rate" — курс коммерческого банка
-                (Сбербанк, ВТБ и т.п.);
-              - "fixed_rate" — фиксированный курс прямо в договоре
-                (например, «1 USD = 90 руб.»);
-              - "not_applicable" — для not_applicable и foreign_currency_obligation;
-              - "not_defined" — если источник не указан.
-        4.  conversion_date — "payment_date" / "transfer_date" / "maturity_date" /
-            "not_applicable" / "not_defined":
-              - "payment_date" — на дату фактического платежа;
-              - "transfer_date" — на дату выдачи / списания;
-              - "maturity_date" — на дату возврата / погашения;
-              - "not_applicable" — для not_applicable и foreign_currency_obligation;
-              - "not_defined" — если дата не указана.
-        5.  conversion_rate_display — user-facing строка:
-              - "Курс ЦБ РФ на дату платежа";
-              - "Курс ЦБ РФ на дату платежа (с ограничениями)";
-              - "Курс [НАЗВАНИЕ БАНКА] на дату [СОБЫТИЯ]";
-              - "Фиксированный курс (1 [ВАЛЮТА] = N руб.)";
-              - "Не указан (курс согласуется дополнительно)";
-              - "Не указан (применяется курс ЦБ РФ на дату платежа
-                по ст. 317(2) ГК РФ)";
-              - "Не применимо".
-        6.  currency_collar_min — минимальный курс (число) или "not_defined".
-            Только число, без слов «около», «примерно», «приблизительно».
-        7.  currency_collar_max — максимальный курс (число) или "not_defined".
-            Только число, без слов «около», «примерно», «приблизительно».
-        8.  currency_collar_display — user-facing строка:
-              - "Установлен: от N до M руб./[ВАЛЮТА]";
-              - "Не установлен (без ограничений)";
-              - "Не установлен (фиксированный курс)";
-              - "Не применимо".
-        9.  currency_risk_allocation — "not_defined" / "borrower_bears_all" /
-            "lender_bears_all" / "shared".
-            Приоритет определения:
-              1) есть валютный коридор (min и/или max) → "shared";
-              2) фиксированный курс в договоре (fixed_rate) → "lender_bears_all";
-              3) курс ЦБ РФ / коммерческого банка на дату платежа / выдачи /
-                 возврата без коридора → "borrower_bears_all";
-              4) прямые расчёты в валюте (foreign_currency_obligation)
-                 → "not_defined";
-              5) курс не указан и конструкция неясна → "not_defined".
-        10. currency_risk_display — user-facing строка о распределении рисков:
-              - "Все риски на заёмщике (курс ЦБ РФ / коммерческого банка
-                на дату платежа, без коридора)";
-              - "Все риски на займодавце (фиксированный курс 1 [ВАЛЮТА] = N руб.)";
-              - "Риски разделены (валютный коридор N–M руб./[ВАЛЮТА])";
-              - "Не определено (условия расчёта не раскрыты)";
-              - "Не применимо".
+        0. foreign_currency_terms_check_presence:
+           - "missing" — если фрагментов по теме в тексте нет вообще
+             (следствие: все содержательные поля = "not_defined");
+           - "present" — если фрагменты по теме есть: либо хотя бы одно
+             содержательное поле ≠ "not_defined", либо тема упомянута,
+             но прямо исключена / отложена на будущее / раскрыта только общей фразой;
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
 
-        Дополнительно — обязательный массив evidence:
-        - цитаты с формулировкой валютной оговорки, курса, даты и коридора;
-        - пустой массив [], если заём чисто рублёвый.
+           Если presence = "missing":
+           - currency_reference_type = "not_defined";
+           - conversion_rate_source = "not_defined";
+           - conversion_date = "not_defined";
+           - currency_risk_allocation = "not_defined";
+           - currency_collar_min = "not_defined";
+           - currency_collar_max = "not_defined";
+           - currency_clause_display = "Не установлено";
+           - conversion_rate_display = "Не установлено";
+           - currency_collar_display = "Не установлено";
+           - currency_risk_display = "Не установлено";
+           - не выполняй остальные шаги.
 
-        Правила заполнения при отсутствии данных:
-        - Если в договоре нет валютной оговорки — все display-поля
-          = "Не применимо";
-        - Если распределение рисков не указано —
-          currency_risk_display = "Не определено" или "Не применимо".
+        1. currency_reference_type:
+           - "rub_equivalent" — долг выражен в валюте / у.е., но расчёты в рублях;
+           - "foreign_currency_obligation" — прямые расчёты в иностранной валюте;
+           - "not_applicable" — чистый рублёвый заём без валютной оговорки;
+           - "not_defined" — тип валютной конструкции прямо не определён.
+
+        2. currency_clause_display:
+           - "Эквивалент валюты (долг в [ВАЛЮТА], расчёты в рублях)";
+           - "Эквивалент валюты (условные единицы, расчёты в рублях)";
+           - "Прямые расчёты в валюте (внимание: риск нарушения 173-ФЗ для резидентов)";
+           - "Не применимо (заём в рублях РФ без валютной оговорки)";
+           - "Не установлено".
+
+        3. conversion_rate_source:
+           - "cb_rate" — курс ЦБ РФ;
+           - "commercial_bank_rate" — курс коммерческого банка;
+           - "fixed_rate" — фиксированный курс в договоре;
+           - "not_applicable" — для чистого рублёвого займа и прямых расчётов;
+           - "not_defined" — источник прямо не указан.
+
+        4. conversion_date:
+           - "payment_date" — на дату фактического платежа;
+           - "transfer_date" — на дату выдачи / списания;
+           - "maturity_date" — на дату возврата / погашения;
+           - "not_applicable" — для чистого рублёвого займа и прямых расчётов;
+           - "not_defined" — дата прямо не указана.
+
+        5. conversion_rate_display:
+           - "Курс ЦБ РФ на дату платежа";
+           - "Курс ЦБ РФ на дату платежа (с ограничениями)";
+           - "Курс [НАЗВАНИЕ БАНКА] на дату [СОБЫТИЯ]";
+           - "Фиксированный курс (1 [ВАЛЮТА] = N руб.)";
+           - "Не указан (курс согласуется дополнительно)";
+           - "Не указан (применяется курс ЦБ РФ на дату платежа по ст. 317(2) ГК РФ)";
+           - "Не применимо".
+
+        6. currency_collar_min — минимальный курс (число) или "not_defined".
+           Только цифры, без слов «около», «примерно», «приблизительно».
+
+        7. currency_collar_max — максимальный курс (число) или "not_defined".
+
+        8. currency_collar_display:
+           - "Установлен: от N до M руб./[ВАЛЮТА]";
+           - "Не установлен (без ограничений)";
+           - "Не установлен (фиксированный курс)";
+           - "Не применимо".
+
+        9. currency_risk_allocation:
+           Приоритет:
+           1) валютный коридор (min и/или max) → "shared";
+           2) фиксированный курс (fixed_rate) → "lender_bears_all";
+           3) курс ЦБ РФ / коммерческого банка без коридора → "borrower_bears_all";
+           4) прямые расчёты в валюте → "not_defined";
+           5) курс не указан и конструкция неясна → "not_defined".
+
+        10. currency_risk_display:
+           - "Все риски на заёмщике (курс ЦБ РФ / коммерческого банка на дату платежа, без коридора)";
+           - "Все риски на займодавце (фиксированный курс 1 [ВАЛЮТА] = N руб.)";
+           - "Риски разделены (валютный коридор N–M руб./[ВАЛЮТА])";
+           - "Не определено (условия расчёта не раскрыты)";
+           - "Не применимо".
         </task>
 
-        <rules>
-        - Используй только текст договора. Не выдумывай условия валютной оговорки.
-        - Не используй null, None или пустые строки — только явные
-          fallback-значения ("not_defined" / "not_applicable" /
-          "Не установлено" / "Не применимо" / "Не определён").
-        - Если курс не указан явно — по ст. 317(2) ГК РФ применяется
-          курс ЦБ РФ на дату платежа. НО в извлечении:
-            conversion_rate_source = "not_defined";
-            conversion_date = "not_defined";
-            conversion_rate_display = "Не указан (применяется курс ЦБ РФ
-              на дату платежа по ст. 317(2) ГК РФ)".
-          Не домысливай закон в raw enum.
-        - Если есть ограничения курса (не менее N / не более M) — извлеки
-          min и max как числа (только цифры, без слов «около» / «примерно»).
-        - Для прямых расчётов в валюте (foreign_currency_obligation) —
-          conversion_rate_source = "not_applicable",
-          conversion_date = "not_applicable",
-          currency_risk_allocation = "not_defined".
-        - currency_risk_allocation определяется по приоритету:
-            1) есть валютный коридор (min и/или max) → "shared";
-            2) фиксированный курс в договоре (fixed_rate) → "lender_bears_all";
-            3) курс ЦБ РФ / коммерческого банка на дату платежа / выдачи /
-               возврата без коридора → "borrower_bears_all";
-            4) прямые расчёты в валюте (foreign_currency_obligation)
-               → "not_defined";
-            5) курс не указан и конструкция неясна → "not_defined".
-        - Маппинг display:
-            currency_reference_type -> currency_clause_display:
-              rub_equivalent -> "Эквивалент валюты (…)";
-              foreign_currency_obligation -> "Прямые расчёты в валюте (…)";
-              not_applicable -> "Не применимо (…)".
-            conversion_rate_source + conversion_date -> conversion_rate_display
-              по правилам <task> п.5.
-            currency_risk_allocation -> currency_risk_display по правилам
-              <task> п.10.
-        - Если в документе несколько редакций условий о валютной оговорке —
-          использовать последнюю по тексту.
-        - Верни РОВНО один JSON-объект со всеми 11 ключами без какого-либо
-          дополнительного текста до или после. Начни ответ сразу с открывающей
-          фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки,
-          код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга
-          через json.loads без предварительной обработки.
-        </rules>
+        <context_rules>
+        - Перед остальными полями заполни foreign_currency_terms_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все содержательные поля = "not_defined", все *_display = "Не установлено".
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона, обычную практику или предположения вместо текста договора.
+        - Не делай выводов по типовой структуре договора.
+        - Не выдумывай условия валютной оговорки.
+        - Если курс не указан явно — не домысливай применение ст. 317(2) ГК РФ в raw enum:
+          * conversion_rate_source = "not_defined";
+          * conversion_date = "not_defined";
+          * в conversion_rate_display допустимо указать "Не указан (применяется курс ЦБ РФ на дату платежа по ст. 317(2) ГК РФ)".
+        - currency_collar_min / currency_collar_max — только цифры, без слов «около», «примерно», «приблизительно».
+        - currency_risk_allocation определяется строго по приоритету из п.9 task.
+        - Если в разных фрагментах указаны разные данные и конфликт нельзя разрешить по тексту:
+          * status-поля → "not_defined";
+          * текстовые поля → "Не удалось определить".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни валютной оговорки, ни упоминания курса,
+           ни признаков валютной конструкции.
+           → presence = "missing";
+             все содержательные поля = "not_defined";
+             все *_display = "Не установлено".
+
+        2. Чистый рублёвый заём или неполное раскрытие.
+           Заём в рублях РФ без привязки к валюте либо валютная конструкция
+           упомянута общей фразой без конкретики курса / даты.
+           → presence = "present";
+             currency_reference_type = "not_applicable"
+             (для чистого рублёвого займа) или "rub_equivalent"
+             (для общей фразы);
+             currency_clause_display = "Не применимо (заём в рублях РФ
+             без валютной оговорки)";
+             conversion_rate_source / conversion_date = "not_applicable"
+             или "not_defined";
+             currency_risk_allocation = "not_defined".
+
+        3. Противоречие между фрагментами.
+           В разных частях договора указаны разные курсы, даты пересчёта
+           или разные типы валютной конструкции; конфликт нельзя
+           разрешить по тексту.
+           → presence = "unclear";
+             соответствующий *_status = "not_defined";
+             соответствующий *_display = "Не удалось определить".
+
+        4. Специфика темы — валютный коридор или прямые расчёты в валюте.
+           Прямо указан коридор (min и/или max курс) либо предусмотрены
+           прямые расчёты в иностранной валюте между резидентами РФ.
+           → presence = "present";
+             при коридоре: currency_collar_min / currency_collar_max
+             заполнены числами, currency_risk_allocation = "shared";
+             при прямых расчётах: currency_reference_type =
+             "foreign_currency_obligation", conversion_rate_source =
+             "not_applicable", conversion_date = "not_applicable",
+             currency_risk_allocation = "not_defined".
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для foreign_currency_terms_check_presence используй только: "present", "missing", "unclear".
+        - Для currency_reference_type используй только: "rub_equivalent", "foreign_currency_obligation", "not_applicable", "not_defined".
+        - Для conversion_rate_source используй только: "cb_rate", "commercial_bank_rate", "fixed_rate", "not_applicable", "not_defined".
+        - Для conversion_date используй только: "payment_date", "transfer_date", "maturity_date", "not_applicable", "not_defined".
+        - Для currency_risk_allocation используй только: "not_defined", "borrower_bears_all", "lender_bears_all", "shared".
+        - Fallback при отсутствии данных:
+          * все *_display → "Не установлено".
+        - Fallback при противоречии или неоднозначности:
+          * все *_display → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
       fields:
+        - name: "foreign_currency_terms_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по валютной оговорке. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "currency_reference_type"
           type: "string"
           presentation: "signal"
-          allowed_values: ["rub_equivalent", "foreign_currency_obligation", "not_applicable"]
+          risk_weight: "high"
+          allowed_values: ["rub_equivalent", "foreign_currency_obligation", "not_applicable", "not_defined"]
+          display_in_grid: false
           description: "Тип валютной конструкции (raw enum). Внутреннее enum-поле."
           required: true
-          display_in_grid: false
+
         - name: "currency_clause_display"
           type: "string"
           presentation: "fact"
-          label: "Валютная конструкция"
-          description: >
-            User-facing тип валютной оговорки (эквивалент / прямая валюта / не применимо). Fallback: "Не установлено" / "Не удалось определить".
-          required: true
           display_in_grid: true
           display_priority: 1
+          label: "Валютная конструкция"
+          description: >
+            User-facing тип валютной оговорки
+            (эквивалент / прямая валюта / не применимо).
+            Fallback: "Не установлено" / "Не удалось определить".
+          required: true
+
         - name: "conversion_rate_source"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["cb_rate", "commercial_bank_rate", "fixed_rate", "not_applicable", "not_defined"]
+          display_in_grid: false
           description: "Источник обменного курса (raw enum). Внутреннее enum-поле."
           required: true
-          display_in_grid: false
+
         - name: "conversion_date"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["payment_date", "transfer_date", "maturity_date", "not_applicable", "not_defined"]
+          display_in_grid: false
           description: "Дата пересчёта (raw enum). Внутреннее enum-поле."
           required: true
-          display_in_grid: false
+
         - name: "conversion_rate_display"
           type: "string"
           presentation: "fact"
-          label: "Курс и дата пересчёта"
-          description: >
-            User-facing источник курса и дата конвертации. Fallback: "Не установлено" / "Не удалось определить".
-          required: true
           display_in_grid: true
           display_priority: 2
+          label: "Курс и дата пересчёта"
+          description: >
+            User-facing источник курса и дата конвертации.
+            Fallback: "Не установлено" / "Не удалось определить".
+          required: true
+
         - name: "currency_collar_min"
           type: "string"
           presentation: "fact"
+          display_in_grid: false
           label: "Валютный коридор (min)"
           description: >
-            Минимальный курс (пол валютного коридора). Только число. Fallback: "Не установлено" / "Не удалось определить".
+            Минимальный курс (пол валютного коридора). Только число.
+            Fallback: "Не установлено" / "Не удалось определить".
           required: true
-          display_in_grid: false
+
         - name: "currency_collar_max"
           type: "string"
           presentation: "fact"
+          display_in_grid: false
           label: "Валютный коридор (max)"
           description: >
-            Максимальный курс (потолок валютного коридора). Только число. Fallback: "Не установлено" / "Не удалось определить".
+            Максимальный курс (потолок валютного коридора). Только число.
+            Fallback: "Не установлено" / "Не удалось определить".
           required: true
-          display_in_grid: false
+
         - name: "currency_collar_display"
           type: "string"
           presentation: "fact"
-          label: "Валютный коридор (cap/floor)"
-          description: >
-            User-facing наличие и параметры валютного коридора. Fallback: "Не установлено" / "Не удалось определить".
-          required: true
           display_in_grid: true
           display_priority: 3
+          label: "Валютный коридор (cap/floor)"
+          description: >
+            User-facing наличие и параметры валютного коридора.
+            Fallback: "Не установлено" / "Не удалось определить".
+          required: true
+
         - name: "currency_risk_allocation"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["not_defined", "borrower_bears_all", "lender_bears_all", "shared"]
+          display_in_grid: false
           description: "Распределение валютных рисков (raw enum). Внутреннее enum-поле."
           required: true
-          display_in_grid: false
+
         - name: "currency_risk_display"
           type: "string"
           presentation: "fact"
-          label: "Распределение валютных рисков"
-          description: >
-            User-facing резюме распределения валютных рисков между сторонами. Fallback: "Не установлено" / "Не удалось определить".
-          required: true
           display_in_grid: true
           display_priority: 4
+          label: "Распределение валютных рисков"
+          description: >
+            User-facing резюме распределения валютных рисков между сторонами.
+            Fallback: "Не установлено" / "Не удалось определить".
+          required: true
 
+      store_payload: true
   - id: related_party_loan_check
     name: "Заём между аффилированными лицами: раскрытие и рыночность (Обзор ВС РФ 29.01.2020, ст. 61.2 127-ФЗ)"
     description: >
@@ -12237,9 +12317,7 @@ checks_v8:
         - "(?i)ответственност[ьи].{0,30}(займодавц|кредитор)"
         - "(?i)не\\s+(предостав|переда|выда)"
         - "(?i)возмещени[ея]\\s+убытк"
-      context_k: 6
-      temperature: 0.0
-      max_tokens: 800
+    llm:
       prompt_template: |
         [КОНТЕКСТ]
         Ты — российский юрист по договорной работе.
@@ -12443,6 +12521,9 @@ checks_v8:
           "liability_limitation_display": "<Полная ответственность (с упущенной выгодой) / Только прямой ущерб (без упущенной выгоды) / Ответственность полностью исключена / Не применимо (реальный заём) / Не предусмотрено договором>",
           "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
         }
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 800
     retrieval:
       retrieval_profile: "credit_facility_check"
       corpus_scope: "primary_segment"
