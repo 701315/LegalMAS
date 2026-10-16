@@ -6152,20 +6152,16 @@ checks_v8:
         - "перевод долга"
         - "без согласия"
         - "с согласия другой стороны"
-
       keyword_mode: "any"
       regex_patterns:
         - "(?i)уступк(а|и).*без\\s+соглас"
         - "(?i)перевод\\s+долга"
-
     llm:
       prompt_template: |
         [КОНТЕКСТ]
-        <role>
         Ты — российский юрист. Извлеки из договора мены ограничения уступки прав.
         Не анализируй расторжение, форс-мажор, подсудность, конфиденциальность
         или применимое право.
-        </role>
 
         [ЗАДАЧА]
         Найди в тексте договора:
@@ -6301,11 +6297,13 @@ checks_v8:
         Заполни строго следующие поля:
 
         0. assignment_presence:
-           Агрегатное signal-поле — наличие регулирования по теме.
-           - "present" — если хотя бы одно из содержательных полей
-             (assignment_restriction_status, assignment_restriction_code) ≠ "not_defined";
-           - "missing" — если оба содержательных поля = "not_defined";
-           - "unclear" — если фрагменты по теме есть, но из-за противоречий вывод невозможен.
+           - "missing" — если фрагментов по теме в тексте нет вообще
+             (следствие: все содержательные поля = "not_defined");
+           - "present" — если фрагменты по теме есть: либо хотя бы одно
+             содержательное поле ≠ "not_defined", либо тема упомянута,
+             но прямо исключена / отложена на будущее / раскрыта только общей фразой;
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
 
            Если presence = "missing":
            - assignment_restriction_status = "not_defined";
@@ -6314,13 +6312,14 @@ checks_v8:
            - не выполняй остальные шаги.
 
         1. assignment_restriction_status:
-           - "defined" — если в тексте прямо урегулирован вопрос уступки прав (запрет, ограничение или прямое разрешение);
+           - "defined" — если в тексте прямо урегулирован вопрос уступки прав
+             (запрет, ограничение или прямое разрешение);
            - "not_defined" — если вопрос уступки прямо не урегулирован.
 
         2. assignment_restriction_code:
-           Используй строго только:
            - "prohibited" — уступка прямо запрещена;
-           - "allowed_with_consent" — уступка допускается только с письменного согласия другой стороны;
+           - "allowed_with_consent" — уступка допускается только с письменного
+             согласия другой стороны;
            - "allowed" — уступка свободна без каких-либо ограничений;
            - "not_defined" — если вопрос уступки прямо не урегулирован.
 
@@ -6334,7 +6333,9 @@ checks_v8:
         - Перед остальными полями заполни assignment_presence по правилу из пункта 0 task.
         - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
         - Если presence = "missing" — assignment_restriction_status = "not_defined", assignment_restriction_code = "not_defined", assignment_restriction_details = "Данные не определены".
-        - Только текст договора.
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона, обычную практику или предположения вместо текста договора.
+        - Не делай выводов по типовой структуре договора.
         - prohibited = уступка прямо запрещена.
         - allowed_with_consent = уступка допускается только с письменного согласия другой стороны.
         - allowed = уступка свободна без каких-либо ограничений.
@@ -6352,25 +6353,25 @@ checks_v8:
              assignment_restriction_code = "not_defined";
              assignment_restriction_details = "Данные не определены".
 
-        2. Общая фраза без режима.
-           Указано, что "права и обязанности сторон определяются договором",
-           без указания режима уступки.
+        2. Общая фраза без режима уступки.
+           В договоре есть только общие фразы о правах и обязанностях,
+           но ни слова о режиме уступки.
            → presence = "missing";
              assignment_restriction_status = "not_defined";
              assignment_restriction_code = "not_defined";
              assignment_restriction_details = "Данные не определены".
 
         3. Противоречие между фрагментами.
-           В одном пункте указано, что уступка допускается с согласия, в другом —
-           что уступка запрещена без каких-либо исключений.
+           В одном пункте указано, что уступка допускается с согласия,
+           в другом — что уступка запрещена без каких-либо исключений.
            → presence = "unclear";
              assignment_restriction_status = "not_defined";
              assignment_restriction_code = "not_defined";
              assignment_restriction_details = "Не удалось определить".
 
         4. Свободная уступка с уточнением порядка.
-           Указано, что "уступка допускается без согласия другой стороны, но требует
-           письменного уведомления".
+           Указано, что уступка допускается без согласия другой стороны,
+           но требует письменного уведомления.
            → presence = "present";
              assignment_restriction_status = "defined";
              assignment_restriction_code = "allowed";
@@ -6402,7 +6403,8 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус ограничений уступки."
+          display_in_grid: false
+          description: "Статус ограничений уступки. Внутреннее enum-поле."
           required: true
 
         - name: "assignment_restriction_code"
@@ -6410,17 +6412,20 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["prohibited", "allowed_with_consent", "allowed", "not_defined"]
-          description: "Режим уступки прав."
+          display_in_grid: false
+          description: "Режим уступки прав. Внутреннее enum-поле."
           required: true
 
         - name: "assignment_restriction_details"
           type: "string"
           presentation: "fact"
-          label: "Уступка прав"
-          description: "Условие об уступке прав."
-          required: false
           display_in_grid: true
           display_priority: 1
+          label: "Уступка прав"
+          description: >
+            Условие об уступке прав.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: false
 
       store_payload: true
 
