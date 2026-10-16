@@ -969,7 +969,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус идентификации работодателя."
+          description: "Статус идентификации работодателя. Внутреннее enum-поле."
           required: true
         - name: "employer_details_value"
           type: "string"
@@ -977,42 +977,45 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Работодатель"
-          description: "Наименование и реквизиты работодателя."
+          description: >
+            Наименование и реквизиты работодателя. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "employer_type"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["legal_entity", "individual_entrepreneur", "not_defined"]
-          description: "Тип работодателя."
+          description: "Тип работодателя. Внутреннее enum-поле."
           required: true
         - name: "employer_representative_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания представителя работодателя."
+          description: "Статус указания представителя работодателя. Внутреннее enum-поле."
           required: true
         - name: "employer_representative_value"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Представитель работодателя"
-          description: "ФИО и должность представителя работодателя."
+          description: >
+            ФИО и должность представителя работодателя. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "employer_authority_doc"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Основание полномочий работодателя"
-          description: "Документ, подтверждающий полномочия представителя работодателя."
+          description: >
+            Документ, подтверждающий полномочия представителя работодателя. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "employee_representative_body_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус идентификации представительного органа работников."
+          description: "Статус идентификации представительного органа работников. Внутреннее enum-поле."
           required: true
         - name: "employee_representative_body_value"
           type: "string"
@@ -1020,28 +1023,31 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Представительный орган работников"
-          description: "Наименование представительного органа работников."
+          description: >
+            Наименование представительного органа работников. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "employee_representative_type"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["union", "elected", "council", "other", "not_defined"]
-          description: "Тип представительного органа работников."
+          description: "Тип представительного органа работников. Внутреннее enum-поле."
           required: true
         - name: "employee_representative_person"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Представитель работников"
-          description: "ФИО и должность представителя работников."
+          description: >
+            ФИО и должность представителя работников. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "employee_authority_doc"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Основание полномочий представителей работников"
-          description: "Документ, подтверждающий полномочия представителя работников."
+          description: >
+            Документ, подтверждающий полномочия представителя работников. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -1443,7 +1449,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания срока действия."
+          description: "Статус указания срока действия. Внутреннее enum-поле."
           required: true
         - name: "start_date_value"
           type: "string"
@@ -1451,7 +1457,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Дата начала"
-          description: "Дата начала действия договора."
+          description: >
+            Дата начала действия договора. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "end_date_value"
           type: "string"
@@ -1459,7 +1466,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Дата окончания"
-          description: "Дата окончания действия договора."
+          description: >
+            Дата окончания действия договора. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "term_duration_years"
           type: "string"
@@ -1467,7 +1475,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Срок (лет)"
-          description: "Длительность срока в годах, как указано в договоре."
+          description: >
+            Длительность срока в годах, как указано в договоре. Fallback: "Не установлено" / "Не удалось определить".
           max_value_chars: 20
           required: false
         - name: "term_within_legal_limit"
@@ -1475,28 +1484,29 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["within_limit", "exceeds_limit", "not_defined"]
-          description: "Соответствие срока требованиям ст. 43 ч. 2 ТК РФ (≤ 3 лет)."
+          description: "Соответствие срока требованиям ст. 43 ч. 2 ТК РФ (≤ 3 лет). Внутреннее enum-поле."
           required: true
         - name: "extension_clause_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус условия о продлении."
+          description: "Статус условия о продлении. Внутреннее enum-поле."
           required: true
         - name: "extension_clause_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Продление"
-          description: "Условие о продлении договора."
+          description: >
+            Условие о продлении договора. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "scope_of_application_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания сферы действия."
+          description: "Статус указания сферы действия. Внутреннее enum-поле."
           required: true
         - name: "scope_of_application_value"
           type: "string"
@@ -1504,14 +1514,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 4
           label: "Сфера действия"
-          description: "Сфера действия договора (организация / филиал / подразделение)."
+          description: >
+            Сфера действия договора (организация / филиал / подразделение). Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "universal_coverage_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус распространения на всех работников."
+          description: "Статус распространения на всех работников. Внутреннее enum-поле."
           required: true
         - name: "universal_coverage_details"
           type: "string"
@@ -1519,7 +1530,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 5
           label: "Распространение"
-          description: "Распространение на всех работников независимо от членства в профсоюзе."
+          description: >
+            Распространение на всех работников независимо от членства в профсоюзе. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -1813,7 +1825,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["explicit", "implicit", "not_defined"]
-          description: "Статус принципа недопустимости ухудшения."
+          description: "Статус принципа недопустимости ухудшения. Внутреннее enum-поле."
           required: true
         - name: "no_worsening_clause_details"
           type: "string"
@@ -1821,28 +1833,30 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Принцип недопустимости ухудшения"
-          description: "Формулировка о недопустимости ухудшения положения работников."
+          description: >
+            Формулировка о недопустимости ухудшения положения работников. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "additional_guarantees_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания на дополнительные гарантии."
+          description: "Статус указания на дополнительные гарантии. Внутреннее enum-поле."
           required: true
         - name: "additional_guarantees_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Дополнительные гарантии"
-          description: "Указание на дополнительные гарантии к ТК РФ."
+          description: >
+            Указание на дополнительные гарантии к ТК РФ. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "potential_worsening_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["detected", "not_detected", "unclear"]
-          description: "Статус выявления потенциально ухудшающих условий."
+          description: "Статус выявления потенциально ухудшающих условий. Внутреннее enum-поле."
           required: true
         - name: "potential_worsening_details"
           type: "string"
@@ -1850,7 +1864,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Потенциально ухудшающие условия"
-          description: "Описание выявленных формулировок-маркеров ухудшения."
+          description: >
+            Описание выявленных формулировок-маркеров ухудшения. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -2144,7 +2159,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["concrete", "declarative", "not_defined"]
-          description: "Статус механизма индексации."
+          description: "Статус механизма индексации. Внутреннее enum-поле."
           required: true
         - name: "indexation_mechanism_details"
           type: "string"
@@ -2152,35 +2167,37 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Механизм индексации"
-          description: "Формулировка механизма индексации."
+          description: >
+            Формулировка механизма индексации. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "indexation_basis"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["CPI", "fixed_percentage", "profit_linked", "other", "not_defined"]
-          description: "Основа для индексации."
+          description: "Основа для индексации. Внутреннее enum-поле."
           required: true
         - name: "indexation_frequency"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["annual", "semi_annual", "quarterly", "other", "not_defined"]
-          description: "Периодичность индексации."
+          description: "Периодичность индексации. Внутреннее enum-поле."
           required: true
         - name: "decision_procedure_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус порядка принятия решения."
+          description: "Статус порядка принятия решения. Внутреннее enum-поле."
           required: true
         - name: "decision_procedure_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Порядок принятия решения"
-          description: "Порядок принятия решения об индексации."
+          description: >
+            Порядок принятия решения об индексации. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -2499,7 +2516,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус предоставления помещения профсоюзу."
+          description: "Статус предоставления помещения профсоюзу. Внутреннее enum-поле."
           required: true
         - name: "premises_provided_details"
           type: "string"
@@ -2507,28 +2524,30 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Помещение и условия"
-          description: "Предоставление помещения, оргтехники, средств связи, транспорта."
+          description: >
+            Предоставление помещения, оргтехники, средств связи, транспорта. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "release_from_work_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус освобождения от основной работы."
+          description: "Статус освобождения от основной работы. Внутреннее enum-поле."
           required: true
         - name: "release_from_work_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Освобождение от работы"
-          description: "Освобождение профсоюзных работников от основной работы."
+          description: >
+            Освобождение профсоюзных работников от основной работы. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "dues_transfer_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус перечисления профсоюзных взносов."
+          description: "Статус перечисления профсоюзных взносов. Внутреннее enum-поле."
           required: true
         - name: "dues_transfer_details"
           type: "string"
@@ -2536,14 +2555,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Профсоюзные взносы"
-          description: "Перечисление профсоюзных взносов (ставка, периодичность, условие)."
+          description: >
+            Перечисление профсоюзных взносов (ставка, периодичность, условие). Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "dismissal_protection_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус защиты от увольнения."
+          description: "Статус защиты от увольнения. Внутреннее enum-поле."
           required: true
         - name: "dismissal_protection_details"
           type: "string"
@@ -2551,21 +2571,23 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Защита от увольнения"
-          description: "Защита профсоюзных работников от увольнения (согласие вышестоящего профсоюза и т.п.)."
+          description: >
+            Защита профсоюзных работников от увольнения (согласие вышестоящего профсоюза и т.п.). Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "information_access_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус предоставления информации профсоюзу."
+          description: "Статус предоставления информации профсоюзу. Внутреннее enum-поле."
           required: true
         - name: "information_access_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Информация для профсоюза"
-          description: "Предоставление информации профсоюзу."
+          description: >
+            Предоставление информации профсоюзу. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -2861,7 +2883,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания на наличие нескольких профсоюзов."
+          description: "Статус указания на наличие нескольких профсоюзов. Внутреннее enum-поле."
           required: true
         - name: "multiple_unions_details"
           type: "string"
@@ -2869,28 +2891,30 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Наличие нескольких профсоюзов"
-          description: "Указание на наличие нескольких профсоюзных организаций."
+          description: >
+            Указание на наличие нескольких профсоюзных организаций. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "unified_body_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус создания единого представительного органа."
+          description: "Статус создания единого представительного органа. Внутреннее enum-поле."
           required: true
         - name: "unified_body_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Единый представительный орган"
-          description: "Создание единого представительного органа."
+          description: >
+            Создание единого представительного органа. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "representation_method"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["unified_body", "majority_union", "no_unified_body", "elected_at_meeting", "other", "not_defined"]
-          description: "Способ определения представителя работников."
+          description: "Способ определения представителя работников. Внутреннее enum-поле."
           required: true
 
       store_payload: true
@@ -3201,7 +3225,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["concrete", "declarative", "not_defined"]
-          description: "Статус гарантий занятости."
+          description: "Статус гарантий занятости. Внутреннее enum-поле."
           required: true
         - name: "job_security_details"
           type: "string"
@@ -3209,28 +3233,30 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Гарантии занятости"
-          description: "Формулировка гарантий занятости."
+          description: >
+            Формулировка гарантий занятости. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "retraining_obligation_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус обязательства по переподготовке."
+          description: "Статус обязательства по переподготовке. Внутреннее enum-поле."
           required: true
         - name: "retraining_obligation_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Переподготовка"
-          description: "Обязательство по переподготовке."
+          description: >
+            Обязательство по переподготовке. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "enhanced_severance_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус повышенного выходного пособия."
+          description: "Статус повышенного выходного пособия. Внутреннее enum-поле."
           required: true
         - name: "enhanced_severance_details"
           type: "string"
@@ -3238,21 +3264,23 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Повышенное выходное пособие"
-          description: "Повышенное выходное пособие при сокращении (с размером, если указан)."
+          description: >
+            Повышенное выходное пособие при сокращении (с размером, если указан). Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "priority_rehiring_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус приоритетного трудоустройства."
+          description: "Статус приоритетного трудоустройства. Внутреннее enum-поле."
           required: true
         - name: "priority_rehiring_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Приоритетное трудоустройство"
-          description: "Приоритетное право на повторное трудоустройство."
+          description: >
+            Приоритетное право на повторное трудоустройство. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -3565,14 +3593,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус положения о реорганизации."
+          description: "Статус положения о реорганизации. Внутреннее enum-поле."
           required: true
         - name: "reorganization_action_code"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["continues", "renegotiation", "terminates", "not_defined"]
-          description: "Что происходит с договором при реорганизации."
+          description: "Что происходит с договором при реорганизации. Внутреннее enum-поле."
           required: true
         - name: "reorganization_action_details"
           type: "string"
@@ -3580,14 +3608,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Реорганизация"
-          description: "Положение о реорганизации."
+          description: >
+            Положение о реорганизации. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "ownership_change_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус положения о смене собственника."
+          description: "Статус положения о смене собственника. Внутреннее enum-поле."
           required: true
         - name: "ownership_change_details"
           type: "string"
@@ -3595,14 +3624,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Смена собственника"
-          description: "Положение о смене собственника (с указанием срока, если есть)."
+          description: >
+            Положение о смене собственника (с указанием срока, если есть). Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "liquidation_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус положения о ликвидации."
+          description: "Статус положения о ликвидации. Внутреннее enum-поле."
           required: true
         - name: "liquidation_details"
           type: "string"
@@ -3610,7 +3640,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Ликвидация"
-          description: "Положение о ликвидации."
+          description: >
+            Положение о ликвидации. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -3929,7 +3960,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус перечня социальных льгот."
+          description: "Статус перечня социальных льгот. Внутреннее enum-поле."
           required: true
         - name: "benefits_list_value"
           type: "string"
@@ -3937,49 +3968,53 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Социальные льготы"
-          description: "Перечень выявленных социальных льгот."
+          description: >
+            Перечень выявленных социальных льгот. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "benefits_with_amounts_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "partially", "no", "not_defined"]
-          description: "Указаны ли конкретные суммы льгот."
+          description: "Указаны ли конкретные суммы льгот. Внутреннее enum-поле."
           required: true
         - name: "benefits_with_amounts_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Суммы льгот"
-          description: "Конкретные суммы/размеры льгот."
+          description: >
+            Конкретные суммы/размеры льгот. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "benefits_with_conditions_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "partially", "no", "not_defined"]
-          description: "Указаны ли условия получения льгот."
+          description: "Указаны ли условия получения льгот. Внутреннее enum-поле."
           required: true
         - name: "benefits_with_conditions_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Условия получения льгот"
-          description: "Условия получения льгот."
+          description: >
+            Условия получения льгот. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "payment_timing_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус сроков выплат."
+          description: "Статус сроков выплат. Внутреннее enum-поле."
           required: true
         - name: "payment_timing_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Сроки выплат"
-          description: "Сроки выплат социальных льгот."
+          description: >
+            Сроки выплат социальных льгот. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -4310,7 +4345,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус порядка внесения изменений."
+          description: "Статус порядка внесения изменений. Внутреннее enum-поле."
           required: true
         - name: "amendment_procedure_details"
           type: "string"
@@ -4318,14 +4353,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Порядок изменений"
-          description: "Порядок внесения изменений и дополнений."
+          description: >
+            Порядок внесения изменений и дополнений. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "notification_registration_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус обязательства по уведомительной регистрации."
+          description: "Статус обязательства по уведомительной регистрации. Внутреннее enum-поле."
           required: true
         - name: "notification_registration_details"
           type: "string"
@@ -4333,28 +4369,30 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Уведомительная регистрация"
-          description: "Обязательство по уведомительной регистрации в органе по труду."
+          description: >
+            Обязательство по уведомительной регистрации в органе по труду. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "notification_deadline_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус срока направления на регистрацию."
+          description: "Статус срока направления на регистрацию. Внутреннее enum-поле."
           required: true
         - name: "notification_deadline_value"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Срок регистрации"
-          description: "Срок направления на уведомительную регистрацию."
+          description: >
+            Срок направления на уведомительную регистрацию. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "control_commission_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус создания контрольной комиссии."
+          description: "Статус создания контрольной комиссии. Внутреннее enum-поле."
           required: true
         - name: "control_commission_details"
           type: "string"
@@ -4362,14 +4400,16 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Контрольная комиссия"
-          description: "Создание совместной контрольной комиссии."
+          description: >
+            Создание совместной контрольной комиссии. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "control_commission_reporting"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Периодичность отчётности"
-          description: "Периодичность отчётности контрольной комиссии."
+          description: >
+            Периодичность отчётности контрольной комиссии. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -4694,7 +4734,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус процедуры разрешения разногласий."
+          description: "Статус процедуры разрешения разногласий. Внутреннее enum-поле."
           required: true
         - name: "dispute_procedure_details"
           type: "string"
@@ -4702,35 +4742,36 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Процедура разрешения разногласий"
-          description: "Поэтапная процедура разрешения разногласий."
+          description: >
+            Поэтапная процедура разрешения разногласий. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "conciliation_commission_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус примирительной комиссии."
+          description: "Статус примирительной комиссии. Внутреннее enum-поле."
           required: true
         - name: "conciliator_mediator_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус посредника/медиатора."
+          description: "Статус посредника/медиатора. Внутреннее enum-поле."
           required: true
         - name: "labor_arbitration_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус трудового арбитража."
+          description: "Статус трудового арбитража. Внутреннее enum-поле."
           required: true
         - name: "liability_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус ответственности сторон."
+          description: "Статус ответственности сторон. Внутреннее enum-поле."
           required: true
         - name: "liability_details"
           type: "string"
@@ -4738,14 +4779,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Ответственность сторон"
-          description: "Ответственность сторон за невыполнение обязательств (отсылки на нормы или конкретные санкции)."
+          description: >
+            Ответственность сторон за невыполнение обязательств (отсылки на нормы или конкретные санкции). Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "koap_reference_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус ссылки на административную ответственность (ст. 5.28–5.31 КоАП РФ)."
+          description: "Статус ссылки на административную ответственность (ст. 5.28–5.31 КоАП РФ). Внутреннее enum-поле."
           required: true
 
       store_payload: true
@@ -5026,7 +5068,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус режима рабочего времени."
+          description: "Статус режима рабочего времени. Внутреннее enum-поле."
           required: true
         - name: "working_hours_details"
           type: "string"
@@ -5034,14 +5076,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Рабочее время"
-          description: "Режим рабочего времени."
+          description: >
+            Режим рабочего времени. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "annual_leave_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус ежегодного отпуска."
+          description: "Статус ежегодного отпуска. Внутреннее enum-поле."
           required: true
         - name: "annual_leave_details"
           type: "string"
@@ -5049,14 +5092,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Ежегодный отпуск"
-          description: "Продолжительность ежегодного отпуска."
+          description: >
+            Продолжительность ежегодного отпуска. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "additional_leave_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус дополнительных отпусков."
+          description: "Статус дополнительных отпусков. Внутреннее enum-поле."
           required: true
         - name: "additional_leave_details"
           type: "string"
@@ -5064,7 +5108,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Дополнительные отпуска"
-          description: "Дополнительные отпуска (в т.ч. за вредные условия)."
+          description: >
+            Дополнительные отпуска (в т.ч. за вредные условия). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -5365,7 +5410,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус мероприятий по охране труда."
+          description: "Статус мероприятий по охране труда. Внутреннее enum-поле."
           required: true
         - name: "safety_measures_details"
           type: "string"
@@ -5373,28 +5418,30 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Охрана труда"
-          description: "Мероприятия по охране труда и финансирование."
+          description: >
+            Мероприятия по охране труда и финансирование. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "ppei_provision_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус обеспечения СИЗ."
+          description: "Статус обеспечения СИЗ. Внутреннее enum-поле."
           required: true
         - name: "ppei_provision_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "СИЗ"
-          description: "Обеспечение средствами индивидуальной защиты."
+          description: >
+            Обеспечение средствами индивидуальной защиты. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "sout_status_code"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус СОУТ / класса условий труда."
+          description: "Статус СОУТ / класса условий труда. Внутреннее enum-поле."
           required: true
         - name: "sout_status_details"
           type: "string"
@@ -5402,14 +5449,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "СОУТ / класс условий труда"
-          description: "Результаты СОУТ / класс условий труда."
+          description: >
+            Результаты СОУТ / класс условий труда. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "hazardous_guarantees_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус гарантий за вредные/опасные условия."
+          description: "Статус гарантий за вредные/опасные условия. Внутреннее enum-поле."
           required: true
         - name: "hazardous_guarantees_details"
           type: "string"
@@ -5417,7 +5465,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Гарантии за вредные условия"
-          description: "Гарантии за вредные/опасные условия труда (доплата, молоко, ЛПП и т.п.)."
+          description: >
+            Гарантии за вредные/опасные условия труда (доплата, молоко, ЛПП и т.п.). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -5724,49 +5773,49 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус обязательств по оплате труда."
+          description: "Статус обязательств по оплате труда. Внутреннее enum-поле."
           required: true
         - name: "employment_obligations_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус обязательств по занятости и переобучению."
+          description: "Статус обязательств по занятости и переобучению. Внутреннее enum-поле."
           required: true
         - name: "worktime_obligations_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус обязательств по рабочему времени и времени отдыха."
+          description: "Статус обязательств по рабочему времени и времени отдыха. Внутреннее enum-поле."
           required: true
         - name: "safety_obligations_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус обязательств по охране труда."
+          description: "Статус обязательств по охране труда. Внутреннее enum-поле."
           required: true
         - name: "social_obligations_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус обязательств по социальным гарантиям."
+          description: "Статус обязательств по социальным гарантиям. Внутреннее enum-поле."
           required: true
         - name: "educational_obligations_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус обязательств по обучению."
+          description: "Статус обязательств по обучению. Внутреннее enum-поле."
           required: true
         - name: "overall_completeness_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["complete", "partial", "minimal", "not_defined"]
-          description: "Общая полнота обязательных разделов."
+          description: "Общая полнота обязательных разделов. Внутреннее enum-поле."
           required: true
         - name: "missing_sections_details"
           type: "string"
@@ -5774,7 +5823,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Отсутствующие разделы"
-          description: "Перечень отсутствующих обязательных тем ст. 41 ТК РФ."
+          description: >
+            Перечень отсутствующих обязательных тем ст. 41 ТК РФ. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -6093,7 +6143,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус систем оплаты труда."
+          description: "Статус систем оплаты труда. Внутреннее enum-поле."
           required: true
         - name: "remuneration_system_details"
           type: "string"
@@ -6101,14 +6151,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Система оплаты труда"
-          description: "Системы и формы оплаты труда."
+          description: >
+            Системы и формы оплаты труда. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "salary_amounts_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
-          description: "Статус конкретных размеров окладов/ставок."
+          description: "Статус конкретных размеров окладов/ставок. Внутреннее enum-поле."
           required: true
         - name: "salary_amounts_details"
           type: "string"
@@ -6116,14 +6167,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Размеры окладов"
-          description: "Конкретные размеры окладов и тарифных ставок."
+          description: >
+            Конкретные размеры окладов и тарифных ставок. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "bonuses_and_allowances_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус надбавок и премий."
+          description: "Статус надбавок и премий. Внутреннее enum-поле."
           required: true
         - name: "bonuses_and_allowances_details"
           type: "string"
@@ -6131,14 +6183,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Надбавки и премии"
-          description: "Надбавки, доплаты, премии с размерами."
+          description: >
+            Надбавки, доплаты, премии с размерами. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "payment_dates_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус дат и сроков выплат."
+          description: "Статус дат и сроков выплат. Внутреннее enum-поле."
           required: true
         - name: "payment_dates_details"
           type: "string"
@@ -6146,14 +6199,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 4
           label: "Даты выплат"
-          description: "Даты и сроки выплаты заработной платы (ст. 136 ТК РФ)."
+          description: >
+            Даты и сроки выплаты заработной платы (ст. 136 ТК РФ). Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "mrot_compliance_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус упоминания МРОТ / регионального соглашения."
+          description: "Статус упоминания МРОТ / регионального соглашения. Внутреннее enum-поле."
           required: true
 
       store_payload: true
@@ -6437,7 +6491,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус описания процедуры коллективных переговоров."
+          description: "Статус описания процедуры коллективных переговоров. Внутреннее enum-поле."
           required: true
         - name: "negotiations_procedure_details"
           type: "string"
@@ -6445,35 +6499,37 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Порядок переговоров"
-          description: "Описание процедуры коллективных переговоров."
+          description: >
+            Описание процедуры коллективных переговоров. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "initiator_reference_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус упоминания инициатора переговоров."
+          description: "Статус упоминания инициатора переговоров. Внутреннее enum-поле."
           required: true
         - name: "conciliation_procedure_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус порядка урегулирования разногласий."
+          description: "Статус порядка урегулирования разногласий. Внутреннее enum-поле."
           required: true
         - name: "conciliation_procedure_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Порядок урегулирования разногласий"
-          description: "Порядок урегулирования разногласий в ходе переговоров."
+          description: >
+            Порядок урегулирования разногласий в ходе переговоров. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "negotiation_deadline_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания сроков переговоров."
+          description: "Статус указания сроков переговоров. Внутреннее enum-поле."
           required: true
         - name: "negotiation_deadline_details"
           type: "string"
@@ -6481,7 +6537,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Сроки переговоров"
-          description: "Сроки проведения коллективных переговоров."
+          description: >
+            Сроки проведения коллективных переговоров. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -6804,7 +6861,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус упоминания приложений."
+          description: "Статус упоминания приложений. Внутреннее enum-поле."
           required: true
 
         - name: "appendices_list"
@@ -6813,7 +6870,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Перечень приложений"
-          description: "Список упомянутых приложений с номерами и названиями."
+          description: >
+            Список упомянутых приложений с номерами и названиями. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "appendices_integrity_status"
@@ -6821,7 +6879,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["complete", "incomplete", "unclear", "not_defined"]
-          description: "Статус полноты приложений."
+          description: "Статус полноты приложений. Внутреннее enum-поле."
           required: true
 
         - name: "appendices_integrity_details"
@@ -6830,7 +6888,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Полнота приложений"
-          description: "Комментарий о полноте приложений."
+          description: >
+            Комментарий о полноте приложений. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -7207,7 +7266,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус гарантий при командировках."
+          description: "Статус гарантий при командировках. Внутреннее enum-поле."
           required: true
 
         - name: "business_trips_details"
@@ -7216,7 +7275,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Командировки"
-          description: "Повышенные гарантии при командировках (суточные, компенсации)."
+          description: >
+            Повышенные гарантии при командировках (суточные, компенсации). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "dispensarization_status"
@@ -7224,7 +7284,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус гарантий при диспансеризации."
+          description: "Статус гарантий при диспансеризации. Внутреннее enum-поле."
           required: true
 
         - name: "dispensarization_details"
@@ -7233,7 +7293,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Диспансеризация"
-          description: "Гарантии при прохождении диспансеризации."
+          description: >
+            Гарантии при прохождении диспансеризации. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "donor_guarantees_status"
@@ -7241,7 +7302,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус гарантий донорам."
+          description: "Статус гарантий донорам. Внутреннее enum-поле."
           required: true
 
         - name: "donor_guarantees_details"
@@ -7249,7 +7310,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Донорство"
-          description: "Гарантии работникам-донорам."
+          description: >
+            Гарантии работникам-донорам. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "educational_guarantees_status"
@@ -7257,7 +7319,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус гарантий при совмещении с обучением."
+          description: "Статус гарантий при совмещении с обучением. Внутреннее enum-поле."
           required: true
 
         - name: "educational_guarantees_details"
@@ -7266,7 +7328,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Обучение"
-          description: "Гарантии при совмещении работы с обучением."
+          description: >
+            Гарантии при совмещении работы с обучением. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -7643,7 +7706,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус участия профсоюза в принятии ЛНА."
+          description: "Статус участия профсоюза в принятии ЛНА. Внутреннее enum-поле."
           required: true
 
         - name: "lna_participation_details"
@@ -7652,7 +7715,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Участие в ЛНА"
-          description: "Участие профсоюза в принятии локальных нормативных актов."
+          description: >
+            Участие профсоюза в принятии локальных нормативных актов. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "dismissal_coordination_status"
@@ -7660,7 +7724,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус согласования увольнений."
+          description: "Статус согласования увольнений. Внутреннее enum-поле."
           required: true
 
         - name: "dismissal_coordination_details"
@@ -7669,7 +7733,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Согласование увольнений"
-          description: "Категории увольнений, требующих согласования с профсоюзом."
+          description: >
+            Категории увольнений, требующих согласования с профсоюзом. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "information_rights_status"
@@ -7677,7 +7742,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус права профсоюза на информацию."
+          description: "Статус права профсоюза на информацию. Внутреннее enum-поле."
           required: true
 
         - name: "information_rights_details"
@@ -7685,7 +7750,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Право на информацию"
-          description: "Право профсоюза на получение информации."
+          description: >
+            Право профсоюза на получение информации. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "control_rights_status"
@@ -7693,7 +7759,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус права профсоюза на контроль."
+          description: "Статус права профсоюза на контроль. Внутреннее enum-поле."
           required: true
 
         - name: "control_rights_details"
@@ -7701,7 +7767,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Право на контроль"
-          description: "Право профсоюза на осуществление контроля."
+          description: >
+            Право профсоюза на осуществление контроля. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -8077,7 +8144,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус описания обработки ПДн."
+          description: "Статус описания обработки ПДн. Внутреннее enum-поле."
           required: true
 
         - name: "pd_processing_details"
@@ -8086,7 +8153,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Обработка ПДн"
-          description: "Порядок обработки персональных данных работников."
+          description: >
+            Порядок обработки персональных данных работников. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "pd_consent_status"
@@ -8094,7 +8162,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус согласия на обработку."
+          description: "Статус согласия на обработку. Внутреннее enum-поле."
           required: true
 
         - name: "pd_consent_details"
@@ -8103,7 +8171,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Согласие на обработку"
-          description: "Порядок получения согласия работника."
+          description: >
+            Порядок получения согласия работника. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "pd_transfer_status"
@@ -8111,7 +8180,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус передачи ПДн третьим лицам."
+          description: "Статус передачи ПДн третьим лицам. Внутреннее enum-поле."
           required: true
 
         - name: "pd_transfer_details"
@@ -8119,7 +8188,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Передача ПДн"
-          description: "Условия передачи ПДн третьим лицам."
+          description: >
+            Условия передачи ПДн третьим лицам. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "pd_protection_status"
@@ -8127,7 +8197,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус мер защиты ПДн."
+          description: "Статус мер защиты ПДн. Внутреннее enum-поле."
           required: true
 
         - name: "pd_protection_details"
@@ -8136,7 +8206,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Защита ПДн"
-          description: "Меры защиты персональных данных."
+          description: >
+            Меры защиты персональных данных. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -8602,7 +8673,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус гарантий беременным женщинам."
+          description: "Статус гарантий беременным женщинам. Внутреннее enum-поле."
           required: true
 
         - name: "pregnant_women_guarantees_details"
@@ -8611,7 +8682,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Гарантии беременным"
-          description: "Повышенные гарантии беременным женщинам (снижение норм, перевод, сохранение заработка)."
+          description: >
+            Повышенные гарантии беременным женщинам (снижение норм, перевод, сохранение заработка). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "parental_leave_status"
@@ -8619,7 +8691,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус гарантий при отпуске по уходу за ребёнком."
+          description: "Статус гарантий при отпуске по уходу за ребёнком. Внутреннее enum-поле."
           required: true
 
         - name: "parental_leave_details"
@@ -8628,7 +8700,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Отпуск по уходу"
-          description: "Дополнительные гарантии при отпуске по уходу за ребёнком."
+          description: >
+            Дополнительные гарантии при отпуске по уходу за ребёнком. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "family_payments_status"
@@ -8636,7 +8709,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус выплат при рождении / усыновлении ребёнка."
+          description: "Статус выплат при рождении / усыновлении ребёнка. Внутреннее enum-поле."
           required: true
 
         - name: "family_payments_details"
@@ -8645,7 +8718,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Выплаты при рождении"
-          description: "Материальная помощь при рождении / усыновлении ребёнка с размером."
+          description: >
+            Материальная помощь при рождении / усыновлении ребёнка с размером. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "flexible_schedule_status"
@@ -8653,7 +8727,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус гибкого графика для беременных и лиц с семейными обязанностями."
+          description: "Статус гибкого графика для беременных и лиц с семейными обязанностями. Внутреннее enum-поле."
           required: true
 
         - name: "flexible_schedule_details"
@@ -8661,7 +8735,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Гибкий график"
-          description: "Право на гибкий график / неполное рабочее время."
+          description: >
+            Право на гибкий график / неполное рабочее время. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "dismissal_protection_status"
@@ -8669,7 +8744,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус защиты от увольнения беременных и лиц с семейными обязанностями."
+          description: "Статус защиты от увольнения беременных и лиц с семейными обязанностями. Внутреннее enum-поле."
           required: true
 
         - name: "dismissal_protection_details"
@@ -8678,7 +8753,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 4
           label: "Защита от увольнения"
-          description: "Дополнительная защита от увольнения беременных, женщин с детьми, одиноких матерей."
+          description: >
+            Дополнительная защита от увольнения беременных, женщин с детьми, одиноких матерей. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "extra_days_and_benefits_status"
@@ -8686,7 +8762,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус дополнительных дней и льгот для лиц с семейными обязанностями."
+          description: "Статус дополнительных дней и льгот для лиц с семейными обязанностями. Внутреннее enum-поле."
           required: true
 
         - name: "extra_days_and_benefits_details"
@@ -8695,7 +8771,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 5
           label: "Дополнительные дни и льготы"
-          description: "Дополнительные выходные, преимущественное право на отпуск, дополнительный отпуск без сохранения зарплаты."
+          description: >
+            Дополнительные выходные, преимущественное право на отпуск, дополнительный отпуск без сохранения зарплаты. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -9157,7 +9234,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус гарантий работникам-инвалидам."
+          description: "Статус гарантий работникам-инвалидам. Внутреннее enum-поле."
           required: true
 
         - name: "disabled_workers_guarantees_details"
@@ -9166,7 +9243,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Гарантии инвалидам"
-          description: "Специальные гарантии работникам-инвалидам (сокращённое время, ограничения, дополнительный отпуск)."
+          description: >
+            Специальные гарантии работникам-инвалидам (сокращённое время, ограничения, дополнительный отпуск). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "disabled_quota_status"
@@ -9174,7 +9252,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус квотирования рабочих мест для инвалидов."
+          description: "Статус квотирования рабочих мест для инвалидов. Внутреннее enum-поле."
           required: true
 
         - name: "disabled_quota_details"
@@ -9183,7 +9261,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Квота для инвалидов"
-          description: "Размер квоты рабочих мест для инвалидов и порядок её исполнения."
+          description: >
+            Размер квоты рабочих мест для инвалидов и порядок её исполнения. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "youth_guarantees_status"
@@ -9191,7 +9270,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус гарантий молодёжи и молодым специалистам."
+          description: "Статус гарантий молодёжи и молодым специалистам. Внутреннее enum-поле."
           required: true
 
         - name: "youth_guarantees_details"
@@ -9200,7 +9279,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Гарантии молодёжи"
-          description: "Гарантии молодым специалистам (стажировка, наставничество, программы)."
+          description: >
+            Гарантии молодым специалистам (стажировка, наставничество, программы). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "pre_pensioners_guarantees_status"
@@ -9208,7 +9288,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус гарантий предпенсионерам."
+          description: "Статус гарантий предпенсионерам. Внутреннее enum-поле."
           required: true
 
         - name: "pre_pensioners_guarantees_details"
@@ -9217,7 +9297,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 4
           label: "Гарантии предпенсионерам"
-          description: "Специальные гарантии лицам предпенсионного возраста."
+          description: >
+            Специальные гарантии лицам предпенсионного возраста. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "training_and_retraining_status"
@@ -9225,7 +9306,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус обучения и переобучения специальных категорий."
+          description: "Статус обучения и переобучения специальных категорий. Внутреннее enum-поле."
           required: true
 
         - name: "training_and_retraining_details"
@@ -9233,7 +9314,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Обучение спецкатегорий"
-          description: "Обучение и переобучение специальных категорий работников."
+          description: >
+            Обучение и переобучение специальных категорий работников. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "dismissal_protection_status"
@@ -9241,7 +9323,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус защиты от увольнения специальных категорий."
+          description: "Статус защиты от увольнения специальных категорий. Внутреннее enum-поле."
           required: true
 
         - name: "dismissal_protection_details"
@@ -9250,7 +9332,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 5
           label: "Защита от увольнения"
-          description: "Дополнительная защита от увольнения специальных категорий работников."
+          description: >
+            Дополнительная защита от увольнения специальных категорий работников. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -9703,7 +9786,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус программы НПО / корпоративной пенсии."
+          description: "Статус программы НПО / корпоративной пенсии. Внутреннее enum-поле."
           required: true
 
         - name: "pension_program_details"
@@ -9712,7 +9795,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Программа НПО"
-          description: "Описание программы негосударственного пенсионного обеспечения."
+          description: >
+            Описание программы негосударственного пенсионного обеспечения. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "pension_amount_status"
@@ -9720,7 +9804,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус размера взносов работодателя."
+          description: "Статус размера взносов работодателя. Внутреннее enum-поле."
           required: true
 
         - name: "pension_amount_details"
@@ -9729,7 +9813,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Размер взносов"
-          description: "Размер взносов работодателя (%, руб., формула софинансирования)."
+          description: >
+            Размер взносов работодателя (%, руб., формула софинансирования). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "pension_conditions_status"
@@ -9737,7 +9822,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус условий участия работников в программе."
+          description: "Статус условий участия работников в программе. Внутреннее enum-поле."
           required: true
 
         - name: "pension_conditions_details"
@@ -9745,7 +9830,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Условия участия"
-          description: "Условия участия работников в программе НПО."
+          description: >
+            Условия участия работников в программе НПО. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "pension_lump_sum_status"
@@ -9753,7 +9839,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус единовременной выплаты при выходе на пенсию."
+          description: "Статус единовременной выплаты при выходе на пенсию. Внутреннее enum-поле."
           required: true
 
         - name: "pension_lump_sum_details"
@@ -9762,7 +9848,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Единовременная выплата"
-          description: "Единовременная выплата при выходе на пенсию с размером."
+          description: >
+            Единовременная выплата при выходе на пенсию с размером. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "pension_preservation_status"
@@ -9770,7 +9857,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус гарантии сохранения программы при реорганизации."
+          description: "Статус гарантии сохранения программы при реорганизации. Внутреннее enum-поле."
           required: true
 
         - name: "pension_preservation_details"
@@ -9779,7 +9866,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 4
           label: "Сохранение при реорганизации"
-          description: "Гарантия сохранения программы НПО при реорганизации / смене собственника."
+          description: >
+            Гарантия сохранения программы НПО при реорганизации / смене собственника. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "pension_fund_status"
@@ -9787,7 +9875,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус указания НПФ / управляющей организации."
+          description: "Статус указания НПФ / управляющей организации. Внутреннее enum-поле."
           required: true
 
         - name: "pension_fund_details"
@@ -9795,7 +9883,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "НПФ"
-          description: "Конкретный НПФ или порядок его выбора."
+          description: >
+            Конкретный НПФ или порядок его выбора. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -10264,7 +10353,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус порядка перевода на дистанционную работу."
+          description: "Статус порядка перевода на дистанционную работу. Внутреннее enum-поле."
           required: true
 
         - name: "remote_transfer_details"
@@ -10273,7 +10362,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Перевод на дистанционку"
-          description: "Порядок перевода на дистанционную работу (постоянная, временная, комбинированная)."
+          description: >
+            Порядок перевода на дистанционную работу (постоянная, временная, комбинированная). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "remote_equipment_status"
@@ -10281,7 +10371,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус обеспечения оборудованием для дистанционной работы."
+          description: "Статус обеспечения оборудованием для дистанционной работы. Внутреннее enum-поле."
           required: true
 
         - name: "remote_equipment_details"
@@ -10290,7 +10380,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Оборудование"
-          description: "Обеспечение оборудованием для дистанционной работы."
+          description: >
+            Обеспечение оборудованием для дистанционной работы. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "remote_compensation_status"
@@ -10298,7 +10389,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус компенсации расходов за личное оборудование."
+          description: "Статус компенсации расходов за личное оборудование. Внутреннее enum-поле."
           required: true
 
         - name: "remote_compensation_details"
@@ -10307,7 +10398,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Компенсация расходов"
-          description: "Компенсация расходов за использование личного оборудования (размер, порядок)."
+          description: >
+            Компенсация расходов за использование личного оборудования (размер, порядок). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "right_to_disconnect_status"
@@ -10315,7 +10407,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус права на отключение."
+          description: "Статус права на отключение. Внутреннее enum-поле."
           required: true
 
         - name: "right_to_disconnect_details"
@@ -10324,7 +10416,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 4
           label: "Право на отключение"
-          description: "Право не отвечать на звонки и сообщения во внерабочее время."
+          description: >
+            Право не отвечать на звонки и сообщения во внерабочее время. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "return_to_office_status"
@@ -10332,7 +10425,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус порядка возврата в офис."
+          description: "Статус порядка возврата в офис. Внутреннее enum-поле."
           required: true
 
         - name: "return_to_office_details"
@@ -10340,7 +10433,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Возврат в офис"
-          description: "Порядок возврата в офис и гарантии при возврате."
+          description: >
+            Порядок возврата в офис и гарантии при возврате. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "electronic_signature_status"
@@ -10348,7 +10442,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус электронного документооборота и подписи."
+          description: "Статус электронного документооборота и подписи. Внутреннее enum-поле."
           required: true
 
         - name: "electronic_signature_details"
@@ -10356,7 +10450,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Электронный документооборот"
-          description: "Порядок электронного документооборота и подписи (УКЭП)."
+          description: >
+            Порядок электронного документооборота и подписи (УКЭП). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -10794,7 +10889,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус форм участия работников в управлении."
+          description: "Статус форм участия работников в управлении. Внутреннее enum-поле."
           required: true
 
         - name: "participation_forms_details"
@@ -10803,7 +10898,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Формы участия"
-          description: "Формы участия работников в управлении организацией."
+          description: >
+            Формы участия работников в управлении организацией. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "participation_bodies_status"
@@ -10811,7 +10907,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус представительного органа работников."
+          description: "Статус представительного органа работников. Внутреннее enum-поле."
           required: true
 
         - name: "participation_bodies_details"
@@ -10820,7 +10916,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Совет трудового коллектива"
-          description: "Состав и порядок формирования представительного органа работников."
+          description: >
+            Состав и порядок формирования представительного органа работников. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "board_participation_status"
@@ -10828,7 +10925,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус участия в коллегиальном органе управления."
+          description: "Статус участия в коллегиальном органе управления. Внутреннее enum-поле."
           required: true
 
         - name: "board_participation_details"
@@ -10837,7 +10934,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Участие в совете директоров"
-          description: "Участие представителей работников в коллегиальном органе управления."
+          description: >
+            Участие представителей работников в коллегиальном органе управления. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "consultation_procedure_status"
@@ -10845,7 +10943,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус порядка обязательных консультаций."
+          description: "Статус порядка обязательных консультаций. Внутреннее enum-поле."
           required: true
 
         - name: "consultation_procedure_details"
@@ -10853,7 +10951,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Обязательные консультации"
-          description: "Порядок обязательных консультаций с работниками."
+          description: >
+            Порядок обязательных консультаций с работниками. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "right_to_information_status"
@@ -10861,7 +10960,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус права работников на информацию."
+          description: "Статус права работников на информацию. Внутреннее enum-поле."
           required: true
 
         - name: "right_to_information_details"
@@ -10870,7 +10969,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 4
           label: "Право на информацию"
-          description: "Перечень сведений, предоставляемых работникам, и порядок."
+          description: >
+            Перечень сведений, предоставляемых работникам, и порядок. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -11329,7 +11429,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус указания вахтового метода."
+          description: "Статус указания вахтового метода. Внутреннее enum-поле."
           required: true
 
         - name: "rotational_method_details"
@@ -11338,7 +11438,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Вахтовый метод"
-          description: "Указание на применение вахтового метода работы."
+          description: >
+            Указание на применение вахтового метода работы. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "rotational_allowance_status"
@@ -11346,7 +11447,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус вахтовой надбавки."
+          description: "Статус вахтовой надбавки. Внутреннее enum-поле."
           required: true
 
         - name: "rotational_allowance_details"
@@ -11355,7 +11456,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Вахтовая надбавка"
-          description: "Размер вахтовой надбавки за дни вахты и переработки."
+          description: >
+            Размер вахтовой надбавки за дни вахты и переработки. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "rotational_schedule_status"
@@ -11363,7 +11465,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус режима вахты и суммированного учёта."
+          description: "Статус режима вахты и суммированного учёта. Внутреннее enum-поле."
           required: true
 
         - name: "rotational_schedule_details"
@@ -11372,7 +11474,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Режим вахты"
-          description: "Режим вахты и суммированный учёт рабочего времени."
+          description: >
+            Режим вахты и суммированный учёт рабочего времени. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "northern_allowances_status"
@@ -11380,7 +11483,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус северных надбавок (районный коэффициент, процентная надбавка)."
+          description: "Статус северных надбавок (районный коэффициент, процентная надбавка). Внутреннее enum-поле."
           required: true
 
         - name: "northern_allowances_details"
@@ -11389,7 +11492,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 4
           label: "Северные надбавки"
-          description: "Районный коэффициент и процентная надбавка за стаж."
+          description: >
+            Районный коэффициент и процентная надбавка за стаж. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "northern_leave_status"
@@ -11397,7 +11501,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус дополнительного отпуска за работу в РКС."
+          description: "Статус дополнительного отпуска за работу в РКС. Внутреннее enum-поле."
           required: true
 
         - name: "northern_leave_details"
@@ -11406,7 +11510,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 5
           label: "Дополнительный отпуск"
-          description: "Дополнительный отпуск за работу в РКС / за вахту."
+          description: >
+            Дополнительный отпуск за работу в РКС / за вахту. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "travel_compensation_status"
@@ -11414,7 +11519,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус компенсации проезда к месту отдыха."
+          description: "Статус компенсации проезда к месту отдыха. Внутреннее enum-поле."
           required: true
 
         - name: "travel_compensation_details"
@@ -11423,7 +11528,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 6
           label: "Компенсация проезда"
-          description: "Компенсация проезда к месту отдыха и обратно (периодичность, порядок)."
+          description: >
+            Компенсация проезда к месту отдыха и обратно (периодичность, порядок). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -11830,7 +11936,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус указания применяемого соглашения."
+          description: "Статус указания применяемого соглашения. Внутреннее enum-поле."
           required: true
 
         - name: "sectoral_agreement_details"
@@ -11839,7 +11945,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Отраслевое соглашение"
-          description: "Название применяемого отраслевого / межотраслевого / регионального соглашения."
+          description: >
+            Название применяемого отраслевого / межотраслевого / регионального соглашения. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "joining_procedure_status"
@@ -11847,7 +11954,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус порядка присоединения к соглашению."
+          description: "Статус порядка присоединения к соглашению. Внутреннее enum-поле."
           required: true
 
         - name: "joining_procedure_details"
@@ -11856,7 +11963,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Присоединение"
-          description: "Порядок присоединения к соглашению или отказа от него."
+          description: >
+            Порядок присоединения к соглашению или отказа от него. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "alignment_with_agreement_status"
@@ -11864,7 +11972,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус соотношения условий КД и соглашения."
+          description: "Статус соотношения условий КД и соглашения. Внутреннее enum-поле."
           required: true
 
         - name: "alignment_with_agreement_details"
@@ -11873,7 +11981,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Соотношение условий"
-          description: "Порядок соотношения условий КД и отраслевого соглашения."
+          description: >
+            Порядок соотношения условий КД и отраслевого соглашения. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "application_obligation_status"
@@ -11881,7 +11990,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "declarative", "not_defined"]
-          description: "Статус обязанности учитывать соглашение."
+          description: "Статус обязанности учитывать соглашение. Внутреннее enum-поле."
           required: true
 
         - name: "application_obligation_details"
@@ -11889,7 +11998,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Обязанность учитывать"
-          description: "Обязанность работодателя учитывать условия соглашения."
+          description: >
+            Обязанность работодателя учитывать условия соглашения. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true

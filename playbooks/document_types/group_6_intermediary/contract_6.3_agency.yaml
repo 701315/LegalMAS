@@ -888,7 +888,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Принципал"
-          description: "Принципал по агентскому договору."
+          description: >
+            Принципал по агентскому договору. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -897,7 +898,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Агент"
-          description: "Агент по агентскому договору."
+          description: >
+            Агент по агентскому договору. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -908,7 +910,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["principal_name_model", "own_name_model", "mixed_or_unclear", "not_defined"]
           display_in_grid: false
-          description: "Модель агентирования (машиночитаемый код)."
+          description: "Модель агентирования (машиночитаемый код). Внутреннее enum-поле."
           required: true
 
         - name: "agency_model_display"
@@ -927,7 +929,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Предмет действий"
-          description: "Сфера действий агента или ссылка на приложение/заявки."
+          description: >
+            Сфера действий агента или ссылка на приложение/заявки. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -938,7 +941,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "unclear", "not_defined"]
           display_in_grid: false
-          description: "Наличие условия о вознаграждении агента."
+          description: "Наличие условия о вознаграждении агента. Внутреннее enum-поле."
           required: true
 
         - name: "reporting_status"
@@ -947,7 +950,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Наличие явного условия об отчётности агента (ст. 1008 ГК РФ)."
+          description: "Наличие явного условия об отчётности агента (ст. 1008 ГК РФ). Внутреннее enum-поле."
           required: true
 
         - name: "subagency_status"
@@ -956,7 +959,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Наличие явного условия о субагентстве (ст. 1009 ГК РФ)."
+          description: "Наличие явного условия о субагентстве (ст. 1009 ГК РФ). Внутреннее enum-поле."
           required: true
 
         - name: "exclusivity_status"
@@ -965,7 +968,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Наличие условия об эксклюзивности / исключительности (ст. 1007 ГК РФ)."
+          description: "Наличие условия об эксклюзивности / исключительности (ст. 1007 ГК РФ). Внутреннее enum-поле."
           required: true
 
         - name: "tail_commission_status"
@@ -974,10 +977,8 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: >
-            Наличие условия о хвостовом вознаграждении (tail commission) —
-            вознаграждении за сделки после прекращения договора с клиентами,
-            привлечёнными агентом.
+          description: >-
+            Наличие условия о хвостовом вознаграждении (tail commission) — вознаграждении за сделки после прекращения договора с клиентами, привлечёнными агентом. Внутреннее enum-поле.
           required: true
 
       store_payload: true
@@ -1338,9 +1339,8 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["principal_name_model", "own_name_model", "mixed_or_unclear", "not_defined"]
           display_in_grid: false
-          description: >
-            Модель агентирования (машиночитаемый код). Дублируется с паспортным
-            чеком agency_subject_extraction для автономности этого чека.
+          description: >-
+            Модель агентирования (машиночитаемый код). Дублируется с паспортным чеком agency_subject_extraction для автономности этого чека. Внутреннее enum-поле.
           required: true
 
         - name: "subsidiary_regime"
@@ -1354,10 +1354,8 @@ checks_v8:
             - "by_operation_of_law"
             - "not_defined"
           display_in_grid: false
-          description: >
-            Субсидиарный режим по ст. 1011 ГК РФ: явно указан в договоре
-            (mandate_explicit / commission_explicit / mixed_explicit),
-            применяется автоматически (by_operation_of_law) или установить нельзя (not_defined).
+          description: >-
+            Субсидиарный режим по ст. 1011 ГК РФ: явно указан в договоре (mandate_explicit / commission_explicit / mixed_explicit), применяется автоматически (by_operation_of_law) или установить нельзя (not_defined). Внутреннее enum-поле.
           required: true
 
         - name: "poa_status"
@@ -1372,10 +1370,8 @@ checks_v8:
             - "required_but_missing"
             - "not_defined"
           display_in_grid: false
-          description: >
-            Статус доверенности (ст. 185, 1005 ГК РФ). Значение "required_but_missing"
-            — red flag: модель «от имени принципала» без упоминания доверенности
-            (риск по ст. 183 ГК РФ).
+          description: >-
+            Статус доверенности (ст. 185, 1005 ГК РФ). Значение "required_but_missing" — red flag: модель «от имени принципала» без упоминания доверенности (риск по ст. 183 ГК РФ). Внутреннее enum-поле.
           required: true
 
         - name: "authority_summary"
@@ -1759,9 +1755,8 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
           display_in_grid: false
-          description: >
-            Определённость вознаграждения (ст. 1006 ГК РФ). "partial" —
-            вознаграждение упомянуто, но размер/формула неясны.
+          description: >-
+            Определённость вознаграждения (ст. 1006 ГК РФ). "partial" — вознаграждение упомянуто, но размер/формула неясны. Внутреннее enum-поле.
           required: true
 
         - name: "remuneration_details"
@@ -1789,10 +1784,8 @@ checks_v8:
             - "by_reference"
             - "not_defined"
           display_in_grid: false
-          description: >
-            Триггер возникновения права на оплату. "report_approved" —
-            после утверждения отчёта (ст. 1008 ГК РФ), наиболее частый
-            в российской практике.
+          description: >-
+            Триггер возникновения права на оплату. "report_approved" — после утверждения отчёта (ст. 1008 ГК РФ), наиболее частый в российской практике. Внутреннее enum-поле.
           required: true
 
         - name: "tail_commission_status"
@@ -1801,10 +1794,8 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: >
-            Наличие условия о хвостовом вознаграждении (tail commission) —
-            вознаграждении за сделки с клиентами, привлечёнными агентом,
-            после прекращения договора.
+          description: >-
+            Наличие условия о хвостовом вознаграждении (tail commission) — вознаграждении за сделки с клиентами, привлечёнными агентом, после прекращения договора. Внутреннее enum-поле.
           required: true
 
         - name: "tail_commission_details"
@@ -2181,9 +2172,8 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
           display_in_grid: false
-          description: >
-            Статус отчётности агента (ст. 1008 п. 1 ГК РФ). "partial" —
-            отчётность упомянута, но порядок/периодичность неясны.
+          description: >-
+            Статус отчётности агента (ст. 1008 п. 1 ГК РФ). "partial" — отчётность упомянута, но порядок/периодичность неясны. Внутреннее enum-поле.
           required: true
 
         - name: "reporting_details"
@@ -2215,9 +2205,8 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: >
-            Наличие явной связки «отчёт → оплата» в тексте договора.
-            Детали триггера оплаты — в чеке remuneration_and_payment_trigger_check.
+          description: >-
+            Наличие явной связки «отчёт → оплата» в тексте договора. Детали триггера оплаты — в чеке remuneration_and_payment_trigger_check. Внутреннее enum-поле.
           required: true
 
         - name: "reporting_summary"
@@ -2595,7 +2584,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Наличие срока перечисления выручки принципалу."
+          description: "Наличие срока перечисления выручки принципалу. Внутреннее enum-поле."
           required: true
 
         - name: "proceeds_transfer_details"
@@ -2615,9 +2604,8 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: >
-            Наличие механизма обособления средств принципала
-            (спецсчёт, раздельный учёт, эскроу).
+          description: >-
+            Наличие механизма обособления средств принципала (спецсчёт, раздельный учёт, эскроу). Внутреннее enum-поле.
           required: true
 
         - name: "segregation_details"
@@ -2637,9 +2625,8 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: >
-            Получает ли агент денежные средства от третьих лиц в рамках
-            исполнения поручения. Критично при модели «от своего имени».
+          description: >-
+            Получает ли агент денежные средства от третьих лиц в рамках исполнения поручения. Критично при модели «от своего имени». Внутреннее enum-поле.
           required: true
 
         - name: "funds_control_summary"
@@ -3012,8 +2999,8 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
           display_in_grid: false
-          description: >
-            Статус эксклюзивности (ограничения прав принципала/агента по ст. 1007 ГК РФ).
+          description: >-
+            Статус эксклюзивности (ограничения прав принципала/агента по ст. 1007 ГК РФ). Внутреннее enum-поле.
           required: true
 
         - name: "territory_defined"
@@ -3022,8 +3009,8 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: >
-            Наличие географического ограничения территории действия договора.
+          description: >-
+            Наличие географического ограничения территории действия договора. Внутреннее enum-поле.
           required: true
 
         - name: "non_compete_clause"
@@ -3032,9 +3019,8 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: >
-            Наличие условия о неконкуренции (non-compete) в период действия
-            или после его окончания.
+          description: >-
+            Наличие условия о неконкуренции (non-compete) в период действия или после его окончания. Внутреннее enum-поле.
           required: true
 
         - name: "territory_details"
@@ -3407,8 +3393,8 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["allowed", "prohibited", "unclear", "not_defined"]
           display_in_grid: false
-          description: >
-            Статус субагентства в договоре (разрешено / запрещено / не урегулировано).
+          description: >-
+            Статус субагентства в договоре (разрешено / запрещено / не урегулировано). Внутреннее enum-поле.
           required: true
 
         - name: "principal_consent_required"
@@ -3417,8 +3403,8 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
           display_in_grid: false
-          description: >
-            Требуется ли предварительное или письменное согласие принципала на субагентство.
+          description: >-
+            Требуется ли предварительное или письменное согласие принципала на субагентство. Внутреннее enum-поле.
           required: true
 
         - name: "agent_liability_for_subagent"
@@ -3427,8 +3413,8 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: >
-            Наличие в договоре явного условия об ответственности агента за субагента.
+          description: >-
+            Наличие в договоре явного условия об ответственности агента за субагента. Внутреннее enum-поле.
           required: true
 
         - name: "subagency_details"
@@ -3823,8 +3809,8 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
           display_in_grid: false
-          description: >
-            Наличие прямой оговорки о том, что договор не является трудовым.
+          description: >-
+            Наличие прямой оговорки о том, что договор не является трудовым. Внутреннее enum-поле.
           required: true
 
         - name: "independence_language_status"
@@ -3833,8 +3819,8 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: >
-            Наличие условий о самостоятельности агента, действии на свой риск и свободном графике.
+          description: >-
+            Наличие условий о самостоятельности агента, действии на свой риск и свободном графике. Внутреннее enum-поле.
           required: true
 
         - name: "kpi_present"
@@ -3843,8 +3829,8 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: >
-            Наличие коммерческих KPI, планов продаж или минимальных объемов привлечения.
+          description: >-
+            Наличие коммерческих KPI, планов продаж или минимальных объемов привлечения. Внутреннее enum-поле.
           required: true
 
         - name: "kpi_linked_to_remuneration"
@@ -3853,8 +3839,8 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: >
-            Привязана ли выплата или размер вознаграждения к выполнению KPI.
+          description: >-
+            Привязана ли выплата или размер вознаграждения к выполнению KPI. Внутреннее enum-поле.
           required: true
 
         - name: "anti_labor_safeguards"
@@ -4240,8 +4226,8 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["principal", "agent", "joint", "not_defined"]
           display_in_grid: false
-          description: >
-            Кому принадлежат права на клиентскую базу и лиды по договору (ст. 1260, 1334 ГК РФ).
+          description: >-
+            Кому принадлежат права на клиентскую базу и лиды по договору (ст. 1260, 1334 ГК РФ). Внутреннее enum-поле.
           required: true
 
         - name: "transfer_on_termination"
@@ -4250,8 +4236,8 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["to_principal", "retained_by_agent", "destruction_required", "not_defined"]
           display_in_grid: false
-          description: >
-            Порядок передачи, выгрузки или уничтожения данных клиентов при прекращении договора.
+          description: >-
+            Порядок передачи, выгрузки или уничтожения данных клиентов при прекращении договора. Внутреннее enum-поле.
           required: true
 
         - name: "data_access_restrictions"
@@ -4260,8 +4246,8 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: >
-            Наличие ограничений доступа к CRM-системе и режима коммерческой тайны на данные клиентов.
+          description: >-
+            Наличие ограничений доступа к CRM-системе и режима коммерческой тайны на данные клиентов. Внутреннее enum-поле.
           required: true
 
         - name: "database_ownership_details"
@@ -4640,8 +4626,8 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: >
-            Наличие в договоре прямого условия о порядке компенсации расходов агента.
+          description: >-
+            Наличие в договоре прямого условия о порядке компенсации расходов агента. Внутреннее enum-поле.
           required: true
 
         - name: "reimbursement_type"
@@ -4650,9 +4636,8 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["actual", "budget", "included_in_fee", "not_defined"]
           display_in_grid: false
-          description: >
-            Модель компенсации: фактические затраты (actual), в пределах бюджета (budget)
-            или включены в вознаграждение (included_in_fee).
+          description: >-
+            Модель компенсации: фактические затраты (actual), в пределах бюджета (budget) или включены в вознаграждение (included_in_fee). Внутреннее enum-поле.
           required: true
 
         - name: "documentation_required"
@@ -4661,8 +4646,8 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: >
-            Требование о предоставлении подтверждающих первичных документов (ст. 1008 ГК РФ, ст. 252 НК РФ).
+          description: >-
+            Требование о предоставлении подтверждающих первичных документов (ст. 1008 ГК РФ, ст. 252 НК РФ). Внутреннее enum-поле.
           required: true
 
         - name: "reimbursement_details"
@@ -5048,8 +5033,8 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: >
-            Наличие в договоре порядка досрочного расторжения или одностороннего отказа (ст. 1010 ГК РФ).
+          description: >-
+            Наличие в договоре порядка досрочного расторжения или одностороннего отказа (ст. 1010 ГК РФ). Внутреннее enum-поле.
           required: true
 
         - name: "pending_orders_completion"
@@ -5058,8 +5043,8 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: >
-            Урегулирован ли порядок завершения начатых поручений и длящихся сделок при прекращении.
+          description: >-
+            Урегулирован ли порядок завершения начатых поручений и длящихся сделок при прекращении. Внутреннее enum-поле.
           required: true
 
         - name: "final_settlement_status"
@@ -5068,8 +5053,8 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: >
-            Наличие условия о сроках и порядке проведения окончательных взаиморасчётов.
+          description: >-
+            Наличие условия о сроках и порядке проведения окончательных взаиморасчётов. Внутреннее enum-поле.
           required: true
 
         - name: "return_of_poa_and_materials"
@@ -5078,8 +5063,8 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: >
-            Обязанность агента вернуть оригиналы выданных доверенностей (ст. 189 ГК РФ) и материалы.
+          description: >-
+            Обязанность агента вернуть оригиналы выданных доверенностей (ст. 189 ГК РФ) и материалы. Внутреннее enum-поле.
           required: true
 
         - name: "termination_terms_details"
@@ -5468,10 +5453,8 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["del_credere", "full_guarantee", "no_liability_default", "not_defined"]
           display_in_grid: false
-          description: >
-            Ответственность агента за исполнение сделок третьими лицами (ст. 993, 1011 ГК РФ):
-            делькредере (del_credere), полная гарантия (full_guarantee), прямое исключение
-            ответственности (no_liability_default) или не урегулировано (not_defined).
+          description: >-
+            Ответственность агента за исполнение сделок третьими лицами (ст. 993, 1011 ГК РФ): делькредере (del_credere), полная гарантия (full_guarantee), прямое исключение ответственности (no_liability_default) или не урегулировано (not_defined). Внутреннее enum-поле.
           required: true
 
         - name: "liability_cap_status"
@@ -5480,8 +5463,8 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: >
-            Наличие ограничения ответственности (предельный лимит / cap, исключение упущенной выгоды).
+          description: >-
+            Наличие ограничения ответственности (предельный лимит / cap, исключение упущенной выгоды). Внутреннее enum-поле.
           required: true
 
         - name: "penalty_clause_status"
@@ -5490,8 +5473,8 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: >
-            Наличие договорных неустоек (пени, штрафы за нарушение обязанностей сторонами).
+          description: >-
+            Наличие договорных неустоек (пени, штрафы за нарушение обязанностей сторонами). Внутреннее enum-поле.
           required: true
 
         - name: "del_credere_and_third_party_details"
@@ -5906,9 +5889,8 @@ checks_v8:
             - "by_operation_of_law_996"
             - "not_defined"
           display_in_grid: false
-          description: >
-            Момент перехода права собственности на товары/имущество, приобретённые
-            агентом за счёт принципала (ст. 996, 1011 ГК РФ).
+          description: >-
+            Момент перехода права собственности на товары/имущество, приобретённые агентом за счёт принципала (ст. 996, 1011 ГК РФ). Внутреннее enum-поле.
           required: true
 
         - name: "bankruptcy_protection_clause"
@@ -5920,9 +5902,8 @@ checks_v8:
             - "reference_to_996"
             - "not_defined"
           display_in_grid: false
-          description: >
-            Наличие договорных механизмов защиты имущества принципала от включения
-            в конкурсную массу агента при банкротстве (ст. 131 ФЗ о банкротстве).
+          description: >-
+            Наличие договорных механизмов защиты имущества принципала от включения в конкурсную массу агента при банкротстве (ст. 131 ФЗ о банкротстве). Внутреннее enum-поле.
           required: true
 
         - name: "title_transfer_details"
@@ -6327,9 +6308,8 @@ checks_v8:
             - "framework_only"
             - "not_defined"
           display_in_grid: false
-          description: >
-            Механизм передачи поручений принципала агенту (ст. 1005, 973 ГК РФ):
-            письменные заявки, CRM, устные с подтверждением или рамочный без конкретизации.
+          description: >-
+            Механизм передачи поручений принципала агенту (ст. 1005, 973 ГК РФ): письменные заявки, CRM, устные с подтверждением или рамочный без конкретизации. Внутреннее enum-поле.
           required: true
 
         - name: "transaction_limits_status"
@@ -6338,9 +6318,8 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: >
-            Наличие лимитов на сумму сделок, которые агент вправе заключать
-            без дополнительного согласования с принципалом.
+          description: >-
+            Наличие лимитов на сумму сделок, которые агент вправе заключать без дополнительного согласования с принципалом. Внутреннее enum-поле.
           required: true
 
         - name: "approval_process_status"
@@ -6349,9 +6328,8 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: >
-            Наличие описанного порядка одобрения сделок, выходящих за рамки
-            обычных полномочий агента (ст. 183 ГК РФ).
+          description: >-
+            Наличие описанного порядка одобрения сделок, выходящих за рамки обычных полномочий агента (ст. 183 ГК РФ). Внутреннее enum-поле.
           required: true
 
         - name: "instructions_details"
@@ -6737,9 +6715,8 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["principal", "agent", "shared", "not_defined"]
           display_in_grid: false
-          description: >
-            Распределение ответственности за обработку возвратов и рекламаций
-            между принципалом и агентом (ст. 475–477, 997 ГК РФ).
+          description: >-
+            Распределение ответственности за обработку возвратов и рекламаций между принципалом и агентом (ст. 475–477, 997 ГК РФ). Внутреннее enum-поле.
           required: true
 
         - name: "warranty_obligations"
@@ -6748,8 +6725,8 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: >
-            Наличие гарантийных обязательств и гарантийного срока на товары.
+          description: >-
+            Наличие гарантийных обязательств и гарантийного срока на товары. Внутреннее enum-поле.
           required: true
 
         - name: "claims_process"
@@ -6758,9 +6735,8 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: >
-            Наличие описанного порядка предъявления и рассмотрения рекламаций
-            (сроки, документы, механизм).
+          description: >-
+            Наличие описанного порядка предъявления и рассмотрения рекламаций (сроки, документы, механизм). Внутреннее enum-поле.
           required: true
 
         - name: "returns_handling_details"
@@ -7137,9 +7113,8 @@ checks_v8:
             - "prohibited"
             - "not_defined"
           display_in_grid: false
-          description: >
-            Право агента на использование товарных знаков и бренда принципала
-            (ст. 1484, 1235 ГК РФ).
+          description: >-
+            Право агента на использование товарных знаков и бренда принципала (ст. 1484, 1235 ГК РФ). Внутреннее enum-поле.
           required: true
 
         - name: "usage_restrictions"
@@ -7148,9 +7123,8 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: >
-            Наличие ограничений использования бренда (территория, каналы,
-            стандарты качества, брендбук).
+          description: >-
+            Наличие ограничений использования бренда (территория, каналы, стандарты качества, брендбук). Внутреннее enum-поле.
           required: true
 
         - name: "post_termination_brand_obligations"
@@ -7159,9 +7133,8 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: >
-            Постконтрактные обязательства по прекращению использования бренда
-            и возврату маркетинговых материалов.
+          description: >-
+            Постконтрактные обязательства по прекращению использования бренда и возврату маркетинговых материалов. Внутреннее enum-поле.
           required: true
 
         - name: "brand_usage_details"
@@ -7546,8 +7519,8 @@ checks_v8:
             - "mixed"
             - "not_defined"
           display_in_grid: false
-          description: >
-            Режим НДС и статус налогового агента (ст. 156, 161 НК РФ).
+          description: >-
+            Режим НДС и статус налогового агента (ст. 156, 161 НК РФ). Внутреннее enum-поле.
           required: true
 
         - name: "invoice_issuance"
@@ -7556,8 +7529,8 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["principal", "agent", "not_defined"]
           display_in_grid: false
-          description: >
-            Порядок выставления счетов-фактур: от имени принципала или агента.
+          description: >-
+            Порядок выставления счетов-фактур: от имени принципала или агента. Внутреннее enum-поле.
           required: true
 
         - name: "tax_expense_allocation"
@@ -7566,8 +7539,8 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: >
-            Наличие договорного распределения налоговых расходов между сторонами.
+          description: >-
+            Наличие договорного распределения налоговых расходов между сторонами. Внутреннее enum-поле.
           required: true
 
         - name: "vat_regime_details"
@@ -7950,7 +7923,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Наличие обязанности предоставить товар/материалы/оборудование."
+          description: "Наличие обязанности предоставить товар/материалы/оборудование. Внутреннее enum-поле."
           required: true
 
         - name: "documents_provision_status"
@@ -7959,7 +7932,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Наличие обязанности предоставить документы (сертификаты, инструкции, прайсы)."
+          description: "Наличие обязанности предоставить документы (сертификаты, инструкции, прайсы). Внутреннее enum-поле."
           required: true
 
         - name: "marketing_support_status"
@@ -7968,7 +7941,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Наличие обязанности предоставить рекламные и маркетинговые материалы."
+          description: "Наличие обязанности предоставить рекламные и маркетинговые материалы. Внутреннее enum-поле."
           required: true
 
         - name: "training_support_status"
@@ -7977,7 +7950,7 @@ checks_v8:
           risk_weight: "low"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Наличие обязанности обучить агента / провести инструктаж."
+          description: "Наличие обязанности обучить агента / провести инструктаж. Внутреннее enum-поле."
           required: true
 
         - name: "info_changes_notification_status"
@@ -7986,7 +7959,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Наличие обязанности информировать агента об изменениях в определённый срок."
+          description: "Наличие обязанности информировать агента об изменениях в определённый срок. Внутреннее enum-поле."
           required: true
 
         - name: "principal_obligations_verdict"
@@ -8398,9 +8371,8 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: >
-            Наличие признаков комиссии: действие от своего имени + сохранение
-            собственности на товар за принципалом (ст. 990, 996 ГК РФ).
+          description: >-
+            Наличие признаков комиссии: действие от своего имени + сохранение собственности на товар за принципалом (ст. 990, 996 ГК РФ). Внутреннее enum-поле.
           required: true
 
         - name: "supply_recharacterization_status"
@@ -8409,9 +8381,8 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: >
-            Наличие признаков поставки: товар переходит в собственность агента,
-            перепродаётся от своего имени, доход — маржа (ст. 506 ГК РФ).
+          description: >-
+            Наличие признаков поставки: товар переходит в собственность агента, перепродаётся от своего имени, доход — маржа (ст. 506 ГК РФ). Внутреннее enum-поле.
           required: true
 
         - name: "service_recharacterization_status"
@@ -8420,9 +8391,8 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: >
-            Наличие признаков возмездного оказания услуг: сервисные действия
-            без юридического эффекта для принципала (ст. 779 ГК РФ).
+          description: >-
+            Наличие признаков возмездного оказания услуг: сервисные действия без юридического эффекта для принципала (ст. 779 ГК РФ). Внутреннее enum-поле.
           required: true
 
         - name: "mixed_nature_status"
@@ -8431,9 +8401,8 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: >
-            Наличие смешанной природы договора (сочетание агентских, комиссионных,
-            поставочных, сервисных элементов) — ст. 421 п. 3 ГК РФ.
+          description: >-
+            Наличие смешанной природы договора (сочетание агентских, комиссионных, поставочных, сервисных элементов) — ст. 421 п. 3 ГК РФ. Внутреннее enum-поле.
           required: true
 
         - name: "recharacterization_details"

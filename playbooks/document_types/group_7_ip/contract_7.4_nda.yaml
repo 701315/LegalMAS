@@ -868,14 +868,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус идентификации раскрывающей стороны."
+          description: "Статус идентификации раскрывающей стороны. Внутреннее enum-поле."
           required: true
 
         - name: "disclosing_party_details"
           type: "string"
           presentation: "fact"
           label: "Раскрывающая сторона"
-          description: "Наименование и реквизиты раскрывающей стороны."
+          description: >
+            Наименование и реквизиты раскрывающей стороны. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -886,14 +887,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус идентификации получающей стороны."
+          description: "Статус идентификации получающей стороны. Внутреннее enum-поле."
           required: true
 
         - name: "receiving_party_details"
           type: "string"
           presentation: "fact"
           label: "Получающая сторона"
-          description: "Наименование и реквизиты получающей стороны."
+          description: >
+            Наименование и реквизиты получающей стороны. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -904,14 +906,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["unilateral", "mutual", "multilateral", "not_defined"]
           display_in_grid: false
-          description: "Тип NDA: односторонний, двусторонний, многосторонний или не определён."
+          description: "Тип NDA: односторонний, двусторонний, многосторонний или не определён. Внутреннее enum-поле."
           required: true
 
         - name: "nda_type_details"
           type: "string"
           presentation: "fact"
           label: "Тип NDA"
-          description: "Описание типа NDA и распределения ролей раскрытия/получения."
+          description: >
+            Описание типа NDA и распределения ролей раскрытия/получения. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -922,14 +925,15 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус указания цели раскрытия конфиденциальной информации."
+          description: "Статус указания цели раскрытия конфиденциальной информации. Внутреннее enum-поле."
           required: true
 
         - name: "purpose_details"
           type: "string"
           presentation: "fact"
           label: "Цель раскрытия"
-          description: "Цель раскрытия конфиденциальной информации (принцип purpose limitation)."
+          description: >
+            Цель раскрытия конфиденциальной информации (принцип purpose limitation). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -940,14 +944,15 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия ограничения использования информации указанной целью."
+          description: "Статус наличия ограничения использования информации указанной целью. Внутреннее enum-поле."
           required: true
 
         - name: "use_restriction_details"
           type: "string"
           presentation: "fact"
           label: "Ограничение использования"
-          description: "Формулировка ограничения использования конфиденциальной информации целью раскрытия."
+          description: >
+            Формулировка ограничения использования конфиденциальной информации целью раскрытия. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
 
@@ -8021,14 +8026,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия оговорки о конфиденциальности самого NDA."
+          description: "Статус наличия оговорки о конфиденциальности самого NDA. Внутреннее enum-поле."
           required: true
 
         - name: "nda_self_confidentiality_details"
           type: "string"
           presentation: "fact"
           label: "Конфиденциальность NDA"
-          description: "Что именно защищено: факт заключения, условия NDA, содержание переговоров."
+          description: >
+            Что именно защищено: факт заключения, условия NDA, содержание переговоров. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -8039,14 +8045,15 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия исключений из конфиденциальности самого NDA."
+          description: "Статус наличия исключений из конфиденциальности самого NDA. Внутреннее enum-поле."
           required: true
 
         - name: "nda_self_confidentiality_exceptions_details"
           type: "string"
           presentation: "fact"
           label: "Исключения"
-          description: "Формулировка исключений из конфиденциальности самого NDA (по закону, аудиторам, аффилированным лицам)."
+          description: >
+            Формулировка исключений из конфиденциальности самого NDA (по закону, аудиторам, аффилированным лицам). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
 
@@ -8397,14 +8404,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия оговорки о делимости положений (severability)."
+          description: "Статус наличия оговорки о делимости положений (severability). Внутреннее enum-поле."
           required: true
 
         - name: "severability_details"
           type: "string"
           presentation: "fact"
           label: "Делимость положений"
-          description: "Формулировка оговорки о делимости: судьба остальных положений при недействительности одного."
+          description: >
+            Формулировка оговорки о делимости: судьба остальных положений при недействительности одного. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -8415,14 +8423,15 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия оговорки о переформулировании (reformation clause)."
+          description: "Статус наличия оговорки о переформулировании (reformation clause). Внутреннее enum-поле."
           required: true
 
         - name: "reformation_details"
           type: "string"
           presentation: "fact"
           label: "Переформулирование"
-          description: "Оговорка о замене недействительного условия на действительное, наиболее близкое по смыслу."
+          description: >
+            Оговорка о замене недействительного условия на действительное, наиболее близкое по смыслу. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
 
@@ -8790,14 +8799,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус обязанности вести учёт лиц, получивших доступ."
+          description: "Статус обязанности вести учёт лиц, получивших доступ. Внутреннее enum-поле."
           required: true
 
         - name: "access_logging_details"
           type: "string"
           presentation: "fact"
           label: "Учёт доступа"
-          description: "Формулировка обязанности вести учёт лиц, получивших доступ к конфиденциальной информации."
+          description: >
+            Формулировка обязанности вести учёт лиц, получивших доступ к конфиденциальной информации. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -8808,14 +8818,15 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус раскрытия круга лиц и формы учёта."
+          description: "Статус раскрытия круга лиц и формы учёта. Внутреннее enum-поле."
           required: true
 
         - name: "access_logging_scope_details"
           type: "string"
           presentation: "fact"
           label: "Круг лиц и форма учёта"
-          description: "Круг учитываемых лиц (сотрудники, консультанты, подрядчики) и форма учёта (журнал, реестр, электронная система)."
+          description: >
+            Круг учитываемых лиц (сотрудники, консультанты, подрядчики) и форма учёта (журнал, реестр, электронная система). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -8826,14 +8837,15 @@ checks_v8:
           risk_weight: "low"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус указания срока хранения данных учёта."
+          description: "Статус указания срока хранения данных учёта. Внутреннее enum-поле."
           required: true
 
         - name: "access_logging_retention_details"
           type: "string"
           presentation: "fact"
           label: "Срок хранения учёта"
-          description: "Срок хранения данных учёта лиц, получивших доступ."
+          description: >
+            Срок хранения данных учёта лиц, получивших доступ. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
 
@@ -9213,14 +9225,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус соответствия определения конфиденциальной информации признакам КТ по ст. 3 ФЗ-98."
+          description: "Статус соответствия определения конфиденциальной информации признакам КТ по ст. 3 ФЗ-98. Внутреннее enum-поле."
           required: true
 
         - name: "kt_regime_definition_details"
           type: "string"
           presentation: "fact"
           label: "Определение КТ"
-          description: "Формулировка признаков КТ (неизвестность третьим лицам, отсутствие свободного доступа, коммерческая ценность) и/или отсылки к ФЗ-98."
+          description: >
+            Формулировка признаков КТ (неизвестность третьим лицам, отсутствие свободного доступа, коммерческая ценность) и/или отсылки к ФЗ-98. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -9231,14 +9244,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус введения режима КТ и его элементов (ст. 10 ФЗ-98)."
+          description: "Статус введения режима КТ и его элементов (ст. 10 ФЗ-98). Внутреннее enum-поле."
           required: true
 
         - name: "kt_regime_introduced_details"
           type: "string"
           presentation: "fact"
           label: "Режим КТ"
-          description: "Перечень элементов режима КТ: перечень КТ, ограничение доступа, гриф «Коммерческая тайна»."
+          description: >
+            Перечень элементов режима КТ: перечень КТ, ограничение доступа, гриф «Коммерческая тайна». Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -9249,14 +9263,15 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус требования ознакомления работников с перечнем КТ (ст. 11 ФЗ-98)."
+          description: "Статус требования ознакомления работников с перечнем КТ (ст. 11 ФЗ-98). Внутреннее enum-поле."
           required: true
 
         - name: "kt_regime_employee_acknowledgment_details"
           type: "string"
           presentation: "fact"
           label: "Ознакомление работников"
-          description: "Формулировка требования ознакомления работников получателя с перечнем КТ под расписку."
+          description: >
+            Формулировка требования ознакомления работников получателя с перечнем КТ под расписку. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
 
@@ -9647,14 +9662,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия оговорки о конфиденциальности переговоров."
+          description: "Статус наличия оговорки о конфиденциальности переговоров. Внутреннее enum-поле."
           required: true
 
         - name: "negotiation_confidentiality_details"
           type: "string"
           presentation: "fact"
           label: "Конфиденциальность переговоров"
-          description: "Формулировка обязанности не раскрывать факт, содержание, ход переговоров и промежуточные документы."
+          description: >
+            Формулировка обязанности не раскрывать факт, содержание, ход переговоров и промежуточные документы. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -9665,14 +9681,15 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус раскрытия объёма защищаемых элементов (факт, содержание, документы, промежуточные условия)."
+          description: "Статус раскрытия объёма защищаемых элементов (факт, содержание, документы, промежуточные условия). Внутреннее enum-поле."
           required: true
 
         - name: "negotiation_scope_details"
           type: "string"
           presentation: "fact"
           label: "Объём защиты"
-          description: "Перечень защищаемых элементов переговоров: факт, содержание, ход, term sheet, LOI, drafts, промежуточные договорённости."
+          description: >
+            Перечень защищаемых элементов переговоров: факт, содержание, ход, term sheet, LOI, drafts, промежуточные договорённости. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -9683,14 +9700,15 @@ checks_v8:
           risk_weight: "low"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус указания срока действия обязательств по конфиденциальности переговоров."
+          description: "Статус указания срока действия обязательств по конфиденциальности переговоров. Внутреннее enum-поле."
           required: true
 
         - name: "negotiation_duration_details"
           type: "string"
           presentation: "fact"
           label: "Срок конфиденциальности переговоров"
-          description: "Срок действия обязательств по конфиденциальности переговоров (может отличаться от срока самого NDA)."
+          description: >
+            Срок действия обязательств по конфиденциальности переговоров (может отличаться от срока самого NDA). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
 

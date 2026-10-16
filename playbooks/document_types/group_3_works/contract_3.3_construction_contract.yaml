@@ -1121,7 +1121,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения реквизитов Подрядчика."
+          description: "Статус определения реквизитов Подрядчика. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1129,7 +1129,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Подрядчик"
-          description: "Наименование / ФИО и реквизиты Подрядчика."
+          description: >
+            Наименование / ФИО и реквизиты Подрядчика. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -1139,7 +1140,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["legal_entity", "state_entity", "individual", "ip", "self_employed", "not_defined"]
-          description: "Тип Подрядчика."
+          description: "Тип Подрядчика. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1147,7 +1148,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Подписант Подрядчика"
-          description: "Лицо, подписывающее договор от имени Подрядчика."
+          description: >
+            Лицо, подписывающее договор от имени Подрядчика. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -1156,7 +1158,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["charter", "poa", "order", "personal", "other", "not_defined"]
-          description: "Основание полномочий подписанта Подрядчика."
+          description: "Основание полномочий подписанта Подрядчика. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1165,7 +1167,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения реквизитов Заказчика."
+          description: "Статус определения реквизитов Заказчика. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1173,7 +1175,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Заказчик"
-          description: "Наименование / ФИО и реквизиты Заказчика."
+          description: >
+            Наименование / ФИО и реквизиты Заказчика. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -1183,7 +1186,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["legal_entity", "state_entity", "individual", "ip", "self_employed", "not_defined"]
-          description: "Тип Заказчика."
+          description: "Тип Заказчика. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1191,7 +1194,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Подписант Заказчика"
-          description: "Лицо, подписывающее договор от имени Заказчика."
+          description: >
+            Лицо, подписывающее договор от имени Заказчика. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -1200,7 +1204,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["charter", "poa", "order", "personal", "other", "not_defined"]
-          description: "Основание полномочий подписанта Заказчика."
+          description: "Основание полномочий подписанта Заказчика. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1602,7 +1606,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания наименования объекта."
+          description: "Статус указания наименования объекта. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1610,7 +1614,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Объект"
-          description: "Наименование объекта строительства."
+          description: >
+            Наименование объекта строительства. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -1620,7 +1625,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания адреса объекта."
+          description: "Статус указания адреса объекта. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1628,7 +1633,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Адрес объекта"
-          description: "Адрес или местоположение объекта строительства."
+          description: >
+            Адрес или местоположение объекта строительства. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -1638,7 +1644,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания кадастрового номера."
+          description: "Статус указания кадастрового номера. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1646,7 +1652,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Кадастровый номер"
-          description: "Кадастровый номер земельного участка или объекта капитального строительства."
+          description: >
+            Кадастровый номер земельного участка или объекта капитального строительства. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -1656,7 +1663,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "partial", "no", "not_defined"]
-          description: "Есть ли прямая ссылка на проектную / рабочую документацию."
+          description: "Есть ли прямая ссылка на проектную / рабочую документацию. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1665,7 +1672,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["approved", "not_specified", "not_defined"]
-          description: "Статус утверждения проектной документации."
+          description: "Статус утверждения проектной документации. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1674,7 +1681,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_mentioned", "not_defined"]
-          description: "Статус прохождения экспертизы проектной документации."
+          description: "Статус прохождения экспертизы проектной документации. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1683,7 +1690,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Наличие разрешения на строительство или уведомления о начале строительства."
+          description: "Наличие разрешения на строительство или уведомления о начале строительства. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1691,7 +1698,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "ПД, экспертиза, разрешение"
-          description: "Краткая сводка по статусу проектной документации, экспертизы и разрешения на строительство."
+          description: >
+            Краткая сводка по статусу проектной документации, экспертизы и разрешения на строительство. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -2101,7 +2109,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания начального срока."
+          description: "Статус указания начального срока. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2109,7 +2117,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Начало работ"
-          description: "Начальный срок выполнения строительных работ (дата или событийная формулировка)."
+          description: >
+            Начальный срок выполнения строительных работ (дата или событийная формулировка). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -2119,7 +2128,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания конечного срока."
+          description: "Статус указания конечного срока. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2127,7 +2136,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Окончание работ"
-          description: "Конечный срок выполнения строительных работ (дата или событийная формулировка)."
+          description: >
+            Конечный срок выполнения строительных работ (дата или событийная формулировка). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -2137,7 +2147,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "referenced", "no", "not_defined"]
-          description: "Есть ли календарный план или график производства работ."
+          description: "Есть ли календарный план или график производства работ. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2146,7 +2156,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Есть ли промежуточные этапы или вехи (ст. 708 ГК РФ)."
+          description: "Есть ли промежуточные этапы или вехи (ст. 708 ГК РФ). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2155,7 +2165,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "vague", "not_defined"]
-          description: "Являются ли сроки конкретными (включая событийные сроки)."
+          description: "Являются ли сроки конкретными (включая событийные сроки). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2164,7 +2174,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Есть ли договорная санкция за просрочку выполнения работ."
+          description: "Есть ли договорная санкция за просрочку выполнения работ. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2172,7 +2182,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Неустойка за просрочку"
-          description: "Формулировка размера или формулы неустойки за просрочку выполнения работ."
+          description: >
+            Формулировка размера или формулы неустойки за просрочку выполнения работ. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -2181,7 +2192,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "План и вехи"
-          description: "Краткая сводка по календарному плану, промежуточным вехам и типу сроков."
+          description: >
+            Краткая сводка по календарному плану, промежуточным вехам и типу сроков. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -2627,7 +2639,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["firm", "approximate", "not_specified", "not_defined"]
-          description: "Тип сметы или цены по договору (твёрдая/приблизительная)."
+          description: "Тип сметы или цены по договору (твёрдая/приблизительная). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2636,7 +2648,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания общей цены договора."
+          description: "Статус указания общей цены договора. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2644,7 +2656,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Цена договора"
-          description: "Общая цена договора строительного подряда."
+          description: >
+            Общая цена договора строительного подряда. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -2654,7 +2667,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_applicable", "not_defined"]
-          description: "Как договор регулирует НДС в цене (включая УСН/НПД)."
+          description: "Как договор регулирует НДС в цене (включая УСН/НПД). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2663,7 +2676,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["described", "referenced", "absent", "not_defined"]
-          description: "Описан ли порядок оформления дополнительных работ и изменений."
+          description: "Описан ли порядок оформления дополнительных работ и изменений. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2672,7 +2685,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["written_approval", "notification", "unclear", "not_defined"]
-          description: "Как авторизуются дополнительные работы (ст. 743 ГК РФ)."
+          description: "Как авторизуются дополнительные работы (ст. 743 ГК РФ). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2681,7 +2694,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["ks2_ks3_acts", "completion_certificate", "schedule", "other", "not_defined"]
-          description: "Основание промежуточных или этапных платежей."
+          description: "Основание промежуточных или этапных платежей. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2690,7 +2703,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Есть ли условие об авансе."
+          description: "Есть ли условие об авансе. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2698,7 +2711,8 @@ checks_v8:
           label: "Размер аванса"
           type: "string"
           presentation: "fact"
-          description: "Размер аванса в процентах или сумме."
+          description: >
+            Размер аванса в процентах или сумме. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -2707,7 +2721,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Есть ли механизм индексации или корректировки цены."
+          description: "Есть ли механизм индексации или корректировки цены. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2715,7 +2729,8 @@ checks_v8:
           label: "Условия индексации цены"
           type: "string"
           presentation: "fact"
-          description: "Формулировка об индексации или корректировке цены."
+          description: >
+            Формулировка об индексации или корректировке цены. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -2723,7 +2738,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Цена и НДС"
-          description: "Краткая сводка по типу сметы, цене договора и статусу НДС."
+          description: >
+            Краткая сводка по типу сметы, цене договора и статусу НДС. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -2732,7 +2748,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Оплата и аванс"
-          description: "Краткая сводка по основанию оплаты и наличию/размеру аванса."
+          description: >
+            Краткая сводка по основанию оплаты и наличию/размеру аванса. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -2741,7 +2758,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Допработы и индексация"
-          description: "Краткая сводка по порядку допработ и механизму индексации цены."
+          description: >
+            Краткая сводка по порядку допработ и механизму индексации цены. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -3121,7 +3139,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Обязан ли Заказчик предоставить участок, строительную площадку или обеспечить доступ."
+          description: "Обязан ли Заказчик предоставить участок, строительную площадку или обеспечить доступ. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3130,7 +3148,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Обязан ли Заказчик предоставить разрешения, техусловия, ИРД и исходные документы."
+          description: "Обязан ли Заказчик предоставить разрешения, техусловия, ИРД и исходные документы. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3139,7 +3157,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Определена ли обязанность Заказчика по финансированию как условие продолжения работ."
+          description: "Определена ли обязанность Заказчика по финансированию как условие продолжения работ. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3148,7 +3166,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Предусмотрены ли последствия нарушения обязанностей Заказчиком."
+          description: "Предусмотрены ли последствия нарушения обязанностей Заказчиком. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3157,7 +3175,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Есть ли у Подрядчика право приостановить работы из-за нарушения Заказчиком."
+          description: "Есть ли у Подрядчика право приостановить работы из-за нарушения Заказчиком. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3165,7 +3183,8 @@ checks_v8:
           label: "Обязанности заказчика по предоставлению площадки"
           type: "string"
           presentation: "fact"
-          description: "Формулировка обязанностей Заказчика и связанных условий."
+          description: >
+            Формулировка обязанностей Заказчика и связанных условий. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -3173,7 +3192,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Обязанности Заказчика"
-          description: "Краткая сводка по обязанностям Заказчика: участок/доступ, разрешения/ИРД, финансирование."
+          description: >
+            Краткая сводка по обязанностям Заказчика: участок/доступ, разрешения/ИРД, финансирование. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -3182,7 +3202,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Нарушение обязанностей Заказчика"
-          description: "Краткая сводка по последствиям нарушения обязанностей Заказчиком."
+          description: >
+            Краткая сводка по последствиям нарушения обязанностей Заказчиком. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -3525,7 +3546,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "partial", "no", "not_defined"]
-          description: "Закреплено ли право Заказчика на технический надзор / контроль."
+          description: "Закреплено ли право Заказчика на технический надзор / контроль. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3534,7 +3555,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Есть ли право доступа на строительную площадку."
+          description: "Есть ли право доступа на строительную площадку. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3543,7 +3564,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Есть ли право проверять материалы, конструкции или результаты испытаний."
+          description: "Есть ли право проверять материалы, конструкции или результаты испытаний. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3552,7 +3573,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Упомянут ли технический инспектор, инженер или представитель Заказчика."
+          description: "Упомянут ли технический инспектор, инженер или представитель Заказчика. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3561,7 +3582,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Есть ли правило о невмешательстве в деятельность Подрядчика."
+          description: "Есть ли правило о невмешательстве в деятельность Подрядчика. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3569,7 +3590,8 @@ checks_v8:
           label: "Сведения о строительном контроле и технадзоре"
           type: "string"
           presentation: "fact"
-          description: "Формулировка об объёме прав технического надзора."
+          description: >
+            Формулировка об объёме прав технического надзора. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -3577,7 +3599,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Технический надзор"
-          description: "Краткая сводка по объёму прав Заказчика на надзор, доступ на площадку и проверку материалов."
+          description: >
+            Краткая сводка по объёму прав Заказчика на надзор, доступ на площадку и проверку материалов. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -3919,11 +3942,13 @@ checks_v8:
           display_in_grid: false
           required: true
 
+          description: Внутреннее enum-поле.
         - name: "warranty_period_general_value"
           label: "Общий гарантийный срок"
           type: "string"
           presentation: "fact"
-          description: "Гарантийный срок на объект в целом."
+          description: >
+            Гарантийный срок на объект в целом. Fallback: "Не установлено" / "Не удалось определить".
           display_in_grid: false
           required: true
 
@@ -3935,11 +3960,13 @@ checks_v8:
           display_in_grid: false
           required: true
 
+          description: Внутреннее enum-поле.
         - name: "warranty_period_engineering_value"
           label: "Гарантийный срок на инженерные системы"
           type: "string"
           presentation: "fact"
-          description: "Гарантийный срок на инженерные сети."
+          description: >
+            Гарантийный срок на инженерные сети. Fallback: "Не установлено" / "Не удалось определить".
           display_in_grid: false
           required: true
 
@@ -3951,6 +3978,7 @@ checks_v8:
           display_in_grid: false
           required: true
 
+          description: Внутреннее enum-поле.
         - name: "hidden_defects_procedure"
           type: "string"
           presentation: "signal"
@@ -3959,6 +3987,7 @@ checks_v8:
           display_in_grid: false
           required: true
 
+          description: Внутреннее enum-поле.
         - name: "defect_remedy_deadline_status"
           type: "string"
           presentation: "signal"
@@ -3967,6 +3996,7 @@ checks_v8:
           display_in_grid: false
           required: true
 
+          description: Внутреннее enum-поле.
         - name: "defect_remedy_deadline_value"
           label: "Срок устранения дефектов"
           type: "string"
@@ -3982,6 +4012,7 @@ checks_v8:
           display_in_grid: false
           required: true
 
+          description: Внутреннее enum-поле.
         - name: "retention_amount"
           label: "Размер гарантийного удержания"
           type: "string"
@@ -3993,7 +4024,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Сроки гарантии"
-          description: "Сводка по гарантийным срокам на объект и сети (ст. 756 ГК РФ)."
+          description: >
+            Сводка по гарантийным срокам на объект и сети (ст. 756 ГК РФ). Fallback: "Не установлено" / "Не удалось определить".
           display_in_grid: true
           display_priority: 1
           required: true
@@ -4002,7 +4034,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Скрытые недостатки и удержание"
-          description: "Сводка по порядку устранения дефектов и финансовому удержанию (резерву)."
+          description: >
+            Сводка по порядку устранения дефектов и финансовому удержанию (резерву). Fallback: "Не установлено" / "Не удалось определить".
           display_in_grid: true
           display_priority: 2
           required: true
@@ -4306,6 +4339,7 @@ checks_v8:
           display_in_grid: false
           required: true
 
+          description: Внутреннее enum-поле.
         - name: "insurance_responsible_party"
           type: "string"
           presentation: "signal"
@@ -4314,6 +4348,7 @@ checks_v8:
           display_in_grid: false
           required: true
 
+          description: Внутреннее enum-поле.
         - name: "insurance_scope"
           type: "string"
           presentation: "signal"
@@ -4322,6 +4357,7 @@ checks_v8:
           display_in_grid: false
           required: true
 
+          description: Внутреннее enum-поле.
         - name: "risk_bearer_before_acceptance"
           type: "string"
           presentation: "signal"
@@ -4330,6 +4366,7 @@ checks_v8:
           display_in_grid: false
           required: true
 
+          description: Внутреннее enum-поле.
         - name: "risk_transfer_on_interim_acts"
           type: "string"
           presentation: "signal"
@@ -4338,11 +4375,13 @@ checks_v8:
           display_in_grid: false
           required: true
 
+          description: Внутреннее enum-поле.
         - name: "insurance_summary"
           type: "string"
           presentation: "fact"
           label: "Страхование"
-          description: "Сводка: ответственная сторона и охват страхового полиса."
+          description: >
+            Сводка: ответственная сторона и охват страхового полиса. Fallback: "Не установлено" / "Не удалось определить".
           display_in_grid: true
           display_priority: 1
           required: true
@@ -4351,7 +4390,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Распределение рисков"
-          description: "Сводка: на ком риск до приёмки и переход рисков по промежуточным актам (КС-2)."
+          description: >
+            Сводка: на ком риск до приёмки и переход рисков по промежуточным актам (КС-2). Fallback: "Не установлено" / "Не удалось определить".
           display_in_grid: true
           display_priority: 2
           required: true
@@ -4663,6 +4703,7 @@ checks_v8:
           display_in_grid: false
           required: true
 
+          description: Внутреннее enum-поле.
         - name: "ks3_used"
           type: "string"
           presentation: "signal"
@@ -4671,6 +4712,7 @@ checks_v8:
           display_in_grid: false
           required: true
 
+          description: Внутреннее enum-поле.
         - name: "motivated_refusal_deadline_status"
           type: "string"
           presentation: "signal"
@@ -4679,11 +4721,13 @@ checks_v8:
           display_in_grid: false
           required: true
 
+          description: Внутреннее enum-поле.
         - name: "motivated_refusal_deadline_value"
           type: "string"
           presentation: "fact"
           label: "Срок отказа"
-          description: "Срок для направления мотивированного отказа от приёмки."
+          description: >
+            Срок для направления мотивированного отказа от приёмки. Fallback: "Не установлено" / "Не удалось определить".
           display_in_grid: true
           display_priority: 1
           required: true
@@ -4696,6 +4740,7 @@ checks_v8:
           display_in_grid: false
           required: true
 
+          description: Внутреннее enum-поле.
         - name: "unilateral_signing_allowed"
           type: "string"
           presentation: "signal"
@@ -4704,11 +4749,13 @@ checks_v8:
           display_in_grid: false
           required: true
 
+          description: Внутреннее enum-поле.
         - name: "acceptance_summary"
           type: "string"
           presentation: "fact"
           label: "Порядок приёмки"
-          description: "Сводка: формы документов, наличие автоматической приёмки и право на односторонний акт."
+          description: >
+            Сводка: формы документов, наличие автоматической приёмки и право на односторонний акт. Fallback: "Не установлено" / "Не удалось определить".
           display_in_grid: true
           display_priority: 2
           required: true
@@ -5051,7 +5098,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["contractor", "customer", "mixed", "not_specified", "not_defined"]
-          description: "Какая сторона обеспечивает строительство материалами."
+          description: "Какая сторона обеспечивает строительство материалами. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5060,7 +5107,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["contractor", "customer", "mixed", "not_specified", "not_defined"]
-          description: "Какая сторона обеспечивает строительство оборудованием."
+          description: "Какая сторона обеспечивает строительство оборудованием. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5069,7 +5116,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["contractor", "customer", "provider_side", "shared", "not_defined"]
-          description: "На какой стороне риск качества предоставляемых материалов."
+          description: "На какой стороне риск качества предоставляемых материалов. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5078,7 +5125,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Есть ли процедура входного контроля качества материалов."
+          description: "Есть ли процедура входного контроля качества материалов. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5086,7 +5133,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Материалы и оборудование"
-          description: "Сводка: кто обеспечивает стройку материалами и оборудованием (включая давальческую схему)."
+          description: >
+            Сводка: кто обеспечивает стройку материалами и оборудованием (включая давальческую схему). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -5095,7 +5143,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Входной контроль и риски"
-          description: "Сводка: процедура входного контроля Подрядчиком и распределение риска некачественных материалов."
+          description: >
+            Сводка: процедура входного контроля Подрядчиком и распределение риска некачественных материалов. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -5104,7 +5153,8 @@ checks_v8:
           label: "Обязанности по поставке материалов и оборудования"
           type: "string"
           presentation: "fact"
-          description: "Формулировка о предоставлении материалов и оборудования."
+          description: >
+            Формулировка о предоставлении материалов и оборудования. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -5423,7 +5473,7 @@ checks_v8:
           risk_weight: "high"
           label: "Субподряд"
           allowed_values: ["allowed", "allowed_with_consent", "prohibited", "not_defined"]
-          description: "Режим привлечения субподрядчиков."
+          description: "Режим привлечения субподрядчиков. Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 1
@@ -5434,7 +5484,7 @@ checks_v8:
           risk_weight: "medium"
           label: "Согласование"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Требуется ли согласование субподрядчиков."
+          description: "Требуется ли согласование субподрядчиков. Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 2
@@ -5445,7 +5495,7 @@ checks_v8:
           risk_weight: "high"
           label: "Ответственность генподрядчика"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Несёт ли Подрядчик / генподрядчик ответственность за субподрядчиков."
+          description: "Несёт ли Подрядчик / генподрядчик ответственность за субподрядчиков. Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 3
@@ -5456,7 +5506,7 @@ checks_v8:
           risk_weight: "low"
           label: "Перечень субподрядчиков"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Требуется ли перечень субподрядчиков или его согласование."
+          description: "Требуется ли перечень субподрядчиков или его согласование. Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 4
@@ -5465,7 +5515,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Условия субподряда"
-          description: "Формулировка о привлечении субподрядчиков."
+          description: >
+            Формулировка о привлечении субподрядчиков. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 5
@@ -5784,7 +5835,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Есть ли прямое упоминание разрешения на ввод в эксплуатацию."
+          description: "Есть ли прямое упоминание разрешения на ввод в эксплуатацию. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5793,7 +5844,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["contractor", "customer", "joint", "not_defined"]
-          description: "Какая сторона отвечает за получение разрешения или организацию ввода."
+          description: "Какая сторона отвечает за получение разрешения или организацию ввода. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5802,7 +5853,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Определена ли передача Подрядчиком документов для ввода объекта."
+          description: "Определена ли передача Подрядчиком документов для ввода объекта. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5811,7 +5862,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Распределены ли расходы / обязанности по вводу объекта."
+          description: "Распределены ли расходы / обязанности по вводу объекта. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5819,7 +5870,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Ввод в эксплуатацию"
-          description: "Сводка: кто отвечает за ввод, предоставление исполнительной документации и сопутствующие расходы (ст. 55 ГрК РФ)."
+          description: >
+            Сводка: кто отвечает за ввод, предоставление исполнительной документации и сопутствующие расходы (ст. 55 ГрК РФ). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -5828,7 +5880,8 @@ checks_v8:
           label: "Сведения о вводе объекта в эксплуатацию"
           type: "string"
           presentation: "fact"
-          description: "Подробная формулировка о вводе объекта в эксплуатацию."
+          description: >
+            Подробная формулировка о вводе объекта в эксплуатацию. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -6183,7 +6236,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Предусмотрено ли освидетельствование скрытых работ."
+          description: "Предусмотрено ли освидетельствование скрытых работ. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6192,7 +6245,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Должно ли освидетельствование проводиться до закрытия последующими работами."
+          description: "Должно ли освидетельствование проводиться до закрытия последующими работами. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6201,7 +6254,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Требуется ли отдельный акт освидетельствования скрытых работ (АОСР)."
+          description: "Требуется ли отдельный акт освидетельствования скрытых работ (АОСР). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6210,7 +6263,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Упомянут ли журнал производства работ или аналогичная фиксация."
+          description: "Упомянут ли журнал производства работ или аналогичная фиксация. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6219,7 +6272,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Указан ли срок предварительного уведомления / вызова Заказчика."
+          description: "Указан ли срок предварительного уведомления / вызова Заказчика. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6228,7 +6281,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Обязан ли Подрядчик вскрыть скрытые работы за свой счет при нарушении процедуры."
+          description: "Обязан ли Подрядчик вскрыть скрытые работы за свой счет при нарушении процедуры. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6236,7 +6289,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Скрытые работы"
-          description: "Сводка: обязательность АОСР, срок уведомления Заказчика, обязанность вскрытия за счет Подрядчика (ст. 753, 754 ГК РФ, РД-11-02-2006)."
+          description: >
+            Сводка: обязательность АОСР, срок уведомления Заказчика, обязанность вскрытия за счет Подрядчика (ст. 753, 754 ГК РФ, РД-11-02-2006). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -6245,7 +6299,8 @@ checks_v8:
           label: "Порядок освидетельствования скрытых работ"
           type: "string"
           presentation: "fact"
-          description: "Подробная формулировка о порядке освидетельствования скрытых работ."
+          description: >
+            Подробная формулировка о порядке освидетельствования скрытых работ. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -6572,7 +6627,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Есть ли условия об обращении со строительными отходами."
+          description: "Есть ли условия об обращении со строительными отходами. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6581,7 +6636,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["contractor", "customer", "not_specified", "not_defined"]
-          description: "Какая сторона отвечает за вывоз / утилизацию отходов."
+          description: "Какая сторона отвечает за вывоз / утилизацию отходов. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6590,7 +6645,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Есть ли обязанность восстановить территорию / рекультивировать участок."
+          description: "Есть ли обязанность восстановить территорию / рекультивировать участок. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6599,7 +6654,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Есть ли ссылки на экологические разрешения, ОВОС или аналогичные требования."
+          description: "Есть ли ссылки на экологические разрешения, ОВОС или аналогичные требования. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6607,7 +6662,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Экологические обязательства"
-          description: "Сводка: кто отвечает за отходы, рекультивация территории, экологические разрешения (ФЗ-89, ФЗ-7)."
+          description: >
+            Сводка: кто отвечает за отходы, рекультивация территории, экологические разрешения (ФЗ-89, ФЗ-7). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -6616,7 +6672,8 @@ checks_v8:
           label: "Экологические требования и обращение с отходами"
           type: "string"
           presentation: "fact"
-          description: "Подробная формулировка об экологических обязательствах сторон."
+          description: >
+            Подробная формулировка об экологических обязательствах сторон. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -6963,7 +7020,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Передаётся ли исполнительная документация Заказчику."
+          description: "Передаётся ли исполнительная документация Заказчику. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6972,7 +7029,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["transferred", "retained_by_contractor", "not_specified", "not_defined"]
-          description: "Как урегулированы исключительные права на документацию / BIM-модель."
+          description: "Как урегулированы исключительные права на документацию / BIM-модель. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6981,7 +7038,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_applicable", "not_defined"]
-          description: "Передаётся ли BIM / информационная модель."
+          description: "Передаётся ли BIM / информационная модель. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6990,7 +7047,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Указан ли формат передаваемой документации / модели (IFC, RVT, DWG, PDF)."
+          description: "Указан ли формат передаваемой документации / модели (IFC, RVT, DWG, PDF). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6999,7 +7056,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Обусловлен ли переход прав полной оплатой работ."
+          description: "Обусловлен ли переход прав полной оплатой работ. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -7007,7 +7064,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Документация и права"
-          description: "Сводка: передача исполнительной документации, BIM, форматы файлов, условие перехода прав после оплаты (ст. 1296 ГК РФ, РД-11-02-2006)."
+          description: >
+            Сводка: передача исполнительной документации, BIM, форматы файлов, условие перехода прав после оплаты (ст. 1296 ГК РФ, РД-11-02-2006). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -7016,7 +7074,8 @@ checks_v8:
           label: "Права на проектно-сметную документацию"
           type: "string"
           presentation: "fact"
-          description: "Подробная формулировка о документации, BIM и правах на них."
+          description: >
+            Подробная формулировка о документации, BIM и правах на них. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -7332,7 +7391,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Упомянуто ли членство Подрядчика в СРО."
+          description: "Упомянуто ли членство Подрядчика в СРО. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -7341,7 +7400,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Есть ли ссылка на выписку из реестра СРО или свидетельство."
+          description: "Есть ли ссылка на выписку из реестра СРО или свидетельство. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -7350,7 +7409,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Определены ли виды работ, допуски или уровень ответственности (КФ ВВ / КФ ОДО)."
+          description: "Определены ли виды работ, допуски или уровень ответственности (КФ ВВ / КФ ОДО). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -7358,7 +7417,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Членство в СРО"
-          description: "Сводка: членство в СРО, наличие выписки, уровень ответственности, применимость порога 10 млн руб. (ст. 52, 55.8 ГрК РФ)."
+          description: >
+            Сводка: членство в СРО, наличие выписки, уровень ответственности, применимость порога 10 млн руб. (ст. 52, 55.8 ГрК РФ). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -7367,7 +7427,8 @@ checks_v8:
           label: "Требования к членству в СРО"
           type: "string"
           presentation: "fact"
-          description: "Подробная формулировка о членстве в СРО и допуске."
+          description: >
+            Подробная формулировка о членстве в СРО и допуске. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -7696,7 +7757,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Установлен ли обязательный досудебный порядок."
+          description: "Установлен ли обязательный досудебный порядок. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -7705,7 +7766,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Требуется ли совместное обследование объекта / результата работ."
+          description: "Требуется ли совместное обследование объекта / результата работ. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -7714,7 +7775,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Определён ли порядок независимой / строительно-технической экспертизы."
+          description: "Определён ли порядок независимой / строительно-технической экспертизы. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -7723,7 +7784,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Распределены ли расходы на проведение экспертизы."
+          description: "Распределены ли расходы на проведение экспертизы. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -7731,7 +7792,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Претензии и экспертиза"
-          description: "Сводка: претензионный порядок, совместное обследование, строительно-техническая экспертиза, распределение расходов (ст. 720, 755 ГК РФ)."
+          description: >
+            Сводка: претензионный порядок, совместное обследование, строительно-техническая экспертиза, распределение расходов (ст. 720, 755 ГК РФ). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -7740,7 +7802,8 @@ checks_v8:
           label: "Досудебная техническая экспертиза споров"
           type: "string"
           presentation: "fact"
-          description: "Подробная формулировка о претензионном порядке и экспертизе."
+          description: >
+            Подробная формулировка о претензионном порядке и экспертизе. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -8088,7 +8151,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Есть ли специальные обязанности по охране труда и безопасности."
+          description: "Есть ли специальные обязанности по охране труда и безопасности. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8097,7 +8160,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["contractor", "customer", "both", "not_defined"]
-          description: "Какая сторона отвечает за безопасность на площадке."
+          description: "Какая сторона отвечает за безопасность на площадке. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8106,7 +8169,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Есть ли обязанность уведомлять о несчастных случаях и инцидентах."
+          description: "Есть ли обязанность уведомлять о несчастных случаях и инцидентах. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8115,7 +8178,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Есть ли требования о СИЗ (средствах индивидуальной защиты) и инструктаже."
+          description: "Есть ли требования о СИЗ (средствах индивидуальной защиты) и инструктаже. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8124,7 +8187,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Упомянут ли акт-допуск, пропускной режим или допуск на площадку."
+          description: "Упомянут ли акт-допуск, пропускной режим или допуск на площадку. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8132,7 +8195,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Охрана труда и безопасность"
-          description: "Сводка: ответственная сторона, СИЗ, инструктаж, уведомление о несчастных случаях, акт-допуск, пропускной режим (ТК РФ, СП 12-136-2002)."
+          description: >
+            Сводка: ответственная сторона, СИЗ, инструктаж, уведомление о несчастных случаях, акт-допуск, пропускной режим (ТК РФ, СП 12-136-2002). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -8141,7 +8205,8 @@ checks_v8:
           label: "Охрана труда и безопасность на стройплощадке"
           type: "string"
           presentation: "fact"
-          description: "Подробная формулировка об охране труда и безопасности работ."
+          description: >
+            Подробная формулировка об охране труда и безопасности работ. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -8399,7 +8464,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Закреплена ли обязанность организации охраны площадки."
+          description: "Закреплена ли обязанность организации охраны площадки. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8408,7 +8473,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["contractor", "customer", "not_defined"]
-          description: "На ком лежит риск хищения, утраты или порчи материалов и оборудования."
+          description: "На ком лежит риск хищения, утраты или порчи материалов и оборудования. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8417,7 +8482,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Есть ли обязанность обеспечить сохранность выполненных работ до приёмки."
+          description: "Есть ли обязанность обеспечить сохранность выполненных работ до приёмки. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8425,7 +8490,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Охрана и сохранность"
-          description: "Сводка: организация охраны площадки, риск хищения материалов и сохранность выполненных работ."
+          description: >
+            Сводка: организация охраны площадки, риск хищения материалов и сохранность выполненных работ. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -8434,7 +8500,8 @@ checks_v8:
           label: "Охрана объекта и стройплощадки"
           type: "string"
           presentation: "fact"
-          description: "Подробная формулировка об охране и рисках утраты."
+          description: >
+            Подробная формулировка об охране и рисках утраты. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -8704,7 +8771,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["contractor", "customer", "not_defined"]
-          description: "Кто выполняет подготовку площадки (ограждение, планировка)."
+          description: "Кто выполняет подготовку площадки (ограждение, планировка). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8713,7 +8780,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["contractor", "customer", "not_defined"]
-          description: "Кто создает ВТиС (бытовки, штабы, временные дороги)."
+          description: "Кто создает ВТиС (бытовки, штабы, временные дороги). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8722,7 +8789,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["contractor", "customer", "not_defined"]
-          description: "Кто обеспечивает временное подключение к инженерным сетям."
+          description: "Кто обеспечивает временное подключение к инженерным сетям. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8731,7 +8798,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Есть ли обязанность по демонтажу ВТиС после завершения работ."
+          description: "Есть ли обязанность по демонтажу ВТиС после завершения работ. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8739,7 +8806,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "ВТиС и подготовка"
-          description: "Сводка: создание ВТиС, временные подключения, подготовка и демонтаж площадки."
+          description: >
+            Сводка: создание ВТиС, временные подключения, подготовка и демонтаж площадки. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -8748,7 +8816,8 @@ checks_v8:
           label: "Подготовка стройплощадки и временные сооружения"
           type: "string"
           presentation: "fact"
-          description: "Подробная формулировка о ВТиС и подготовке площадки."
+          description: >
+            Подробная формулировка о ВТиС и подготовке площадки. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -9010,7 +9079,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Ограничено ли право Подрядчика на приостановку работ при нарушении Заказчиком."
+          description: "Ограничено ли право Подрядчика на приостановку работ при нарушении Заказчиком. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -9019,7 +9088,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["full_payment", "partial_payment", "not_defined"]
-          description: "Условия оплаты работ при одностороннем отказе Заказчика."
+          description: "Условия оплаты работ при одностороннем отказе Заказчика. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -9028,7 +9097,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Компенсируется ли упущенная выгода/накладные расходы при досрочном прекращении."
+          description: "Компенсируется ли упущенная выгода/накладные расходы при досрочном прекращении. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -9036,7 +9105,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Приостановка и отказ"
-          description: "Сводка: право на приостановку при неоплате, оплата при одностороннем отказе, компенсация упущенной выгоды."
+          description: >
+            Сводка: право на приостановку при неоплате, оплата при одностороннем отказе, компенсация упущенной выгоды. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -9045,7 +9115,8 @@ checks_v8:
           label: "Последствия расторжения договора и консервации"
           type: "string"
           presentation: "fact"
-          description: "Подробная формулировка о приостановке и одностороннем отказе."
+          description: >
+            Подробная формулировка о приостановке и одностороннем отказе. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -9314,7 +9385,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Обязан ли Заказчик предоставить результаты инженерных изысканий."
+          description: "Обязан ли Заказчик предоставить результаты инженерных изысканий. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -9323,7 +9394,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["customer", "contractor", "not_defined"]
-          description: "На ком лежит риск недостоверности инженерных изысканий."
+          description: "На ком лежит риск недостоверности инженерных изысканий. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -9332,7 +9403,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Обязан ли Заказчик предоставить точки подключения к инженерным сетям."
+          description: "Обязан ли Заказчик предоставить точки подключения к инженерным сетям. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -9340,7 +9411,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Изыскания и подключения"
-          description: "Сводка: предоставление изысканий, риск их недостоверности, точки подключения к сетям."
+          description: >
+            Сводка: предоставление изысканий, риск их недостоверности, точки подключения к сетям. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -9349,7 +9421,8 @@ checks_v8:
           label: "Инженерные изыскания и точки подключения"
           type: "string"
           presentation: "fact"
-          description: "Подробная формулировка об изысканиях и подключениях."
+          description: >
+            Подробная формулировка об изысканиях и подключениях. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -9621,7 +9694,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Требуется ли банковская (независимая) гарантия исполнения договора."
+          description: "Требуется ли банковская (независимая) гарантия исполнения договора. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -9630,7 +9703,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Требуется ли гарантия возврата аванса."
+          description: "Требуется ли гарантия возврата аванса. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -9639,7 +9712,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Определены ли сроки, размер и условия предоставления гарантий."
+          description: "Определены ли сроки, размер и условия предоставления гарантий. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -9647,7 +9720,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Финансовое обеспечение"
-          description: "Сводка: требование банковских гарантий исполнения и возврата аванса, их размер и сроки предоставления."
+          description: >
+            Сводка: требование банковских гарантий исполнения и возврата аванса, их размер и сроки предоставления. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -9656,7 +9730,8 @@ checks_v8:
           label: "Сведения о банковской гарантии и обеспечении"
           type: "string"
           presentation: "fact"
-          description: "Подробная формулировка о финансовом обеспечении и банковских гарантиях."
+          description: >
+            Подробная формулировка о финансовом обеспечении и банковских гарантиях. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -9981,7 +10056,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Предусмотрена ли процедура консервации строительства."
+          description: "Предусмотрена ли процедура консервации строительства. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -9990,7 +10065,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["customer", "contractor", "shared", "not_defined"]
-          description: "Кто несёт расходы на консервацию объекта."
+          description: "Кто несёт расходы на консервацию объекта. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -9999,7 +10074,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["full", "partial", "not_defined"]
-          description: "Как оплачиваются фактически выполненные работы при консервации."
+          description: "Как оплачиваются фактически выполненные работы при консервации. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -10008,7 +10083,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["customer", "contractor", "shared", "not_defined"]
-          description: "Кто обязан охранять законсервированный объект."
+          description: "Кто обязан охранять законсервированный объект. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -10016,7 +10091,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Консервация строительства"
-          description: "Сводка: процедура консервации, расходы, оплата работ, охрана объекта (ст. 752 ГК РФ)."
+          description: >
+            Сводка: процедура консервации, расходы, оплата работ, охрана объекта (ст. 752 ГК РФ). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -10025,7 +10101,8 @@ checks_v8:
           label: "Порядок консервации объекта"
           type: "string"
           presentation: "fact"
-          description: "Подробная формулировка о консервации строительства."
+          description: >
+            Подробная формулировка о консервации строительства. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -10352,7 +10429,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Закреплена ли обязанность Подрядчика предупредить Заказчика о непригодности."
+          description: "Закреплена ли обязанность Подрядчика предупредить Заказчика о непригодности. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -10361,7 +10438,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["materials", "docs", "instructions", "all", "not_defined"]
-          description: "На что распространяется обязанность предупреждения."
+          description: "На что распространяется обязанность предупреждения. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -10370,7 +10447,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["written", "immediate", "not_defined"]
-          description: "Процедура предупреждения (письменно, немедленно)."
+          description: "Процедура предупреждения (письменно, немедленно). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -10379,7 +10456,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["loss_of_claims", "contractor_liability", "not_defined"]
-          description: "Последствия несообщения Подрядчиком о непригодности."
+          description: "Последствия несообщения Подрядчиком о непригодности. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -10387,7 +10464,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Предупреждение о непригодности"
-          description: "Сводка: обязанность предупреждения, предмет, процедура, последствия несообщения (ст. 716 ГК РФ)."
+          description: >
+            Сводка: обязанность предупреждения, предмет, процедура, последствия несообщения (ст. 716 ГК РФ). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -10396,7 +10474,8 @@ checks_v8:
           label: "Обязанность предупреждения Подрядчика"
           type: "string"
           presentation: "fact"
-          description: "Подробная формулировка об обязанности предупреждения."
+          description: >
+            Подробная формулировка об обязанности предупреждения. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -10701,7 +10780,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Закреплено ли право Подрядчика на удержание результата работ."
+          description: "Закреплено ли право Подрядчика на удержание результата работ. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -10710,7 +10789,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Отказался ли Подрядчик от права удержания."
+          description: "Отказался ли Подрядчик от права удержания. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -10719,7 +10798,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["object", "docs", "both", "not_defined"]
-          description: "На что распространяется удержание (объект, документация, оба)."
+          description: "На что распространяется удержание (объект, документация, оба). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -10727,7 +10806,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Удержание результата"
-          description: "Сводка: право Подрядчика на удержание результата работ до оплаты, отказ от удержания (ст. 712 ГК РФ)."
+          description: >
+            Сводка: право Подрядчика на удержание результата работ до оплаты, отказ от удержания (ст. 712 ГК РФ). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -10736,7 +10816,8 @@ checks_v8:
           label: "Право удержания результата работ"
           type: "string"
           presentation: "fact"
-          description: "Подробная формулировка о праве удержания."
+          description: >
+            Подробная формулировка о праве удержания. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -11061,7 +11142,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Определён ли порядок передачи результата работ Заказчику."
+          description: "Определён ли порядок передачи результата работ Заказчику. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -11070,7 +11151,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["acceptance", "registration", "completion", "not_defined"]
-          description: "Момент перехода права собственности на объект (приёмка, регистрация, завершение)."
+          description: "Момент перехода права собственности на объект (приёмка, регистрация, завершение). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -11079,7 +11160,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Есть ли оговорка о сохранении права собственности за Подрядчиком до полной оплаты."
+          description: "Есть ли оговорка о сохранении права собственности за Подрядчиком до полной оплаты. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -11088,7 +11169,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Определён ли порядок передачи исполнительной документации и оборудования."
+          description: "Определён ли порядок передачи исполнительной документации и оборудования. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -11096,7 +11177,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Передача результата и право собственности"
-          description: "Сводка: порядок передачи, момент перехода права собственности, оговорка о сохранении права, передача документации (ст. 703, 720, 219 ГК РФ)."
+          description: >
+            Сводка: порядок передачи, момент перехода права собственности, оговорка о сохранении права, передача документации (ст. 703, 720, 219 ГК РФ). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -11105,7 +11187,8 @@ checks_v8:
           label: "Условия передачи результата и перехода права"
           type: "string"
           presentation: "fact"
-          description: "Подробная формулировка о передаче результата и переходе права собственности."
+          description: >
+            Подробная формулировка о передаче результата и переходе права собственности. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -11434,7 +11517,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Перечислены ли основания для расторжения по инициативе Заказчика."
+          description: "Перечислены ли основания для расторжения по инициативе Заказчика. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -11443,7 +11526,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Предусмотрен ли срок для устранения нарушений Подрядчиком до расторжения."
+          description: "Предусмотрен ли срок для устранения нарушений Подрядчиком до расторжения. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -11452,7 +11535,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["written", "oral", "not_defined"]
-          description: "Порядок уведомления о расторжении (письменно, устно)."
+          description: "Порядок уведомления о расторжении (письменно, устно). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -11461,7 +11544,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["contractor_liability", "partial_payment", "no_compensation", "not_defined"]
-          description: "Финансовые последствия расторжения для Подрядчика."
+          description: "Финансовые последствия расторжения для Подрядчика. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -11469,7 +11552,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Расторжение при нарушении Подрядчика"
-          description: "Сводка: основания, срок устранения, порядок уведомления, финансовые последствия расторжения по инициативе Заказчика (ст. 715 ГК РФ)."
+          description: >
+            Сводка: основания, срок устранения, порядок уведомления, финансовые последствия расторжения по инициативе Заказчика (ст. 715 ГК РФ). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -11478,7 +11562,8 @@ checks_v8:
           label: "Порядок расторжения договора Заказчиком"
           type: "string"
           presentation: "fact"
-          description: "Подробная формулировка о расторжении по инициативе Заказчика при нарушении Подрядчика."
+          description: >
+            Подробная формулировка о расторжении по инициативе Заказчика при нарушении Подрядчика. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -11787,7 +11872,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Определена ли ответственность за вред третьим лицам."
+          description: "Определена ли ответственность за вред третьим лицам. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -11796,7 +11881,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["contractor", "customer", "both", "not_defined"]
-          description: "Кто несёт ответственность за вред третьим лицам."
+          description: "Кто несёт ответственность за вред третьим лицам. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -11805,7 +11890,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Требуется ли страхование гражданской ответственности перед третьими лицами."
+          description: "Требуется ли страхование гражданской ответственности перед третьими лицами. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -11813,7 +11898,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Ответственность перед третьими лицами"
-          description: "Сводка: распределение ответственности за вред третьим лицам, страхование ГО (ст. 759, 1064 ГК РФ)."
+          description: >
+            Сводка: распределение ответственности за вред третьим лицам, страхование ГО (ст. 759, 1064 ГК РФ). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -11822,7 +11908,8 @@ checks_v8:
           label: "Условия ответственности перед третьими лицами"
           type: "string"
           presentation: "fact"
-          description: "Подробная формулировка об ответственности за вред третьим лицам."
+          description: >
+            Подробная формулировка об ответственности за вред третьим лицам. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 

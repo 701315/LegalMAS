@@ -1031,13 +1031,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения реквизитов энергоснабжающей организации."
+          description: "Статус определения реквизитов энергоснабжающей организации. Внутреннее enum-поле."
           required: true
         - name: "eso_details_value"
           type: "string"
           presentation: "fact"
           label: "Энергоснабжающая организация"
-          description: "Наименование и реквизиты энергоснабжающей организации."
+          description: >
+            Наименование и реквизиты энергоснабжающей организации. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -1046,13 +1047,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["guaranteeing_supplier", "sales_company", "network_org", "unclear", "not_defined"]
-          description: "Тип энергоснабжающей организации."
+          description: "Тип энергоснабжающей организации. Внутреннее enum-поле."
           required: true
         - name: "eso_signatory"
           type: "string"
           presentation: "fact"
           label: "Подписант ЭСО"
-          description: "Подписант от энергоснабжающей организации."
+          description: >
+            Подписант от энергоснабжающей организации. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "eso_signatory_basis"
@@ -1060,20 +1062,21 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["charter", "poa", "order", "other", "not_defined"]
-          description: "Основание полномочий подписанта ЭСО."
+          description: "Основание полномочий подписанта ЭСО. Внутреннее enum-поле."
           required: true
         - name: "subscriber_details_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения реквизитов абонента."
+          description: "Статус определения реквизитов абонента. Внутреннее enum-поле."
           required: true
         - name: "subscriber_details_value"
           type: "string"
           presentation: "fact"
           label: "Абонент"
-          description: "Наименование и реквизиты абонента."
+          description: >
+            Наименование и реквизиты абонента. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -1082,13 +1085,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["legal_entity", "individual", "ip", "tszh", "uk", "not_defined"]
-          description: "Тип абонента."
+          description: "Тип абонента. Внутреннее enum-поле."
           required: true
         - name: "subscriber_signatory"
           type: "string"
           presentation: "fact"
           label: "Подписант абонента"
-          description: "Подписант от абонента."
+          description: >
+            Подписант от абонента. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "subscriber_signatory_basis"
@@ -1096,7 +1100,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["charter", "poa", "order", "other", "not_defined"]
-          description: "Основание полномочий подписанта абонента."
+          description: "Основание полномочий подписанта абонента. Внутреннее enum-поле."
           required: true
       store_payload: true
 
@@ -1434,27 +1438,28 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения вида энергии."
+          description: "Статус определения вида энергии. Внутреннее enum-поле."
           required: true
         - name: "energy_type_code"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["electricity", "heat", "gas", "water", "other", "not_defined"]
-          description: "Вид энергии."
+          description: "Вид энергии. Внутреннее enum-поле."
           required: true
         - name: "delivery_point_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения точки поставки."
+          description: "Статус определения точки поставки. Внутреннее enum-поле."
           required: true
         - name: "delivery_point_details"
           type: "string"
           presentation: "fact"
           label: "Точка поставки"
-          description: "Конкретная точка поставки энергии."
+          description: >
+            Конкретная точка поставки энергии. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -1463,13 +1468,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус упоминания акта разграничения балансовой принадлежности."
+          description: "Статус упоминания акта разграничения балансовой принадлежности. Внутреннее enum-поле."
           required: true
         - name: "boundary_act_details"
           type: "string"
           presentation: "fact"
           label: "Акт разграничения"
-          description: "Ссылка на акт разграничения балансовой принадлежности."
+          description: >
+            Ссылка на акт разграничения балансовой принадлежности. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "agreed_volume_status"
@@ -1477,13 +1483,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения согласованного объёма."
+          description: "Статус определения согласованного объёма. Внутреннее enum-поле."
           required: true
         - name: "agreed_volume_value"
           type: "string"
           presentation: "fact"
           label: "Согласованный объём"
-          description: "Согласованный объём потребления с единицей измерения."
+          description: >
+            Согласованный объём потребления с единицей измерения. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -1492,13 +1499,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения максимальной мощности."
+          description: "Статус определения максимальной мощности. Внутреннее enum-поле."
           required: true
         - name: "max_capacity_value"
           type: "string"
           presentation: "fact"
           label: "Максимальная мощность"
-          description: "Максимальная или присоединённая мощность."
+          description: >
+            Максимальная или присоединённая мощность. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -1507,13 +1515,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения последствий превышения объёма или мощности."
+          description: "Статус определения последствий превышения объёма или мощности. Внутреннее enum-поле."
           required: true
         - name: "excess_consumption_details"
           type: "string"
           presentation: "fact"
           label: "Последствия превышения лимита"
-          description: "Последствия превышения согласованного объёма или мощности."
+          description: >
+            Последствия превышения согласованного объёма или мощности. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
       store_payload: true
@@ -1881,7 +1890,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения тарифа."
+          description: "Статус определения тарифа. Внутреннее enum-поле."
           required: true
 
         - name: "tariff_type"
@@ -1889,14 +1898,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["fixed_amount", "regulatory_reference", "not_defined"]
-          description: "Тип указания тарифа."
+          description: "Тип указания тарифа. Внутреннее enum-поле."
           required: true
 
         - name: "tariff_details"
           type: "string"
           presentation: "fact"
           label: "Тариф"
-          description: "Тариф или ссылка на регулирующий орган."
+          description: >
+            Тариф или ссылка на регулирующий орган. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -1906,7 +1916,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения тарифной структуры."
+          description: "Статус определения тарифной структуры. Внутреннее enum-поле."
           required: true
 
         - name: "tariff_rate_type_code"
@@ -1914,7 +1924,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["single_rate", "two_rate", "three_rate", "not_defined"]
-          description: "Тип тарифной структуры."
+          description: "Тип тарифной структуры. Внутреннее enum-поле."
           required: true
 
         - name: "payment_deadline_status"
@@ -1922,14 +1932,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения срока оплаты."
+          description: "Статус определения срока оплаты. Внутреннее enum-поле."
           required: true
 
         - name: "payment_deadline_details"
           type: "string"
           presentation: "fact"
           label: "Срок оплаты"
-          description: "Срок оплаты потреблённой энергии."
+          description: >
+            Срок оплаты потреблённой энергии. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -1939,14 +1950,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения пени за просрочку оплаты."
+          description: "Статус определения пени за просрочку оплаты. Внутреннее enum-поле."
           required: true
 
         - name: "penalty_details"
           type: "string"
           presentation: "fact"
           label: "Пени за просрочку"
-          description: "Ставка пени за просрочку оплаты."
+          description: >
+            Ставка пени за просрочку оплаты. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -1956,14 +1968,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения права ограничения или отключения при неоплате."
+          description: "Статус определения права ограничения или отключения при неоплате. Внутреннее enum-поле."
           required: true
 
         - name: "disconnection_on_non_payment_details"
           type: "string"
           presentation: "fact"
           label: "Ограничение при неоплате"
-          description: "Условие ограничения или отключения при неоплате."
+          description: >
+            Условие ограничения или отключения при неоплате. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
 
@@ -2319,7 +2332,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения порядка учёта потребления."
+          description: "Статус определения порядка учёта потребления. Внутреннее enum-поле."
           required: true
 
         - name: "meter_details_status"
@@ -2327,14 +2340,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания реквизитов прибора учёта."
+          description: "Статус указания реквизитов прибора учёта. Внутреннее enum-поле."
           required: true
 
         - name: "meter_details_value"
           type: "string"
           presentation: "fact"
           label: "Прибор учёта"
-          description: "Тип, номер и иные реквизиты прибора учёта."
+          description: >
+            Тип, номер и иные реквизиты прибора учёта. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -2344,14 +2358,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения порядка передачи показаний."
+          description: "Статус определения порядка передачи показаний. Внутреннее enum-поле."
           required: true
 
         - name: "reading_submission_details"
           type: "string"
           presentation: "fact"
           label: "Передача показаний"
-          description: "Срок или порядок передачи показаний прибора учёта."
+          description: >
+            Срок или порядок передачи показаний прибора учёта. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -2361,7 +2376,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения расчёта при отсутствии или неисправности прибора."
+          description: "Статус определения расчёта при отсутствии или неисправности прибора. Внутреннее enum-поле."
           required: true
 
         - name: "calculation_without_meter_code"
@@ -2369,7 +2384,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["normative", "calculated", "not_defined"]
-          description: "Метод расчёта при отсутствии или неисправности прибора учёта."
+          description: "Метод расчёта при отсутствии или неисправности прибора учёта. Внутреннее enum-поле."
           required: true
 
         - name: "verification_obligation_status"
@@ -2377,14 +2392,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус обязанности по поверке прибора учёта."
+          description: "Статус обязанности по поверке прибора учёта. Внутреннее enum-поле."
           required: true
 
         - name: "verification_obligation_details"
           type: "string"
           presentation: "fact"
           label: "Условия поверки прибора учёта"
-          description: "Текст обязанности абонента по поверке прибора учёта."
+          description: >
+            Текст обязанности абонента по поверке прибора учёта. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
 
@@ -2393,14 +2409,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения последствий повреждения пломбы."
+          description: "Статус определения последствий повреждения пломбы. Внутреннее enum-поле."
           required: true
 
         - name: "seal_tampering_details"
           type: "string"
           presentation: "fact"
           label: "Последствия повреждения пломбы"
-          description: "Последствия повреждения пломбы или несанкционированного вмешательства."
+          description: >
+            Последствия повреждения пломбы или несанкционированного вмешательства. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
 
@@ -2732,14 +2749,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус обязанности абонента содержать сети и оборудование."
+          description: "Статус обязанности абонента содержать сети и оборудование. Внутреннее enum-поле."
           required: true
 
         - name: "network_maintenance_details"
           type: "string"
           presentation: "fact"
           label: "Содержание сетей и оборудования"
-          description: "Обязанности абонента по содержанию энергопринимающего оборудования и внутренних сетей."
+          description: >
+            Обязанности абонента по содержанию энергопринимающего оборудования и внутренних сетей. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
 
@@ -2748,14 +2766,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения срока уведомления об аварии."
+          description: "Статус определения срока уведомления об аварии. Внутреннее enum-поле."
           required: true
 
         - name: "accident_notification_deadline"
           type: "string"
           presentation: "fact"
           label: "Срок уведомления об аварии"
-          description: "Срок или порядок уведомления ЭСО об аварии."
+          description: >
+            Срок или порядок уведомления ЭСО об аварии. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -2765,7 +2784,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус права ЭСО на проверку оборудования абонента."
+          description: "Статус права ЭСО на проверку оборудования абонента. Внутреннее enum-поле."
           required: true
 
         - name: "sub_subscriber_status"
@@ -2773,7 +2792,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус условия о субабоненте."
+          description: "Статус условия о субабоненте. Внутреннее enum-поле."
           required: true
 
         - name: "sub_subscriber_regime"
@@ -2781,7 +2800,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["prohibited", "permitted_with_consent", "not_defined"]
-          description: "Режим субабонентского подключения."
+          description: "Режим субабонентского подключения. Внутреннее enum-поле."
           required: true
 
         - name: "sub_subscriber_penalty_status"
@@ -2789,14 +2808,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения последствий несогласованного субабонентского подключения."
+          description: "Статус определения последствий несогласованного субабонентского подключения. Внутреннее enum-поле."
           required: true
 
         - name: "sub_subscriber_penalty_details"
           type: "string"
           presentation: "fact"
           label: "Последствия несогласованного субабонента"
-          description: "Последствия передачи энергии третьим лицам без согласия ЭСО."
+          description: >
+            Последствия передачи энергии третьим лицам без согласия ЭСО. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -3130,14 +3150,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения срока действия договора."
+          description: "Статус определения срока действия договора. Внутреннее enum-поле."
           required: true
 
         - name: "contract_term_details"
           type: "string"
           presentation: "fact"
           label: "Срок действия договора"
-          description: "Срок действия договора или указание на неопределённый срок."
+          description: >
+            Срок действия договора или указание на неопределённый срок. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -3147,14 +3168,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения автоматической пролонгации."
+          description: "Статус определения автоматической пролонгации. Внутреннее enum-поле."
           required: true
 
         - name: "auto_renewal_notice_period"
           type: "string"
           presentation: "fact"
           label: "Срок уведомления о непролонгации"
-          description: "Срок уведомления о непролонгации договора."
+          description: >
+            Срок уведомления о непролонгации договора. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
 
@@ -3163,7 +3185,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения права абонента на расторжение."
+          description: "Статус определения права абонента на расторжение. Внутреннее enum-поле."
           required: true
 
         - name: "subscriber_termination_regime"
@@ -3171,7 +3193,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["unilateral", "mutual_consent", "court_only", "unilateral_for_individual_court_for_legal", "not_defined"]
-          description: "Режим расторжения договора для абонента."
+          description: "Режим расторжения договора для абонента. Внутреннее enum-поле."
           required: true
 
         - name: "eso_termination_status"
@@ -3179,14 +3201,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения права ЭСО на расторжение."
+          description: "Статус определения права ЭСО на расторжение. Внутреннее enum-поле."
           required: true
 
         - name: "eso_termination_details"
           type: "string"
           presentation: "fact"
           label: "Расторжение со стороны ЭСО"
-          description: "Условия расторжения договора со стороны энергоснабжающей организации."
+          description: >
+            Условия расторжения договора со стороны энергоснабжающей организации. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -3196,14 +3219,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия форс-мажорной оговорки."
+          description: "Статус наличия форс-мажорной оговорки. Внутреннее enum-поле."
           required: true
 
         - name: "force_majeure_details"
           type: "string"
           presentation: "fact"
           label: "Форс-мажор"
-          description: "Текст форс-мажорной оговорки."
+          description: >
+            Текст форс-мажорной оговорки. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
 
@@ -3536,7 +3560,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия требований к качеству энергии."
+          description: "Статус наличия требований к качеству энергии. Внутреннее enum-поле."
           required: true
 
         - name: "quality_requirements_level"
@@ -3544,7 +3568,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["detailed", "basic", "not_defined"]
-          description: "Уровень детализации требований к качеству энергии."
+          description: "Уровень детализации требований к качеству энергии. Внутреннее enum-поле."
           required: true
 
         - name: "voltage_status"
@@ -3552,7 +3576,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания напряжения."
+          description: "Статус указания напряжения. Внутреннее enum-поле."
           required: true
 
         - name: "frequency_status"
@@ -3560,7 +3584,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания частоты."
+          description: "Статус указания частоты. Внутреннее enum-поле."
           required: true
 
         - name: "temperature_status"
@@ -3568,7 +3592,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания температуры."
+          description: "Статус указания температуры. Внутреннее enum-поле."
           required: true
 
         - name: "pressure_status"
@@ -3576,7 +3600,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания давления."
+          description: "Статус указания давления. Внутреннее enum-поле."
           required: true
 
         - name: "gost_reference_status"
@@ -3584,14 +3608,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус ссылки на ГОСТ или иной нормативный документ."
+          description: "Статус ссылки на ГОСТ или иной нормативный документ. Внутреннее enum-поле."
           required: true
 
         - name: "gost_reference_details"
           type: "string"
           presentation: "fact"
           label: "Норматив по качеству энергии"
-          description: "ГОСТ или иной нормативный документ, указанный в договоре."
+          description: >
+            ГОСТ или иной нормативный документ, указанный в договоре. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -3601,7 +3626,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус условия об ответственности за нарушение качества энергии."
+          description: "Статус условия об ответственности за нарушение качества энергии. Внутреннее enum-поле."
           required: true
 
       store_payload: true
@@ -3936,7 +3961,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия процедуры ограничения или прекращения подачи."
+          description: "Статус наличия процедуры ограничения или прекращения подачи. Внутреннее enum-поле."
           required: true
 
         - name: "limitation_procedure_level"
@@ -3944,7 +3969,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["detailed", "basic", "not_defined"]
-          description: "Уровень детализации процедуры ограничения или прекращения подачи."
+          description: "Уровень детализации процедуры ограничения или прекращения подачи. Внутреннее enum-поле."
           required: true
 
         - name: "grounds_status"
@@ -3952,14 +3977,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения оснований ограничения или отключения."
+          description: "Статус определения оснований ограничения или отключения. Внутреннее enum-поле."
           required: true
 
         - name: "grounds_details"
           type: "string"
           presentation: "fact"
           label: "Основания ограничения/отключения"
-          description: "Основания для ограничения или прекращения подачи энергии."
+          description: >
+            Основания для ограничения или прекращения подачи энергии. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -3969,14 +3995,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения срока предварительного уведомления."
+          description: "Статус определения срока предварительного уведомления. Внутреннее enum-поле."
           required: true
 
         - name: "notice_period_days"
           type: "string"
           presentation: "fact"
           label: "Срок уведомления об ограничении"
-          description: "Срок предварительного уведомления перед ограничением или отключением."
+          description: >
+            Срок предварительного уведомления перед ограничением или отключением. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -3986,7 +4013,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения поэтапности ограничения подачи."
+          description: "Статус определения поэтапности ограничения подачи. Внутреннее enum-поле."
           required: true
 
         - name: "restoration_procedure_status"
@@ -3994,7 +4021,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения порядка возобновления подачи энергии."
+          description: "Статус определения порядка возобновления подачи энергии. Внутреннее enum-поле."
           required: true
 
         - name: "restoration_cost_allocation"
@@ -4002,7 +4029,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["subscriber", "supplier", "not_defined"]
-          description: "Кто несёт расходы на возобновление подачи энергии."
+          description: "Кто несёт расходы на возобновление подачи энергии. Внутреннее enum-поле."
           required: true
 
       store_payload: true
@@ -4325,7 +4352,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия условия об ответственности за перерывы."
+          description: "Статус наличия условия об ответственности за перерывы. Внутреннее enum-поле."
           required: true
 
         - name: "liability_type_status"
@@ -4333,7 +4360,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения вида ответственности за перерывы."
+          description: "Статус определения вида ответственности за перерывы. Внутреннее enum-поле."
           required: true
 
         - name: "liability_type_code"
@@ -4342,7 +4369,7 @@ checks_v8:
           risk_weight: "medium"
           label: "Вид ответственности за перерывы"
           allowed_values: ["real_damage", "penalty", "both", "not_defined"]
-          description: "Вид ответственности за перерывы в подаче энергии."
+          description: "Вид ответственности за перерывы в подаче энергии. Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 1
@@ -4352,7 +4379,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус прямого условия об упущенной выгоде."
+          description: "Статус прямого условия об упущенной выгоде. Внутреннее enum-поле."
           required: true
 
         - name: "lost_profit_excluded_code"
@@ -4361,7 +4388,7 @@ checks_v8:
           risk_weight: "medium"
           label: "Упущенная выгода исключена"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Исключена ли упущенная выгода."
+          description: "Исключена ли упущенная выгода. Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 2
@@ -4371,7 +4398,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия исключений из ответственности за перерывы."
+          description: "Статус наличия исключений из ответственности за перерывы. Внутреннее enum-поле."
           required: true
 
         - name: "force_majeure_exclusion_status"
@@ -4379,7 +4406,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания форс-мажора как исключения."
+          description: "Статус указания форс-мажора как исключения. Внутреннее enum-поле."
           required: true
 
         - name: "grid_accident_exclusion_status"
@@ -4387,7 +4414,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания аварии в сетях как исключения."
+          description: "Статус указания аварии в сетях как исключения. Внутреннее enum-поле."
           required: true
 
         - name: "interruption_fixation_status"
@@ -4395,7 +4422,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения порядка фиксации перерыва в подаче."
+          description: "Статус определения порядка фиксации перерыва в подаче. Внутреннее enum-поле."
           required: true
 
       store_payload: true
@@ -4729,7 +4756,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия условия о бездоговорном или безучётном потреблении."
+          description: "Статус наличия условия о бездоговорном или безучётном потреблении. Внутреннее enum-поле."
           required: true
 
         - name: "unauthorized_clause_level"
@@ -4737,7 +4764,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["detailed", "basic", "not_defined"]
-          description: "Уровень детализации условий о несанкционированном потреблении."
+          description: "Уровень детализации условий о несанкционированном потреблении. Внутреннее enum-поле."
           required: true
 
         - name: "non_contracted_defined_status"
@@ -4745,7 +4772,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия определения бездоговорного потребления."
+          description: "Статус наличия определения бездоговорного потребления. Внутреннее enum-поле."
           required: true
 
         - name: "unmetered_defined_status"
@@ -4753,7 +4780,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия определения безучётного потребления."
+          description: "Статус наличия определения безучётного потребления. Внутреннее enum-поле."
           required: true
 
         - name: "calculation_method_status"
@@ -4761,14 +4788,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения методики расчёта при выявлении нарушения."
+          description: "Статус определения методики расчёта при выявлении нарушения. Внутреннее enum-поле."
           required: true
 
         - name: "calculation_method_details"
           type: "string"
           presentation: "fact"
           label: "Методика расчёта нарушения"
-          description: "Методика расчёта объёма или начислений при нарушении."
+          description: >
+            Методика расчёта объёма или начислений при нарушении. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -4778,7 +4806,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения санкций за нарушение."
+          description: "Статус определения санкций за нарушение. Внутреннее enum-поле."
           required: true
 
         - name: "immediate_disconnection_status"
@@ -4786,7 +4814,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус права немедленного отключения."
+          description: "Статус права немедленного отключения. Внутреннее enum-поле."
           required: true
 
         - name: "act_procedure_status"
@@ -4794,7 +4822,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения порядка оформления акта о нарушении."
+          description: "Статус определения порядка оформления акта о нарушении. Внутреннее enum-поле."
           required: true
 
       store_payload: true
@@ -5533,7 +5561,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия специальных условий для многоквартирного дома."
+          description: "Статус наличия специальных условий для многоквартирного дома. Внутреннее enum-поле."
           required: true
 
         - name: "boundary_status"
@@ -5541,14 +5569,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения границы балансовой принадлежности."
+          description: "Статус определения границы балансовой принадлежности. Внутреннее enum-поле."
           required: true
 
         - name: "boundary_details"
           type: "string"
           presentation: "fact"
           label: "Граница балансовой принадлежности"
-          description: "Описание границы балансовой принадлежности или эксплуатационной ответственности."
+          description: >
+            Описание границы балансовой принадлежности или эксплуатационной ответственности. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -5558,14 +5587,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус упоминания коллективного (общедомового) прибора учёта."
+          description: "Статус упоминания коллективного (общедомового) прибора учёта. Внутреннее enum-поле."
           required: true
 
         - name: "collective_meter_details"
           type: "string"
           presentation: "fact"
           label: "Общедомовой прибор учёта"
-          description: "Описание коллективного (общедомового) прибора учёта или ссылка на ОДПУ."
+          description: >
+            Описание коллективного (общедомового) прибора учёта или ссылка на ОДПУ. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -5575,14 +5605,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения порядка расчёта ОДН."
+          description: "Статус определения порядка расчёта ОДН. Внутреннее enum-поле."
           required: true
 
         - name: "odn_calculation_details"
           type: "string"
           presentation: "fact"
           label: "Порядок расчёта ОДН"
-          description: "Порядок расчёта общедомовых нужд (ОДН), если он указан в договоре."
+          description: >
+            Порядок расчёта общедомовых нужд (ОДН), если он указан в договоре. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -5592,7 +5623,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения ответственного за внутридомовые сети."
+          description: "Статус определения ответственного за внутридомовые сети. Внутреннее enum-поле."
           required: true
 
         - name: "maintenance_responsibility_code"
@@ -5601,7 +5632,7 @@ checks_v8:
           risk_weight: "medium"
           label: "Ответственный за внутридомовые сети"
           allowed_values: ["eso", "tszh_uk", "not_defined"]
-          description: "Кто отвечает за внутридомовые сети."
+          description: "Кто отвечает за внутридомовые сети. Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 4
@@ -5610,7 +5641,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Ответственность за внутридомовые сети"
-          description: "Текст условия об ответственности УК/ТСЖ или иной стороны за внутридомовые сети."
+          description: >
+            Текст условия об ответственности УК/ТСЖ или иной стороны за внутридомовые сети. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 5

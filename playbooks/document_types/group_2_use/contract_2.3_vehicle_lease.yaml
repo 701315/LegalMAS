@@ -1147,14 +1147,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус идентификации Арендодателя."
+          description: "Статус идентификации Арендодателя. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "landlord_details_value"
           type: "string"
           presentation: "fact"
           label: "Арендодатель: реквизиты"
-          description: "Наименование/ФИО и реквизиты Арендодателя."
+          description: >
+            Наименование/ФИО и реквизиты Арендодателя. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -1163,7 +1164,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["legal_entity", "individual", "individual_entrepreneur", "not_defined"]
-          description: "Тип Арендодателя (юрлицо / физлицо / ИП)."
+          description: "Тип Арендодателя (юрлицо / физлицо / ИП). Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "landlord_signatory_status"
@@ -1171,14 +1172,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания подписанта Арендодателя."
+          description: "Статус указания подписанта Арендодателя. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "landlord_signatory_value"
           label: "Подписант арендодателя"
           type: "string"
           presentation: "fact"
-          description: "Подписант от Арендодателя (внутреннее поле, для DD Grid используется landlord_signatory_display)."
+          description: >
+            Подписант от Арендодателя (внутреннее поле, для DD Grid используется landlord_signatory_display). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "landlord_signatory_basis"
@@ -1186,14 +1188,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["charter", "poa", "order", "other", "not_defined"]
-          description: "Основание полномочий подписанта Арендодателя (raw enum, для DD Grid используется landlord_signatory_display)."
+          description: "Основание полномочий подписанта Арендодателя (raw enum, для DD Grid используется landlord_signatory_display). Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "landlord_signatory_display"
           type: "string"
           presentation: "fact"
           label: "Арендодатель: подписант"
-          description: "Читаемое отображение подписанта Арендодателя и основания полномочий."
+          description: >
+            Читаемое отображение подписанта Арендодателя и основания полномочий. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -1202,14 +1205,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус идентификации Арендатора."
+          description: "Статус идентификации Арендатора. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "tenant_details_value"
           type: "string"
           presentation: "fact"
           label: "Арендатор: реквизиты"
-          description: "Наименование/ФИО и реквизиты Арендатора."
+          description: >
+            Наименование/ФИО и реквизиты Арендатора. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -1218,7 +1222,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["legal_entity", "individual", "individual_entrepreneur", "not_defined"]
-          description: "Тип Арендатора (юрлицо / физлицо / ИП)."
+          description: "Тип Арендатора (юрлицо / физлицо / ИП). Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "tenant_signatory_status"
@@ -1226,14 +1230,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания подписанта Арендатора."
+          description: "Статус указания подписанта Арендатора. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "tenant_signatory_value"
           label: "Подписант арендатора"
           type: "string"
           presentation: "fact"
-          description: "Подписант от Арендатора (внутреннее поле, для DD Grid используется tenant_signatory_display)."
+          description: >
+            Подписант от Арендатора (внутреннее поле, для DD Grid используется tenant_signatory_display). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "tenant_signatory_basis"
@@ -1241,14 +1246,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["charter", "poa", "order", "other", "not_defined"]
-          description: "Основание полномочий подписанта Арендатора (raw enum, для DD Grid используется tenant_signatory_display)."
+          description: "Основание полномочий подписанта Арендатора (raw enum, для DD Grid используется tenant_signatory_display). Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "tenant_signatory_display"
           type: "string"
           presentation: "fact"
           label: "Арендатор: подписант"
-          description: "Читаемое отображение подписанта Арендатора и основания полномочий."
+          description: >
+            Читаемое отображение подписанта Арендатора и основания полномочий. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 4
@@ -1668,7 +1674,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения вида аренды."
+          description: "Статус определения вида аренды. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "lease_type_code"
@@ -1676,14 +1682,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["with_crew", "without_crew", "not_defined"]
-          description: "Вид аренды ТС (с экипажем / без экипажа)."
+          description: "Вид аренды ТС (с экипажем / без экипажа). Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "lease_type_details"
           type: "string"
           presentation: "fact"
           label: "Вид аренды"
-          description: "Формулировка о виде аренды из договора."
+          description: >
+            Формулировка о виде аренды из договора. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -1692,7 +1699,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["road_vehicle", "vessel", "aircraft", "other", "not_defined"]
-          description: "Тип транспортного средства."
+          description: "Тип транспортного средства. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "vehicle_description_status"
@@ -1700,14 +1707,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус описания ТС."
+          description: "Статус описания ТС. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "vehicle_description_value"
           type: "string"
           presentation: "fact"
           label: "Транспортное средство"
-          description: "Описание ТС: марка, модель, год, VIN, госномер и иные идентификаторы."
+          description: >
+            Описание ТС: марка, модель, год, VIN, госномер и иные идентификаторы. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -1716,14 +1724,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания арендной платы."
+          description: "Статус указания арендной платы. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "rent_amount_value"
           type: "string"
           presentation: "fact"
           label: "Арендная плата"
-          description: "Размер арендной платы / фрахта (сумма, период, валюта, НДС)."
+          description: >
+            Размер арендной платы / фрахта (сумма, период, валюта, НДС). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -2151,14 +2160,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания VIN."
+          description: "Статус указания VIN. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "vin_details"
           type: "string"
           presentation: "fact"
           label: "VIN"
-          description: "VIN транспортного средства (17-значный код)."
+          description: >
+            VIN транспортного средства (17-значный код). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -2167,14 +2177,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания госномера."
+          description: "Статус указания госномера. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "state_number_details"
           type: "string"
           presentation: "fact"
           label: "Госномер"
-          description: "Государственный регистрационный номер (гос. знак)."
+          description: >
+            Государственный регистрационный номер (гос. знак). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -2183,14 +2194,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания марки и модели."
+          description: "Статус указания марки и модели. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "make_model_details"
           type: "string"
           presentation: "fact"
           label: "Марка и модель"
-          description: "Марка и модель ТС (с модификацией, если указана)."
+          description: >
+            Марка и модель ТС (с модификацией, если указана). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -2199,14 +2211,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания года выпуска."
+          description: "Статус указания года выпуска. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "year_details"
           type: "string"
           presentation: "fact"
           label: "Год выпуска"
-          description: "Год выпуска ТС."
+          description: >
+            Год выпуска ТС. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 4
@@ -2215,14 +2228,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус ссылки на ПТС / ЭПТС / СТС."
+          description: "Статус ссылки на ПТС / ЭПТС / СТС. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "pts_sts_details"
           type: "string"
           presentation: "fact"
           label: "ПТС / ЭПТС / СТС"
-          description: "Реквизиты ПТС, ЭПТС или СТС (тип, серия, номер, дата, кем выдан)."
+          description: >
+            Реквизиты ПТС, ЭПТС или СТС (тип, серия, номер, дата, кем выдан). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 5
@@ -2661,14 +2675,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия акта приёма-передачи."
+          description: "Статус наличия акта приёма-передачи. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "handover_act_details"
           label: "Сведения об акте приема-передачи"
           type: "string"
           presentation: "fact"
-          description: "Формулировка об акте приёма-передачи (внутреннее поле)."
+          description: >
+            Формулировка об акте приёма-передачи (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "condition_recorded_status"
@@ -2676,14 +2691,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус фиксации технического состояния."
+          description: "Статус фиксации технического состояния. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "condition_recorded_details"
           label: "Фиксация состояния автомобиля"
           type: "string"
           presentation: "fact"
-          description: "Формулировка о фиксации технического состояния (внутреннее поле)."
+          description: >
+            Формулировка о фиксации технического состояния (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "mileage_recorded_status"
@@ -2691,14 +2707,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус фиксации пробега и топлива."
+          description: "Статус фиксации пробега и топлива. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "mileage_recorded_details"
           label: "Фиксация пробега"
           type: "string"
           presentation: "fact"
-          description: "Формулировка о фиксации пробега и топлива (внутреннее поле)."
+          description: >
+            Формулировка о фиксации пробега и топлива (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "photo_fixation_status"
@@ -2706,14 +2723,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус фотофиксации."
+          description: "Статус фотофиксации. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "photo_fixation_details"
           label: "Фотофиксация состояния"
           type: "string"
           presentation: "fact"
-          description: "Формулировка о фотофиксации (внутреннее поле)."
+          description: >
+            Формулировка о фотофиксации (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "existing_damage_status"
@@ -2721,14 +2739,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус фиксации существующих повреждений."
+          description: "Статус фиксации существующих повреждений. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "existing_damage_details"
           label: "Описание имеющихся повреждений"
           type: "string"
           presentation: "fact"
-          description: "Формулировка о фиксации повреждений (внутреннее поле)."
+          description: >
+            Формулировка о фиксации повреждений (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "document_pack_status"
@@ -2736,21 +2755,23 @@ checks_v8:
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания комплекта документов."
+          description: "Статус указания комплекта документов. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "document_pack_details"
           label: "Комплект документов на автомобиль"
           type: "string"
           presentation: "fact"
-          description: "Перечень документов и ключей (внутреннее поле)."
+          description: >
+            Перечень документов и ключей (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "handover_summary_display"
           type: "string"
           presentation: "fact"
           label: "Порядок передачи ТС"
-          description: "Сводная информация о процедуре передачи ТС (акт, состояние, пробег, топливо, дефекты, фото, документы и ключи)."
+          description: >
+            Сводная информация о процедуре передачи ТС (акт, состояние, пробег, топливо, дефекты, фото, документы и ключи). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -3193,14 +3214,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус подтверждения титула на ТС."
+          description: "Статус подтверждения титула на ТС. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "title_confirmation_details"
           type: "string"
           presentation: "fact"
           label: "Титул арендодателя"
-          description: "Право собственности, лизинг или субаренда с согласием собственника."
+          description: >
+            Право собственности, лизинг или субаренда с согласием собственника. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -3209,14 +3231,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус заверения об исправности."
+          description: "Статус заверения об исправности. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "fitness_warranty_details"
           label: "Гарантия пригодности к эксплуатации"
           type: "string"
           presentation: "fact"
-          description: "Формулировка об исправности ТС (внутреннее поле)."
+          description: >
+            Формулировка об исправности ТС (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "no_pledge_status"
@@ -3224,14 +3247,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус заверения об отсутствии залога."
+          description: "Статус заверения об отсутствии залога. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "no_pledge_details"
           label: "Отсутствие залога"
           type: "string"
           presentation: "fact"
-          description: "Формулировка об отсутствии залога (внутреннее поле)."
+          description: >
+            Формулировка об отсутствии залога (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "no_arrest_status"
@@ -3239,14 +3263,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус заверения об отсутствии ареста."
+          description: "Статус заверения об отсутствии ареста. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "no_arrest_details"
           label: "Отсутствие ареста"
           type: "string"
           presentation: "fact"
-          description: "Формулировка об отсутствии ареста (внутреннее поле)."
+          description: >
+            Формулировка об отсутствии ареста (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "tech_inspection_status"
@@ -3254,21 +3279,23 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус техосмотра / диагностической карты."
+          description: "Статус техосмотра / диагностической карты. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "tech_inspection_details"
           label: "Сведения о техосмотре"
           type: "string"
           presentation: "fact"
-          description: "Формулировка о техосмотре / диагностической карте (внутреннее поле)."
+          description: >
+            Формулировка о техосмотре / диагностической карте (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "encumbrances_display"
           type: "string"
           presentation: "fact"
           label: "Обременения (залог / арест)"
-          description: "Наличие залогов, арестов, запретов ГИБДД или прав третьих лиц на ТС."
+          description: >
+            Наличие залогов, арестов, запретов ГИБДД или прав третьих лиц на ТС. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -3276,7 +3303,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Исправность и ТО"
-          description: "Сводные заверения о технической исправности ТС и прохождении техосмотра."
+          description: >
+            Сводные заверения о технической исправности ТС и прохождении техосмотра. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -3678,14 +3706,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус ОСАГО."
+          description: "Статус ОСАГО. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "osago_details"
           type: "string"
           presentation: "fact"
           label: "ОСАГО"
-          description: "Условия ОСАГО: кто оформляет, плательщик, круг допущенных водителей."
+          description: >
+            Условия ОСАГО: кто оформляет, плательщик, круг допущенных водителей. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -3694,14 +3723,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус КАСКО."
+          description: "Статус КАСКО. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "casco_details"
           type: "string"
           presentation: "fact"
           label: "КАСКО и выгодоприобретатель"
-          description: "Условия КАСКО: риски, плательщик, франшиза, выгодоприобретатель."
+          description: >
+            Условия КАСКО: риски, плательщик, франшиза, выгодоприобретатель. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -3710,14 +3740,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус распределения расходов на страхование."
+          description: "Статус распределения расходов на страхование. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "insurance_cost_allocation_details"
           label: "Распределение расходов на страховку"
           type: "string"
           presentation: "fact"
-          description: "Формулировка о распределении расходов на страхование (внутреннее поле)."
+          description: >
+            Формулировка о распределении расходов на страхование (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "beneficiary_status"
@@ -3725,21 +3756,23 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания выгодоприобретателя."
+          description: "Статус указания выгодоприобретателя. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "beneficiary_details"
           label: "Выгодоприобретатель по страхованию"
           type: "string"
           presentation: "fact"
-          description: "Выгодоприобретатель по полису (внутреннее поле)."
+          description: >
+            Выгодоприобретатель по полису (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "insurance_summary_display"
           type: "string"
           presentation: "fact"
           label: "Страхование ТС"
-          description: "Сводная информация о страховании (ОСАГО, КАСКО, плательщик, франшиза, выгодоприобретатель)."
+          description: >
+            Сводная информация о страховании (ОСАГО, КАСКО, плательщик, франшиза, выгодоприобретатель). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -4138,14 +4171,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус регламента действий при ДТП."
+          description: "Статус регламента действий при ДТП. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "accident_procedure_details"
           type: "string"
           presentation: "fact"
           label: "Порядок действий и оформление"
-          description: "Общий порядок действий при ДТП и оформление документов."
+          description: >
+            Общий порядок действий при ДТП и оформление документов. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -4154,14 +4188,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус уведомления арендодателя."
+          description: "Статус уведомления арендодателя. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "landlord_notification_details"
           label: "Landlord notification details"
           type: "string"
           presentation: "fact"
-          description: "Срок и порядок уведомления арендодателя о ДТП (внутреннее поле)."
+          description: >
+            Срок и порядок уведомления арендодателя о ДТП (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "police_europrotocol_status"
@@ -4169,14 +4204,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус вызова ГИБДД / европротокола."
+          description: "Статус вызова ГИБДД / европротокола. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "police_europrotocol_details"
           label: "Оформление ДТП (ГИБДД/европротокол)"
           type: "string"
           presentation: "fact"
-          description: "Формулировка о вызове ГИБДД или европротоколе (внутреннее поле)."
+          description: >
+            Формулировка о вызове ГИБДД или европротоколе (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "repair_consent_required_status"
@@ -4184,14 +4220,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус запрета ремонта без согласия."
+          description: "Статус запрета ремонта без согласия. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "repair_consent_required_details"
           type: "string"
           presentation: "fact"
           label: "Запрет ремонта без согласия"
-          description: "Запрет самостоятельного восстановительного ремонта ТС без согласия арендодателя."
+          description: >
+            Запрет самостоятельного восстановительного ремонта ТС без согласия арендодателя. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -4199,7 +4236,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Регламент при ДТП"
-          description: "Сводная информация о действиях при аварии (уведомление арендодателя, вызов ГИБДД, документы, запрет ремонта)."
+          description: >
+            Сводная информация о действиях при аварии (уведомление арендодателя, вызов ГИБДД, документы, запрет ремонта). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -4622,7 +4660,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус распределения ответственности перед третьими лицами."
+          description: "Статус распределения ответственности перед третьими лицами. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "third_party_liability_holder_code"
@@ -4630,14 +4668,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["landlord", "tenant", "not_defined"]
-          description: "Субъект ответственности перед третьими лицами (raw enum)."
+          description: "Субъект ответственности перед третьими лицами (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "third_party_liability_details"
           type: "string"
           presentation: "fact"
           label: "Вред третьим лицам (ИПО)"
-          description: "Распределение ответственности за вред третьим лицам и правила регресса."
+          description: >
+            Распределение ответственности за вред третьим лицам и правила регресса. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -4646,14 +4685,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус ссылки на ИПО."
+          description: "Статус ссылки на ИПО. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "hazardous_source_reference_details"
           label: "Упоминание источника повышенной опасности"
           type: "string"
           presentation: "fact"
-          description: "Формулировка об источнике повышенной опасности (внутреннее поле)."
+          description: >
+            Формулировка об источнике повышенной опасности (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "crew_liability_status"
@@ -4661,14 +4701,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус ответственности за действия экипажа."
+          description: "Статус ответственности за действия экипажа. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "crew_liability_details"
           label: "Ответственность экипажа"
           type: "string"
           presentation: "fact"
-          description: "Формулировка об ответственности за действия экипажа (внутреннее поле)."
+          description: >
+            Формулировка об ответственности за действия экипажа (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "maintenance_allocation_status"
@@ -4676,14 +4717,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус распределения обязанностей по ремонту."
+          description: "Статус распределения обязанностей по ремонту. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "maintenance_allocation_details"
           type: "string"
           presentation: "fact"
           label: "Текущий и кап. ремонт"
-          description: "Распределение обязанностей по текущему, капитальному ремонту и ТО ТС."
+          description: >
+            Распределение обязанностей по текущему, капитальному ремонту и ТО ТС. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -4691,7 +4733,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Ответственность и ремонт ТС"
-          description: "Сводная информация об ответственности перед третьими лицами и распределении ремонта/ТО."
+          description: >
+            Сводная информация об ответственности перед третьими лицами и распределении ремонта/ТО. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -5147,14 +5190,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус порядка возврата ТС."
+          description: "Статус порядка возврата ТС. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "return_procedure_details"
           label: "Порядок возврата имущества"
           type: "string"
           presentation: "fact"
-          description: "Формулировка о порядке и месте возврата ТС (внутреннее поле)."
+          description: >
+            Формулировка о порядке и месте возврата ТС (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "return_condition_status"
@@ -5162,14 +5206,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус допустимого состояния при возврате."
+          description: "Статус допустимого состояния при возврате. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "return_condition_details"
           type: "string"
           presentation: "fact"
           label: "Состояние и топливо при возврате"
-          description: "Требования к техническому состоянию, чистоте (мойке) ТС и уровню топлива при возврате."
+          description: >
+            Требования к техническому состоянию, чистоте (мойке) ТС и уровню топлива при возврате. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -5178,14 +5223,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус условия об уровне топлива."
+          description: "Статус условия об уровне топлива. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "fuel_level_details"
           label: "Фиксация уровня топлива"
           type: "string"
           presentation: "fact"
-          description: "Формулировка об уровне топлива при возврате ТС (внутреннее поле)."
+          description: >
+            Формулировка об уровне топлива при возврате ТС (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "late_return_penalty_status"
@@ -5193,14 +5239,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус штрафа за просрочку возврата."
+          description: "Статус штрафа за просрочку возврата. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "late_return_penalty_details"
           type: "string"
           presentation: "fact"
           label: "Штраф за просрочку возврата"
-          description: "Неустойка, пени или штрафные санкции за несвоевременный возврат транспортного средства."
+          description: >
+            Неустойка, пени или штрафные санкции за несвоевременный возврат транспортного средства. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -5209,14 +5256,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус оснований досрочного расторжения."
+          description: "Статус оснований досрочного расторжения. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "termination_grounds_details"
           label: "Основания расторжения"
           type: "string"
           presentation: "fact"
-          description: "Основания досрочного расторжения договора (внутреннее поле, дублирует global layer)."
+          description: >
+            Основания досрочного расторжения договора (внутреннее поле, дублирует global layer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "termination_notice_status"
@@ -5224,21 +5272,23 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус срока уведомления о расторжении."
+          description: "Статус срока уведомления о расторжении. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "termination_notice_details"
           label: "Срок уведомления о расторжении"
           type: "string"
           presentation: "fact"
-          description: "Срок предупреждения о расторжении (внутреннее поле, дублирует global layer)."
+          description: >
+            Срок предупреждения о расторжении (внутреннее поле, дублирует global layer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "return_summary_display"
           type: "string"
           presentation: "fact"
           label: "Порядок возврата ТС"
-          description: "Сводная информация о процедуре возврата автомобиля (акт, место, топливо, чистота ТС, штрафы за просрочку)."
+          description: >
+            Сводная информация о процедуре возврата автомобиля (акт, место, топливо, чистота ТС, штрафы за просрочку). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -5672,14 +5722,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус обязанности компенсировать штрафы."
+          description: "Статус обязанности компенсировать штрафы. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "fines_reimbursement_details"
           label: "Возмещение штрафов ПДД"
           type: "string"
           presentation: "fact"
-          description: "Формулировка об обязанности компенсировать административные штрафы (внутреннее поле)."
+          description: >
+            Формулировка об обязанности компенсировать административные штрафы (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "notification_procedure_status"
@@ -5687,14 +5738,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус порядка уведомления о штрафах."
+          description: "Статус порядка уведомления о штрафах. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "notification_procedure_details"
           label: "Порядок уведомления арендодателя"
           type: "string"
           presentation: "fact"
-          description: "Формулировка о порядке извещения Арендатора о штрафах (внутреннее поле)."
+          description: >
+            Формулировка о порядке извещения Арендатора о штрафах (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "reimbursement_deadline_status"
@@ -5702,14 +5754,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус срока компенсации."
+          description: "Статус срока компенсации. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "reimbursement_deadline_details"
           type: "string"
           presentation: "fact"
           label: "Срок возмещения штрафов"
-          description: "Срок компенсации сумм штрафов Арендатором с момента получения уведомления."
+          description: >
+            Срок компенсации сумм штрафов Арендатором с момента получения уведомления. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -5718,14 +5771,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус регрессного механизма."
+          description: "Статус регрессного механизма. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "regress_mechanism_details"
           label: "Механизм регрессного требования"
           type: "string"
           presentation: "fact"
-          description: "Формулировка о регрессном механизме и расходах на обжалование (внутреннее поле)."
+          description: >
+            Формулировка о регрессном механизме и расходах на обжалование (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "deposit_retention_for_fines_status"
@@ -5733,14 +5787,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус удержания штрафов из депозита."
+          description: "Статус удержания штрафов из депозита. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "deposit_retention_for_fines_details"
           type: "string"
           presentation: "fact"
           label: "Удержание из депозита"
-          description: "Право Арендодателя удержать сумму неоплаченных штрафов из обеспечительного платежа (депозита)."
+          description: >
+            Право Арендодателя удержать сумму неоплаченных штрафов из обеспечительного платежа (депозита). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -5748,7 +5803,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Компенсация штрафов"
-          description: "Сводная информация о механизме возмещения штрафов (ГИБДД, МАДИ, Платон, весогабарит, сроки, удержание из депозита)."
+          description: >
+            Сводная информация о механизме возмещения штрафов (ГИБДД, МАДИ, Платон, весогабарит, сроки, удержание из депозита). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -6193,14 +6249,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус требований к водителям."
+          description: "Статус требований к водителям. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "driver_requirements_details"
           type: "string"
           presentation: "fact"
           label: "Требования к водителям"
-          description: "Требования к возрасту, стажу вождения и категории водительского удостоверения."
+          description: >
+            Требования к возрасту, стажу вождения и категории водительского удостоверения. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -6209,14 +6266,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус перечня допущенных водителей."
+          description: "Статус перечня допущенных водителей. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "allowed_drivers_list_details"
           label: "Список разрешенных водителей"
           type: "string"
           presentation: "fact"
-          description: "Круг или поименный список допущенных к управлению водителей (внутреннее поле)."
+          description: >
+            Круг или поименный список допущенных к управлению водителей (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "transfer_prohibition_status"
@@ -6224,14 +6282,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус запрета передачи управления."
+          description: "Статус запрета передачи управления. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "transfer_prohibition_details"
           label: "Запрет передачи третьим лицам"
           type: "string"
           presentation: "fact"
-          description: "Запрет передачи управления транспортным средством третьим лицам (внутреннее поле)."
+          description: >
+            Запрет передачи управления транспортным средством третьим лицам (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "territorial_limits_status"
@@ -6239,14 +6298,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус территориальных ограничений."
+          description: "Статус территориальных ограничений. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "territorial_limits_details"
           type: "string"
           presentation: "fact"
           label: "Территория использования"
-          description: "Географические пределы и регионы разрешенной эксплуатации ТС."
+          description: >
+            Географические пределы и регионы разрешенной эксплуатации ТС. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -6255,14 +6315,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус запрета выезда за пределы РФ."
+          description: "Статус запрета выезда за пределы РФ. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "cross_border_restriction_details"
           label: "Ограничение на выезд за границу"
           type: "string"
           presentation: "fact"
-          description: "Запрет выезда на ТС за пределы Российской Федерации (внутреннее поле)."
+          description: >
+            Запрет выезда на ТС за пределы Российской Федерации (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "sublease_prohibition_status"
@@ -6270,21 +6331,23 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус запрета субаренды."
+          description: "Статус запрета субаренды. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "sublease_prohibition_details"
           label: "Запрет субаренды"
           type: "string"
           presentation: "fact"
-          description: "Запрет сдачи в субаренду, использования в такси, для буксировки и гонок (внутреннее поле)."
+          description: >
+            Запрет сдачи в субаренду, использования в такси, для буксировки и гонок (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "usage_restrictions_summary_display"
           type: "string"
           presentation: "fact"
           label: "Ограничения эксплуатации ТС"
-          description: "Сводная информация об ограничениях (стаж водителей, территория, выезд за рубеж, запрет передачи, субаренды и такси)."
+          description: >
+            Сводная информация об ограничениях (стаж водителей, территория, выезд за рубеж, запрет передачи, субаренды и такси). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -6713,14 +6776,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия депозита."
+          description: "Статус наличия депозита. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "deposit_details"
           label: "Сведения об обеспечительном платеже"
           type: "string"
           presentation: "fact"
-          description: "Размер и условия депозита (внутреннее поле)."
+          description: >
+            Размер и условия депозита (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "deposit_refund_status"
@@ -6728,14 +6792,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус порядка возврата депозита."
+          description: "Статус порядка возврата депозита. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "deposit_refund_details"
           label: "Порядок возврата депозита"
           type: "string"
           presentation: "fact"
-          description: "Формулировка о порядке и сроках возврата депозита (внутреннее поле)."
+          description: >
+            Формулировка о порядке и сроках возврата депозита (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "retention_criteria_status"
@@ -6743,14 +6808,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус критериев удержания."
+          description: "Статус критериев удержания. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "retention_criteria_details"
           label: "Критерии удержания депозита"
           type: "string"
           presentation: "fact"
-          description: "Формулировка об основаниях удержания из депозита (внутреннее поле)."
+          description: >
+            Формулировка об основаниях удержания из депозита (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "mileage_limit_status"
@@ -6758,14 +6824,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус лимита пробега / моточасов."
+          description: "Статус лимита пробега / моточасов. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "mileage_limit_details"
           type: "string"
           presentation: "fact"
           label: "Лимит пробега / моточасов"
-          description: "Установленное ограничение пробега (км/сутки, км/месяц) или лимит моточасов работы спецтехники."
+          description: >
+            Установленное ограничение пробега (км/сутки, км/месяц) или лимит моточасов работы спецтехники. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -6774,14 +6841,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус платы за сверхнормативный пробег / переработку."
+          description: "Статус платы за сверхнормативный пробег / переработку. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "excess_mileage_fee_details"
           type: "string"
           presentation: "fact"
           label: "Плата за перепробег"
-          description: "Тариф за каждый километр перепробега или дополнительный моточас работы сверх лимита."
+          description: >
+            Тариф за каждый километр перепробега или дополнительный моточас работы сверх лимита. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -6789,7 +6857,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Обеспечительный платеж (депозит)"
-          description: "Сводная информация об обеспечительном платеже (размер, порядок возврата и основания удержания)."
+          description: >
+            Сводная информация об обеспечительном платеже (размер, порядок возврата и основания удержания). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -7137,14 +7206,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус условий простоя ТС."
+          description: "Статус условий простоя ТС. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "downtime_compensation_details"
           type: "string"
           presentation: "fact"
           label: "Оплата при простое ТС"
-          description: "Распределение расходов и оплаты аренды в период простоя ТС."
+          description: >
+            Распределение расходов и оплаты аренды в период простоя ТС. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -7153,14 +7223,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус подменного ТС."
+          description: "Статус подменного ТС. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "replacement_vehicle_details"
           type: "string"
           presentation: "fact"
           label: "Подменное ТС"
-          description: "Обязанность, сроки и класс подменного транспортного средства."
+          description: >
+            Обязанность, сроки и класс подменного транспортного средства. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -7169,21 +7240,23 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус приостановки оплаты."
+          description: "Статус приостановки оплаты. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "payment_suspension_details"
           label: "Приостановка арендной платы при простое"
           type: "string"
           presentation: "fact"
-          description: "Условия приостановки или пересчёта оплаты аренды (внутреннее поле)."
+          description: >
+            Условия приостановки или пересчёта оплаты аренды (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "downtime_summary_display"
           type: "string"
           presentation: "fact"
           label: "Простой и подменное ТС"
-          description: "Сводка условий простоя ТС, подменного автомобиля и приостановки оплаты."
+          description: >
+            Сводка условий простоя ТС, подменного автомобиля и приостановки оплаты. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -7552,14 +7625,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус порядка действий при угоне."
+          description: "Статус порядка действий при угоне. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "theft_procedure_details"
           type: "string"
           presentation: "fact"
           label: "Порядок действий при угоне"
-          description: "Уведомление полиции, Арендодателя и страховой при угоне / хищении ТС."
+          description: >
+            Уведомление полиции, Арендодателя и страховой при угоне / хищении ТС. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -7568,14 +7642,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус распределения убытков при угоне."
+          description: "Статус распределения убытков при угоне. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "theft_liability_details"
           type: "string"
           presentation: "fact"
           label: "Убытки при угоне"
-          description: "Распределение убытков, не покрытых КАСКО (франшиза, стоимость ТС)."
+          description: >
+            Распределение убытков, не покрытых КАСКО (франшиза, стоимость ТС). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -7584,14 +7659,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус освобождения от оплаты при угоне."
+          description: "Статус освобождения от оплаты при угоне. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "rent_suspension_on_theft_details"
           label: "Приостановка аренды при угоне"
           type: "string"
           presentation: "fact"
-          description: "Условия освобождения от оплаты аренды с момента угона (внутреннее поле)."
+          description: >
+            Условия освобождения от оплаты аренды с момента угона (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "negligence_liability_status"
@@ -7599,21 +7675,23 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус ответственности за халатность."
+          description: "Статус ответственности за халатность. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "negligence_liability_details"
           label: "Ответственность при грубой неосторожности"
           type: "string"
           presentation: "fact"
-          description: "Ответственность Арендатора при халатности (внутреннее поле)."
+          description: >
+            Ответственность Арендатора при халатности (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "theft_summary_display"
           type: "string"
           presentation: "fact"
           label: "Угон / хищение ТС"
-          description: "Сводка условий при угоне (порядок действий, убытки, оплата, халатность)."
+          description: >
+            Сводка условий при угоне (порядок действий, убытки, оплата, халатность). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -7977,14 +8055,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус гарантийных заверений."
+          description: "Статус гарантийных заверений. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "warranty_details"
           type: "string"
           presentation: "fact"
           label: "Гарантия на ТС"
-          description: "Заверение Арендодателя об отсутствии скрытых недостатков."
+          description: >
+            Заверение Арендодателя об отсутствии скрытых недостатков. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -7993,14 +8072,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус срока заявления о недостатках."
+          description: "Статус срока заявления о недостатках. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "defect_notification_details"
           label: "Порядок уведомления о дефектах"
           type: "string"
           presentation: "fact"
-          description: "Срок и порядок заявления о скрытых недостатках (внутреннее поле)."
+          description: >
+            Срок и порядок заявления о скрытых недостатках (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "remediation_status"
@@ -8008,14 +8088,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус порядка устранения."
+          description: "Статус порядка устранения. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "remediation_details"
           type: "string"
           presentation: "fact"
           label: "Устранение недостатков"
-          description: "Порядок и сроки устранения недостатков Арендодателем."
+          description: >
+            Порядок и сроки устранения недостатков Арендодателем. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -8024,21 +8105,23 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус последствий неустранения."
+          description: "Статус последствий неустранения. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "remediation_consequences_details"
           label: "Последствия неустранения дефектов"
           type: "string"
           presentation: "fact"
-          description: "Последствия неустранения недостатков (внутреннее поле)."
+          description: >
+            Последствия неустранения недостатков (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "warranty_summary_display"
           type: "string"
           presentation: "fact"
           label: "Гарантия и скрытые недостатки"
-          description: "Сводка гарантийных обязательств и условий по скрытым дефектам ТС."
+          description: >
+            Сводка гарантийных обязательств и условий по скрытым дефектам ТС. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -8357,14 +8440,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус распределения расходов на эвакуацию."
+          description: "Статус распределения расходов на эвакуацию. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "evacuation_cost_details"
           type: "string"
           presentation: "fact"
           label: "Расходы на эвакуацию"
-          description: "Распределение расходов на эвакуацию и хранение ТС на штрафстоянке."
+          description: >
+            Распределение расходов на эвакуацию и хранение ТС на штрафстоянке. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -8373,21 +8457,23 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус возврата ТС со штрафстоянки."
+          description: "Статус возврата ТС со штрафстоянки. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "impound_return_details"
           label: "Порядок возврата со спецстоянки"
           type: "string"
           presentation: "fact"
-          description: "Сроки и порядок возврата ТС со штрафстоянки (внутреннее поле)."
+          description: >
+            Сроки и порядок возврата ТС со штрафстоянки (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "evacuation_summary_display"
           type: "string"
           presentation: "fact"
           label: "Эвакуация и штрафстоянка"
-          description: "Сводка условий эвакуации ТС (расходы, хранение, возврат)."
+          description: >
+            Сводка условий эвакуации ТС (расходы, хранение, возврат). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -8706,14 +8792,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус распределения ТО."
+          description: "Статус распределения ТО. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "maintenance_allocation_details"
           type: "string"
           presentation: "fact"
           label: "Плановое ТО и расходники"
-          description: "Распределение обязанностей по плановому ТО и расходным материалам."
+          description: >
+            Распределение обязанностей по плановому ТО и расходным материалам. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -8722,14 +8809,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус сезонных шин."
+          description: "Статус сезонных шин. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "seasonal_tires_details"
           type: "string"
           presentation: "fact"
           label: "Сезонные шины"
-          description: "Сезонная замена шин и хранение резины."
+          description: >
+            Сезонная замена шин и хранение резины. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -8737,7 +8825,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "ТО и сезонное обслуживание"
-          description: "Сводка обязанностей по ТО, расходникам и сезонным шинам."
+          description: >
+            Сводка обязанностей по ТО, расходникам и сезонным шинам. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -9100,14 +9189,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус обязанности по медосмотрам."
+          description: "Статус обязанности по медосмотрам. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "medical_check_obligation_details"
           type: "string"
           presentation: "fact"
           label: "Медосмотры водителей"
-          description: "Обязанность по организации предрейсовых/послерейсовых медосмотров (кто, за чей счёт)."
+          description: >
+            Обязанность по организации предрейсовых/послерейсовых медосмотров (кто, за чей счёт). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -9116,14 +9206,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус ответственности за допуск без осмотра."
+          description: "Статус ответственности за допуск без осмотра. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "medical_check_responsibility_details"
           type: "string"
           presentation: "fact"
           label: "Допуск без осмотра / опьянение"
-          description: "Запрет допуска водителя без медосмотра или в состоянии опьянения и распределение штрафов."
+          description: >
+            Запрет допуска водителя без медосмотра или в состоянии опьянения и распределение штрафов. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -9131,7 +9222,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Медосмотры и допуск водителей"
-          description: "Сводка условий по медосмотрам водителей и ответственности за допуск без осмотра."
+          description: >
+            Сводка условий по медосмотрам водителей и ответственности за допуск без осмотра. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -9613,14 +9705,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус требований к водителям."
+          description: "Статус требований к водителям. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "driver_requirements_details"
           type: "string"
           presentation: "fact"
           label: "Требования к водителям"
-          description: "Требования к возрасту, стажу вождения и категории водительского удостоверения."
+          description: >
+            Требования к возрасту, стажу вождения и категории водительского удостоверения. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -9629,14 +9722,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус перечня допущенных водителей."
+          description: "Статус перечня допущенных водителей. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "allowed_drivers_list_details"
           label: "Список разрешенных водителей"
           type: "string"
           presentation: "fact"
-          description: "Круг или поименный список допущенных к управлению водителей (внутреннее поле)."
+          description: >
+            Круг или поименный список допущенных к управлению водителей (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "transfer_prohibition_status"
@@ -9644,14 +9738,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус запрета передачи управления."
+          description: "Статус запрета передачи управления. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "transfer_prohibition_details"
           label: "Запрет передачи третьим лицам"
           type: "string"
           presentation: "fact"
-          description: "Запрет передачи управления транспортным средством третьим лицам (внутреннее поле)."
+          description: >
+            Запрет передачи управления транспортным средством третьим лицам (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "territorial_limits_status"
@@ -9659,14 +9754,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус территориальных ограничений."
+          description: "Статус территориальных ограничений. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "territorial_limits_details"
           type: "string"
           presentation: "fact"
           label: "Территория использования"
-          description: "Географические пределы и регионы разрешенной эксплуатации ТС."
+          description: >
+            Географические пределы и регионы разрешенной эксплуатации ТС. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -9675,14 +9771,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус запрета выезда за пределы РФ."
+          description: "Статус запрета выезда за пределы РФ. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "cross_border_restriction_details"
           label: "Ограничение на выезд за границу"
           type: "string"
           presentation: "fact"
-          description: "Запрет выезда на ТС за пределы Российской Федерации (внутреннее поле)."
+          description: >
+            Запрет выезда на ТС за пределы Российской Федерации (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "sublease_prohibition_status"
@@ -9690,14 +9787,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус запрета субаренды."
+          description: "Статус запрета субаренды. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "sublease_prohibition_details"
           label: "Запрет субаренды"
           type: "string"
           presentation: "fact"
-          description: "Запрет сдачи в субаренду, использования в такси, для буксировки и гонок (внутреннее поле)."
+          description: >
+            Запрет сдачи в субаренду, использования в такси, для буксировки и гонок (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "modification_prohibition_status"
@@ -9705,21 +9803,23 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус запрета модификации ТС."
+          description: "Статус запрета модификации ТС. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "modification_prohibition_details"
           label: "Запрет модификации ТС"
           type: "string"
           presentation: "fact"
-          description: "Запрет установки ГБО, тонировки, допоборудования и изменения конструкции ТС (внутреннее поле)."
+          description: >
+            Запрет установки ГБО, тонировки, допоборудования и изменения конструкции ТС (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "usage_restrictions_summary_display"
           type: "string"
           presentation: "fact"
           label: "Ограничения эксплуатации ТС"
-          description: "Сводная информация об ограничениях (стаж водителей, территория, выезд за рубеж, запрет передачи, субаренды, такси и модификации)."
+          description: >
+            Сводная информация об ограничениях (стаж водителей, территория, выезд за рубеж, запрет передачи, субаренды, такси и модификации). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -10120,14 +10220,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус порядка и сроков оплаты."
+          description: "Статус порядка и сроков оплаты. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "payment_schedule_details"
           type: "string"
           presentation: "fact"
           label: "Порядок оплаты"
-          description: "Периодичность, модель (аванс/постоплата), конкретные сроки оплаты, отсылка к графику платежей."
+          description: >
+            Периодичность, модель (аванс/постоплата), конкретные сроки оплаты, отсылка к графику платежей. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -10136,14 +10237,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус неустойки за просрочку оплаты."
+          description: "Статус неустойки за просрочку оплаты. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "late_payment_penalty_details"
           type: "string"
           presentation: "fact"
           label: "Неустойка за просрочку оплаты"
-          description: "Размер и порядок начисления неустойки (пени, проценты по ст. 395 ГК РФ)."
+          description: >
+            Размер и порядок начисления неустойки (пени, проценты по ст. 395 ГК РФ). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -10152,14 +10254,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус индексации арендной платы."
+          description: "Статус индексации арендной платы. Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "indexation_details"
           type: "string"
           presentation: "fact"
           label: "Индексация арендной платы"
-          description: "Порядок и периодичность индексации (ИПЦ, уведомление, ограничения)."
+          description: >
+            Порядок и периодичность индексации (ИПЦ, уведомление, ограничения). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -10167,7 +10270,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Порядок оплаты и неустойка"
-          description: "Сводка условий оплаты (сроки, модель, неустойка за просрочку, индексация)."
+          description: >
+            Сводка условий оплаты (сроки, модель, неустойка за просрочку, индексация). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 4

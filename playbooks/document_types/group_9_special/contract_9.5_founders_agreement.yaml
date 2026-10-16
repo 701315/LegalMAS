@@ -855,7 +855,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Учредители"
-          description: "Перечень учредителей с реквизитами (ФИО/наименование, ИНН, ОГРН, КПП, паспорт, адрес)."
+          description: >
+            Перечень учредителей с реквизитами (ФИО/наименование, ИНН, ОГРН, КПП, паспорт, адрес). Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "number_of_founders_status"
@@ -873,7 +874,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Количество учредителей"
-          description: "Количество учредителей (число). При отсутствии данных — 0."
+          description: >
+            Количество учредителей (число). При отсутствии данных — 0. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "company_name_status"
@@ -891,7 +893,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Наименование общества"
-          description: "Полное наименование создаваемого общества."
+          description: >
+            Полное наименование создаваемого общества. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "company_form_code"
@@ -899,7 +902,8 @@ checks_v8:
           presentation: "fact"
           allowed_values: ["ooo", "ao", "pao", "not_defined"]
           display_in_grid: false
-          description: "Организационно-правовая форма создаваемого общества (ooo / ao / pao)."
+          description: >
+            Организационно-правовая форма создаваемого общества (ooo / ao / pao). Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "company_location_status"
@@ -917,7 +921,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 4
           label: "Место нахождения"
-          description: "Место нахождения создаваемого общества."
+          description: >
+            Место нахождения создаваемого общества. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
       store_payload: true
@@ -1266,7 +1271,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Уставный капитал"
-          description: "Размер уставного капитала с указанием суммы и валюты."
+          description: >
+            Размер уставного капитала с указанием суммы и валюты. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "charter_capital_currency"
@@ -1274,7 +1280,8 @@ checks_v8:
           presentation: "fact"
           allowed_values: ["RUB", "other", "not_defined"]
           display_in_grid: false
-          description: "Валюта уставного капитала (для российского общества — RUB)."
+          description: >
+            Валюта уставного капитала (для российского общества — RUB). Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "shares_distribution_status"
@@ -1292,7 +1299,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Доли учредителей"
-          description: "Размер доли (в % или простой дроби) и номинальная стоимость в рублях для каждого учредителя."
+          description: >
+            Размер доли (в % или простой дроби) и номинальная стоимость в рублях для каждого учредителя. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "shares_total_100_status"
@@ -1310,7 +1318,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Сумма долей"
-          description: "Подтверждение, что сумма долей составляет 100%."
+          description: >
+            Подтверждение, что сумма долей составляет 100%. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
       store_payload: true
@@ -1667,7 +1676,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Срок оплаты долей"
-          description: "Конкретный срок оплаты долей так, как указан в договоре."
+          description: >
+            Конкретный срок оплаты долей так, как указан в договоре. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "payment_deadline_compliance"
@@ -1694,7 +1704,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Способ оплаты"
-          description: "Способ оплаты долей так, как указан в договоре."
+          description: >
+            Способ оплаты долей так, как указан в договоре. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "per_founder_payment_status"
@@ -1711,7 +1722,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Порядок оплаты по учредителям"
-          description: "Текст о порядке оплаты по учредителям (общий или персональный)."
+          description: >
+            Текст о порядке оплаты по учредителям (общий или персональный). Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
       store_payload: true
@@ -2091,7 +2103,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Неденежный вклад"
-          description: "Описание неденежного вклада так, как указано в договоре."
+          description: >
+            Описание неденежного вклада так, как указано в договоре. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "independent_valuation_status"
@@ -2109,7 +2122,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Оценка вклада"
-          description: "Сведения об оценщике и оценке неденежного вклада."
+          description: >
+            Сведения об оценщике и оценке неденежного вклада. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "valuation_approval_status"
@@ -2126,7 +2140,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Утверждение стоимости"
-          description: "Процедура утверждения стоимости вклада."
+          description: >
+            Процедура утверждения стоимости вклада. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "subsidiary_liability_status"
@@ -2144,7 +2159,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Ответственность за завышение"
-          description: "Текст о солидарно-субсидиарной ответственности участников и оценщика за завышение стоимости."
+          description: >
+            Текст о солидарно-субсидиарной ответственности участников и оценщика за завышение стоимости. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "valuation_compliance"
@@ -2516,7 +2532,7 @@ checks_v8:
           allowed_values: ["explicit_in_contract", "statutory_implicit", "modified_by_contract", "not_checkable"]
           display_in_grid: true
           display_priority: 1
-          description: "Источник условия об ответственности: воспроизведено / императивно по норме / искажено договором / неопределимо."
+          description: "Источник условия об ответственности: воспроизведено / императивно по норме / искажено договором / неопределимо. Внутреннее enum-поле."
           required: true
 
         - name: "pre_registration_liability_details"
@@ -2525,7 +2541,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Солидарно-субсидиарная ответственность"
-          description: "Текст оговорки об ответственности учредителей по обязательствам, возникшим до госрегистрации."
+          description: >
+            Текст оговорки об ответственности учредителей по обязательствам, возникшим до госрегистрации. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "pre_registration_scope_code"
@@ -2561,7 +2578,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Одобрение обществом"
-          description: "Текст о механизме последующего одобрения действий учредителей обществом."
+          description: >
+            Текст о механизме последующего одобрения действий учредителей обществом. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
       store_payload: true
@@ -2909,7 +2927,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Договоры до регистрации"
-          description: "Текст условия о механизме предварительного одобрения сделок, заключаемых от имени создаваемого общества."
+          description: >
+            Текст условия о механизме предварительного одобрения сделок, заключаемых от имени создаваемого общества. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "approval_mechanism_code"
@@ -2917,7 +2936,8 @@ checks_v8:
           presentation: "fact"
           allowed_values: ["unanimous", "majority", "authorized_person", "mixed", "not_defined"]
           display_in_grid: false
-          description: "Тип предварительного одобрения сделок, заключаемых от имени создаваемого общества."
+          description: >
+            Тип предварительного одобрения сделок, заключаемых от имени создаваемого общества. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "amount_limit_status"
@@ -2935,7 +2955,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Лимит полномочий"
-          description: "Значение лимита полномочий / предельной суммы сделки так, как указано в договоре."
+          description: >
+            Значение лимита полномочий / предельной суммы сделки так, как указано в договоре. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "approval_mechanism_details"
@@ -2943,7 +2964,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Механизм одобрения"
-          description: "Развёрнутый текст о типе одобрения и лимитах полномочий."
+          description: >
+            Развёрнутый текст о типе одобрения и лимитах полномочий. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
       store_payload: true
@@ -3311,7 +3333,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Корпоративный договор"
-          description: "Текст обязательства заключить корпоративный договор так, как указано в договоре."
+          description: >
+            Текст обязательства заключить корпоративный договор так, как указано в договоре. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "key_terms_previewed_status"
@@ -3329,7 +3352,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Согласованные условия"
-          description: "Перечень предварительно согласованных условий корпоративного договора."
+          description: >
+            Перечень предварительно согласованных условий корпоративного договора. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "deadline_for_conclusion_status"
@@ -3346,7 +3370,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Срок заключения"
-          description: "Срок заключения корпоративного договора так, как указано в договоре."
+          description: >
+            Срок заключения корпоративного договора так, как указано в договоре. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "corporate_agreement_compliance"
@@ -3713,7 +3738,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Выход учредителя"
-          description: "Текст процедуры выхода учредителя так, как указано в договоре."
+          description: >
+            Текст процедуры выхода учредителя так, как указано в договоре. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "notification_period_status"
@@ -3731,7 +3757,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Срок уведомления"
-          description: "Срок уведомления о выходе так, как указано в договоре."
+          description: >
+            Срок уведомления о выходе так, как указано в договоре. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "share_redistribution_status"
@@ -3748,7 +3775,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Распределение доли"
-          description: "Порядок распределения прав и обязанностей (доли) выходящего учредителя."
+          description: >
+            Порядок распределения прав и обязанностей (доли) выходящего учредителя. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "expense_reimbursement_status"
@@ -3765,7 +3793,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Возмещение расходов"
-          description: "Порядок возмещения расходов при выходе учредителя."
+          description: >
+            Порядок возмещения расходов при выходе учредителя. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "withdrawal_compliance"
@@ -4073,7 +4102,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Регистрация общества"
-          description: "Порядок совместных действий учредителей по регистрации общества в ФНС."
+          description: >
+            Порядок совместных действий учредителей по регистрации общества в ФНС. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "charter_approval_status"
@@ -4091,7 +4121,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Утверждение устава"
-          description: "Процедура утверждения устава создаваемого общества."
+          description: >
+            Процедура утверждения устава создаваемого общества. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
       store_payload: true
@@ -4421,7 +4452,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Расходы на учреждение"
-          description: "Порядок распределения расходов на создание общества и пошлины."
+          description: >
+            Порядок распределения расходов на создание общества и пошлины. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "tax_aspects_status"
@@ -4439,7 +4471,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Налогообложение вкладов"
-          description: "Условия налогообложения вкладов в уставный капитал (НДФЛ физлиц по ст. 217 НК РФ)."
+          description: >
+            Условия налогообложения вкладов в уставный капитал (НДФЛ физлиц по ст. 217 НК РФ). Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "personal_data_consent_status"
@@ -4456,7 +4489,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Персональные данные"
-          description: "Формулировка согласия на обработку и передачу ПДн в ФНС."
+          description: >
+            Формулировка согласия на обработку и передачу ПДн в ФНС. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
       store_payload: true
@@ -4760,7 +4794,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Избрание директора"
-          description: "Условия о кандидатуре генерального директора и процедуре его избрания учредителями."
+          description: >
+            Условия о кандидатуре генерального директора и процедуре его избрания учредителями. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "unanimous_decision_status"
@@ -4778,7 +4813,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Единогласные решения"
-          description: "Перечень корпоративных вопросов, требующих единогласного одобрения всеми учредителями."
+          description: >
+            Перечень корпоративных вопросов, требующих единогласного одобрения всеми учредителями. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
       store_payload: true
@@ -5140,7 +5176,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Срок действия"
-          description: "Текст условия о сроке действия договора об учреждении."
+          description: >
+            Текст условия о сроке действия договора об учреждении. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "post_registration_termination_status"
@@ -5158,7 +5195,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Прекращение после регистрации"
-          description: "Текст о прекращении действия договора после регистрации."
+          description: >
+            Текст о прекращении действия договора после регистрации. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "post_registration_provisions_status"
@@ -5176,7 +5214,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Положения после регистрации"
-          description: "Перечень положений, сохраняющих силу после регистрации."
+          description: >
+            Перечень положений, сохраняющих силу после регистрации. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "post_registration_regime_compliance"
@@ -5563,7 +5602,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Иностранный учредитель"
-          description: "Сведения об иностранном учредителе (наименование / ФИО, страна, регистрационные данные)."
+          description: >
+            Сведения об иностранном учредителе (наименование / ФИО, страна, регистрационные данные). Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "legalization_regime"
@@ -5590,7 +5630,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Апостиль/легализация"
-          description: "Текст о легализации документов иностранного учредителя."
+          description: >
+            Текст о легализации документов иностранного учредителя. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "translation_status"
@@ -5607,7 +5648,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Нотариальный перевод"
-          description: "Текст о нотариальном переводе документов иностранного учредителя."
+          description: >
+            Текст о нотариальном переводе документов иностранного учредителя. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "trade_registry_extract_status"
@@ -5624,7 +5666,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Выписка из реестра"
-          description: "Текст о выписке из торгового реестра (включая дату, если указана)."
+          description: >
+            Текст о выписке из торгового реестра (включая дату, если указана). Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "documentation_compliance"
@@ -5977,7 +6020,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Специфика споров"
-          description: "Текст о специальном порядке разрешения споров из самого договора об учреждении."
+          description: >
+            Текст о специальном порядке разрешения споров из самого договора об учреждении. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "confidentiality_status"
@@ -5994,7 +6038,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Конфиденциальность переговоров"
-          description: "Текст о конфиденциальности предрегистрационного контекста (переговоры, переписка, документы)."
+          description: >
+            Текст о конфиденциальности предрегистрационного контекста (переговоры, переписка, документы). Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "pretrial_status"
@@ -6347,7 +6392,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Подача в ФНС"
-          description: "Субъект, сроки и порядок подачи документов на регистрацию (Р11001/Р12001)."
+          description: >
+            Субъект, сроки и порядок подачи документов на регистрацию (Р11001/Р12001). Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "decision_confirmation_method"
@@ -6365,7 +6411,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Подтверждение решения"
-          description: "Формулировка способа подтверждения решения об учреждении."
+          description: >
+            Формулировка способа подтверждения решения об учреждении. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "registration_compliance"
@@ -6728,7 +6775,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Правоспособность"
-          description: "Заверения о правоспособности, дееспособности и отсутствии ограничений учредителей."
+          description: >
+            Заверения о правоспособности, дееспособности и отсутствии ограничений учредителей. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "document_accuracy_status"
@@ -6746,7 +6794,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Достоверность документов"
-          description: "Заверения о достоверности и полноте предоставляемых учредителями документов."
+          description: >
+            Заверения о достоверности и полноте предоставляемых учредителями документов. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "contribution_clean_status"
@@ -6764,7 +6813,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Чистота вклада"
-          description: "Заверения о том, что вклад свободен от залога, ареста и иных обременений."
+          description: >
+            Заверения о том, что вклад свободен от залога, ареста и иных обременений. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "corporate_approval_status"
@@ -6781,7 +6831,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Корпоративные одобрения"
-          description: "Заверения о получении корпоративных одобрений (крупная сделка, заинтересованность)."
+          description: >
+            Заверения о получении корпоративных одобрений (крупная сделка, заинтересованность). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -7098,7 +7149,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Устранение замечаний"
-          description: "Порядок и сроки устранения замечаний ФНС при отказе в регистрации."
+          description: >
+            Порядок и сроки устранения замечаний ФНС при отказе в регистрации. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "refusal_costs_status"
@@ -7116,7 +7168,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Расходы при отказе"
-          description: "Распределение расходов на повторную подачу документов после отказа ФНС."
+          description: >
+            Распределение расходов на повторную подачу документов после отказа ФНС. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "refusal_appeal_status"
@@ -7133,7 +7186,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Обжалование / расторжение"
-          description: "Порядок обжалования отказа ФНС и/или основания расторжения договора."
+          description: >
+            Порядок обжалования отказа ФНС и/или основания расторжения договора. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -7450,7 +7504,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Накопительный счёт"
-          description: "Порядок открытия накопительного счёта для формирования УК (банк, на чьё имя)."
+          description: >
+            Порядок открытия накопительного счёта для формирования УК (банк, на чьё имя). Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "funds_management_status"
@@ -7468,7 +7523,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Управление средствами"
-          description: "Порядок внесения и распоряжения средствами на накопительном счёте до регистрации."
+          description: >
+            Порядок внесения и распоряжения средствами на накопительном счёте до регистрации. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "funds_return_status"
@@ -7485,7 +7541,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Возврат средств"
-          description: "Порядок возврата средств учредителям при отказе ФНС или выходе из договора."
+          description: >
+            Порядок возврата средств учредителям при отказе ФНС или выходе из договора. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -7843,7 +7900,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Деятельность до регистрации"
-          description: "Условия ведения фактической деятельности через предварительные договоры до регистрации."
+          description: >
+            Условия ведения фактической деятельности через предварительные договоры до регистрации. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "profit_distribution_status"
@@ -7861,7 +7919,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Доходы переходного периода"
-          description: "Порядок распределения доходов, полученных до государственной регистрации."
+          description: >
+            Порядок распределения доходов, полученных до государственной регистрации. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "loss_allocation_status"
@@ -7879,7 +7938,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Убытки переходного периода"
-          description: "Порядок покрытия убытков, возникших до государственной регистрации."
+          description: >
+            Порядок покрытия убытков, возникших до государственной регистрации. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "tax_transitional_status"
@@ -7896,7 +7956,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Налоги переходного периода"
-          description: "Налоговые последствия деятельности до регистрации и порядок их учёта."
+          description: >
+            Налоговые последствия деятельности до регистрации и порядок их учёта. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -8246,7 +8307,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Порядок изменений"
-          description: "Общий порядок внесения изменений до регистрации (форма, кворум, сроки)."
+          description: >
+            Общий порядок внесения изменений до регистрации (форма, кворум, сроки). Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "new_founder_status"
@@ -8264,7 +8326,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Новый учредитель"
-          description: "Порядок и условия включения нового учредителя до регистрации."
+          description: >
+            Порядок и условия включения нового учредителя до регистрации. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "share_change_status"
@@ -8281,7 +8344,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Изменение долей"
-          description: "Порядок перераспределения долей или замены объекта вклада до регистрации."
+          description: >
+            Порядок перераспределения долей или замены объекта вклада до регистрации. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "name_change_status"
@@ -8298,7 +8362,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Смена наименования"
-          description: "Порядок изменения наименования общества (в т.ч. при замечаниях ФНС)."
+          description: >
+            Порядок изменения наименования общества (в т.ч. при замечаниях ФНС). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -8681,7 +8746,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Ответственность за убытки"
-          description: "Текст условия об ответственности учредителей за убытки, причинённые обществу или другим учредителям."
+          description: >
+            Текст условия об ответственности учредителей за убытки, причинённые обществу или другим учредителям. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "damages_liability_type"
@@ -8708,7 +8774,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Основания ответственности"
-          description: "Перечень оснований возникновения убытков (недостоверные заверения, срыв регистрации, неоплата доли, разглашение информации и т. п.)."
+          description: >
+            Перечень оснований возникновения убытков (недостоверные заверения, срыв регистрации, неоплата доли, разглашение информации и т. п.). Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "damages_liability_compliance"
@@ -9097,7 +9164,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Неустойка за неоплату"
-          description: "Текст условия о неустойке (штрафе, пенях) за неоплату или несвоевременную оплату доли."
+          description: >
+            Текст условия о неустойке (штрафе, пенях) за неоплату или несвоевременную оплату доли. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "non_payment_penalty_amount"
@@ -9105,7 +9173,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Размер неустойки"
-          description: "Размер неустойки и порядок её расчёта (например, «0,1% от неоплаченной суммы за каждый день просрочки»)."
+          description: >
+            Размер неустойки и порядок её расчёта (например, «0,1% от неоплаченной суммы за каждый день просрочки»). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "share_transfer_to_company_status"
@@ -9123,7 +9192,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Переход доли к обществу"
-          description: "Текст условия о переходе неоплаченной доли к обществу (ст. 23 п. 3 ФЗ-14)."
+          description: >
+            Текст условия о переходе неоплаченной доли к обществу (ст. 23 п. 3 ФЗ-14). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "non_payment_compliance"
@@ -9540,7 +9610,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Отчуждение доли"
-          description: "Текст общих правил отчуждения доли после государственной регистрации."
+          description: >
+            Текст общих правил отчуждения доли после государственной регистрации. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "preemptive_right_status"
@@ -9558,7 +9629,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Преимущественное право"
-          description: "Текст о преимущественном праве покупки доли другими участниками."
+          description: >
+            Текст о преимущественном праве покупки доли другими участниками. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "third_party_consent_status"
@@ -9575,7 +9647,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Согласие на отчуждение третьему лицу"
-          description: "Текст об условиях согласия участников на отчуждение доли третьему лицу."
+          description: >
+            Текст об условиях согласия участников на отчуждение доли третьему лицу. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "new_member_admission_status"
@@ -9592,7 +9665,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Новый участник"
-          description: "Порядок включения нового участника после регистрации."
+          description: >
+            Порядок включения нового участника после регистрации. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "share_transfer_compliance"
@@ -9983,7 +10057,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Наследование доли"
-          description: "Текст правил наследования доли в уставном капитале."
+          description: >
+            Текст правил наследования доли в уставном капитале. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "heirs_consent_status"
@@ -10001,7 +10076,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Согласие участников"
-          description: "Условия, сроки и порядок получения согласия участников на переход доли к наследникам."
+          description: >
+            Условия, сроки и порядок получения согласия участников на переход доли к наследникам. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "refusal_consequences_status"
@@ -10018,7 +10094,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Последствия отказа"
-          description: "Порядок выкупа доли, выплаты действительной стоимости или перехода доли к обществу при отказе в согласии."
+          description: >
+            Порядок выкупа доли, выплаты действительной стоимости или перехода доли к обществу при отказе в согласии. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "inheritance_compliance"
@@ -10431,7 +10508,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Третейская оговорка"
-          description: "Текст третейской оговорки с указанием конкретного третейского суда (арбитражного учреждения) и регламента."
+          description: >
+            Текст третейской оговорки с указанием конкретного третейского суда (арбитражного учреждения) и регламента. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "mediation_clause_status"
@@ -10449,7 +10527,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Медиация"
-          description: "Текст условия о медиации (порядок, сроки, выбор медиатора)."
+          description: >
+            Текст условия о медиации (порядок, сроки, выбор медиатора). Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "contractual_jurisdiction_status"
@@ -10466,7 +10545,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Договорная подсудность"
-          description: "Текст о договорной подсудности (конкретный суд)."
+          description: >
+            Текст о договорной подсудности (конкретный суд). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "dispute_mechanism_compliance"

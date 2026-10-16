@@ -1378,10 +1378,8 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: >
-            Статус упоминания исполнительной силы в тексте (информационно).
-            Отсутствие упоминания при notarial_status = "certified" не является дефектом —
-            сила возникает в силу закона (п. 2 ст. 100 СК РФ).
+          description: >-
+            Статус упоминания исполнительной силы в тексте (информационно). Отсутствие упоминания при notarial_status = "certified" не является дефектом — сила возникает в силу закона (п. 2 ст. 100 СК РФ). Внутреннее enum-поле.
           required: true
 
         - name: "executive_force_details"
@@ -2006,7 +2004,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения даты платежа."
+          description: "Статус определения даты платежа. Внутреннее enum-поле."
           required: true
         - name: "payment_deadline_details"
           type: "string"
@@ -2014,21 +2012,22 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Дата платежа"
-          description: "Конкретная дата ежемесячного платежа."
+          description: >
+            Конкретная дата ежемесячного платежа. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "payment_method_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения способа перечисления."
+          description: "Статус определения способа перечисления. Внутреннее enum-поле."
           required: true
         - name: "payment_method_code"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["bank_transfer", "cash", "postal", "payroll_deduction", "other", "not_defined"]
-          description: "Способ перечисления / удержания."
+          description: "Способ перечисления / удержания. Внутреннее enum-поле."
           required: true
         - name: "payment_method_details"
           type: "string"
@@ -2036,14 +2035,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Способ выплаты"
-          description: "Способ перечисления и реквизиты."
+          description: >
+            Способ перечисления и реквизиты. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "payment_confirmation_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус порядка подтверждения оплаты."
+          description: "Статус порядка подтверждения оплаты. Внутреннее enum-поле."
           required: true
         - name: "payment_confirmation_details"
           type: "string"
@@ -2051,7 +2051,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Подтверждение оплаты"
-          description: "Порядок подтверждения оплаты (платёжное поручение, выписка, расписка, квитанция)."
+          description: >
+            Порядок подтверждения оплаты (платёжное поручение, выписка, расписка, квитанция). Fallback: "Не установлено" / "Не удалось определить".
           required: false
       store_payload: true
 
@@ -2331,7 +2332,8 @@ checks_v8:
           display_priority: 1
           label: "Механизм индексации"
           allowed_values: ["concrete", "default_reference", "statutory_default", "not_applicable", "not_defined"]
-          description: "Механизм индексации: свой порядок / отсылка / дефолт ст. 105 СК РФ / не применимо."
+          description: >
+            Механизм индексации: свой порядок / отсылка / дефолт ст. 105 СК РФ / не применимо. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "indexation_basis"
           type: "string"
@@ -2340,14 +2342,15 @@ checks_v8:
           display_priority: 2
           label: "База индексации"
           allowed_values: ["subsistence_minimum", "CPI", "fixed_percentage", "other", "not_defined"]
-          description: "Основание индексации: прожиточный минимум / ИПЦ / фиксированный %."
+          description: >
+            Основание индексации: прожиточный минимум / ИПЦ / фиксированный %. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "indexation_frequency_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус периодичности индексации."
+          description: "Статус периодичности индексации. Внутреннее enum-поле."
           required: true
         - name: "indexation_frequency_details"
           type: "string"
@@ -2355,14 +2358,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Периодичность индексации"
-          description: "Периодичность индексации алиментов."
+          description: >
+            Периодичность индексации алиментов. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "indexation_performer_status"
           type: "string"
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания на лицо, производящее индексацию."
+          description: "Статус указания на лицо, производящее индексацию. Внутреннее enum-поле."
           required: true
         - name: "indexation_performer_details"
           type: "string"
@@ -2370,7 +2374,8 @@ checks_v8:
           display_in_grid: false
           display_priority: 5
           label: "Кто индексирует"
-          description: "Кто производит индексацию (плательщик / работодатель / пристав / иное)."
+          description: >
+            Кто производит индексацию (плательщик / работодатель / пристав / иное). Fallback: "Не установлено" / "Не удалось определить".
           required: false
       store_payload: true
 
@@ -2654,14 +2659,15 @@ checks_v8:
           display_priority: 1
           label: "Механизм изменения"
           allowed_values: ["defined", "statutory_default", "not_applicable", "not_defined"]
-          description: "Наличие оговорки о механизме изменения: оговорка / дефолт ст. 101 СК РФ / не применимо."
+          description: >
+            Наличие оговорки о механизме изменения: оговорка / дефолт ст. 101 СК РФ / не применимо. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "adjustment_grounds_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус перечня оснований для пересмотра."
+          description: "Статус перечня оснований для пересмотра. Внутреннее enum-поле."
           required: true
         - name: "adjustment_grounds_details"
           type: "string"
@@ -2669,7 +2675,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Основания изменения"
-          description: "Перечень оснований для изменения размера алиментов."
+          description: >
+            Перечень оснований для изменения размера алиментов. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "adjustment_procedure_code"
           type: "string"
@@ -2678,7 +2685,8 @@ checks_v8:
           display_priority: 3
           label: "Порядок изменения"
           allowed_values: ["negotiation", "court", "both", "statutory_default", "not_defined"]
-          description: "Порядок изменения: переговоры / суд / оба / дефолт ст. 101 СК РФ."
+          description: >
+            Порядок изменения: переговоры / суд / оба / дефолт ст. 101 СК РФ. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "adjustment_procedure_details"
           type: "string"
@@ -2686,7 +2694,8 @@ checks_v8:
           display_in_grid: false
           display_priority: 5
           label: "Детали порядка изменения"
-          description: "Текстовая детализация порядка изменения и досудебных процедур."
+          description: >
+            Текстовая детализация порядка изменения и досудебных процедур. Fallback: "Не установлено" / "Не удалось определить".
           required: false
       store_payload: true
 
@@ -2969,14 +2978,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия оговорки о неустойке в тексте."
+          description: "Статус наличия оговорки о неустойке в тексте. Внутреннее enum-поле."
           required: true
         - name: "penalty_rate_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания размера неустойки."
+          description: "Статус указания размера неустойки. Внутреннее enum-поле."
           required: true
         - name: "penalty_rate_details"
           type: "string"
@@ -2984,7 +2993,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Размер неустойки"
-          description: "Размер неустойки за просрочку."
+          description: >
+            Размер неустойки за просрочку. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "penalty_type"
           type: "string"
@@ -2993,7 +3003,8 @@ checks_v8:
           display_priority: 2
           label: "Тип неустойки"
           allowed_values: ["per_day", "per_month", "fixed", "other", "statutory_default", "not_defined"]
-          description: "Тип неустойки: за день / за месяц / фиксированная / дефолт ст. 115 СК РФ."
+          description: >
+            Тип неустойки: за день / за месяц / фиксированная / дефолт ст. 115 СК РФ. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "additional_damages_regime"
           type: "string"
@@ -3002,7 +3013,8 @@ checks_v8:
           display_priority: 3
           label: "Убытки сверх неустойки"
           allowed_values: ["provided", "waived", "statutory_default", "not_defined"]
-          description: "Право на убытки сверх неустойки: установлено / ограничено / дефолт п. 2 ст. 115 СК РФ."
+          description: >
+            Право на убытки сверх неустойки: установлено / ограничено / дефолт п. 2 ст. 115 СК РФ. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "additional_damages_details"
           type: "string"
@@ -3010,7 +3022,8 @@ checks_v8:
           display_in_grid: false
           display_priority: 6
           label: "Детали убытков"
-          description: "Условия о убытках сверх неустойки."
+          description: >
+            Условия о убытках сверх неустойки. Fallback: "Не установлено" / "Не удалось определить".
           required: false
       store_payload: true
 
@@ -3307,14 +3320,15 @@ checks_v8:
           display_priority: 1
           label: "Зачёт допрасходов"
           allowed_values: ["provided", "prohibited", "statutory_default", "not_defined"]
-          description: "Режим зачёта дополнительных расходов (ст. 86 СК РФ)."
+          description: >
+            Режим зачёта дополнительных расходов (ст. 86 СК РФ). Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "offset_categories_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус перечня категорий расходов."
+          description: "Статус перечня категорий расходов. Внутреннее enum-поле."
           required: true
         - name: "offset_categories_details"
           type: "string"
@@ -3322,14 +3336,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Категории расходов"
-          description: "Перечень категорий расходов, подлежащих зачёту."
+          description: >
+            Перечень категорий расходов, подлежащих зачёту. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "exceptional_circumstances_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания исключительных обстоятельств."
+          description: "Статус указания исключительных обстоятельств. Внутреннее enum-поле."
           required: true
         - name: "exceptional_circumstances_details"
           type: "string"
@@ -3337,7 +3352,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Исключительные обстоятельства"
-          description: "Исключительные обстоятельства (тяжёлая болезнь, увечье, уход)."
+          description: >
+            Исключительные обстоятельства (тяжёлая болезнь, увечье, уход). Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "overpayment_credit_regime"
           type: "string"
@@ -3346,7 +3362,8 @@ checks_v8:
           display_priority: 4
           label: "Зачёт переплаты"
           allowed_values: ["allowed", "prohibited", "statutory_default", "not_defined"]
-          description: "Режим зачёта переплаты в счёт будущих платежей."
+          description: >
+            Режим зачёта переплаты в счёт будущих платежей. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "overpayment_credit_details"
           type: "string"
@@ -3354,7 +3371,8 @@ checks_v8:
           display_in_grid: false
           display_priority: 7
           label: "Детали зачёта переплаты"
-          description: "Условия о зачёте переплаты."
+          description: >
+            Условия о зачёте переплаты. Fallback: "Не установлено" / "Не удалось определить".
           required: false
       store_payload: true
 
@@ -3652,7 +3670,8 @@ checks_v8:
           display_priority: 1
           label: "Механизм прекращения"
           allowed_values: ["defined", "statutory_default", "not_applicable", "not_defined"]
-          description: "Наличие перечня оснований прекращения: оговорка / дефолт ст. 120 СК РФ / не применимо."
+          description: >
+            Наличие перечня оснований прекращения: оговорка / дефолт ст. 120 СК РФ / не применимо. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "termination_events_details"
           type: "string"
@@ -3660,14 +3679,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Основания прекращения"
-          description: "Перечень оснований прекращения обязательств."
+          description: >
+            Перечень оснований прекращения обязательств. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "end_date_or_event_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус конечной даты/события."
+          description: "Статус конечной даты/события. Внутреннее enum-поле."
           required: true
         - name: "end_date_or_event_details"
           type: "string"
@@ -3675,7 +3695,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Дата/событие окончания"
-          description: "Конкретная дата или событие окончания обязательств."
+          description: >
+            Конкретная дата или событие окончания обязательств. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "death_clause_status"
           type: "string"
@@ -3684,7 +3705,8 @@ checks_v8:
           display_priority: 4
           label: "Оговорка о смерти"
           allowed_values: ["defined", "not_defined"]
-          description: "Условие о смерти плательщика/получателя как основание прекращения."
+          description: >
+            Условие о смерти плательщика/получателя как основание прекращения. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "unilateral_refusal_regime"
           type: "string"
@@ -3693,7 +3715,8 @@ checks_v8:
           display_priority: 5
           label: "Односторонний отказ"
           allowed_values: ["prohibited", "allowed", "statutory_default", "not_defined"]
-          description: "Режим одностороннего отказа (п. 2 ст. 101 СК РФ): запрещён / допущен / дефолт закона."
+          description: >
+            Режим одностороннего отказа (п. 2 ст. 101 СК РФ): запрещён / допущен / дефолт закона. Fallback: "Не установлено" / "Не удалось определить".
           required: false
       store_payload: true
 
@@ -3985,7 +4008,8 @@ checks_v8:
           display_priority: 1
           label: "Целевое использование"
           allowed_values: ["defined", "statutory_default", "not_applicable", "not_defined"]
-          description: "Режим целевого использования алиментов: установлен / дефолт ст. 60 СК РФ / не применимо."
+          description: >
+            Режим целевого использования алиментов: установлен / дефолт ст. 60 СК РФ / не применимо. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "targeted_use_purpose_details"
           type: "string"
@@ -3993,7 +4017,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Назначение средств"
-          description: "Согласованный перечень целей расходования (питание / лечение / образование и т.п.)."
+          description: >
+            Согласованный перечень целей расходования (питание / лечение / образование и т.п.). Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "reporting_regime"
           type: "string"
@@ -4002,7 +4027,8 @@ checks_v8:
           display_priority: 3
           label: "Отчётность получателя"
           allowed_values: ["periodic", "on_demand", "prohibited", "statutory_default", "not_defined"]
-          description: "Режим отчётности получателя перед плательщиком: периодическая / по требованию / запрещена / дефолт."
+          description: >
+            Режим отчётности получателя перед плательщиком: периодическая / по требованию / запрещена / дефолт. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "reporting_details"
           type: "string"
@@ -4010,14 +4036,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 4
           label: "Детали отчётности"
-          description: "Форма и периодичность отчёта о расходовании."
+          description: >
+            Форма и периодичность отчёта о расходовании. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "disposition_restrictions_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус ограничений на распоряжение средствами без согласия плательщика."
+          description: "Статус ограничений на распоряжение средствами без согласия плательщика. Внутреннее enum-поле."
           required: true
       store_payload: true
 
@@ -4315,7 +4342,8 @@ checks_v8:
           display_priority: 1
           label: "Соответствие интересам ребёнка"
           allowed_values: ["compliant", "potential_violation", "unclear", "not_applicable", "not_defined"]
-          description: "Соответствие условий соглашения интересам ребёнка (ст. 102, п. 2 ст. 103 СК РФ)."
+          description: >
+            Соответствие условий соглашения интересам ребёнка (ст. 102, п. 2 ст. 103 СК РФ). Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "child_interest_note"
           type: "string"
@@ -4323,7 +4351,8 @@ checks_v8:
           display_in_grid: false
           display_priority: 7
           label: "Обоснование"
-          description: "Краткое обоснование статуса соответствия интересам ребёнка."
+          description: >
+            Краткое обоснование статуса соответствия интересам ребёнка. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "challenge_risk_status"
           type: "string"
@@ -4332,7 +4361,8 @@ checks_v8:
           display_priority: 2
           label: "Риск оспаривания"
           allowed_values: ["low", "medium", "high", "not_defined"]
-          description: "Риск признания соглашения недействительным по п. 2 ст. 103 СК РФ."
+          description: >
+            Риск признания соглашения недействительным по п. 2 ст. 103 СК РФ. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "challenge_risk_basis"
           type: "string"
@@ -4340,14 +4370,15 @@ checks_v8:
           display_in_grid: false
           display_priority: 8
           label: "Обоснование риска"
-          description: "Правовая аргументация оценки риска."
+          description: >
+            Правовая аргументация оценки риска. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "restrictive_clauses_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия дискриминационных / кабальных условий."
+          description: "Статус наличия дискриминационных / кабальных условий. Внутреннее enum-поле."
           required: true
         - name: "restrictive_clauses_details"
           type: "string"
@@ -4355,7 +4386,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Кабальные условия"
-          description: "Перечень дискриминационных / кабальных условий."
+          description: >
+            Перечень дискриминационных / кабальных условий. Fallback: "Не установлено" / "Не удалось определить".
           required: false
       store_payload: true
 
@@ -4656,7 +4688,8 @@ checks_v8:
           display_priority: 1
           label: "Механизм задолженности"
           allowed_values: ["defined", "statutory_default", "not_defined"]
-          description: "Наличие механизма определения задолженности: оговорка / дефолт ст. 113 СК РФ."
+          description: >
+            Наличие механизма определения задолженности: оговорка / дефолт ст. 113 СК РФ. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "arrears_calculation_details"
           type: "string"
@@ -4664,14 +4697,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Расчёт задолженности"
-          description: "Механизм расчёта задолженности."
+          description: >
+            Механизм расчёта задолженности. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "statutory_limit_3y_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "statutory_default", "not_defined"]
-          description: "Статус указания 3-летнего предела."
+          description: "Статус указания 3-летнего предела. Внутреннее enum-поле."
           required: true
         - name: "statutory_limit_3y_details"
           type: "string"
@@ -4679,14 +4713,15 @@ checks_v8:
           display_in_grid: false
           display_priority: 8
           label: "3-летний предел"
-          description: "Условия 3-летнего предела взыскания задолженности."
+          description: >
+            Условия 3-летнего предела взыскания задолженности. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "indexation_of_arrears_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "statutory_default", "not_defined"]
-          description: "Статус указания индексации задолженности."
+          description: "Статус указания индексации задолженности. Внутреннее enum-поле."
           required: true
         - name: "indexation_of_arrears_details"
           type: "string"
@@ -4694,14 +4729,15 @@ checks_v8:
           display_in_grid: false
           display_priority: 9
           label: "Индексация задолженности"
-          description: "Механизм индексации задолженности."
+          description: >
+            Механизм индексации задолженности. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "enforcement_procedure_status"
           type: "string"
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания порядка взыскания."
+          description: "Статус указания порядка взыскания. Внутреннее enum-поле."
           required: true
       store_payload: true
 
@@ -5000,7 +5036,8 @@ checks_v8:
           display_priority: 1
           label: "Налоговая оговорка"
           allowed_values: ["defined", "statutory_default", "not_defined"]
-          description: "Наличие налоговой оговорки в тексте: оговорка / дефолт закона."
+          description: >
+            Наличие налоговой оговорки в тексте: оговорка / дефолт закона. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "tax_clause_details"
           type: "string"
@@ -5008,7 +5045,8 @@ checks_v8:
           display_in_grid: false
           display_priority: 6
           label: "Детали налоговой оговорки"
-          description: "Текст налоговой оговорки."
+          description: >
+            Текст налоговой оговорки. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "ndfl_exemption_status"
           type: "string"
@@ -5017,7 +5055,8 @@ checks_v8:
           display_priority: 2
           label: "НДФЛ получателя"
           allowed_values: ["exempt", "not_exempt", "statutory_default", "not_defined"]
-          description: "Налоговый статус получателя по НДФЛ (освобождён по п. 5 ст. 217 НК РФ)."
+          description: >
+            Налоговый статус получателя по НДФЛ (освобождён по п. 5 ст. 217 НК РФ). Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "payer_deduction_regime"
           type: "string"
@@ -5026,14 +5065,15 @@ checks_v8:
           display_priority: 3
           label: "Вычет плательщика"
           allowed_values: ["not_available", "available", "statutory_default", "not_defined"]
-          description: "Режим налогового вычета у плательщика (по умолчанию не предоставляется)."
+          description: >
+            Режим налогового вычета у плательщика (по умолчанию не предоставляется). Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "payroll_tax_reporting_status"
           type: "string"
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания удержания по месту работы."
+          description: "Статус указания удержания по месту работы. Внутреннее enum-поле."
           required: true
         - name: "payroll_tax_reporting_details"
           type: "string"
@@ -5041,7 +5081,8 @@ checks_v8:
           display_in_grid: false
           display_priority: 7
           label: "Удержание по месту работы"
-          description: "Условия удержания по месту работы плательщика."
+          description: >
+            Условия удержания по месту работы плательщика. Fallback: "Не установлено" / "Не удалось определить".
           required: false
       store_payload: true
 
@@ -5344,14 +5385,15 @@ checks_v8:
           display_priority: 1
           label: "Предел удержания"
           allowed_values: ["defined", "statutory_default", "not_defined"]
-          description: "Режим пределов удержания из заработка (ст. 138 ТК РФ)."
+          description: >
+            Режим пределов удержания из заработка (ст. 138 ТК РФ). Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "withholding_limit_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания конкретного предела."
+          description: "Статус указания конкретного предела. Внутреннее enum-поле."
           required: true
         - name: "withholding_limit_details"
           type: "string"
@@ -5359,7 +5401,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Предел в тексте"
-          description: "Конкретный предел удержания, указанный в тексте."
+          description: >
+            Конкретный предел удержания, указанный в тексте. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "priority_regime"
           type: "string"
@@ -5368,7 +5411,8 @@ checks_v8:
           display_priority: 3
           label: "Очерёдность взыскания"
           allowed_values: ["defined", "statutory_default", "not_defined"]
-          description: "Очерёдность требований (ст. 111 ФЗ №229-ФЗ)."
+          description: >
+            Очерёдность требований (ст. 111 ФЗ №229-ФЗ). Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "priority_details"
           type: "string"
@@ -5376,14 +5420,15 @@ checks_v8:
           display_in_grid: false
           display_priority: 7
           label: "Детали очерёдности"
-          description: "Детали очерёдности взыскания."
+          description: >
+            Детали очерёдности взыскания. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "other_obligations_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["declared", "not_declared", "not_defined"]
-          description: "Наличие других обязательств плательщика."
+          description: "Наличие других обязательств плательщика. Внутреннее enum-поле."
           required: true
         - name: "other_obligations_details"
           type: "string"
@@ -5391,7 +5436,8 @@ checks_v8:
           display_in_grid: false
           display_priority: 8
           label: "Другие обязательства"
-          description: "Перечень других обязательств плательщика."
+          description: >
+            Перечень других обязательств плательщика. Fallback: "Не установлено" / "Не удалось определить".
           required: false
       store_payload: true
 
@@ -5705,7 +5751,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания основания обязанности."
+          description: "Статус указания основания обязанности. Внутреннее enum-поле."
           required: true
         - name: "paternity_basis_details"
           type: "string"
@@ -5713,7 +5759,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Основание обязанности"
-          description: "Основание алиментной обязанности (свидетельство о рождении, судебное решение и т.п.)."
+          description: >
+            Основание алиментной обязанности (свидетельство о рождении, судебное решение и т.п.). Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "challenge_risk_status"
           type: "string"
@@ -5722,7 +5769,8 @@ checks_v8:
           display_priority: 2
           label: "Риск оспаривания"
           allowed_values: ["low", "medium", "high", "not_applicable", "not_defined"]
-          description: "Риск оспаривания отцовства/материнства по ст. 52 СК РФ."
+          description: >
+            Риск оспаривания отцовства/материнства по ст. 52 СК РФ. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "challenge_risk_basis"
           type: "string"
@@ -5730,14 +5778,15 @@ checks_v8:
           display_in_grid: false
           display_priority: 6
           label: "Обоснование риска"
-          description: "Правовая аргументация оценки риска."
+          description: >
+            Правовая аргументация оценки риска. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "consequences_on_termination_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания последствий оспаривания."
+          description: "Статус указания последствий оспаривания. Внутреннее enum-поле."
           required: true
         - name: "consequences_on_termination_details"
           type: "string"
@@ -5745,7 +5794,8 @@ checks_v8:
           display_in_grid: false
           display_priority: 7
           label: "Последствия"
-          description: "Условия о последствиях оспаривания отцовства/материнства."
+          description: >
+            Условия о последствиях оспаривания отцовства/материнства. Fallback: "Не установлено" / "Не удалось определить".
           required: false
       store_payload: true
 
@@ -6057,14 +6107,15 @@ checks_v8:
           display_priority: 1
           label: "Уступка алиментов"
           allowed_values: ["prohibited_by_law", "attempted", "not_defined"]
-          description: "Режим уступки: запрещено законом / попытка закрепления / неопределимо."
+          description: >
+            Режим уступки: запрещено законом / попытка закрепления / неопределимо. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "assignment_clause_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия оговорки об уступке в тексте."
+          description: "Статус наличия оговорки об уступке в тексте. Внутреннее enum-поле."
           required: true
         - name: "assignment_clause_details"
           type: "string"
@@ -6072,7 +6123,8 @@ checks_v8:
           display_in_grid: false
           display_priority: 6
           label: "Детали уступки"
-          description: "Условия об уступке из текста."
+          description: >
+            Условия об уступке из текста. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "enforcement_protection_status"
           type: "string"
@@ -6081,7 +6133,8 @@ checks_v8:
           display_priority: 2
           label: "Защита от взыскания"
           allowed_values: ["protected", "statutory_default", "not_defined"]
-          description: "Защита алиментов от взыскания по ст. 446 ГПК РФ."
+          description: >
+            Защита алиментов от взыскания по ст. 446 ГПК РФ. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "third_party_claims_status"
           type: "string"
@@ -6090,7 +6143,8 @@ checks_v8:
           display_priority: 3
           label: "Права третьих лиц"
           allowed_values: ["excluded", "allowed", "not_defined"]
-          description: "Режим притязаний третьих лиц на алименты."
+          description: >
+            Режим притязаний третьих лиц на алименты. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "third_party_claims_details"
           type: "string"
@@ -6098,7 +6152,8 @@ checks_v8:
           display_in_grid: false
           display_priority: 7
           label: "Детали прав третьих лиц"
-          description: "Условия о правах третьих лиц."
+          description: >
+            Условия о правах третьих лиц. Fallback: "Не установлено" / "Не удалось определить".
           required: false
       store_payload: true
 
@@ -6405,7 +6460,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания числа детей."
+          description: "Статус указания числа детей. Внутреннее enum-поле."
           required: true
         - name: "children_count_value"
           type: "string"
@@ -6413,7 +6468,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Число детей"
-          description: "Число детей, на которых уплачиваются алименты."
+          description: >
+            Число детей, на которых уплачиваются алименты. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "per_child_allocation_status"
           type: "string"
@@ -6422,7 +6478,8 @@ checks_v8:
           display_priority: 2
           label: "Распределение долей"
           allowed_values: ["defined", "aggregate", "not_defined"]
-          description: "Способ распределения долей между детьми."
+          description: >
+            Способ распределения долей между детьми. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "per_child_allocation_details"
           type: "string"
@@ -6430,7 +6487,8 @@ checks_v8:
           display_in_grid: false
           display_priority: 6
           label: "Детали распределения"
-          description: "Детали распределения долей."
+          description: >
+            Детали распределения долей. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "aggregate_withholding_status"
           type: "string"
@@ -6439,7 +6497,8 @@ checks_v8:
           display_priority: 3
           label: "Совокупный предел"
           allowed_values: ["within_limit", "exceeds_limit", "not_evaluable", "not_defined"]
-          description: "Соответствие совокупного размера удержаний пределу 70%."
+          description: >
+            Соответствие совокупного размера удержаний пределу 70%. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "aggregate_withholding_details"
           type: "string"
@@ -6447,14 +6506,15 @@ checks_v8:
           display_in_grid: false
           display_priority: 7
           label: "Обоснование предела"
-          description: "Расчёт и обоснование совокупного предела."
+          description: >
+            Расчёт и обоснование совокупного предела. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "reduction_risk_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие механизма перерасчёта при изменении обстоятельств."
+          description: "Наличие механизма перерасчёта при изменении обстоятельств. Внутреннее enum-поле."
           required: true
       store_payload: true
 
@@ -6766,7 +6826,8 @@ checks_v8:
           display_priority: 1
           label: "Банкротство плательщика"
           allowed_values: ["defined", "statutory_default", "not_defined"]
-          description: "Режим при банкротстве плательщика: оговорка / дефолт закона."
+          description: >
+            Режим при банкротстве плательщика: оговорка / дефолт закона. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "payer_bankruptcy_protection_details"
           type: "string"
@@ -6774,7 +6835,8 @@ checks_v8:
           display_in_grid: false
           display_priority: 6
           label: "Детали банкротства плательщика"
-          description: "Условия о банкротстве плательщика."
+          description: >
+            Условия о банкротстве плательщика. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "payee_bankruptcy_protection_status"
           type: "string"
@@ -6783,7 +6845,8 @@ checks_v8:
           display_priority: 2
           label: "Банкротство получателя"
           allowed_values: ["defined", "statutory_default", "not_defined"]
-          description: "Защита алиментов при банкротстве получателя."
+          description: >
+            Защита алиментов при банкротстве получателя. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "payee_bankruptcy_protection_details"
           type: "string"
@@ -6791,7 +6854,8 @@ checks_v8:
           display_in_grid: false
           display_priority: 7
           label: "Детали банкротства получателя"
-          description: "Условия о защите от конкурсной массы."
+          description: >
+            Условия о защите от конкурсной массы. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "priority_in_bankruptcy_status"
           type: "string"
@@ -6800,7 +6864,8 @@ checks_v8:
           display_priority: 3
           label: "Очередь в банкротстве"
           allowed_values: ["defined", "statutory_default", "not_defined"]
-          description: "Приоритет алиментных требований при банкротстве."
+          description: >
+            Приоритет алиментных требований при банкротстве. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "priority_in_bankruptcy_details"
           type: "string"
@@ -6808,7 +6873,8 @@ checks_v8:
           display_in_grid: false
           display_priority: 8
           label: "Детали очереди"
-          description: "Детали приоритета алиментных требований."
+          description: >
+            Детали приоритета алиментных требований. Fallback: "Не установлено" / "Не удалось определить".
           required: false
       store_payload: true
 
@@ -7117,7 +7183,8 @@ checks_v8:
           display_priority: 1
           label: "Категория члена семьи"
           allowed_values: ["sibling", "grandparent", "grandchild", "foster_child", "step_parent", "other_family_member", "not_applicable", "not_defined"]
-          description: "Категория иного члена семьи — получателя алиментов (ст. 93–97 СК РФ)."
+          description: >
+            Категория иного члена семьи — получателя алиментов (ст. 93–97 СК РФ). Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "family_category_details"
           type: "string"
@@ -7125,14 +7192,15 @@ checks_v8:
           display_in_grid: false
           display_priority: 6
           label: "Описание получателя"
-          description: "Детализация категории получателя."
+          description: >
+            Детализация категории получателя. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "specific_grounds_regime"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "statutory_default", "not_defined"]
-          description: "Режим оснований: указаны / дефолт ст. 93–97 СК РФ."
+          description: "Режим оснований: указаны / дефолт ст. 93–97 СК РФ. Внутреннее enum-поле."
           required: true
         - name: "specific_grounds_details"
           type: "string"
@@ -7140,14 +7208,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Основания"
-          description: "Основания обязанности: нуждаемость, нетрудоспособность."
+          description: >
+            Основания обязанности: нуждаемость, нетрудоспособность. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "mutuality_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие условия о взаимности."
+          description: "Наличие условия о взаимности. Внутреннее enum-поле."
           required: true
         - name: "mutuality_details"
           type: "string"
@@ -7155,14 +7224,15 @@ checks_v8:
           display_in_grid: false
           display_priority: 7
           label: "Взаимность"
-          description: "Условия о встречной обязанности."
+          description: >
+            Условия о встречной обязанности. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "capacity_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие условия о материальной возможности плательщика."
+          description: "Наличие условия о материальной возможности плательщика. Внутреннее enum-поле."
           required: true
         - name: "capacity_details"
           type: "string"
@@ -7170,7 +7240,8 @@ checks_v8:
           display_in_grid: false
           display_priority: 8
           label: "Возможность плательщика"
-          description: "Условия о материальной возможности плательщика."
+          description: >
+            Условия о материальной возможности плательщика. Fallback: "Не установлено" / "Не удалось определить".
           required: false
       store_payload: true
 
@@ -7489,7 +7560,8 @@ checks_v8:
           display_priority: 1
           label: "Валюта алиментов"
           allowed_values: ["rub", "foreign", "mixed", "statutory_default", "not_defined"]
-          description: "Валюта алиментов: рубли / иностранная / смешанная."
+          description: >
+            Валюта алиментов: рубли / иностранная / смешанная. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "currency_details"
           type: "string"
@@ -7497,7 +7569,8 @@ checks_v8:
           display_in_grid: false
           display_priority: 6
           label: "Детали валюты"
-          description: "Детализация валюты и суммы."
+          description: >
+            Детализация валюты и суммы. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "foreign_element_status"
           type: "string"
@@ -7506,7 +7579,8 @@ checks_v8:
           display_priority: 2
           label: "Иностранный элемент"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие иностранного элемента в соглашении."
+          description: >
+            Наличие иностранного элемента в соглашении. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "foreign_element_details"
           type: "string"
@@ -7514,21 +7588,22 @@ checks_v8:
           display_in_grid: false
           display_priority: 7
           label: "Детали иностранного элемента"
-          description: "Признаки иностранного элемента."
+          description: >
+            Признаки иностранного элемента. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "cross_border_enforcement_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["provided", "not_defined"]
-          description: "Наличие условий о трансграничном исполнении."
+          description: "Наличие условий о трансграничном исполнении. Внутреннее enum-поле."
           required: true
         - name: "international_treaty_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Ссылка на международный договор."
+          description: "Ссылка на международный договор. Внутреннее enum-поле."
           required: true
       store_payload: true
 
@@ -7842,7 +7917,8 @@ checks_v8:
           display_priority: 1
           label: "Алименты после 18 лет"
           allowed_values: ["adult_disabled", "student_voluntary", "both", "not_provided", "not_defined"]
-          description: "Режим алиментов после 18 лет: нетрудоспособные / студенты-добровольно / не предусмотрено."
+          description: >
+            Режим алиментов после 18 лет: нетрудоспособные / студенты-добровольно / не предусмотрено. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "post_majority_details"
           type: "string"
@@ -7850,14 +7926,15 @@ checks_v8:
           display_in_grid: false
           display_priority: 6
           label: "Детали после 18 лет"
-          description: "Детали условий об алиментах после 18 лет."
+          description: >
+            Детали условий об алиментах после 18 лет. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "termination_on_majority_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "statutory_default", "not_defined"]
-          description: "Режим прекращения по достижении 18 лет."
+          description: "Режим прекращения по достижении 18 лет. Внутреннее enum-поле."
           required: true
         - name: "termination_on_majority_details"
           type: "string"
@@ -7865,14 +7942,15 @@ checks_v8:
           display_in_grid: false
           display_priority: 7
           label: "Прекращение по 18 лет"
-          description: "Условия о прекращении по достижении 18 лет."
+          description: >
+            Условия о прекращении по достижении 18 лет. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "student_support_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие условий о поддержке студентов."
+          description: "Наличие условий о поддержке студентов. Внутреннее enum-поле."
           required: true
         - name: "student_support_details"
           type: "string"
@@ -7880,7 +7958,8 @@ checks_v8:
           display_in_grid: false
           display_priority: 8
           label: "Поддержка студентов"
-          description: "Условия о добровольной поддержке студентов."
+          description: >
+            Условия о добровольной поддержке студентов. Fallback: "Не установлено" / "Не удалось определить".
           required: false
       store_payload: true
 
@@ -8187,7 +8266,8 @@ checks_v8:
           display_priority: 1
           label: "Привязка к ПМ"
           allowed_values: ["defined", "statutory_default", "not_applicable", "not_defined"]
-          description: "Режим привязки к региональному ПМ: указан / дефолт ст. 117 СК РФ / не применимо."
+          description: >
+            Режим привязки к региональному ПМ: указан / дефолт ст. 117 СК РФ / не применимо. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "region_details"
           type: "string"
@@ -8195,7 +8275,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Регион ПМ"
-          description: "Регион / субъект РФ для расчёта ПМ."
+          description: >
+            Регион / субъект РФ для расчёта ПМ. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "pm_category_code"
           type: "string"
@@ -8204,7 +8285,8 @@ checks_v8:
           display_priority: 3
           label: "Категория ПМ"
           allowed_values: ["child", "working_age", "pensioner", "per_capita", "not_defined"]
-          description: "Категория прожиточного минимума."
+          description: >
+            Категория прожиточного минимума. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "pm_category_details"
           type: "string"
@@ -8212,7 +8294,8 @@ checks_v8:
           display_in_grid: false
           display_priority: 6
           label: "Детали категории ПМ"
-          description: "Детализация категории ПМ."
+          description: >
+            Детализация категории ПМ. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "update_mechanism_status"
           type: "string"
@@ -8221,7 +8304,8 @@ checks_v8:
           display_priority: 4
           label: "Механизм обновления"
           allowed_values: ["quarterly", "annual", "on_change", "statutory_default", "not_defined"]
-          description: "Механизм обновления ПМ: ежеквартальный / ежегодный / по факту."
+          description: >
+            Механизм обновления ПМ: ежеквартальный / ежегодный / по факту. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "update_mechanism_details"
           type: "string"
@@ -8229,7 +8313,8 @@ checks_v8:
           display_in_grid: false
           display_priority: 7
           label: "Детали обновления"
-          description: "Детали механизма обновления ПМ."
+          description: >
+            Детали механизма обновления ПМ. Fallback: "Не установлено" / "Не удалось определить".
           required: false
       store_payload: true
 

@@ -589,10 +589,8 @@ checks_v8:
       context_k: 8
       temperature: 0.0
       max_tokens: 900
-    retrieval:
-      [ ... без изменений ... ]
-    enrichment_hints:
-      [ ... без изменений ... ]
+    retrieval: ['... без изменений ...']
+    enrichment_hints: ['... без изменений ...']
     evidence:
       required: true
       min_snippet_length: 40
@@ -800,7 +798,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус идентификации займодавца (raw enum)."
+          description: "Статус идентификации займодавца (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -808,7 +806,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Займодавец"
-          description: "Наименование/ФИО и реквизиты займодавца."
+          description: >
+            Наименование/ФИО и реквизиты займодавца. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -818,7 +817,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["legal_entity", "ip", "individual", "not_defined"]
-          description: "Тип займодавца (raw enum)."
+          description: "Тип займодавца (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -826,7 +825,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Тип займодавца"
-          description: "User-facing: Юрлицо / ИП / Физлицо / Не установлено."
+          description: >
+            User-facing: Юрлицо / ИП / Физлицо / Не установлено. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -835,7 +835,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Подписант займодавца (ФИО/должность)"
-          description: "ФИО и должность подписанта от займодавца."
+          description: >
+            ФИО и должность подписанта от займодавца. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -844,7 +845,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["charter", "poa", "order", "personal", "other", "not_defined"]
-          description: "Основание полномочий подписанта займодавца (raw enum)."
+          description: "Основание полномочий подписанта займодавца (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -852,7 +853,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Основание полномочий займодавца (детали)"
-          description: "Номер и дата доверенности/приказа, если указаны."
+          description: >
+            Номер и дата доверенности/приказа, если указаны. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -860,7 +862,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Подписант займодавца"
-          description: "User-facing строка: '<ФИО> (основание)'."
+          description: >
+            User-facing строка: '<ФИО> (основание)'. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -870,7 +873,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус идентификации заёмщика (raw enum)."
+          description: "Статус идентификации заёмщика (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -878,7 +881,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Заёмщик"
-          description: "Наименование/ФИО и реквизиты заёмщика."
+          description: >
+            Наименование/ФИО и реквизиты заёмщика. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -888,7 +892,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["legal_entity", "ip", "individual", "not_defined"]
-          description: "Тип заёмщика (raw enum)."
+          description: "Тип заёмщика (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -896,7 +900,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Тип заёмщика"
-          description: "User-facing: Юрлицо / ИП / Физлицо / Не установлено."
+          description: >
+            User-facing: Юрлицо / ИП / Физлицо / Не установлено. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 5
@@ -905,7 +910,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Подписант заёмщика (ФИО/должность)"
-          description: "ФИО и должность подписанта от заёмщика."
+          description: >
+            ФИО и должность подписанта от заёмщика. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -914,7 +920,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["charter", "poa", "order", "personal", "other", "not_defined"]
-          description: "Основание полномочий подписанта заёмщика (raw enum)."
+          description: "Основание полномочий подписанта заёмщика (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -922,7 +928,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Основание полномочий заёмщика (детали)"
-          description: "Номер и дата доверенности/приказа, если указаны."
+          description: >
+            Номер и дата доверенности/приказа, если указаны. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -930,7 +937,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Подписант заёмщика"
-          description: "User-facing строка: '<ФИО> (основание)'."
+          description: >
+            User-facing строка: '<ФИО> (основание)'. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 6
@@ -975,10 +983,8 @@ checks_v8:
       context_k: 8
       temperature: 0.0
       max_tokens: 700
-    retrieval:
-      [ ... без изменений ... ]
-    enrichment_hints:
-      [ ... без изменений ... ]
+    retrieval: ['... без изменений ...']
+    enrichment_hints: ['... без изменений ...']
     evidence:
       required: true
       min_snippet_length: 40
@@ -1168,7 +1174,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["money", "fungible_goods", "mixed", "not_defined"]
-          description: "Предмет займа (raw enum)."
+          description: "Предмет займа (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1176,7 +1182,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Предмет займа"
-          description: "User-facing тип займа: денежный / вещевой / смешанный."
+          description: >
+            User-facing тип займа: денежный / вещевой / смешанный. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -1186,7 +1193,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения суммы/количества займа (raw enum)."
+          description: "Статус определения суммы/количества займа (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1194,7 +1201,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Сумма займа"
-          description: "Сумма или количество предмета займа."
+          description: >
+            Сумма или количество предмета займа. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -1204,7 +1212,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["RUB", "USD", "EUR", "CNY", "other", "not_applicable", "not_defined"]
-          description: "Валюта займа (raw enum)."
+          description: "Валюта займа (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1212,7 +1220,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Валюта"
-          description: "User-facing валюта займа."
+          description: >
+            User-facing валюта займа. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -1837,7 +1846,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["interest_bearing", "interest_free", "not_defined"]
-          description: "Процентность займа (raw enum)."
+          description: "Процентность займа (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1845,7 +1854,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Процентность"
-          description: "User-facing процентность займа."
+          description: >
+            User-facing процентность займа. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -1854,7 +1864,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Процентная ставка (полная формулировка)"
-          description: "Полная формулировка ставки, включая ссылки на ст. 809 ГК РФ или приложения."
+          description: >
+            Полная формулировка ставки, включая ссылки на ст. 809 ГК РФ или приложения. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -1862,7 +1873,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Ставка"
-          description: "Краткая версия ставки для DD Grid."
+          description: >
+            Краткая версия ставки для DD Grid. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -1872,7 +1884,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["principal", "outstanding_balance", "not_applicable"]
-          description: "База начисления процентов (raw enum)."
+          description: "База начисления процентов (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1880,7 +1892,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "База начисления"
-          description: "User-facing база начисления процентов."
+          description: >
+            User-facing база начисления процентов. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -1890,7 +1903,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["monthly", "quarterly", "at_maturity", "other", "not_applicable"]
-          description: "Периодичность уплаты процентов (raw enum)."
+          description: "Периодичность уплаты процентов (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1898,7 +1911,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Периодичность уплаты"
-          description: "User-facing периодичность уплаты процентов."
+          description: >
+            User-facing периодичность уплаты процентов. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -2407,7 +2421,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения срока возврата (raw enum)."
+          description: "Статус определения срока возврата (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2415,7 +2429,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Срок возврата (полная формулировка)"
-          description: "Полная формулировка срока, включая ссылки на ст. 810 ГК РФ или приложения."
+          description: >
+            Полная формулировка срока, включая ссылки на ст. 810 ГК РФ или приложения. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -2423,7 +2438,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Срок возврата"
-          description: "Краткая версия срока для DD Grid."
+          description: >
+            Краткая версия срока для DD Grid. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -2433,7 +2449,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["cash", "bank_transfer", "mixed", "not_defined"]
-          description: "Способ передачи займа (raw enum)."
+          description: "Способ передачи займа (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2441,7 +2457,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Способ передачи займа"
-          description: "User-facing способ передачи."
+          description: >
+            User-facing способ передачи. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -2451,7 +2468,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["cash", "bank_transfer", "mixed", "not_defined"]
-          description: "Способ возврата займа (raw enum)."
+          description: "Способ возврата займа (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2459,7 +2476,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Способ возврата займа"
-          description: "User-facing способ возврата."
+          description: >
+            User-facing способ возврата. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -3085,7 +3103,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус подтверждения передачи займа (raw enum)."
+          description: "Статус подтверждения передачи займа (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3093,7 +3111,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Подтверждение передачи"
-          description: "Формулировка о подтверждении передачи займа (расписка / платёжка / акт / указание в договоре / обещание займа / транши)."
+          description: >
+            Формулировка о подтверждении передачи займа (расписка / платёжка / акт / указание в договоре / обещание займа / транши). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -3103,7 +3122,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["receipt", "payment_order", "act", "contract_clause", "not_defined"]
-          description: "Тип подтверждения передачи (raw enum)."
+          description: "Тип подтверждения передачи (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3111,7 +3130,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Тип подтверждения"
-          description: "User-facing тип подтверждения передачи."
+          description: >
+            User-facing тип подтверждения передачи. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -3121,7 +3141,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания на передачу при подписании договора (raw enum)."
+          description: "Статус указания на передачу при подписании договора (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3130,7 +3150,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["high", "medium", "low", "not_applicable", "not_defined"]
-          description: "Риск безденежности при передаче (raw enum)."
+          description: "Риск безденежности при передаче (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3138,7 +3158,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Риск безденежности"
-          description: "User-facing оценка риска безденежности на основе способа передачи и типа доказательства."
+          description: >
+            User-facing оценка риска безденежности на основе способа передачи и типа доказательства. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -3724,7 +3745,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["single_payment", "installments", "on_demand", "not_defined"]
-          description: "Структура возврата займа (raw enum)."
+          description: "Структура возврата займа (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3732,7 +3753,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Порядок погашения"
-          description: "User-facing порядок возврата займа (единовременно / в рассрочку по графику / по требованию)."
+          description: >
+            User-facing порядок возврата займа (единовременно / в рассрочку по графику / по требованию). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -3742,7 +3764,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["allowed", "restricted", "consent_required", "not_defined"]
-          description: "Право заёмщика на досрочный возврат (raw enum)."
+          description: "Право заёмщика на досрочный возврат (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3750,7 +3772,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Досрочный возврат заёмщиком"
-          description: "User-facing условия досрочного возврата заёмщиком (свободно / с комиссией / с согласия по ст. 810(2) ГК РФ)."
+          description: >
+            User-facing условия досрочного возврата заёмщиком (свободно / с комиссией / с согласия по ст. 810(2) ГК РФ). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -3760,7 +3783,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус договорного права займодавца на акцелерацию (raw enum)."
+          description: "Статус договорного права займодавца на акцелерацию (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3768,7 +3791,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Основания акцелерации (детали)"
-          description: "Полная формулировка условий досрочного истребования займа займодавцем."
+          description: >
+            Полная формулировка условий досрочного истребования займа займодавцем. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -3776,7 +3800,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Досрочное истребование займодавцем"
-          description: "User-facing резюме права займодавца на акцелерацию и оснований истребования."
+          description: >
+            User-facing резюме права займодавца на акцелерацию и оснований истребования. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -3786,7 +3811,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус договорной неустойки за просрочку (raw enum)."
+          description: "Статус договорной неустойки за просрочку (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3794,7 +3819,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Неустойка за просрочку (детали)"
-          description: "Полная формулировка неустойки за нарушение сроков возврата."
+          description: >
+            Полная формулировка неустойки за нарушение сроков возврата. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -3802,7 +3828,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Неустойка за просрочку"
-          description: "User-facing размер неустойки/пени за просрочку возврата займа."
+          description: >
+            User-facing размер неустойки/пени за просрочку возврата займа. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -3812,7 +3839,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус способа подтверждения возврата займа (raw enum)."
+          description: "Статус способа подтверждения возврата займа (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3820,7 +3847,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Подтверждение возврата"
-          description: "Способ подтверждения погашения займа (расписка, выписка, акт)."
+          description: >
+            Способ подтверждения погашения займа (расписка, выписка, акт). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -4370,7 +4398,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения цели займа (raw enum)."
+          description: "Статус определения цели займа (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -4378,7 +4406,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Цель займа (детали)"
-          description: "Точная формулировка цели использования заёмных средств из договора."
+          description: >
+            Точная формулировка цели использования заёмных средств из договора. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -4386,7 +4415,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Целевое назначение"
-          description: "User-facing квалификация цели займа (целевой с конкретным назначением / нецелевой)."
+          description: >
+            User-facing квалификация цели займа (целевой с конкретным назначением / нецелевой). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -4396,7 +4426,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус права контроля займодавца (raw enum)."
+          description: "Статус права контроля займодавца (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -4405,7 +4435,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус обязанности предоставления подтверждающих документов (raw enum)."
+          description: "Статус обязанности предоставления подтверждающих документов (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -4413,7 +4443,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Контроль и отчётность"
-          description: "User-facing резюме обязанностей заёмщика по отчётности и контроля займодавца."
+          description: >
+            User-facing резюме обязанностей заёмщика по отчётности и контроля займодавца. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -4423,7 +4454,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["acceleration", "rate_increase", "penalty", "other", "not_defined"]
-          description: "Последствия нецелевого использования (raw enum)."
+          description: "Последствия нецелевого использования (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -4431,7 +4462,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Последствия нецелевого использования"
-          description: "User-facing санкции за нецелевое расходование средств (досрочный возврат по ст. 814(2) ГК РФ, штрафы, повышение ставки)."
+          description: >
+            User-facing санкции за нецелевое расходование средств (досрочный возврат по ст. 814(2) ГК РФ, штрафы, повышение ставки). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -4971,14 +5003,15 @@ checks_v8:
           type: "string"
           presentation: "signal"
           allowed_values: ["rub_equivalent", "foreign_currency_obligation", "not_applicable"]
-          description: "Тип валютной конструкции (raw enum)."
+          description: "Тип валютной конструкции (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "currency_clause_display"
           type: "string"
           presentation: "fact"
           label: "Валютная конструкция"
-          description: "User-facing тип валютной оговорки (эквивалент / прямая валюта / не применимо)."
+          description: >
+            User-facing тип валютной оговорки (эквивалент / прямая валюта / не применимо). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -4986,21 +5019,22 @@ checks_v8:
           type: "string"
           presentation: "signal"
           allowed_values: ["cb_rate", "commercial_bank_rate", "fixed_rate", "not_applicable", "not_defined"]
-          description: "Источник обменного курса (raw enum)."
+          description: "Источник обменного курса (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "conversion_date"
           type: "string"
           presentation: "signal"
           allowed_values: ["payment_date", "transfer_date", "maturity_date", "not_applicable", "not_defined"]
-          description: "Дата пересчёта (raw enum)."
+          description: "Дата пересчёта (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "conversion_rate_display"
           type: "string"
           presentation: "fact"
           label: "Курс и дата пересчёта"
-          description: "User-facing источник курса и дата конвертации."
+          description: >
+            User-facing источник курса и дата конвертации. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -5008,21 +5042,24 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Валютный коридор (min)"
-          description: "Минимальный курс (пол валютного коридора). Только число."
+          description: >
+            Минимальный курс (пол валютного коридора). Только число. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
         - name: "currency_collar_max"
           type: "string"
           presentation: "fact"
           label: "Валютный коридор (max)"
-          description: "Максимальный курс (потолок валютного коридора). Только число."
+          description: >
+            Максимальный курс (потолок валютного коридора). Только число. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
         - name: "currency_collar_display"
           type: "string"
           presentation: "fact"
           label: "Валютный коридор (cap/floor)"
-          description: "User-facing наличие и параметры валютного коридора."
+          description: >
+            User-facing наличие и параметры валютного коридора. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -5030,14 +5067,15 @@ checks_v8:
           type: "string"
           presentation: "signal"
           allowed_values: ["not_defined", "borrower_bears_all", "lender_bears_all", "shared"]
-          description: "Распределение валютных рисков (raw enum)."
+          description: "Распределение валютных рисков (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
         - name: "currency_risk_display"
           type: "string"
           presentation: "fact"
           label: "Распределение валютных рисков"
-          description: "User-facing резюме распределения валютных рисков между сторонами."
+          description: >
+            User-facing резюме распределения валютных рисков между сторонами. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -5623,7 +5661,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Аффилированность сторон"
-          description: "User-facing статус аффилированности (раскрыто / не раскрыто / отрицательное заверение)."
+          description: >
+            User-facing статус аффилированности (раскрыто / не раскрыто / отрицательное заверение). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -5633,7 +5672,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["common_shareholder", "common_director", "group_of_companies", "parent_subsidiary", "other", "not_applicable", "not_defined"]
-          description: "Тип аффилированности (raw enum)."
+          description: "Тип аффилированности (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5641,7 +5680,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Тип связанности"
-          description: "User-facing тип аффилированности (мать-дочка / общий директор / группа лиц)."
+          description: >
+            User-facing тип аффилированности (мать-дочка / общий директор / группа лиц). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -5651,7 +5691,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус раскрытия связанности сторон (raw enum)."
+          description: "Статус раскрытия связанности сторон (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5660,7 +5700,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус заверения о рыночности условий (raw enum)."
+          description: "Статус заверения о рыночности условий (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5668,7 +5708,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Заверение о рыночности"
-          description: "User-facing наличие заверения о рыночности условий займа."
+          description: >
+            User-facing наличие заверения о рыночности условий займа. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -5678,7 +5719,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["not_defined", "subordination_risk", "approval_required", "tax_risk", "combined"]
-          description: "Последствия аффилированности (raw enum)."
+          description: "Последствия аффилированности (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5686,7 +5727,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Правовые последствия"
-          description: "User-facing резюме правовых последствий аффилированности (субординация, одобрение, налоги)."
+          description: >
+            User-facing резюме правовых последствий аффилированности (субординация, одобрение, налоги). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -6142,7 +6184,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус заверения об отсутствии признаков банкротства (raw enum)."
+          description: "Статус заверения об отсутствии признаков банкротства (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6150,7 +6192,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Заверение об отсутствии банкротства"
-          description: "User-facing наличие заверения об отсутствии признаков банкротства у заёмщика."
+          description: >
+            User-facing наличие заверения об отсутствии признаков банкротства у заёмщика. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -6160,7 +6203,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания на деловую цель сделки (raw enum)."
+          description: "Статус указания на деловую цель сделки (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6168,7 +6211,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Деловая цель сделки"
-          description: "User-facing указание на деловую цель / экономический смысл займа."
+          description: >
+            User-facing указание на деловую цель / экономический смысл займа. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -6717,7 +6761,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["maturity", "next_round", "at_will", "other", "not_defined", "not_applicable"]
-          description: "Событие конвертации (raw enum)."
+          description: "Событие конвертации (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6725,7 +6769,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Событие конвертации"
-          description: "User-facing триггер конвертации займа в долю/акции."
+          description: >
+            User-facing триггер конвертации займа в долю/акции. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -6735,7 +6780,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined", "not_applicable"]
-          description: "Статус определения формулы конвертации (raw enum)."
+          description: "Статус определения формулы конвертации (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6743,7 +6788,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Формула расчёта доли"
-          description: "User-facing формула расчёта доли/акций при конвертации."
+          description: >
+            User-facing формула расчёта доли/акций при конвертации. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -6753,7 +6799,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined", "not_applicable"]
-          description: "Статус наличия кэпа оценки или дисконта (raw enum)."
+          description: "Статус наличия кэпа оценки или дисконта (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6761,7 +6807,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Кэп / Дисконт"
-          description: "User-facing размер кэпа оценки или дисконта к следующему раунду."
+          description: >
+            User-facing размер кэпа оценки или дисконта к следующему раунду. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -6771,7 +6818,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined", "not_applicable"]
-          description: "Статус описания корпоративных действий (raw enum)."
+          description: "Статус описания корпоративных действий (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6779,7 +6826,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Корпоративные действия"
-          description: "User-facing описание требуемых корпоративных действий для конвертации."
+          description: >
+            User-facing описание требуемых корпоративных действий для конвертации. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -7331,7 +7379,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined", "not_applicable"]
-          description: "Статус определения общего лимита займа (raw enum)."
+          description: "Статус определения общего лимита займа (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -7339,7 +7387,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Лимит займа (значение)"
-          description: "Сумма общего лимита траншей."
+          description: >
+            Сумма общего лимита траншей. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -7347,7 +7396,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Общий лимит"
-          description: "User-facing общий лимит траншевого займа."
+          description: >
+            User-facing общий лимит траншевого займа. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -7357,7 +7407,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined", "not_applicable"]
-          description: "Статус порядка запроса транша (raw enum)."
+          description: "Статус порядка запроса транша (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -7365,7 +7415,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Порядок запроса транша"
-          description: "User-facing процедура запроса каждого транша."
+          description: >
+            User-facing процедура запроса каждого транша. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -7375,7 +7426,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined", "not_applicable"]
-          description: "Револьверность займа (raw enum)."
+          description: "Револьверность займа (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -7383,7 +7434,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Возобновляемость"
-          description: "User-facing статус возобновляемости кредитной линии."
+          description: >
+            User-facing статус возобновляемости кредитной линии. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -7393,7 +7445,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined", "not_applicable"]
-          description: "Статус условий выдачи транша (raw enum)."
+          description: "Статус условий выдачи транша (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -7401,7 +7453,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Условия выдачи транша"
-          description: "User-facing условия получения каждого транша (дефолт, отчётность)."
+          description: >
+            User-facing условия получения каждого транша (дефолт, отчётность). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -8015,7 +8068,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия обеспечения займа (raw enum)."
+          description: "Статус наличия обеспечения займа (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8023,7 +8076,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Наличие обеспечения"
-          description: "User-facing наличие и тип обеспечения займа."
+          description: >
+            User-facing наличие и тип обеспечения займа. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -8033,7 +8087,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["real_estate_mortgage", "movable_property_pledge", "rights_pledge", "suretyship", "independent_guarantee", "security_deposit", "earnest_money", "other", "not_defined"]
-          description: "Тип обеспечения (raw enum)."
+          description: "Тип обеспечения (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8041,7 +8095,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Тип обеспечения"
-          description: "User-facing тип обеспечения (ипотека / залог движимого / поручительство / обеспечительный платёж / задаток)."
+          description: >
+            User-facing тип обеспечения (ипотека / залог движимого / поручительство / обеспечительный платёж / задаток). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -8050,7 +8105,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Предмет обеспечения (полное описание)"
-          description: "Полное описание предмета обеспечения из договора."
+          description: >
+            Полное описание предмета обеспечения из договора. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -8058,7 +8114,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Предмет обеспечения"
-          description: "User-facing краткое описание предмета обеспечения."
+          description: >
+            User-facing краткое описание предмета обеспечения. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -8068,7 +8125,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined", "not_applicable"]
-          description: "Статус регистрации обеспечения (raw enum)."
+          description: "Статус регистрации обеспечения (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8076,7 +8133,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Регистрация обеспечения"
-          description: "User-facing статус регистрации обеспечения (ЕГРН / реестр уведомлений / не применимо)."
+          description: >
+            User-facing статус регистрации обеспечения (ЕГРН / реестр уведомлений / не применимо). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -8540,7 +8598,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус раскрытия налоговых последствий (raw enum)."
+          description: "Статус раскрытия налоговых последствий (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8548,7 +8606,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Раскрытие налоговых последствий"
-          description: "User-facing статус раскрытия налоговых последствий займа."
+          description: >
+            User-facing статус раскрытия налоговых последствий займа. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -8558,7 +8617,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["personal_income_tax", "profit_tax", "general", "not_defined"]
-          description: "Тип налоговых последствий (raw enum)."
+          description: "Тип налоговых последствий (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8566,7 +8625,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Тип налоговых последствий"
-          description: "User-facing тип налогов (НДФЛ, материальная выгода, налог на прибыль)."
+          description: >
+            User-facing тип налогов (НДФЛ, материальная выгода, налог на прибыль). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -8576,7 +8636,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["lender_as_agent", "lender_bears_all", "borrower_bears_all", "each_party_bears_own", "not_defined"]
-          description: "Распределение налогового бремени (raw enum)."
+          description: "Распределение налогового бремени (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8584,7 +8644,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Налоговое бремя"
-          description: "User-facing распределение налогового бремени между сторонами."
+          description: >
+            User-facing распределение налогового бремени между сторонами. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -9049,7 +9110,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия условий новации или зачёта (raw enum)."
+          description: "Статус наличия условий новации или зачёта (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -9057,7 +9118,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Наличие новации/зачёта"
-          description: "User-facing наличие условий новации или зачёта встречных требований."
+          description: >
+            User-facing наличие условий новации или зачёта встречных требований. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -9067,7 +9129,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["novation", "set_off", "other", "not_defined"]
-          description: "Тип прекращения обязательства (raw enum)."
+          description: "Тип прекращения обязательства (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -9075,7 +9137,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Тип прекращения"
-          description: "User-facing тип прекращения обязательства (новация / зачёт / иное)."
+          description: >
+            User-facing тип прекращения обязательства (новация / зачёт / иное). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -9084,7 +9147,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Условия прекращения (полное описание)"
-          description: "Полное описание условий новации/зачёта из договора."
+          description: >
+            Полное описание условий новации/зачёта из договора. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -9092,7 +9156,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Условия прекращения"
-          description: "User-facing краткое описание условий новации/зачёта."
+          description: >
+            User-facing краткое описание условий новации/зачёта. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -9554,7 +9619,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия условия о прощении долга (raw enum)."
+          description: "Статус наличия условия о прощении долга (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -9562,7 +9627,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Прощение долга"
-          description: "User-facing наличие условия о прощении долга."
+          description: >
+            User-facing наличие условия о прощении долга. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -9571,7 +9637,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Условия прощения (полное описание)"
-          description: "Полное описание условий прощения долга."
+          description: >
+            Полное описание условий прощения долга. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -9579,7 +9646,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Условия прощения"
-          description: "User-facing краткое описание условий прощения долга."
+          description: >
+            User-facing краткое описание условий прощения долга. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -9589,7 +9657,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Упоминание правовых рисков (запрет дарения / налоговые последствия) — raw enum."
+          description: "Упоминание правовых рисков (запрет дарения / налоговые последствия) — raw enum. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -9597,7 +9665,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Правовые риски (дарение / налоги)"
-          description: "User-facing упоминание гражданско-правовых и налоговых рисков прощения долга."
+          description: >
+            User-facing упоминание гражданско-правовых и налоговых рисков прощения долга. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -10054,7 +10123,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined", "not_applicable"]
-          description: "Статус наличия спецификации вещей (raw enum)."
+          description: "Статус наличия спецификации вещей (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -10062,7 +10131,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Спецификация вещей"
-          description: "User-facing наличие спецификации вещевых займов."
+          description: >
+            User-facing наличие спецификации вещевых займов. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -10071,7 +10141,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Описание вещей (полное)"
-          description: "Полное описание вещей из договора."
+          description: >
+            Полное описание вещей из договора. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -10079,7 +10150,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Описание вещей"
-          description: "User-facing краткое описание вещей (наименование, количество, качество)."
+          description: >
+            User-facing краткое описание вещей (наименование, количество, качество). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -10089,7 +10161,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "not_defined", "not_applicable"]
-          description: "Наличие обязательства вернуть вещи того же рода и качества (raw enum)."
+          description: "Наличие обязательства вернуть вещи того же рода и качества (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -10097,7 +10169,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Возврат вещей того же рода и качества"
-          description: "User-facing наличие обязательства вернуть вещи того же рода и качества."
+          description: >
+            User-facing наличие обязательства вернуть вещи того же рода и качества. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -10526,7 +10599,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус займа до востребования (raw enum)."
+          description: "Статус займа до востребования (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -10534,7 +10607,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Заём до востребования"
-          description: "User-facing статус займа до востребования."
+          description: >
+            User-facing статус займа до востребования. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -10543,7 +10617,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Срок уведомления (полный)"
-          description: "Полный срок возврата после требования."
+          description: >
+            Полный срок возврата после требования. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -10551,7 +10626,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Срок возврата после требования"
-          description: "User-facing срок возврата после предъявления требования."
+          description: >
+            User-facing срок возврата после предъявления требования. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -10561,7 +10637,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["written", "oral", "not_defined", "not_applicable"]
-          description: "Форма требования (raw enum)."
+          description: "Форма требования (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -10569,7 +10645,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Форма требования"
-          description: "User-facing форма требования займодавца (письменное/устное)."
+          description: >
+            User-facing форма требования займодавца (письменное/устное). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -11046,7 +11123,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия порядка изменения договора (raw enum)."
+          description: "Статус наличия порядка изменения договора (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -11054,7 +11131,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Порядок изменения договора"
-          description: "User-facing порядок изменения договора займа."
+          description: >
+            User-facing порядок изменения договора займа. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -11064,7 +11142,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия права одностороннего отказа (raw enum)."
+          description: "Статус наличия права одностороннего отказа (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -11072,7 +11150,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Односторонний отказ / расторжение"
-          description: "User-facing право одностороннего отказа от договора и его основания."
+          description: >
+            User-facing право одностороннего отказа от договора и его основания. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -11082,7 +11161,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия оснований расторжения (raw enum)."
+          description: "Статус наличия оснований расторжения (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -11090,7 +11169,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Основания расторжения"
-          description: "User-facing основания расторжения договора займа."
+          description: >
+            User-facing основания расторжения договора займа. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -11100,7 +11180,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия условий реструктуризации (raw enum)."
+          description: "Статус наличия условий реструктуризации (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -11108,7 +11188,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Реструктуризация / пролонгация"
-          description: "User-facing условия реструктуризации или пролонгации займа."
+          description: >
+            User-facing условия реструктуризации или пролонгации займа. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -11574,7 +11655,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия очерёдности погашения в договоре (raw enum)."
+          description: "Статус наличия очерёдности погашения в договоре (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -11582,7 +11663,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Порядок погашения"
-          description: "User-facing очерёдность погашения требований по займу."
+          description: >
+            User-facing очерёдность погашения требований по займу. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -11592,7 +11674,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["interest_first", "principal_first", "mixed", "other", "statutory_default", "not_defined"]
-          description: "Тип очерёдности погашения (raw enum)."
+          description: "Тип очерёдности погашения (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -11600,7 +11682,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Тип очерёдности"
-          description: "User-facing тип очерёдности погашения (сначала проценты / сначала основной долг / законная)."
+          description: >
+            User-facing тип очерёдности погашения (сначала проценты / сначала основной долг / законная). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -11610,7 +11693,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Включение неустойки в очерёдность погашения (raw enum)."
+          description: "Включение неустойки в очерёдность погашения (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -11618,7 +11701,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Неустойка в очерёдности"
-          description: "User-facing позиция неустойки в очерёдности погашения."
+          description: >
+            User-facing позиция неустойки в очерёдности погашения. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -12060,7 +12144,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия оговорки о сохранении обеспечения (raw enum)."
+          description: "Статус наличия оговорки о сохранении обеспечения (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -12068,7 +12152,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Оговорка о сохранении обеспечения"
-          description: "User-facing формулировка оговорки о сохранении обеспечения при изменении обязательства."
+          description: >
+            User-facing формулировка оговорки о сохранении обеспечения при изменении обязательства. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -12078,7 +12163,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["required", "not_required", "not_defined"]
-          description: "Требование о письменном согласии обеспечителя (raw enum)."
+          description: "Требование о письменном согласии обеспечителя (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -12086,7 +12171,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Требование согласия обеспечителя"
-          description: "User-facing требование о согласии залогодателя / поручителя на изменение обязательства."
+          description: >
+            User-facing требование о согласии залогодателя / поручителя на изменение обязательства. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -12096,7 +12182,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Флаг рискованной формулировки про автоматическое сохранение (raw enum)."
+          description: "Флаг рискованной формулировки про автоматическое сохранение (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -12104,7 +12190,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Риск автоматического сохранения"
-          description: "User-facing предупреждение о рискованной формулировке автоматического сохранения обеспечения."
+          description: >
+            User-facing предупреждение о рискованной формулировке автоматического сохранения обеспечения. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -12591,7 +12678,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["consensual", "real", "not_defined"]
-          description: "Характер договора займа (raw enum)."
+          description: "Характер договора займа (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -12599,7 +12686,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Характер договора"
-          description: "User-facing характер договора (реальный / консенсуальный)."
+          description: >
+            User-facing характер договора (реальный / консенсуальный). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -12609,7 +12697,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия оговорки об ответственности займодавца (raw enum)."
+          description: "Статус наличия оговорки об ответственности займодавца (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -12617,7 +12705,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Ответственность займодавца"
-          description: "User-facing наличие и описание ответственности займодавца за невыдачу займа."
+          description: >
+            User-facing наличие и описание ответственности займодавца за невыдачу займа. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -12627,7 +12716,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["full", "direct_damages_only", "excluded", "not_defined"]
-          description: "Тип ограничения ответственности займодавца (raw enum)."
+          description: "Тип ограничения ответственности займодавца (raw enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -12635,7 +12724,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Ограничение ответственности"
-          description: "User-facing описание ограничения ответственности займодавца."
+          description: >
+            User-facing описание ограничения ответственности займодавца. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3

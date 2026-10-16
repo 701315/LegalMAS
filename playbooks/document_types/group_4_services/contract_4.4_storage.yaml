@@ -964,14 +964,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения реквизитов хранителя."
+          description: "Статус определения реквизитов хранителя. Внутреннее enum-поле."
           required: true
 
         - name: "custodian_details_value"
           type: "string"
           presentation: "fact"
           label: "Хранитель"
-          description: "Реквизиты хранителя."
+          description: >
+            Реквизиты хранителя. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -981,14 +982,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["legal_entity", "ip", "individual", "not_defined"]
-          description: "Тип хранителя."
+          description: "Тип хранителя. Внутреннее enum-поле."
           required: true
 
         - name: "custodian_signatory"
           label: "Подписант хранителя"
           type: "string"
           presentation: "fact"
-          description: "Подписант хранителя."
+          description: >
+            Подписант хранителя. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -997,7 +999,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["charter", "poa", "order", "law", "personal", "other", "not_defined"]
-          description: "Основание полномочий подписанта хранителя."
+          description: "Основание полномочий подписанта хранителя. Внутреннее enum-поле."
           required: true
 
         - name: "custodian_professional_status"
@@ -1005,7 +1007,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Статус профессионального хранителя."
+          description: "Статус профессионального хранителя. Внутреннее enum-поле."
           required: true
 
         - name: "depositor_details_status"
@@ -1013,14 +1015,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения реквизитов поклажедателя."
+          description: "Статус определения реквизитов поклажедателя. Внутреннее enum-поле."
           required: true
 
         - name: "depositor_details_value"
           type: "string"
           presentation: "fact"
           label: "Поклажедатель"
-          description: "Реквизиты поклажедателя."
+          description: >
+            Реквизиты поклажедателя. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -1030,14 +1033,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["legal_entity", "ip", "individual", "consumer", "not_defined"]
-          description: "Тип поклажедателя."
+          description: "Тип поклажедателя. Внутреннее enum-поле."
           required: true
 
         - name: "depositor_signatory"
           label: "Подписант поклажедателя"
           type: "string"
           presentation: "fact"
-          description: "Подписант поклажедателя."
+          description: >
+            Подписант поклажедателя. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -1046,7 +1050,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["charter", "poa", "order", "law", "personal", "other", "not_defined"]
-          description: "Основание полномочий подписанта поклажедателя."
+          description: "Основание полномочий подписанта поклажедателя. Внутреннее enum-поле."
           required: true
 
   - id: storage_subject_extraction
@@ -1476,14 +1480,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения предмета хранения."
+          description: "Статус определения предмета хранения. Внутреннее enum-поле."
           required: true
 
         - name: "item_description_value"
           type: "string"
           presentation: "fact"
           label: "Описание вещи"
-          description: "Описание хранимой вещи."
+          description: >
+            Описание хранимой вещи. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -1493,7 +1498,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["individual", "generic", "not_defined"]
-          description: "Тип вещи: индивидуально-определённая или родовая."
+          description: "Тип вещи: индивидуально-определённая или родовая. Внутреннее enum-поле."
           required: true
 
         - name: "quantity_status"
@@ -1501,14 +1506,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания количества."
+          description: "Статус указания количества. Внутреннее enum-поле."
           required: true
 
         - name: "quantity_value"
           type: "string"
           presentation: "fact"
           label: "Количество"
-          description: "Количество, вес или объём вещи."
+          description: >
+            Количество, вес или объём вещи. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -1518,14 +1524,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания заявленной стоимости."
+          description: "Статус указания заявленной стоимости. Внутреннее enum-поле."
           required: true
 
         - name: "declared_value_value"
           type: "string"
           presentation: "fact"
           label: "Заявленная стоимость"
-          description: "Заявленная или оценочная стоимость вещи."
+          description: >
+            Заявленная или оценочная стоимость вещи. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -1535,7 +1542,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["regular", "irregular", "not_defined"]
-          description: "Тип хранения: обычное или иррегулярное."
+          description: "Тип хранения: обычное или иррегулярное. Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 4
@@ -1545,14 +1552,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания идентификационных признаков."
+          description: "Статус указания идентификационных признаков. Внутреннее enum-поле."
           required: true
 
         - name: "identification_marks_value"
           type: "string"
           presentation: "fact"
           label: "Идентификация"
-          description: "Серийный номер, маркировка, пломба и т.п."
+          description: >
+            Серийный номер, маркировка, пломба и т.п. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 5
@@ -1915,7 +1923,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус упоминания документа о приёме."
+          description: "Статус упоминания документа о приёме. Внутреннее enum-поле."
           required: true
 
         - name: "acceptance_doc_type"
@@ -1923,7 +1931,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["act_mh1", "custody_receipt", "warehouse_certificate", "other", "not_defined"]
-          description: "Вид документа о приёме вещи."
+          description: "Вид документа о приёме вещи. Внутреннее enum-поле."
           label: "Документ о приёме"
           required: true
           display_in_grid: true
@@ -1934,7 +1942,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["upon_acceptance", "within_period", "at_return", "not_defined"]
-          description: "Момент выдачи документа."
+          description: "Момент выдачи документа. Внутреннее enum-поле."
           label: "Момент выдачи"
           required: true
           display_in_grid: true
@@ -1945,14 +1953,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус ссылки на форму документа."
+          description: "Статус ссылки на форму документа. Внутреннее enum-поле."
           required: true
 
         - name: "form_reference_value"
           type: "string"
           presentation: "fact"
           label: "Форма документа"
-          description: "Ссылка на форму или Постановление Госкомстата."
+          description: >
+            Ссылка на форму или Постановление Госкомстата. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -2344,7 +2353,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["strict", "fault_based", "mixed", "not_defined"]
-          description: "Основание ответственности хранителя."
+          description: "Основание ответственности хранителя. Внутреннее enum-поле."
           label: "Основание ответственности"
           required: true
           display_in_grid: true
@@ -2355,7 +2364,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["full_value", "declared_value", "depreciation_amount", "limited", "not_defined"]
-          description: "Объём ответственности."
+          description: "Объём ответственности. Внутреннее enum-поле."
           label: "Объём ответственности"
           required: true
           display_in_grid: true
@@ -2366,7 +2375,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Наличие лимита ответственности."
+          description: "Наличие лимита ответственности. Внутреннее enum-поле."
           label: "Лимит ответственности"
           required: true
           display_in_grid: true
@@ -2377,7 +2386,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Исключение для непреодолимой силы."
+          description: "Исключение для непреодолимой силы. Внутреннее enum-поле."
           label: "Исключение ФМ"
           required: true
           display_in_grid: true
@@ -2387,7 +2396,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Ответственность за утрату/повреждение"
-          description: "Формулировка об ответственности за утрату, недостачу и повреждение."
+          description: >
+            Формулировка об ответственности за утрату, недостачу и повреждение. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 5
@@ -2767,14 +2777,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания права на возврат по первому требованию."
+          description: "Статус указания права на возврат по первому требованию. Внутреннее enum-поле."
           required: true
 
         - name: "first_demand_right_details"
           type: "string"
           presentation: "fact"
           label: "Право на возврат"
-          description: "Формулировка о праве забрать вещь по первому требованию."
+          description: >
+            Формулировка о праве забрать вещь по первому требованию. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -2784,14 +2795,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания срока уведомления."
+          description: "Статус указания срока уведомления. Внутреннее enum-поле."
           required: true
 
         - name: "notice_period_value"
           type: "string"
           presentation: "fact"
           label: "Срок уведомления"
-          description: "Срок уведомления о досрочном возврате."
+          description: >
+            Срок уведомления о досрочном возврате. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -2801,14 +2813,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания штрафа за досрочный возврат."
+          description: "Статус указания штрафа за досрочный возврат. Внутреннее enum-поле."
           required: true
 
         - name: "early_return_penalty_value"
           type: "string"
           presentation: "fact"
           label: "Штраф за досрочный возврат"
-          description: "Наличие и размер штрафа за досрочный возврат."
+          description: >
+            Наличие и размер штрафа за досрочный возврат. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -3214,7 +3227,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус упоминания иррегулярного хранения."
+          description: "Статус упоминания иррегулярного хранения. Внутреннее enum-поле."
           required: true
 
         - name: "commingling_allowed"
@@ -3222,7 +3235,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Разрешено ли смешение вещей."
+          description: "Разрешено ли смешение вещей. Внутреннее enum-поле."
           label: "Смешение вещей"
           required: true
           display_in_grid: true
@@ -3233,14 +3246,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания сорта / класса / качества."
+          description: "Статус указания сорта / класса / качества. Внутреннее enum-поле."
           required: true
 
         - name: "quality_grade_value"
           type: "string"
           presentation: "fact"
           label: "Сорт / качество"
-          description: "Сорт, класс или качество вещи при иррегулярном хранении."
+          description: >
+            Сорт, класс или качество вещи при иррегулярном хранении. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -3250,14 +3264,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания порядка возврата того же рода и качества."
+          description: "Статус указания порядка возврата того же рода и качества. Внутреннее enum-поле."
           required: true
 
         - name: "return_same_grade_details"
           type: "string"
           presentation: "fact"
           label: "Порядок возврата"
-          description: "Порядок возврата вещи того же рода и качества."
+          description: >
+            Порядок возврата вещи того же рода и качества. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -3267,14 +3282,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения доли в общей массе."
+          description: "Статус определения доли в общей массе. Внутреннее enum-поле."
           required: true
 
         - name: "share_basis_details"
           type: "string"
           presentation: "fact"
           label: "Доля в общей массе"
-          description: "Порядок определения доли поклажедателя."
+          description: >
+            Порядок определения доли поклажедателя. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -3658,7 +3674,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия процедуры реализации."
+          description: "Статус наличия процедуры реализации. Внутреннее enum-поле."
           required: true
 
         - name: "notice_period_status"
@@ -3666,14 +3682,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания срока уведомления."
+          description: "Статус указания срока уведомления. Внутреннее enum-поле."
           required: true
 
         - name: "notice_period_value"
           type: "string"
           presentation: "fact"
           label: "Срок уведомления"
-          description: "Срок уведомления поклажедателя о реализации."
+          description: >
+            Срок уведомления поклажедателя о реализации. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -3683,7 +3700,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["market_price", "auction", "other", "not_defined"]
-          description: "Порядок продажи невостребованной вещи."
+          description: "Порядок продажи невостребованной вещи. Внутреннее enum-поле."
           label: "Порядок продажи"
           required: true
           display_in_grid: true
@@ -3694,7 +3711,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Удерживаются ли расходы из выручки."
+          description: "Удерживаются ли расходы из выручки. Внутреннее enum-поле."
           label: "Удержание расходов"
           required: true
           display_in_grid: true
@@ -3705,7 +3722,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Возвращается ли остаток выручки поклажедателю."
+          description: "Возвращается ли остаток выручки поклажедателю. Внутреннее enum-поле."
           label: "Возврат остатка"
           required: true
           display_in_grid: true
@@ -4094,7 +4111,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус обязанности раскрыть опасные свойства."
+          description: "Статус обязанности раскрыть опасные свойства. Внутреннее enum-поле."
           label: "Раскрытие опасных свойств"
           required: true
           display_in_grid: true
@@ -4105,7 +4122,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Перечислены ли конкретные опасные свойства."
+          description: "Перечислены ли конкретные опасные свойства. Внутреннее enum-поле."
           label: "Свойства перечислены"
           required: true
           display_in_grid: true
@@ -4116,7 +4133,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Право хранителя уничтожить опасную вещь."
+          description: "Право хранителя уничтожить опасную вещь. Внутреннее enum-поле."
           label: "Право уничтожения"
           required: true
           display_in_grid: true
@@ -4127,7 +4144,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Ответственность за сокрытие опасных свойств."
+          description: "Ответственность за сокрытие опасных свойств. Внутреннее enum-поле."
           label: "Ответственность за сокрытие"
           required: true
           display_in_grid: true
@@ -4138,7 +4155,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Упоминание лицензии на хранение опасных веществ."
+          description: "Упоминание лицензии на хранение опасных веществ. Внутреннее enum-поле."
           required: true
 
       store_payload: true
@@ -4522,7 +4539,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус упоминания складского свидетельства."
+          description: "Статус упоминания складского свидетельства. Внутреннее enum-поле."
           required: true
 
         - name: "certificate_type"
@@ -4530,7 +4547,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["double", "simple", "warehouse_receipt", "not_defined"]
-          description: "Вид складского свидетельства."
+          description: "Вид складского свидетельства. Внутреннее enum-поле."
           label: "Вид свидетельства"
           required: true
           display_in_grid: true
@@ -4541,7 +4558,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["upon_acceptance", "upon_request", "not_defined"]
-          description: "Момент выдачи складского свидетельства."
+          description: "Момент выдачи складского свидетельства. Внутреннее enum-поле."
           label: "Момент выдачи"
           required: true
           display_in_grid: true
@@ -4552,7 +4569,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Разрешена ли передача прав по свидетельству."
+          description: "Разрешена ли передача прав по свидетельству. Внутреннее enum-поле."
           label: "Передача прав"
           required: true
           display_in_grid: true
@@ -4563,7 +4580,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Разрешён ли залог товара по варранту."
+          description: "Разрешён ли залог товара по варранту. Внутреннее enum-поле."
           label: "Залог по варранту"
           required: true
           display_in_grid: true
@@ -4878,14 +4895,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания права удержания."
+          description: "Статус указания права удержания. Внутреннее enum-поле."
           required: true
 
         - name: "lien_right_details"
           type: "string"
           presentation: "fact"
           label: "Право удержания"
-          description: "Условия права удержания вещи хранителем."
+          description: >
+            Условия права удержания вещи хранителем. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -5224,7 +5242,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус упоминания естественной убыли."
+          description: "Статус упоминания естественной убыли. Внутреннее enum-поле."
           label: "Естественная убыль"
           required: true
           display_in_grid: true
@@ -5235,7 +5253,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Ссылка на утверждённые нормы естественной убыли."
+          description: "Ссылка на утверждённые нормы естественной убыли. Внутреннее enum-поле."
           label: "Ссылка на нормы"
           required: true
           display_in_grid: true
@@ -5246,7 +5264,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Освобождение от ответственности в пределах норм."
+          description: "Освобождение от ответственности в пределах норм. Внутреннее enum-поле."
           label: "Освобождение в пределах норм"
           required: true
           display_in_grid: true
@@ -5661,7 +5679,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие условия о вознаграждении хранителя."
+          description: "Наличие условия о вознаграждении хранителя. Внутреннее enum-поле."
           label: "Вознаграждение хранителя"
           required: true
           display_in_grid: true
@@ -5671,7 +5689,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Размер вознаграждения"
-          description: "Сумма / тариф / ставка вознаграждения хранителя."
+          description: >
+            Сумма / тариф / ставка вознаграждения хранителя. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -5680,7 +5699,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Порядок оплаты"
-          description: "Порядок и сроки оплаты вознаграждения."
+          description: >
+            Порядок и сроки оплаты вознаграждения. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -5690,7 +5710,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие условия о возмещении расходов на хранение."
+          description: "Наличие условия о возмещении расходов на хранение. Внутреннее enum-поле."
           label: "Возмещение расходов"
           required: true
           display_in_grid: true
@@ -5700,7 +5720,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Порядок возмещения расходов"
-          description: "Состав, порядок и пределы возмещения расходов на хранение."
+          description: >
+            Состав, порядок и пределы возмещения расходов на хранение. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 5
@@ -6086,7 +6107,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие условия о сроке хранения."
+          description: "Наличие условия о сроке хранения. Внутреннее enum-поле."
           label: "Срок хранения"
           required: true
           display_in_grid: true
@@ -6097,7 +6118,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["fixed_period", "until_demand", "max_term", "not_defined"]
-          description: "Тип срока хранения."
+          description: "Тип срока хранения. Внутреннее enum-поле."
           label: "Тип срока"
           required: true
           display_in_grid: true
@@ -6107,7 +6128,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Значение срока"
-          description: "Конкретное значение срока хранения."
+          description: >
+            Конкретное значение срока хранения. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -6117,7 +6139,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Упоминание обязанности возврата по востребованию."
+          description: "Упоминание обязанности возврата по востребованию. Внутреннее enum-поле."
           label: "Возврат по востребованию"
           required: true
           display_in_grid: true
@@ -6488,7 +6510,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие требований к условиям хранения."
+          description: "Наличие требований к условиям хранения. Внутреннее enum-поле."
           label: "Условия хранения"
           required: true
           display_in_grid: true
@@ -6498,7 +6520,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Типы условий"
-          description: "Типы условий хранения через '; ': temperature; humidity; light; ventilation; special; other."
+          description: >
+            Типы условий хранения через '; ': temperature; humidity; light; ventilation; special; other. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -6507,7 +6530,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Параметры условий"
-          description: "Конкретные значения параметров условий хранения."
+          description: >
+            Конкретные значения параметров условий хранения. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -6903,7 +6927,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие порядка выдачи вещи."
+          description: "Наличие порядка выдачи вещи. Внутреннее enum-поле."
           label: "Порядок выдачи"
           required: true
           display_in_grid: true
@@ -6914,7 +6938,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["act_mh3", "other_act", "receipt", "not_defined"]
-          description: "Тип документа выдачи вещи."
+          description: "Тип документа выдачи вещи. Внутреннее enum-поле."
           label: "Документ выдачи"
           required: true
           display_in_grid: true
@@ -6925,7 +6949,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Проверка правомочий получателя."
+          description: "Проверка правомочий получателя. Внутреннее enum-поле."
           label: "Проверка правомочий"
           required: true
           display_in_grid: true
@@ -6935,7 +6959,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Условия возврата"
-          description: "Место, срок, порядок и получатель вещи."
+          description: >
+            Место, срок, порядок и получатель вещи. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -7333,7 +7358,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие условия о проверке вещи при возврате."
+          description: "Наличие условия о проверке вещи при возврате. Внутреннее enum-поле."
           label: "Проверка при возврате"
           required: true
           display_in_grid: true
@@ -7343,7 +7368,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Порядок проверки"
-          description: "Кто, где и как проводит проверку вещи при возврате."
+          description: >
+            Кто, где и как проводит проверку вещи при возврате. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -7352,7 +7378,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Фиксация недостачи"
-          description: "Порядок фиксации недостачи / повреждений."
+          description: >
+            Порядок фиксации недостачи / повреждений. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -7362,14 +7389,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие срока предъявления претензий."
+          description: "Наличие срока предъявления претензий. Внутреннее enum-поле."
           required: true
 
         - name: "claims_deadline_value"
           type: "string"
           presentation: "fact"
           label: "Срок претензий"
-          description: "Срок предъявления претензий по состоянию вещи."
+          description: >
+            Срок предъявления претензий по состоянию вещи. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -7778,7 +7806,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие условия о чрезвычайных расходах."
+          description: "Наличие условия о чрезвычайных расходах. Внутреннее enum-поле."
           label: "Чрезвычайные расходы"
           required: true
           display_in_grid: true
@@ -7788,7 +7816,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Условия возмещения"
-          description: "Условия возмещения чрезвычайных расходов."
+          description: >
+            Условия возмещения чрезвычайных расходов. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -7797,7 +7826,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Порядок согласования"
-          description: "Порядок согласования / одобрения чрезвычайных расходов."
+          description: >
+            Порядок согласования / одобрения чрезвычайных расходов. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -7807,14 +7837,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие лимита расходов без согласования."
+          description: "Наличие лимита расходов без согласования. Внутреннее enum-поле."
           required: true
 
         - name: "expense_limit_value"
           type: "string"
           presentation: "fact"
           label: "Лимит без согласования"
-          description: "Значение лимита расходов без согласования."
+          description: >
+            Значение лимита расходов без согласования. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -8216,7 +8247,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие перечня обстоятельств, освобождающих от ответственности."
+          description: "Наличие перечня обстоятельств, освобождающих от ответственности. Внутреннее enum-поле."
           label: "Освобождение от ответственности"
           required: true
           display_in_grid: true
@@ -8226,7 +8257,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Типы оснований"
-          description: "Типы оснований через '; ': force_majeure; item_properties; depositor_intent; depositor_gross_negligence; other."
+          description: >
+            Типы оснований через '; ': force_majeure; item_properties; depositor_intent; depositor_gross_negligence; other. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -8235,7 +8267,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Формулировка оснований"
-          description: "Конкретная формулировка оснований освобождения из договора."
+          description: >
+            Конкретная формулировка оснований освобождения из договора. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -8245,7 +8278,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Открытый ли перечень оснований."
+          description: "Открытый ли перечень оснований. Внутреннее enum-поле."
           label: "Перечень открытый"
           required: true
           display_in_grid: true
@@ -8638,7 +8671,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие процедуры при требованиях третьих лиц."
+          description: "Наличие процедуры при требованиях третьих лиц. Внутреннее enum-поле."
           label: "Требования третьих лиц"
           required: true
           display_in_grid: true
@@ -8649,7 +8682,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Обязанность уведомить поклажедателя."
+          description: "Обязанность уведомить поклажедателя. Внутреннее enum-поле."
           label: "Уведомление поклажедателя"
           required: true
           display_in_grid: true
@@ -8660,7 +8693,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Приостановление выдачи вещи."
+          description: "Приостановление выдачи вещи. Внутреннее enum-поле."
           label: "Приостановление выдачи"
           required: true
           display_in_grid: true
@@ -8670,7 +8703,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Порядок уведомления"
-          description: "Форма, срок и порядок уведомления поклажедателя."
+          description: >
+            Форма, срок и порядок уведомления поклажедателя. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -9085,7 +9119,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие условия о страховании."
+          description: "Наличие условия о страховании. Внутреннее enum-поле."
           label: "Страхование"
           required: true
           display_in_grid: true
@@ -9096,7 +9130,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["custodian", "depositor", "both", "not_defined"]
-          description: "Сторона, обязанная застраховать вещь."
+          description: "Сторона, обязанная застраховать вещь. Внутреннее enum-поле."
           label: "Страхователь"
           required: true
           display_in_grid: true
@@ -9107,14 +9141,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие условия о страховой сумме."
+          description: "Наличие условия о страховой сумме. Внутреннее enum-поле."
           required: true
 
         - name: "insurance_amount_value"
           type: "string"
           presentation: "fact"
           label: "Страховая сумма"
-          description: "Размер страховой суммы."
+          description: >
+            Размер страховой суммы. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -9124,7 +9159,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["custodian", "depositor", "both", "not_defined"]
-          description: "Выгодоприобретатель по договору страхования."
+          description: "Выгодоприобретатель по договору страхования. Внутреннее enum-поле."
           label: "Выгодоприобретатель"
           required: true
           display_in_grid: true
@@ -9134,7 +9169,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Детали страхования"
-          description: "Риски, страховщик, период и иные детали."
+          description: >
+            Риски, страховщик, период и иные детали. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 5
@@ -9523,7 +9559,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие претензионного порядка."
+          description: "Наличие претензионного порядка. Внутреннее enum-поле."
           label: "Претензионный порядок"
           required: true
           display_in_grid: true
@@ -9534,14 +9570,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие срока претензионного порядка."
+          description: "Наличие срока претензионного порядка. Внутреннее enum-поле."
           required: true
 
         - name: "pretension_period_value"
           type: "string"
           presentation: "fact"
           label: "Срок претензии"
-          description: "Срок претензионного порядка."
+          description: >
+            Срок претензионного порядка. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -9550,7 +9587,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Порядок направления"
-          description: "Форма, адресат и способ направления претензии."
+          description: >
+            Форма, адресат и способ направления претензии. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -9945,7 +9983,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие указания на НДС."
+          description: "Наличие указания на НДС. Внутреннее enum-поле."
           label: "НДС"
           required: true
           display_in_grid: true
@@ -9956,7 +9994,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["included", "excluded", "exempt", "not_defined"]
-          description: "Режим НДС в договоре."
+          description: "Режим НДС в договоре. Внутреннее enum-поле."
           label: "Режим НДС"
           required: true
           display_in_grid: true
@@ -9966,7 +10004,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Ставка НДС"
-          description: "Ставка НДС (20% / 10% / не применяется)."
+          description: >
+            Ставка НДС (20% / 10% / не применяется). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -9975,7 +10014,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Налоговые оговорки"
-          description: "Иные налоговые оговорки в договоре."
+          description: >
+            Иные налоговые оговорки в договоре. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -10364,7 +10404,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие прямого запрета пользования вещью."
+          description: "Наличие прямого запрета пользования вещью. Внутреннее enum-поле."
           label: "Запрет пользования"
           required: true
           display_in_grid: true
@@ -10375,7 +10415,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["prohibited", "for_safety", "partially", "allowed", "not_defined"]
-          description: "Статус права пользования вещью."
+          description: "Статус права пользования вещью. Внутреннее enum-поле."
           label: "Право пользования"
           required: true
           display_in_grid: true
@@ -10386,7 +10426,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Разрешено ли пользование третьими лицами."
+          description: "Разрешено ли пользование третьими лицами. Внутреннее enum-поле."
           label: "Пользование третьими лицами"
           required: true
           display_in_grid: true
@@ -10396,7 +10436,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Формулировка о пользовании"
-          description: "Формулировка условий пользования из договора."
+          description: >
+            Формулировка условий пользования из договора. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -10777,7 +10818,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "with_consent", "not_defined"]
-          description: "Разрешена ли передача вещи третьему лицу."
+          description: "Разрешена ли передача вещи третьему лицу. Внутреннее enum-поле."
           label: "Субхранение"
           required: true
           display_in_grid: true
@@ -10788,7 +10829,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Требуется ли согласие поклажедателя."
+          description: "Требуется ли согласие поклажедателя. Внутреннее enum-поле."
           label: "Согласие поклажедателя"
           required: true
           display_in_grid: true
@@ -10799,7 +10840,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Требуется ли уведомление поклажедателя."
+          description: "Требуется ли уведомление поклажедателя. Внутреннее enum-поле."
           label: "Уведомление"
           required: true
           display_in_grid: true
@@ -10809,7 +10850,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Порядок передачи"
-          description: "Форма согласия, срок уведомления и иные условия."
+          description: >
+            Форма согласия, срок уведомления и иные условия. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -11189,7 +11231,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие условия о моменте перехода риска."
+          description: "Наличие условия о моменте перехода риска. Внутреннее enum-поле."
           label: "Момент перехода риска"
           required: true
           display_in_grid: true
@@ -11200,7 +11242,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["upon_transfer", "upon_act_signing", "upon_acceptance", "other", "not_defined"]
-          description: "Момент перехода риска."
+          description: "Момент перехода риска. Внутреннее enum-поле."
           label: "С какого момента"
           required: true
           display_in_grid: true
@@ -11210,7 +11252,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Кто несёт риск"
-          description: "Кто несёт риск (хранитель / поклажедатель)."
+          description: >
+            Кто несёт риск (хранитель / поклажедатель). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -11219,7 +11262,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Формулировка о риске"
-          description: "Формулировка момента перехода риска из договора."
+          description: >
+            Формулировка момента перехода риска из договора. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -11580,7 +11624,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Наличие права проверки / осмотра вещи."
+          description: "Наличие права проверки / осмотра вещи. Внутреннее enum-поле."
           label: "Право проверки"
           required: true
           display_in_grid: true
@@ -11591,7 +11635,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Наличие доступа к месту хранения."
+          description: "Наличие доступа к месту хранения. Внутреннее enum-поле."
           label: "Доступ к месту хранения"
           required: true
           display_in_grid: true
@@ -11601,7 +11645,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Условия проверки"
-          description: "Порядок, периодичность и ограничения проверки."
+          description: >
+            Порядок, периодичность и ограничения проверки. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -11987,7 +12032,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие условия о возмещении убытков хранителю."
+          description: "Наличие условия о возмещении убытков хранителю. Внутреннее enum-поле."
           label: "Возмещение убытков"
           required: true
           display_in_grid: true
@@ -11998,7 +12043,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["depositor", "custodian", "both", "not_defined"]
-          description: "Кто несёт убытки."
+          description: "Кто несёт убытки. Внутреннее enum-поле."
           label: "Кто возмещает"
           required: true
           display_in_grid: true
@@ -12008,7 +12053,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Освобождения"
-          description: "Основания освобождения поклажедателя от возмещения."
+          description: >
+            Основания освобождения поклажедателя от возмещения. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -12017,7 +12063,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Порядок возмещения"
-          description: "Порядок возмещения убытков хранителю."
+          description: >
+            Порядок возмещения убытков хранителю. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -12428,7 +12475,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие условия о продаже портящейся вещи."
+          description: "Наличие условия о продаже портящейся вещи. Внутреннее enum-поле."
           label: "Продажа портящейся вещи"
           required: true
           display_in_grid: true
@@ -12439,14 +12486,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие условия о порядке цены."
+          description: "Наличие условия о порядке цены. Внутреннее enum-поле."
           required: true
 
         - name: "price_determination_details"
           type: "string"
           presentation: "fact"
           label: "Порядок цены"
-          description: "Порядок определения цены продажи."
+          description: >
+            Порядок определения цены продажи. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -12456,7 +12504,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Обязанность уведомить поклажедателя."
+          description: "Обязанность уведомить поклажедателя. Внутреннее enum-поле."
           label: "Уведомление о продаже"
           required: true
           display_in_grid: true
@@ -12467,7 +12515,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Передача выручки поклажедателю."
+          description: "Передача выручки поклажедателю. Внутреннее enum-поле."
           label: "Передача выручки"
           required: true
           display_in_grid: true
@@ -12477,7 +12525,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Порядок продажи"
-          description: "Порядок продажи, расчёта и передачи выручки."
+          description: >
+            Порядок продажи, расчёта и передачи выручки. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 5
@@ -12906,7 +12955,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие ответственности за просрочку возврата."
+          description: "Наличие ответственности за просрочку возврата. Внутреннее enum-поле."
           label: "Ответственность за просрочку возврата"
           required: true
           display_in_grid: true
@@ -12917,7 +12966,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["penalty", "interest", "damages", "other", "not_defined"]
-          description: "Форма ответственности за просрочку возврата."
+          description: "Форма ответственности за просрочку возврата. Внутреннее enum-поле."
           label: "Форма ответственности"
           required: true
           display_in_grid: true
@@ -12927,7 +12976,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Размер ответственности"
-          description: "Ставка или сумма ответственности за просрочку возврата."
+          description: >
+            Ставка или сумма ответственности за просрочку возврата. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -12937,14 +12987,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие лимита ответственности за просрочку возврата."
+          description: "Наличие лимита ответственности за просрочку возврата. Внутреннее enum-поле."
           required: true
 
         - name: "late_return_cap_value"
           type: "string"
           presentation: "fact"
           label: "Лимит ответственности"
-          description: "Значение лимита ответственности за просрочку возврата."
+          description: >
+            Значение лимита ответственности за просрочку возврата. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -12953,7 +13004,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Порядок расчёта"
-          description: "Порядок расчёта ответственности за просрочку возврата."
+          description: >
+            Порядок расчёта ответственности за просрочку возврата. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 5
@@ -13361,7 +13413,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие правил о получателе вещи."
+          description: "Наличие правил о получателе вещи. Внутреннее enum-поле."
           label: "Правила о получателе"
           required: true
           display_in_grid: true
@@ -13372,7 +13424,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Обязанность проверки полномочий получателя."
+          description: "Обязанность проверки полномочий получателя. Внутреннее enum-поле."
           label: "Проверка полномочий получателя"
           required: true
           display_in_grid: true
@@ -13383,7 +13435,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Ответственность за выдачу вещи ненадлежащему лицу."
+          description: "Ответственность за выдачу вещи ненадлежащему лицу. Внутреннее enum-поле."
           label: "Ответственность за выдачу"
           required: true
           display_in_grid: true
@@ -13393,7 +13445,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Правила возврата и проверки"
-          description: "Формулировка правил о получателе, документах, проверке и ответственности."
+          description: >
+            Формулировка правил о получателе, документах, проверке и ответственности. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -13793,7 +13846,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие права хранителя на односторонний отказ."
+          description: "Наличие права хранителя на односторонний отказ. Внутреннее enum-поле."
           label: "Право на односторонний отказ"
           required: true
           display_in_grid: true
@@ -13804,7 +13857,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["payment_overdue", "non_collection", "both", "other", "not_defined"]
-          description: "Основания одностороннего отказа хранителя."
+          description: "Основания одностороннего отказа хранителя. Внутреннее enum-поле."
           label: "Основания отказа"
           required: true
           display_in_grid: true
@@ -13815,7 +13868,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Требуется ли уведомление поклажедателя."
+          description: "Требуется ли уведомление поклажедателя. Внутреннее enum-поле."
           label: "Уведомление о расторжении"
           required: true
           display_in_grid: true
@@ -13825,7 +13878,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Порядок и последствия отказа"
-          description: "Формулировка оснований, порядка уведомления и последствий отказа."
+          description: >
+            Формулировка оснований, порядка уведомления и последствий отказа. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -14271,7 +14325,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие ответственности за просрочку оплаты."
+          description: "Наличие ответственности за просрочку оплаты. Внутреннее enum-поле."
           label: "Ответственность за просрочку оплаты"
           required: true
           display_in_grid: true
@@ -14282,7 +14336,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["remuneration", "expenses", "both", "other", "not_defined"]
-          description: "Вид задолженности, к которой применяется ответственность."
+          description: "Вид задолженности, к которой применяется ответственность. Внутреннее enum-поле."
           label: "Вид задолженности"
           required: true
           display_in_grid: true
@@ -14293,7 +14347,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["penalty", "interest", "damages", "other", "not_defined"]
-          description: "Форма ответственности за просрочку оплаты."
+          description: "Форма ответственности за просрочку оплаты. Внутреннее enum-поле."
           label: "Форма ответственности"
           required: true
           display_in_grid: true
@@ -14303,7 +14357,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Размер ответственности"
-          description: "Ставка или сумма ответственности за просрочку оплаты."
+          description: >
+            Ставка или сумма ответственности за просрочку оплаты. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -14313,14 +14368,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие лимита ответственности за просрочку оплаты."
+          description: "Наличие лимита ответственности за просрочку оплаты. Внутреннее enum-поле."
           required: true
 
         - name: "late_payment_cap_value"
           type: "string"
           presentation: "fact"
           label: "Лимит ответственности"
-          description: "Значение лимита ответственности за просрочку оплаты."
+          description: >
+            Значение лимита ответственности за просрочку оплаты. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 5
@@ -14329,7 +14385,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Порядок расчёта"
-          description: "Порядок расчёта ответственности за просрочку оплаты."
+          description: >
+            Порядок расчёта ответственности за просрочку оплаты. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 6
@@ -14728,7 +14785,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие обязанности уведомления об изменении условий хранения."
+          description: "Наличие обязанности уведомления об изменении условий хранения. Внутреннее enum-поле."
           label: "Обязанность уведомления"
           required: true
           display_in_grid: true
@@ -14739,7 +14796,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["conditions", "place", "both", "other", "not_defined"]
-          description: "Предмет уведомления."
+          description: "Предмет уведомления. Внутреннее enum-поле."
           label: "Предмет уведомления"
           required: true
           display_in_grid: true
@@ -14750,7 +14807,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Требуется ли предварительное согласование изменений."
+          description: "Требуется ли предварительное согласование изменений. Внутреннее enum-поле."
           label: "Предварительное согласование"
           required: true
           display_in_grid: true
@@ -14760,7 +14817,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Форма и срок уведомления"
-          description: "Форма, срок и порядок уведомления поклажедателя."
+          description: >
+            Форма, срок и порядок уведомления поклажедателя. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -15185,7 +15243,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Возмездность / безвозмездность хранения."
+          description: "Возмездность / безвозмездность хранения. Внутреннее enum-поле."
           label: "Безвозмездность"
           required: true
           display_in_grid: true
@@ -15196,7 +15254,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["reimbursable", "not_reimbursable", "partial", "not_defined"]
-          description: "Режим возмещения необходимых расходов."
+          description: "Режим возмещения необходимых расходов. Внутреннее enum-поле."
           label: "Возмещение расходов"
           required: true
           display_in_grid: true
@@ -15207,7 +15265,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["fault_based", "strict", "not_defined"]
-          description: "Стандарт ответственности хранителя."
+          description: "Стандарт ответственности хранителя. Внутреннее enum-поле."
           label: "Стандарт ответственности"
           required: true
           display_in_grid: true
@@ -15218,7 +15276,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["as_own", "other", "not_defined"]
-          description: "Стандарт заботы о вещи."
+          description: "Стандарт заботы о вещи. Внутреннее enum-поле."
           label: "Стандарт заботы"
           required: true
           display_in_grid: true
@@ -15228,7 +15286,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Последствия безвозмездности"
-          description: "Формулировка последствий безвозмездности из договора."
+          description: >
+            Формулировка последствий безвозмездности из договора. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 5
@@ -15654,7 +15713,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие указания на специальный вид хранения."
+          description: "Наличие указания на специальный вид хранения. Внутреннее enum-поле."
           label: "Специальный вид хранения"
           required: true
           display_in_grid: true
@@ -15665,7 +15724,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["lombard", "sequestration", "bank_safe", "luggage_room", "wardrobe", "other", "not_defined"]
-          description: "Конкретный специальный вид хранения."
+          description: "Конкретный специальный вид хранения. Внутреннее enum-поле."
           label: "Тип хранения"
           required: true
           display_in_grid: true
@@ -15676,14 +15735,15 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие специфики специального вида."
+          description: "Наличие специфики специального вида. Внутреннее enum-поле."
           required: true
 
         - name: "legal_basis_reference"
           type: "string"
           presentation: "fact"
           label: "Ссылка на нормы"
-          description: "Ссылка на специальные нормы или закон."
+          description: >
+            Ссылка на специальные нормы или закон. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -15692,7 +15752,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Специфика вида"
-          description: "Конкретная формулировка специфики вида хранения."
+          description: >
+            Конкретная формулировка специфики вида хранения. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -16106,7 +16167,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Является ли склад складом общего пользования."
+          description: "Является ли склад складом общего пользования. Внутреннее enum-поле."
           label: "Публичный склад"
           required: true
           display_in_grid: true
@@ -16117,7 +16178,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Закреплены ли последствия публичности."
+          description: "Закреплены ли последствия публичности. Внутреннее enum-поле."
           required: true
 
         - name: "uniform_pricing_status"
@@ -16125,7 +16186,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Единая ценовая политика для всех товаровладельцев."
+          description: "Единая ценовая политика для всех товаровладельцев. Внутреннее enum-поле."
           label: "Единая цена"
           required: true
           display_in_grid: true
@@ -16135,7 +16196,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Ссылка на нормы"
-          description: "Ссылка на ст. 907 / 426 ГК РФ или иные нормы о публичности."
+          description: >
+            Ссылка на ст. 907 / 426 ГК РФ или иные нормы о публичности. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -16144,7 +16206,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Публичность: детали"
-          description: "Формулировка статуса и последствий публичности."
+          description: >
+            Формулировка статуса и последствий публичности. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4

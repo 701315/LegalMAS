@@ -999,7 +999,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Лицензиар"
-          description: "Наименование и реквизиты лицензиара."
+          description: >
+            Наименование и реквизиты лицензиара. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -1008,7 +1009,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Лицензиат"
-          description: "Наименование и реквизиты лицензиата."
+          description: >
+            Наименование и реквизиты лицензиата. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -1019,14 +1021,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["patent", "trademark", "copyright", "software", "know_how", "industrial_design", "database", "other", "not_defined"]
           display_in_grid: false
-          description: "Вид объекта ИС."
+          description: "Вид объекта ИС. Внутреннее enum-поле."
           required: true
 
         - name: "ip_object_details"
           type: "string"
           presentation: "fact"
           label: "Объект ИС"
-          description: "Описание объекта ИС с регистрационными данными."
+          description: >
+            Описание объекта ИС с регистрационными данными. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -1037,14 +1040,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["exclusive", "non_exclusive", "not_defined"]
           display_in_grid: false
-          description: "Вид лицензии."
+          description: "Вид лицензии. Внутреннее enum-поле."
           required: true
 
         - name: "license_type_details"
           type: "string"
           presentation: "fact"
           label: "Вид лицензии"
-          description: "Формулировка вида лицензии либо указание на презумпцию неисключительной лицензии (п. 5 ст. 1235 ГК РФ)."
+          description: >
+            Формулировка вида лицензии либо указание на презумпцию неисключительной лицензии (п. 5 ст. 1235 ГК РФ). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -1055,14 +1059,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус перечня способов использования."
+          description: "Статус перечня способов использования. Внутреннее enum-поле."
           required: true
 
         - name: "permitted_uses_details"
           type: "string"
           presentation: "fact"
           label: "Способы использования"
-          description: "Перечень способов использования объекта ИС."
+          description: >
+            Перечень способов использования объекта ИС. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 5
@@ -1073,14 +1078,15 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус указания территории."
+          description: "Статус указания территории. Внутреннее enum-поле."
           required: true
 
         - name: "territory_details"
           type: "string"
           presentation: "fact"
           label: "Территория"
-          description: "Территория действия лицензии."
+          description: >
+            Территория действия лицензии. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 6
@@ -1091,14 +1097,15 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус указания срока."
+          description: "Статус указания срока. Внутреннее enum-поле."
           required: true
 
         - name: "term_details"
           type: "string"
           presentation: "fact"
           label: "Срок лицензии"
-          description: "Срок действия лицензии."
+          description: >
+            Срок действия лицензии. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 7
@@ -1528,7 +1535,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["royalty", "lump_sum", "combined", "gratuitous", "not_defined"]
           display_in_grid: false
-          description: "Вид вознаграждения."
+          description: "Вид вознаграждения. Внутреннее enum-поле."
           required: true
 
         - name: "royalty_rate_status"
@@ -1537,14 +1544,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус ставки роялти."
+          description: "Статус ставки роялти. Внутреннее enum-поле."
           required: true
 
         - name: "royalty_rate_details"
           type: "string"
           presentation: "fact"
           label: "Ставка роялти"
-          description: "Ставка роялти."
+          description: >
+            Ставка роялти. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -1555,14 +1563,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус паушального платежа."
+          description: "Статус паушального платежа. Внутреннее enum-поле."
           required: true
 
         - name: "lump_sum_details"
           type: "string"
           presentation: "fact"
           label: "Паушальный платёж"
-          description: "Размер паушального платежа."
+          description: >
+            Размер паушального платежа. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -1573,14 +1582,15 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус графика платежей."
+          description: "Статус графика платежей. Внутреннее enum-поле."
           required: true
 
         - name: "payment_schedule_details"
           type: "string"
           presentation: "fact"
           label: "График платежей"
-          description: "График платежей."
+          description: >
+            График платежей. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
 
@@ -1590,14 +1600,15 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус мингарантии."
+          description: "Статус мингарантии. Внутреннее enum-поле."
           required: true
 
         - name: "minimum_guarantee_details"
           type: "string"
           presentation: "fact"
           label: "Мингарантия"
-          description: "Минимальные гарантированные платежи."
+          description: >
+            Минимальные гарантированные платежи. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -1608,14 +1619,15 @@ checks_v8:
           risk_weight: "low"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус отчётности лицензиата."
+          description: "Статус отчётности лицензиата. Внутреннее enum-поле."
           required: true
 
         - name: "reporting_details"
           type: "string"
           presentation: "fact"
           label: "Отчётность"
-          description: "Отчётность лицензиата."
+          description: >
+            Отчётность лицензиата. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 4
@@ -1626,14 +1638,15 @@ checks_v8:
           risk_weight: "low"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус права аудита."
+          description: "Статус права аудита. Внутреннее enum-поле."
           required: true
 
         - name: "audit_right_details"
           type: "string"
           presentation: "fact"
           label: "Право аудита"
-          description: "Право лицензиара на аудит."
+          description: >
+            Право лицензиара на аудит. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 5
@@ -2071,14 +2084,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус гарантии наличия права."
+          description: "Статус гарантии наличия права. Внутреннее enum-поле."
           required: true
 
         - name: "ownership_warranty_details"
           type: "string"
           presentation: "fact"
           label: "Гарантия права"
-          description: "Гарантия лицензиара о наличии исключительного права."
+          description: >
+            Гарантия лицензиара о наличии исключительного права. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -2089,14 +2103,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус гарантии действительности."
+          description: "Статус гарантии действительности. Внутреннее enum-поле."
           required: true
 
         - name: "validity_warranty_details"
           type: "string"
           presentation: "fact"
           label: "Гарантия действительности"
-          description: "Гарантия действительности исключительного права."
+          description: >
+            Гарантия действительности исключительного права. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -2107,14 +2122,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус обязанности поддерживать право."
+          description: "Статус обязанности поддерживать право. Внутреннее enum-поле."
           required: true
 
         - name: "maintenance_obligation_details"
           type: "string"
           presentation: "fact"
           label: "Поддержание права"
-          description: "Обязанность лицензиара поддерживать право в силе."
+          description: >
+            Обязанность лицензиара поддерживать право в силе. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -2125,14 +2141,15 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус распределения пошлин."
+          description: "Статус распределения пошлин. Внутреннее enum-поле."
           required: true
 
         - name: "fee_payment_details"
           type: "string"
           presentation: "fact"
           label: "Пошлины"
-          description: "Роль, уплачивающая пошлины за поддержание права (лицензиар / лицензиат / стороны совместно / не распределено)."
+          description: >
+            Роль, уплачивающая пошлины за поддержание права (лицензиар / лицензиат / стороны совместно / не распределено). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
 
@@ -2142,14 +2159,15 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус обязанности лицензиара защищать право."
+          description: "Статус обязанности лицензиара защищать право. Внутреннее enum-поле."
           required: true
 
         - name: "licensor_defense_details"
           type: "string"
           presentation: "fact"
           label: "Защита лицензиара"
-          description: "Обязанность лицензиара защищать право от нарушителей."
+          description: >
+            Обязанность лицензиара защищать право от нарушителей. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 4
@@ -2160,14 +2178,15 @@ checks_v8:
           risk_weight: "low"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус права лицензиата защищать право."
+          description: "Статус права лицензиата защищать право. Внутреннее enum-поле."
           required: true
 
         - name: "licensee_defense_details"
           type: "string"
           presentation: "fact"
           label: "Защита лицензиата"
-          description: "Право лицензиата самостоятельно защищать право."
+          description: >
+            Право лицензиата самостоятельно защищать право. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
 
@@ -2622,14 +2641,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус контроля качества."
+          description: "Статус контроля качества. Внутреннее enum-поле."
           required: true
 
         - name: "quality_control_details"
           type: "string"
           presentation: "fact"
           label: "Контроль качества"
-          description: "Стандарты качества."
+          description: >
+            Стандарты качества. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -2640,14 +2660,15 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус права инспекции."
+          description: "Статус права инспекции. Внутреннее enum-поле."
           required: true
 
         - name: "inspection_details"
           type: "string"
           presentation: "fact"
           label: "Инспекция"
-          description: "Право лицензиара на инспекцию."
+          description: >
+            Право лицензиара на инспекцию. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
 
@@ -2657,14 +2678,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус разрешения на улучшения."
+          description: "Статус разрешения на улучшения. Внутреннее enum-поле."
           required: true
 
         - name: "improvements_allowed_details"
           type: "string"
           presentation: "fact"
           label: "Улучшения"
-          description: "Разрешение на создание улучшений."
+          description: >
+            Разрешение на создание улучшений. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -2675,14 +2697,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус принадлежности прав на улучшения."
+          description: "Статус принадлежности прав на улучшения. Внутреннее enum-поле."
           required: true
 
         - name: "improvements_ownership_details"
           type: "string"
           presentation: "fact"
           label: "Права на улучшения"
-          description: "Кому принадлежат права на улучшения."
+          description: >
+            Кому принадлежат права на улучшения. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -2693,14 +2716,15 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус grant-back оговорки."
+          description: "Статус grant-back оговорки. Внутреннее enum-поле."
           required: true
 
         - name: "grant_back_details"
           type: "string"
           presentation: "fact"
           label: "Grant-back"
-          description: "Grant-back оговорка."
+          description: >
+            Grant-back оговорка. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
 
@@ -2710,7 +2734,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус сублицензии."
+          description: "Статус сублицензии. Внутреннее enum-поле."
           required: true
 
         - name: "sublicense_regime"
@@ -2719,14 +2743,15 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["allowed", "prohibited", "allowed_with_consent", "not_defined"]
           display_in_grid: false
-          description: "Режим сублицензии."
+          description: "Режим сублицензии. Внутреннее enum-поле."
           required: true
 
         - name: "sublicense_details"
           type: "string"
           presentation: "fact"
           label: "Сублицензия"
-          description: "Условия сублицензирования."
+          description: >
+            Условия сублицензирования. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 4
@@ -3139,14 +3164,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус запрета собственного использования лицензиаром."
+          description: "Статус запрета собственного использования лицензиаром. Внутреннее enum-поле."
           required: true
 
         - name: "licensor_own_use_prohibited_details"
           type: "string"
           presentation: "fact"
           label: "Запрет использования лицензиаром"
-          description: "Запрет лицензиару самому использовать объект ИС."
+          description: >
+            Запрет лицензиару самому использовать объект ИС. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -3157,14 +3183,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус запрета выдачи лицензий другим лицам."
+          description: "Статус запрета выдачи лицензий другим лицам. Внутреннее enum-поле."
           required: true
 
         - name: "other_licenses_prohibited_details"
           type: "string"
           presentation: "fact"
           label: "Запрет других лицензий"
-          description: "Запрет лицензиару выдавать лицензии другим лицам."
+          description: >
+            Запрет лицензиару выдавать лицензии другим лицам. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -3175,14 +3202,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус запрета конкурирующей деятельности."
+          description: "Статус запрета конкурирующей деятельности. Внутреннее enum-поле."
           required: true
 
         - name: "competing_activity_prohibited_details"
           type: "string"
           presentation: "fact"
           label: "Запрет конкуренции"
-          description: "Запрет лицензиару конкурирующей деятельности."
+          description: >
+            Запрет лицензиару конкурирующей деятельности. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -3193,14 +3221,15 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус территории ограничений."
+          description: "Статус территории ограничений. Внутреннее enum-поле."
           required: true
 
         - name: "non_compete_territory_details"
           type: "string"
           presentation: "fact"
           label: "Территория запрета"
-          description: "Территория ограничений лицензиара."
+          description: >
+            Территория ограничений лицензиара. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
 
@@ -3210,14 +3239,15 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус срока ограничений."
+          description: "Статус срока ограничений. Внутреннее enum-поле."
           required: true
 
         - name: "non_compete_period_details"
           type: "string"
           presentation: "fact"
           label: "Срок запрета"
-          description: "Срок ограничений лицензиара."
+          description: >
+            Срок ограничений лицензиара. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
 
@@ -3571,14 +3601,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус условий о банкротстве/ликвидации лицензиара."
+          description: "Статус условий о банкротстве/ликвидации лицензиара. Внутреннее enum-поле."
           required: true
 
         - name: "bankruptcy_details"
           type: "string"
           presentation: "fact"
           label: "Банкротство лицензиара"
-          description: "Условия о судьбе лицензии при банкротстве/ликвидации лицензиара."
+          description: >
+            Условия о судьбе лицензии при банкротстве/ликвидации лицензиара. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -3589,14 +3620,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус условий о прекращении исключительного права."
+          description: "Статус условий о прекращении исключительного права. Внутреннее enum-поле."
           required: true
 
         - name: "ip_termination_details"
           type: "string"
           presentation: "fact"
           label: "Прекращение исключительного права"
-          description: "Судьба лицензии при прекращении исключительного права."
+          description: >
+            Судьба лицензии при прекращении исключительного права. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -3904,14 +3936,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["IP claims only", "all claims", "not_defined"]
           display_in_grid: false
-          description: "Объём возмещения при IP-претензиях."
+          description: "Объём возмещения при IP-претензиях. Внутреннее enum-поле."
           required: true
 
         - name: "ip_indemnity_details"
           type: "string"
           presentation: "fact"
           label: "IP-индемнити"
-          description: "Формулировка возмещения при IP-претензиях третьих лиц."
+          description: >
+            Формулировка возмещения при IP-претензиях третьих лиц. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -3922,14 +3955,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус гарантии ненарушения."
+          description: "Статус гарантии ненарушения. Внутреннее enum-поле."
           required: true
 
         - name: "non_infringement_warranty_details"
           type: "string"
           presentation: "fact"
           label: "Гарантия ненарушения"
-          description: "Гарантия, что объект ИС не нарушает права третьих лиц."
+          description: >
+            Гарантия, что объект ИС не нарушает права третьих лиц. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -4286,14 +4320,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус условия о регистрации."
+          description: "Статус условия о регистрации. Внутреннее enum-поле."
           required: true
 
         - name: "registration_clause_details"
           type: "string"
           presentation: "fact"
           label: "Регистрация"
-          description: "Условие о государственной регистрации."
+          description: >
+            Условие о государственной регистрации. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -4304,14 +4339,15 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус указания подающей стороны."
+          description: "Статус указания подающей стороны. Внутреннее enum-поле."
           required: true
 
         - name: "registration_applicant_details"
           type: "string"
           presentation: "fact"
           label: "Кто регистрирует"
-          description: "Кто подаёт заявление на регистрацию и срок."
+          description: >
+            Кто подаёт заявление на регистрацию и срок. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -4322,14 +4358,15 @@ checks_v8:
           risk_weight: "low"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус распределения расходов."
+          description: "Статус распределения расходов. Внутреннее enum-поле."
           required: true
 
         - name: "registration_costs_details"
           type: "string"
           presentation: "fact"
           label: "Расходы на регистрацию"
-          description: "Распределение расходов на регистрацию."
+          description: >
+            Распределение расходов на регистрацию. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
 
@@ -4339,14 +4376,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус валютного контроля."
+          description: "Статус валютного контроля. Внутреннее enum-поле."
           required: true
 
         - name: "currency_control_details"
           type: "string"
           presentation: "fact"
           label: "Валютный контроль"
-          description: "Условия валютного контроля (учёт, резервирование)."
+          description: >
+            Условия валютного контроля (учёт, резервирование). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -4357,14 +4395,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус налога у источника."
+          description: "Статус налога у источника. Внутреннее enum-поле."
           required: true
 
         - name: "withholding_tax_details"
           type: "string"
           presentation: "fact"
           label: "Налог у источника"
-          description: "Условия налога у источника (СИДН/СОИДН)."
+          description: >
+            Условия налога у источника (СИДН/СОИДН). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 4
@@ -4375,14 +4414,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус экспортного контроля."
+          description: "Статус экспортного контроля. Внутреннее enum-поле."
           required: true
 
         - name: "export_control_details"
           type: "string"
           presentation: "fact"
           label: "Экспортный контроль"
-          description: "Условия экспортного контроля (шифрование, ФСТЭК)."
+          description: >
+            Условия экспортного контроля (шифрование, ФСТЭК). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
 
@@ -4680,14 +4720,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус escrow исходного кода."
+          description: "Статус escrow исходного кода. Внутреннее enum-поле."
           required: true
 
         - name: "escrow_details"
           type: "string"
           presentation: "fact"
           label: "Escrow"
-          description: "Депонирование исходного кода."
+          description: >
+            Депонирование исходного кода. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -4698,14 +4739,15 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус escrow-агента."
+          description: "Статус escrow-агента. Внутреннее enum-поле."
           required: true
 
         - name: "escrow_agent_details"
           type: "string"
           presentation: "fact"
           label: "Escrow-агент"
-          description: "Escrow-агент (нотариус, специализированная организация)."
+          description: >
+            Escrow-агент (нотариус, специализированная организация). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
 
@@ -4715,14 +4757,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус условий передачи исходного кода."
+          description: "Статус условий передачи исходного кода. Внутреннее enum-поле."
           required: true
 
         - name: "escrow_release_details"
           type: "string"
           presentation: "fact"
           label: "Условия передачи кода"
-          description: "Условия передачи исходного кода лицензиату."
+          description: >
+            Условия передачи исходного кода лицензиату. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -5030,14 +5073,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус идентификации как ноу-хау."
+          description: "Статус идентификации как ноу-хау. Внутреннее enum-поле."
           required: true
 
         - name: "knowhow_identification_details"
           type: "string"
           presentation: "fact"
           label: "Идентификация ноу-хау"
-          description: "Формулировка идентификации сведений как ноу-хау."
+          description: >
+            Формулировка идентификации сведений как ноу-хау. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -5048,14 +5092,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус ссылки на режим коммерческой тайны."
+          description: "Статус ссылки на режим коммерческой тайны. Внутреннее enum-поле."
           required: true
 
         - name: "trade_secret_regime_details"
           type: "string"
           presentation: "fact"
           label: "Режим коммерческой тайны"
-          description: "Формулировка режима коммерческой тайны."
+          description: >
+            Формулировка режима коммерческой тайны. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -5066,14 +5111,15 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус порядка передачи."
+          description: "Статус порядка передачи. Внутреннее enum-поле."
           required: true
 
         - name: "transfer_protocol_details"
           type: "string"
           presentation: "fact"
           label: "Порядок передачи"
-          description: "Формулировка порядка передачи ноу-хау (акты, грифы, ограничение доступа)."
+          description: >
+            Формулировка порядка передачи ноу-хау (акты, грифы, ограничение доступа). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -5380,14 +5426,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус обязанности уничтожить/вернуть."
+          description: "Статус обязанности уничтожить/вернуть. Внутреннее enum-поле."
           required: true
 
         - name: "destruction_obligation_details"
           type: "string"
           presentation: "fact"
           label: "Уничтожение копий"
-          description: "Обязанность уничтожить или вернуть носители с объектом ИС."
+          description: >
+            Обязанность уничтожить или вернуть носители с объектом ИС. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -5398,14 +5445,15 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус переходного периода."
+          description: "Статус переходного периода. Внутреннее enum-поле."
           required: true
 
         - name: "wind_down_period_details"
           type: "string"
           presentation: "fact"
           label: "Переходный период"
-          description: "Длительность и условия переходного периода (wind-down)."
+          description: >
+            Длительность и условия переходного периода (wind-down). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -5416,14 +5464,15 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус обязанности предоставить сертификат."
+          description: "Статус обязанности предоставить сертификат. Внутреннее enum-поле."
           required: true
 
         - name: "certification_details"
           type: "string"
           presentation: "fact"
           label: "Сертификат уничтожения"
-          description: "Обязанность предоставить сертификат/акт уничтожения."
+          description: >
+            Обязанность предоставить сертификат/акт уничтожения. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -5730,14 +5779,15 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус упоминания OSS."
+          description: "Статус упоминания OSS. Внутреннее enum-поле."
           required: true
 
         - name: "oss_presence_details"
           type: "string"
           presentation: "fact"
           label: "Открытое ПО"
-          description: "Формулировка об использовании открытого ПО."
+          description: >
+            Формулировка об использовании открытого ПО. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -5748,14 +5798,15 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус реестра/приложения с OSS."
+          description: "Статус реестра/приложения с OSS. Внутреннее enum-поле."
           required: true
 
         - name: "oss_registry_details"
           type: "string"
           presentation: "fact"
           label: "Реестр OSS"
-          description: "Ссылка на реестр/приложение с OSS-компонентами."
+          description: >
+            Ссылка на реестр/приложение с OSS-компонентами. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -5766,14 +5817,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус гарантии отсутствия вирусных лицензий."
+          description: "Статус гарантии отсутствия вирусных лицензий. Внутреннее enum-поле."
           required: true
 
         - name: "viral_license_warranty_details"
           type: "string"
           presentation: "fact"
           label: "Гарантия отсутствия вирусных лицензий"
-          description: "Гарантия отсутствия GPL, AGPL и иных вирусных лицензий."
+          description: >
+            Гарантия отсутствия GPL, AGPL и иных вирусных лицензий. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -6093,14 +6145,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус права на модификацию."
+          description: "Статус права на модификацию. Внутреннее enum-поле."
           required: true
 
         - name: "modification_right_details"
           type: "string"
           presentation: "fact"
           label: "Право на модификацию"
-          description: "Формулировка права на переработку/модификацию объекта ИС."
+          description: >
+            Формулировка права на переработку/модификацию объекта ИС. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -6111,14 +6164,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["any_modification", "limited_modification", "no_modification", "not_defined"]
           display_in_grid: false
-          description: "Объём права на модификацию."
+          description: "Объём права на модификацию. Внутреннее enum-поле."
           required: true
 
         - name: "modification_scope_details"
           type: "string"
           presentation: "fact"
           label: "Объём модификации"
-          description: "Конкретные ограничения или разрешения на модификацию."
+          description: >
+            Конкретные ограничения или разрешения на модификацию. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -6129,14 +6183,15 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус требования атрибуции."
+          description: "Статус требования атрибуции. Внутреннее enum-поле."
           required: true
 
         - name: "attribution_details"
           type: "string"
           presentation: "fact"
           label: "Атрибуция"
-          description: "Требования к указанию авторства при модификации."
+          description: >
+            Требования к указанию авторства при модификации. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -6467,14 +6522,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус обязанности предоставлять техническую поддержку."
+          description: "Статус обязанности предоставлять техническую поддержку. Внутреннее enum-поле."
           required: true
 
         - name: "support_obligation_details"
           type: "string"
           presentation: "fact"
           label: "Техническая поддержка"
-          description: "Формулировка обязанности лицензиара по технической поддержке."
+          description: >
+            Формулировка обязанности лицензиара по технической поддержке. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -6485,14 +6541,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус обязанности предоставлять обновления."
+          description: "Статус обязанности предоставлять обновления. Внутреннее enum-поле."
           required: true
 
         - name: "updates_provision_details"
           type: "string"
           presentation: "fact"
           label: "Обновления"
-          description: "Объём и условия предоставления обновлений, исправлений ошибок, новых версий."
+          description: >
+            Объём и условия предоставления обновлений, исправлений ошибок, новых версий. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -6503,14 +6560,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус срока поддержки."
+          description: "Статус срока поддержки. Внутреннее enum-поле."
           required: true
 
         - name: "support_term_details"
           type: "string"
           presentation: "fact"
           label: "Срок поддержки"
-          description: "Длительность и условия срока поддержки."
+          description: >
+            Длительность и условия срока поддержки. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -6521,14 +6579,15 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус последствий прекращения поддержки."
+          description: "Статус последствий прекращения поддержки. Внутреннее enum-поле."
           required: true
 
         - name: "support_termination_consequences_details"
           type: "string"
           presentation: "fact"
           label: "Прекращение поддержки"
-          description: "Последствия прекращения поддержки для лицензиата (escrow, права и т.д.)."
+          description: >
+            Последствия прекращения поддержки для лицензиата (escrow, права и т.д.). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
 
@@ -6841,14 +6900,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус ограничений по сфере использования."
+          description: "Статус ограничений по сфере использования. Внутреннее enum-поле."
           required: true
 
         - name: "field_of_use_details"
           type: "string"
           presentation: "fact"
           label: "Сфера использования"
-          description: "Ограничения использования по сфере/отрасли."
+          description: >
+            Ограничения использования по сфере/отрасли. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -6859,14 +6919,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус ограничений по цели."
+          description: "Статус ограничений по цели. Внутреннее enum-поле."
           required: true
 
         - name: "purpose_restriction_details"
           type: "string"
           presentation: "fact"
           label: "Цель использования"
-          description: "Ограничения по цели (коммерческое/внутреннее, конкретный продукт)."
+          description: >
+            Ограничения по цели (коммерческое/внутреннее, конкретный продукт). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -6877,14 +6938,15 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус ограничений по типу пользователей."
+          description: "Статус ограничений по типу пользователей. Внутреннее enum-поле."
           required: true
 
         - name: "user_type_restriction_details"
           type: "string"
           presentation: "fact"
           label: "Тип пользователей"
-          description: "Ограничения по типу пользователей (аффилиаты, подрядчики, конечные пользователи)."
+          description: >
+            Ограничения по типу пользователей (аффилиаты, подрядчики, конечные пользователи). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -7197,14 +7259,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус механизма продления."
+          description: "Статус механизма продления. Внутреннее enum-поле."
           required: true
 
         - name: "renewal_mechanism_details"
           type: "string"
           presentation: "fact"
           label: "Продление"
-          description: "Формулировка механизма продления лицензии."
+          description: >
+            Формулировка механизма продления лицензии. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -7215,7 +7278,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["automatic", "by_notice", "by_agreement", "no_renewal", "not_defined"]
           display_in_grid: false
-          description: "Тип продления."
+          description: "Тип продления. Внутреннее enum-поле."
           required: true
 
         - name: "renewal_notice_period_status"
@@ -7224,14 +7287,15 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус срока уведомления о продлении/непродлении."
+          description: "Статус срока уведомления о продлении/непродлении. Внутреннее enum-поле."
           required: true
 
         - name: "renewal_notice_period_details"
           type: "string"
           presentation: "fact"
           label: "Срок уведомления"
-          description: "Срок и порядок уведомления о продлении/непродлении."
+          description: >
+            Срок и порядок уведомления о продлении/непродлении. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -7240,7 +7304,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Изменение условий при продлении"
-          description: "Изменение условий (роялти, объём) при продлении."
+          description: >
+            Изменение условий (роялти, объём) при продлении. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -7558,14 +7623,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус права на существующие копии после прекращения."
+          description: "Статус права на существующие копии после прекращения. Внутреннее enum-поле."
           required: true
 
         - name: "existing_copies_survival_details"
           type: "string"
           presentation: "fact"
           label: "Права на существующие копии"
-          description: "Право использовать копии, созданные/распространённые до прекращения."
+          description: >
+            Право использовать копии, созданные/распространённые до прекращения. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -7576,14 +7642,15 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус права на производные произведения после прекращения."
+          description: "Статус права на производные произведения после прекращения. Внутреннее enum-поле."
           required: true
 
         - name: "derivative_works_survival_details"
           type: "string"
           presentation: "fact"
           label: "Производные произведения"
-          description: "Право на производные произведения после прекращения договора."
+          description: >
+            Право на производные произведения после прекращения договора. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -7594,14 +7661,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус права на встроенные компоненты."
+          description: "Статус права на встроенные компоненты. Внутреннее enum-поле."
           required: true
 
         - name: "embedded_components_survival_details"
           type: "string"
           presentation: "fact"
           label: "Встроенные компоненты"
-          description: "Право использовать компоненты, встроенные в продукты лицензиата."
+          description: >
+            Право использовать компоненты, встроенные в продукты лицензиата. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -7920,14 +7988,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус запрета/разрешения декомпиляции."
+          description: "Статус запрета/разрешения декомпиляции. Внутреннее enum-поле."
           required: true
 
         - name: "decompilation_restriction_details"
           type: "string"
           presentation: "fact"
           label: "Декомпиляция"
-          description: "Формулировка условия о декомпиляции и дизассемблировании."
+          description: >
+            Формулировка условия о декомпиляции и дизассемблировании. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -7938,14 +8007,15 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["prohibited", "allowed", "allowed_with_conditions", "not_defined"]
           display_in_grid: false
-          description: "Режим reverse engineering."
+          description: "Режим reverse engineering. Внутреннее enum-поле."
           required: true
 
         - name: "reverse_engineering_regime_details"
           type: "string"
           presentation: "fact"
           label: "Режим reverse engineering"
-          description: "Формулировка режима reverse engineering."
+          description: >
+            Формулировка режима reverse engineering. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -7956,14 +8026,15 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус исключения для совместимости (ст. 1280 ГК)."
+          description: "Статус исключения для совместимости (ст. 1280 ГК). Внутреннее enum-поле."
           required: true
 
         - name: "interoperability_exception_details"
           type: "string"
           presentation: "fact"
           label: "Исключение для совместимости"
-          description: "Формулировка исключения для достижения совместимости по ст. 1280 ГК."
+          description: >
+            Формулировка исключения для достижения совместимости по ст. 1280 ГК. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3

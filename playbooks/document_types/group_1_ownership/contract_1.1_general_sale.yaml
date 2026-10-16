@@ -3296,7 +3296,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["same", "different", "not_defined"]
           display_in_grid: false
-          description: "Внутренний флаг совпадения моментов перехода риска и права собственности."
+          description: "Внутренний флаг совпадения моментов перехода риска и права собственности. Внутреннее enum-поле."
           required: true
 
       store_payload: true
@@ -4791,9 +4791,8 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
           display_in_grid: false
-          description: >
-            Внутренний флаг: раскрыто ли наличие обременения прямо в тексте договора.
-            Используется для формирования encumbrance_warranty_display.
+          description: >-
+            Внутренний флаг: раскрыто ли наличие обременения прямо в тексте договора. Используется для формирования encumbrance_warranty_display. Внутреннее enum-поле.
           required: true
 
         - name: "encumbrance_warranty_display"

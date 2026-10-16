@@ -995,7 +995,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения реквизитов экспедитора."
+          description: "Статус определения реквизитов экспедитора. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1003,7 +1003,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Экспедитор"
-          description: "Краткие идентификационные данные экспедитора: наименование, ИНН, ОГРН или указание на документ, определяющий сторону."
+          description: >
+            Краткие идентификационные данные экспедитора: наименование, ИНН, ОГРН или указание на документ, определяющий сторону. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -1013,7 +1014,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["legal_entity", "ip", "individual", "not_defined"]
-          description: "Тип экспедитора."
+          description: "Тип экспедитора. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1021,7 +1022,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Подписант экспедитора"
-          description: "Подписант экспедитора."
+          description: >
+            Подписант экспедитора. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -1030,7 +1032,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["charter", "poa", "order", "personal", "other", "not_defined"]
-          description: "Основание полномочий подписанта экспедитора."
+          description: "Основание полномочий подписанта экспедитора. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1039,7 +1041,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения реквизитов клиента."
+          description: "Статус определения реквизитов клиента. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1047,7 +1049,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Клиент"
-          description: "Краткие идентификационные данные клиента: наименование, ИНН, ОГРН или указание на документ, определяющий сторону."
+          description: >
+            Краткие идентификационные данные клиента: наименование, ИНН, ОГРН или указание на документ, определяющий сторону. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -1057,7 +1060,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["legal_entity", "ip", "individual", "not_defined"]
-          description: "Тип клиента."
+          description: "Тип клиента. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1065,7 +1068,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Подписант клиента"
-          description: "Подписант клиента."
+          description: >
+            Подписант клиента. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -1074,7 +1078,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["charter", "poa", "order", "personal", "other", "not_defined"]
-          description: "Основание полномочий подписанта клиента."
+          description: "Основание полномочий подписанта клиента. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1083,7 +1087,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Упомянут ли статус экспедитора: реестр, свидетельство, аккредитация."
+          description: "Упомянут ли статус экспедитора: реестр, свидетельство, аккредитация. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1091,7 +1095,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Статус экспедитора"
-          description: "Сведения о статусе экспедитора, если они упомянуты в договоре."
+          description: >
+            Сведения о статусе экспедитора, если они упомянуты в договоре. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -1544,7 +1549,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения перечня экспедиторских услуг."
+          description: "Статус определения перечня экспедиторских услуг. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1552,7 +1557,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Услуги экспедитора"
-          description: "Краткий перечень экспедиторских услуг или механизм их определения."
+          description: >
+            Краткий перечень экспедиторских услуг или механизм их определения. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -1562,7 +1568,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус описания груза."
+          description: "Статус описания груза. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1570,7 +1576,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Груз"
-          description: "Характеристики груза или механизм их определения."
+          description: >
+            Характеристики груза или механизм их определения. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -1580,7 +1587,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Указан ли маршрут перевозки."
+          description: "Указан ли маршрут перевозки. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1588,7 +1595,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Маршрут"
-          description: "Маршрут перевозки или механизм его определения."
+          description: >
+            Маршрут перевозки или механизм его определения. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -1597,7 +1605,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["single", "framework", "not_defined"]
-          description: "Тип договора: разовый, рамочный или не определён."
+          description: "Тип договора: разовый, рамочный или не определён. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1605,7 +1613,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Тип договора"
-          description: "Пользовательское отображение типа договора: разовый, рамочный, не установлен или не удалось определить."
+          description: >
+            Пользовательское отображение типа договора: разовый, рамочный, не установлен или не удалось определить. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -1615,7 +1624,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Упоминание экспедиторской расписки."
+          description: "Упоминание экспедиторской расписки. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1624,7 +1633,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Ссылка на форму Поручения экспедитору, заявку или приложение."
+          description: "Ссылка на форму Поручения экспедитору, заявку или приложение. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1991,7 +2000,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Упоминание экспедиторской расписки в договоре."
+          description: "Упоминание экспедиторской расписки в договоре. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2000,7 +2009,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Указана ли форма экспедиторской расписки."
+          description: "Указана ли форма экспедиторской расписки. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2009,7 +2018,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["upon_acceptance", "other", "not_specified", "not_defined"]
-          description: "Момент выдачи экспедиторской расписки."
+          description: "Момент выдачи экспедиторской расписки. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2017,7 +2026,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Экспедиторская расписка"
-          description: "Краткое описание условия об экспедиторской расписке: упоминание, форма и момент выдачи."
+          description: >
+            Краткое описание условия об экспедиторской расписке: упоминание, форма и момент выдачи. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -2382,7 +2392,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Упоминание Поручения экспедитору, заявки или заказа на перевозку."
+          description: "Упоминание Поручения экспедитору, заявки или заказа на перевозку. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2391,7 +2401,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Указана ли форма Поручения или заявки."
+          description: "Указана ли форма Поручения или заявки. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2400,7 +2410,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Является ли Поручение или заявка неотъемлемой частью договора."
+          description: "Является ли Поручение или заявка неотъемлемой частью договора. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2409,7 +2419,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Определены ли требования к содержанию Поручения или заявки."
+          description: "Определены ли требования к содержанию Поручения или заявки. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2417,7 +2427,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Поручение экспедитору"
-          description: "Краткое описание механизма Поручения экспедитору (заявки/заказа): упоминание, форма, неотъемлемая часть, требования к содержанию."
+          description: >
+            Краткое описание механизма Поручения экспедитору (заявки/заказа): упоминание, форма, неотъемлемая часть, требования к содержанию. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -2851,7 +2862,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "limited", "not_defined"]
-          description: "Наличие ответственности экспедитора за действия третьих лиц."
+          description: "Наличие ответственности экспедитора за действия третьих лиц. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2860,7 +2871,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["own_actions", "joint_and_several", "limited", "not_defined"]
-          description: "Основание ответственности экспедитора за действия третьих лиц."
+          description: "Основание ответственности экспедитора за действия третьих лиц. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2869,7 +2880,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "with_consent", "no", "not_defined"]
-          description: "Право экспедитора привлекать третьих лиц для исполнения договора."
+          description: "Право экспедитора привлекать третьих лиц для исполнения договора. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2878,7 +2889,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Наличие исключений из ответственности экспедитора за действия третьих лиц."
+          description: "Наличие исключений из ответственности экспедитора за действия третьих лиц. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2886,7 +2897,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Ответственность за третьих лиц"
-          description: "Краткое описание ответственности экспедитора за действия привлечённых третьих лиц и права их привлекать."
+          description: >
+            Краткое описание ответственности экспедитора за действия привлечённых третьих лиц и права их привлекать. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -3314,7 +3326,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Указано ли вознаграждение экспедитора."
+          description: "Указано ли вознаграждение экспедитора. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3323,7 +3335,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["fixed", "percentage", "hourly", "not_specified", "not_defined"]
-          description: "Тип вознаграждения экспедитора."
+          description: "Тип вознаграждения экспедитора. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3331,7 +3343,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Размер вознаграждения"
-          description: "Размер вознаграждения экспедитора или механизм его определения."
+          description: >
+            Размер вознаграждения экспедитора или механизм его определения. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -3341,7 +3354,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Предусмотрено ли возмещение расходов экспедитора."
+          description: "Предусмотрено ли возмещение расходов экспедитора. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3350,7 +3363,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Наличие механизма согласования расходов."
+          description: "Наличие механизма согласования расходов. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3358,7 +3371,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Лимит расходов"
-          description: "Максимальный лимит расходов экспедитора или механизм его определения."
+          description: >
+            Максимальный лимит расходов экспедитора или механизм его определения. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -3368,7 +3382,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Предусмотрено ли авансирование или предоплата."
+          description: "Предусмотрено ли авансирование или предоплата. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3760,7 +3774,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Предусмотрен ли отчёт экспедитора."
+          description: "Предусмотрен ли отчёт экспедитора. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3769,7 +3783,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Указана ли форма отчёта экспедитора."
+          description: "Указана ли форма отчёта экспедитора. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3777,7 +3791,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Срок отчёта"
-          description: "Срок представления отчёта экспедитора или механизм его определения."
+          description: >
+            Срок представления отчёта экспедитора или механизм его определения. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -3786,7 +3801,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Требуются ли подтверждающие документы или приложения к отчёту."
+          description: "Требуются ли подтверждающие документы или приложения к отчёту. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3794,7 +3809,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Отчёт экспедитора"
-          description: "Краткое описание условия об отчёте экспедитора: наличие, форма, срок и подтверждающие документы."
+          description: >
+            Краткое описание условия об отчёте экспедитора: наличие, форма, срок и подтверждающие документы. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -4183,7 +4199,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Предусмотрен ли механизм утверждения отчёта экспедитора."
+          description: "Предусмотрен ли механизм утверждения отчёта экспедитора. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -4192,7 +4208,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Предусмотрено ли молчаливое согласие при отсутствии возражений."
+          description: "Предусмотрено ли молчаливое согласие при отсутствии возражений. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -4200,7 +4216,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Срок возражений"
-          description: "Срок для направления возражений по отчёту экспедитора или механизм его определения."
+          description: >
+            Срок для направления возражений по отчёту экспедитора или механизм его определения. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -4208,7 +4225,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Утверждение отчёта"
-          description: "Краткое описание механизма утверждения отчёта экспедитора и молчаливого согласия."
+          description: >
+            Краткое описание механизма утверждения отчёта экспедитора и молчаливого согласия. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -4612,7 +4630,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Предусмотрен ли механизм согласования расходов экспедитора."
+          description: "Предусмотрен ли механизм согласования расходов экспедитора. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -4620,7 +4638,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Порог согласования"
-          description: "Порог или лимит, при превышении которого требуется согласование расходов."
+          description: >
+            Порог или лимит, при превышении которого требуется согласование расходов. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -4628,7 +4647,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Порядок согласования"
-          description: "Порядок или форма согласования расходов экспедитора."
+          description: >
+            Порядок или форма согласования расходов экспедитора. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -4636,7 +4656,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Последствия несогласованных расходов"
-          description: "Последствия для расходов, которые не были согласованы с клиентом."
+          description: >
+            Последствия для расходов, которые не были согласованы с клиентом. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -4644,7 +4665,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Согласование расходов"
-          description: "Краткое описание процедуры согласования расходов и последствий несогласованных расходов."
+          description: >
+            Краткое описание процедуры согласования расходов и последствий несогласованных расходов. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -5025,7 +5047,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Есть ли условие о последствиях превышения лимита расходов."
+          description: "Есть ли условие о последствиях превышения лимита расходов. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5033,7 +5055,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Последствия превышения лимита"
-          description: "Что происходит при превышении максимального лимита расходов экспедитора."
+          description: >
+            Что происходит при превышении максимального лимита расходов экспедитора. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -5041,7 +5064,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Лимит расходов: последствия превышения"
-          description: "Краткое описание последствий превышения максимального лимита расходов экспедитора."
+          description: >
+            Краткое описание последствий превышения максимального лимита расходов экспедитора. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -5440,7 +5464,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "optional", "no", "not_defined"]
-          description: "Обязательность страхования груза."
+          description: "Обязательность страхования груза. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5449,7 +5473,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["forwarder", "client", "not_specified", "not_defined"]
-          description: "Кто обязан застраховать груз."
+          description: "Кто обязан застраховать груз. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5458,7 +5482,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["all_risks", "named_perils", "liability_only", "not_specified", "not_defined"]
-          description: "Вид страхового покрытия."
+          description: "Вид страхового покрытия. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5467,7 +5491,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["full_value", "declared_value", "other", "not_specified", "not_defined"]
-          description: "Основание определения страховой суммы."
+          description: "Основание определения страховой суммы. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5476,7 +5500,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["client", "forwarder", "not_specified", "not_defined"]
-          description: "Выгодоприобретатель по страхованию груза."
+          description: "Выгодоприобретатель по страхованию груза. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5484,7 +5508,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Страхование груза"
-          description: "Краткое описание условий страхования груза: обязательность, кто страхует, покрытие и выгодоприобретатель."
+          description: >
+            Краткое описание условий страхования груза: обязательность, кто страхует, покрытие и выгодоприобретатель. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -5860,7 +5885,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Требуется ли согласование выбора перевозчика с клиентом."
+          description: "Требуется ли согласование выбора перевозчика с клиентом. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5869,7 +5894,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Указаны ли критерии выбора перевозчика."
+          description: "Указаны ли критерии выбора перевозчика. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5878,7 +5903,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Раскрытие аффилированности экспедитора с перевозчиком."
+          description: "Раскрытие аффилированности экспедитора с перевозчиком. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5887,7 +5912,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Право клиента отклонить предложенного перевозчика."
+          description: "Право клиента отклонить предложенного перевозчика. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5895,7 +5920,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Согласование выбора перевозчика"
-          description: "Краткое описание механизма согласования выбора перевозчика: согласование, критерии, аффилированность, право вето."
+          description: >
+            Краткое описание механизма согласования выбора перевозчика: согласование, критерии, аффилированность, право вето. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -6287,7 +6313,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Включено ли таможенное оформление в услуги экспедитора."
+          description: "Включено ли таможенное оформление в услуги экспедитора. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6296,7 +6322,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["confirmed", "not_confirmed", "not_defined"]
-          description: "Подтверждение статуса таможенного представителя."
+          description: "Подтверждение статуса таможенного представителя. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6305,7 +6331,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Ответственность клиента за таможенные штрафы."
+          description: "Ответственность клиента за таможенные штрафы. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6314,7 +6340,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Ответственность экспедитора за таможенные штрафы."
+          description: "Ответственность экспедитора за таможенные штрафы. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6323,7 +6349,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["client", "forwarder", "not_specified", "not_defined"]
-          description: "Ответственность за недостоверные данные для таможенного оформления."
+          description: "Ответственность за недостоверные данные для таможенного оформления. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6331,7 +6357,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Таможенное оформление"
-          description: "Краткое описание условий таможенного оформления: статус представителя, распределение ответственности за штрафы и недостоверные данные."
+          description: >
+            Краткое описание условий таможенного оформления: статус представителя, распределение ответственности за штрафы и недостоверные данные. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -6708,7 +6735,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Наличие права удержания груза экспедитором."
+          description: "Наличие права удержания груза экспедитором. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6716,7 +6743,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Условия удержания"
-          description: "Условия реализации права удержания груза."
+          description: >
+            Условия реализации права удержания груза. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -6725,7 +6753,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Наличие порядка реализации удержанного груза."
+          description: "Наличие порядка реализации удержанного груза. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6734,7 +6762,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["client", "forwarder", "not_specified", "not_defined"]
-          description: "Распределение расходов на хранение удержанного груза."
+          description: "Распределение расходов на хранение удержанного груза. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6742,7 +6770,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Право удержания груза"
-          description: "Краткое описание права удержания груза: наличие, условия, порядок реализации и расходы на хранение."
+          description: >
+            Краткое описание права удержания груза: наличие, условия, порядок реализации и расходы на хранение. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -7135,7 +7164,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Право клиента на односторонний отказ от договора."
+          description: "Право клиента на односторонний отказ от договора. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -7144,7 +7173,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "other", "not_defined"]
-          description: "Наличие штрафа 10% от стоимости услуг при одностороннем отказе клиента."
+          description: "Наличие штрафа 10% от стоимости услуг при одностороннем отказе клиента. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -7153,7 +7182,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Возмещение фактических расходов при одностороннем отказе клиента."
+          description: "Возмещение фактических расходов при одностороннем отказе клиента. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -7161,7 +7190,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Срок уведомления об отказе"
-          description: "Срок уведомления об одностороннем отказе клиента от договора."
+          description: >
+            Срок уведомления об одностороннем отказе клиента от договора. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -7169,7 +7199,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Односторонний отказ клиента"
-          description: "Краткое описание условий одностороннего отказа клиента: право, штраф, возмещение расходов и срок уведомления."
+          description: >
+            Краткое описание условий одностороннего отказа клиента: право, штраф, возмещение расходов и срок уведомления. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -7584,7 +7615,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Наличие условия об ответственности за утрату или повреждение груза."
+          description: "Наличие условия об ответственности за утрату или повреждение груза. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -7593,7 +7624,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["declared_value", "actual_value", "limited", "not_defined"]
-          description: "Основание определения ответственности за утрату или повреждение груза."
+          description: "Основание определения ответственности за утрату или повреждение груза. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -7601,7 +7632,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Лимит ответственности за груз"
-          description: "Размер лимита ответственности экспедитора за утрату или повреждение груза."
+          description: >
+            Размер лимита ответственности экспедитора за утрату или повреждение груза. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -7610,7 +7642,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Наличие механизма объявления ценности груза."
+          description: "Наличие механизма объявления ценности груза. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -7619,7 +7651,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Наличие условия об ответственности за просрочку доставки."
+          description: "Наличие условия об ответственности за просрочку доставки. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -7627,7 +7659,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Ответственность за груз и просрочку"
-          description: "Краткое описание ответственности экспедитора за утрату/повреждение груза и просрочку доставки, включая основание, лимит и механизм объявления ценности."
+          description: >
+            Краткое описание ответственности экспедитора за утрату/повреждение груза и просрочку доставки, включая основание, лимит и механизм объявления ценности. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -8041,7 +8074,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "per_order", "not_defined"]
-          description: "Указан ли срок доставки."
+          description: "Указан ли срок доставки. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8049,7 +8082,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Срок доставки"
-          description: "Значение срока доставки или механизм его определения."
+          description: >
+            Значение срока доставки или механизм его определения. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -8058,7 +8092,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Наличие неустойки за просрочку доставки."
+          description: "Наличие неустойки за просрочку доставки. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8067,7 +8101,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["percentage_per_day", "fixed", "damages_only", "not_defined"]
-          description: "Тип санкции за просрочку доставки."
+          description: "Тип санкции за просрочку доставки. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8075,7 +8109,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Лимит неустойки за просрочку"
-          description: "Лимит неустойки за просрочку доставки."
+          description: >
+            Лимит неустойки за просрочку доставки. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -8084,7 +8119,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Освобождает ли форс-мажор от неустойки за просрочку доставки."
+          description: "Освобождает ли форс-мажор от неустойки за просрочку доставки. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8092,7 +8127,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Срок доставки и просрочка"
-          description: "Краткое описание срока доставки и санкций за просрочку: значение срока, тип санкции, лимит неустойки и исключения для форс-мажора."
+          description: >
+            Краткое описание срока доставки и санкций за просрочку: значение срока, тип санкции, лимит неустойки и исключения для форс-мажора. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -8490,7 +8526,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Обязанность экспедитора отслеживать груз."
+          description: "Обязанность экспедитора отслеживать груз. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8499,7 +8535,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Обязанность экспедитора уведомлять клиента о задержках доставки."
+          description: "Обязанность экспедитора уведомлять клиента о задержках доставки. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8508,7 +8544,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Обязанность экспедитора уведомлять клиента о повреждениях или утрате груза."
+          description: "Обязанность экспедитора уведомлять клиента о повреждениях или утрате груза. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8516,7 +8552,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Срок уведомления"
-          description: "Срок уведомления о задержках, повреждениях или утрате груза."
+          description: >
+            Срок уведомления о задержках, повреждениях или утрате груза. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -8525,7 +8562,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Регулярная отчётность экспедитора о ходе доставки."
+          description: "Регулярная отчётность экспедитора о ходе доставки. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8533,7 +8570,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Информационные обязанности экспедитора"
-          description: "Краткое описание информационных обязанностей экспедитора с оценкой полноты: отслеживание, уведомления о задержках и повреждениях, срок уведомления, регулярная отчётность."
+          description: >
+            Краткое описание информационных обязанностей экспедитора с оценкой полноты: отслеживание, уведомления о задержках и повреждениях, срок уведомления, регулярная отчётность. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -8959,7 +8997,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Наличие условий по опасному грузу в договоре."
+          description: "Наличие условий по опасному грузу в договоре. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8968,7 +9006,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Обязанность клиента раскрыть опасные свойства груза."
+          description: "Обязанность клиента раскрыть опасные свойства груза. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8977,7 +9015,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Указание класса опасности груза."
+          description: "Указание класса опасности груза. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8986,7 +9024,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Требования к специальной упаковке и маркировке опасного груза."
+          description: "Требования к специальной упаковке и маркировке опасного груза. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8995,7 +9033,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["client", "forwarder", "shared", "not_defined"]
-          description: "Распределение ответственности за разрешения на перевозку опасного груза."
+          description: "Распределение ответственности за разрешения на перевозку опасного груза. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -9004,7 +9042,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Требование аварийной карточки (информационной таблицы опасности)."
+          description: "Требование аварийной карточки (информационной таблицы опасности). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -9013,7 +9051,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Ответственность за нераскрытие опасных свойств груза."
+          description: "Ответственность за нераскрытие опасных свойств груза. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -9021,7 +9059,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Опасный груз: обязанности сторон"
-          description: "Краткое описание распределения обязанностей при экспедировании опасных грузов: раскрытие свойств, класс опасности, упаковка, разрешения, аварийная карточка, ответственность за нераскрытие."
+          description: >
+            Краткое описание распределения обязанностей при экспедировании опасных грузов: раскрытие свойств, класс опасности, упаковка, разрешения, аварийная карточка, ответственность за нераскрытие. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -9426,7 +9465,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Упомянут ли форс-мажор / непреодолимая сила как основание освобождения от ответственности."
+          description: "Упомянут ли форс-мажор / непреодолимая сила как основание освобождения от ответственности. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -9435,7 +9474,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Упомянута ли вина клиента как основание освобождения от ответственности."
+          description: "Упомянута ли вина клиента как основание освобождения от ответственности. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -9444,7 +9483,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Упомянуты ли недостатки груза (скрытые, естественные свойства) как основание освобождения от ответственности."
+          description: "Упомянуты ли недостатки груза (скрытые, естественные свойства) как основание освобождения от ответственности. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -9453,7 +9492,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Упомянуты ли действия таможенных органов как основание освобождения от ответственности."
+          description: "Упомянуты ли действия таможенных органов как основание освобождения от ответственности. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -9461,7 +9500,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Иные основания освобождения"
-          description: "Иные основания освобождения от ответственности (действия иных госорганов, непредоставление документов и т.п.)."
+          description: >
+            Иные основания освобождения от ответственности (действия иных госорганов, непредоставление документов и т.п.). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -9469,7 +9509,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Обстоятельства, освобождающие от ответственности"
-          description: "Краткое описание перечня обстоятельств, освобождающих экспедитора от ответственности: форс-мажор, вина клиента, недостатки груза, действия таможенных органов и иные типоспецифичные основания."
+          description: >
+            Краткое описание перечня обстоятельств, освобождающих экспедитора от ответственности: форс-мажор, вина клиента, недостатки груза, действия таможенных органов и иные типоспецифичные основания. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -9818,7 +9859,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Предусмотрен ли обязательный претензионный порядок."
+          description: "Предусмотрен ли обязательный претензионный порядок. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -9826,7 +9867,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Срок подачи претензии"
-          description: "Срок подачи претензии с момента нарушения или обнаружения."
+          description: >
+            Срок подачи претензии с момента нарушения или обнаружения. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -9834,7 +9876,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Форма претензии"
-          description: "Форма претензии: письменная, по email, через систему и т.п."
+          description: >
+            Форма претензии: письменная, по email, через систему и т.п. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -9842,7 +9885,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Срок ответа на претензию"
-          description: "Срок рассмотрения претензии и направления ответа."
+          description: >
+            Срок рассмотрения претензии и направления ответа. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -9852,7 +9896,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Претензионный порядок"
-          description: "Краткое описание претензионного порядка: наличие, срок подачи, форма, срок ответа."
+          description: >
+            Краткое описание претензионного порядка: наличие, срок подачи, форма, срок ответа. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "evidence"
@@ -10160,7 +10205,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Упомянут ли срок исковой давности в договоре."
+          description: "Упомянут ли срок исковой давности в договоре. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -10168,7 +10213,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Значение срока давности"
-          description: "Конкретное значение срока исковой давности, указанное в договоре."
+          description: >
+            Конкретное значение срока исковой давности, указанное в договоре. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -10178,7 +10224,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Срок исковой давности"
-          description: "Краткое описание упоминания срока исковой давности: наличие и конкретное значение."
+          description: >
+            Краткое описание упоминания срока исковой давности: наличие и конкретное значение. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "evidence"
@@ -10515,7 +10562,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "per_order", "not_defined"]
-          description: "Указан ли срок оказания экспедиторских услуг."
+          description: "Указан ли срок оказания экспедиторских услуг. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -10523,7 +10570,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Период оказания услуг"
-          description: "Конкретный период оказания услуг или механизм его определения."
+          description: >
+            Конкретный период оказания услуг или механизм его определения. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -10533,7 +10581,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Срок оказания услуг"
-          description: "Краткое описание срока оказания экспедиторских услуг: наличие, период, механизм определения."
+          description: >
+            Краткое описание срока оказания экспедиторских услуг: наличие, период, механизм определения. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "evidence"
@@ -10876,7 +10925,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Наличие обязанности клиента предоставить документы для исполнения договора."
+          description: "Наличие обязанности клиента предоставить документы для исполнения договора. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -10885,7 +10934,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Требование достоверности предоставляемых клиентом сведений."
+          description: "Требование достоверности предоставляемых клиентом сведений. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -10894,7 +10943,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Право экспедитора приостановить исполнение при непредоставлении документов."
+          description: "Право экспедитора приостановить исполнение при непредоставлении документов. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -10904,7 +10953,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Документы клиента"
-          description: "Краткое описание обязанностей клиента по предоставлению документов: наличие, достоверность, право приостановки."
+          description: >
+            Краткое описание обязанностей клиента по предоставлению документов: наличие, достоверность, право приостановки. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "evidence"
@@ -11241,7 +11291,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Упоминание статуса экспедитора в договоре."
+          description: "Упоминание статуса экспедитора в договоре. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -11250,7 +11300,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["confirmed", "not_confirmed", "not_defined"]
-          description: "Подтверждение статуса экспедитора: включение в реестр или свидетельство."
+          description: "Подтверждение статуса экспедитора: включение в реестр или свидетельство. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -11258,7 +11308,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Реквизиты статуса"
-          description: "Конкретные реквизиты: номер свидетельства, дата включения в реестр."
+          description: >
+            Конкретные реквизиты: номер свидетельства, дата включения в реестр. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -11268,7 +11319,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Статус экспедитора"
-          description: "Краткое описание статуса экспедитора: упоминание, подтверждение, реквизиты."
+          description: >
+            Краткое описание статуса экспедитора: упоминание, подтверждение, реквизиты. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "evidence"
@@ -11611,7 +11663,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Наличие ссылки на Конвенцию CMR/КДПГ."
+          description: "Наличие ссылки на Конвенцию CMR/КДПГ. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -11620,7 +11672,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Наличие ссылки на Инкотермс."
+          description: "Наличие ссылки на Инкотермс. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -11628,7 +11680,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Базис Инкотермс"
-          description: "Конкретный базис поставки по Инкотермс (EXW, FCA, CPT, CIP, DAP, DPU, DDP и т.д.)."
+          description: >
+            Конкретный базис поставки по Инкотермс (EXW, FCA, CPT, CIP, DAP, DPU, DDP и т.д.). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -11636,7 +11689,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Версия Инкотермс"
-          description: "Версия Инкотермс (2010, 2020)."
+          description: >
+            Версия Инкотермс (2010, 2020). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
 
@@ -11646,7 +11700,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "CMR / Инкотермс"
-          description: "Краткое описание ссылок на международные конвенции и базисы Инкотермс."
+          description: >
+            Краткое описание ссылок на международные конвенции и базисы Инкотермс. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "evidence"
@@ -11984,7 +12039,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Наличие измеримых показателей качества обслуживания (SLA/KPI)."
+          description: "Наличие измеримых показателей качества обслуживания (SLA/KPI). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -11993,7 +12048,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Наличие методики измерения или порядка расчёта показателей."
+          description: "Наличие методики измерения или порядка расчёта показателей. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -12002,7 +12057,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Последствия нарушения целевых значений показателей."
+          description: "Последствия нарушения целевых значений показателей. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -12012,7 +12067,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "SLA / KPI"
-          description: "Краткое описание показателей качества: наличие, методика, последствия нарушения."
+          description: >
+            Краткое описание показателей качества: наличие, методика, последствия нарушения. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "evidence"
@@ -12352,7 +12408,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Предусмотрен ли акт при приёме груза."
+          description: "Предусмотрен ли акт при приёме груза. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -12361,7 +12417,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Предусмотрен ли акт при передаче груза."
+          description: "Предусмотрен ли акт при передаче груза. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -12370,7 +12426,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Процедура фиксации повреждений при приёме/передаче груза."
+          description: "Процедура фиксации повреждений при приёме/передаче груза. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -12380,7 +12436,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Акты приёма-передачи"
-          description: "Краткое описание условий оформления актов при приёме и передаче груза."
+          description: >
+            Краткое описание условий оформления актов при приёме и передаче груза. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "evidence"
@@ -12699,7 +12756,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Указан ли режим НДС в договоре."
+          description: "Указан ли режим НДС в договоре. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -12709,7 +12766,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "НДС"
-          description: "Конкретный режим НДС: «Включая НДС 20%», «Без НДС (УСН)», «НДС сверх цены» и т.п."
+          description: >
+            Конкретный режим НДС: «Включая НДС 20%», «Без НДС (УСН)», «НДС сверх цены» и т.п. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "vat_and_tax_summary"
@@ -12717,7 +12775,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "НДС: резюме"
-          description: "Краткое описание режима НДС по договору."
+          description: >
+            Краткое описание режима НДС по договору. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "evidence"
@@ -13098,7 +13157,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Указан ли порядок оплаты вознаграждения экспедитора."
+          description: "Указан ли порядок оплаты вознаграждения экспедитора. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -13107,7 +13166,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["advance", "postpayment", "staged", "mixed", "not_defined"]
-          description: "Модель оплаты: аванс, постоплата, поэтапная, смешанная."
+          description: "Модель оплаты: аванс, постоплата, поэтапная, смешанная. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -13115,7 +13174,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Срок оплаты"
-          description: "Срок оплаты вознаграждения экспедитора."
+          description: >
+            Срок оплаты вознаграждения экспедитора. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -13123,7 +13183,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Неустойка за просрочку оплаты"
-          description: "Неустойка или проценты за просрочку оплаты вознаграждения клиентом."
+          description: >
+            Неустойка или проценты за просрочку оплаты вознаграждения клиентом. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -13132,7 +13193,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Порядок выставления счетов на оплату."
+          description: "Порядок выставления счетов на оплату. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -13142,7 +13203,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Порядок оплаты вознаграждения"
-          description: "Краткое описание порядка оплаты вознаграждения: срок, модель, неустойка за просрочку."
+          description: >
+            Краткое описание порядка оплаты вознаграждения: срок, модель, неустойка за просрочку. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "evidence"
@@ -13506,7 +13568,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Обязательность поручения экспедитору для каждой перевозки."
+          description: "Обязательность поручения экспедитору для каждой перевозки. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -13514,7 +13576,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Порядок подачи поручения"
-          description: "Порядок и сроки подачи поручения экспедитору."
+          description: >
+            Порядок и сроки подачи поручения экспедитору. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -13523,7 +13586,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["upon_receipt", "upon_confirmation", "upon_deadline", "not_defined"]
-          description: "Момент, с которого поручение становится обязательным для экспедитора."
+          description: "Момент, с которого поручение становится обязательным для экспедитора. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -13532,7 +13595,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Право экспедитора отклонить поручение."
+          description: "Право экспедитора отклонить поручение. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -13542,7 +13605,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Поручение экспедитору: процедура"
-          description: "Краткое описание процедуры поручения: обязательность, порядок подачи, момент обязательности, право отклонения."
+          description: >
+            Краткое описание процедуры поручения: обязательность, порядок подачи, момент обязательности, право отклонения. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "evidence"
@@ -13895,7 +13959,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Указаны ли обязательные реквизиты экспедиторской расписки."
+          description: "Указаны ли обязательные реквизиты экспедиторской расписки. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -13904,7 +13968,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Последствия невыдачи экспедиторской расписки."
+          description: "Последствия невыдачи экспедиторской расписки. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -13913,7 +13977,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Доказательственное значение расписки при споре об утрате груза."
+          description: "Доказательственное значение расписки при споре об утрате груза. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -13923,7 +13987,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Экспедиторская расписка: содержание"
-          description: "Краткое описание содержания расписки: реквизиты, последствия невыдачи, доказательственное значение."
+          description: >
+            Краткое описание содержания расписки: реквизиты, последствия невыдачи, доказательственное значение. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "evidence"
@@ -14294,7 +14359,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["upon_acceptance", "upon_first_carrier", "upon_document_signing", "not_defined"]
-          description: "Момент перехода риска утраты/повреждения груза от клиента к экспедитору."
+          description: "Момент перехода риска утраты/повреждения груза от клиента к экспедитору. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -14303,7 +14368,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["upon_delivery", "upon_warehouse", "upon_document_signing", "not_defined"]
-          description: "Момент перехода риска утраты/повреждения груза от экспедитора обратно."
+          description: "Момент перехода риска утраты/повреждения груза от экспедитора обратно. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -14312,7 +14377,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["forwarder", "client", "shared", "not_defined"]
-          description: "Распределение рисков при хранении груза у экспедитора."
+          description: "Распределение рисков при хранении груза у экспедитора. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -14321,7 +14386,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["forwarder", "client", "shared", "not_defined"]
-          description: "Распределение рисков при передаче груза третьим лицам (перевозчикам, субэкспедиторам)."
+          description: "Распределение рисков при передаче груза третьим лицам (перевозчикам, субэкспедиторам). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -14331,7 +14396,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Момент перехода рисков"
-          description: "Краткое описание момента перехода рисков утраты/повреждения груза: к экспедитору, от экспедитора, при хранении и передаче третьим лицам."
+          description: >
+            Краткое описание момента перехода рисков утраты/повреждения груза: к экспедитору, от экспедитора, при хранении и передаче третьим лицам. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "evidence"
@@ -14713,7 +14779,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Указано ли право экспедитора привлекать третьих лиц."
+          description: "Указано ли право экспедитора привлекать третьих лиц. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -14722,7 +14788,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["free", "with_consent", "prohibited", "personal_execution", "not_defined"]
-          description: "Модель привлечения третьих лиц: свободно, с согласия, запрещено, личное исполнение."
+          description: "Модель привлечения третьих лиц: свободно, с согласия, запрещено, личное исполнение. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -14731,7 +14797,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Обязанность экспедитора уведомлять клиента о привлечённых третьих лицах."
+          description: "Обязанность экспедитора уведомлять клиента о привлечённых третьих лицах. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -14740,7 +14806,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Обязанность экспедитора проверять надёжность привлечённых третьих лиц."
+          description: "Обязанность экспедитора проверять надёжность привлечённых третьих лиц. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -14750,7 +14816,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Привлечение третьих лиц"
-          description: "Краткое описание механизма субститута: модель привлечения, уведомление клиента, проверка надёжности."
+          description: >
+            Краткое описание механизма субститута: модель привлечения, уведомление клиента, проверка надёжности. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "evidence"
@@ -15110,7 +15177,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Право клиента давать распоряжения о грузе в процессе перевозки."
+          description: "Право клиента давать распоряжения о грузе в процессе перевозки. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -15119,7 +15186,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Форма распоряжения о грузе (письменная, электронная, устная)."
+          description: "Форма распоряжения о грузе (письменная, электронная, устная). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -15128,7 +15195,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Обязанность экспедитора исполнять распоряжения клиента о грузе."
+          description: "Обязанность экспедитора исполнять распоряжения клиента о грузе. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -15137,7 +15204,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["client", "forwarder", "shared", "not_defined"]
-          description: "Распределение дополнительных расходов при изменении распоряжений."
+          description: "Распределение дополнительных расходов при изменении распоряжений. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -15147,7 +15214,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Распоряжения клиента о грузе"
-          description: "Краткое описание права клиента давать распоряжения о грузе: право, форма, исполнение, расходы."
+          description: >
+            Краткое описание права клиента давать распоряжения о грузе: право, форма, исполнение, расходы. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "evidence"
@@ -15355,4 +15423,3 @@ dd_request_templates:
     addressee: "Юридический советник"
 
 
-    

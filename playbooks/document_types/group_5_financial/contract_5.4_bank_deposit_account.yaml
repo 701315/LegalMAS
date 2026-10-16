@@ -1014,7 +1014,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус идентификации банка."
+          description: "Статус идентификации банка. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1022,7 +1022,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Банк: реквизиты"
-          description: "Наименование и основные реквизиты банка (ИНН, ОГРН, БИК, корр. счёт)."
+          description: >
+            Наименование и основные реквизиты банка (ИНН, ОГРН, БИК, корр. счёт). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -1032,7 +1033,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["credit_organization", "not_defined"]
-          description: "Тип банка."
+          description: "Тип банка. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1041,7 +1042,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания лицензии банка."
+          description: "Статус указания лицензии банка. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1049,7 +1050,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Лицензия банка"
-          description: "Номер и реквизиты лицензии банка."
+          description: >
+            Номер и реквизиты лицензии банка. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -1059,7 +1061,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус идентификации клиента / вкладчика."
+          description: "Статус идентификации клиента / вкладчика. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1067,7 +1069,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Клиент / Вкладчик: реквизиты"
-          description: "Наименование / ФИО и реквизиты клиента или вкладчика."
+          description: >
+            Наименование / ФИО и реквизиты клиента или вкладчика. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -1090,7 +1093,8 @@ checks_v8:
             - "Индивидуальный предприниматель"
             - "Физическое лицо"
             - "Не удалось определить"
-          description: "Читаемый тип клиента для DD Grid; для вклада физлица — триггер 177-ФЗ."
+          description: >
+            Читаемый тип клиента для DD Grid; для вклада физлица — триггер 177-ФЗ. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -1099,7 +1103,8 @@ checks_v8:
           label: "Подписант клиента"
           type: "string"
           presentation: "fact"
-          description: "Подписант от клиента / вкладчика."
+          description: >
+            Подписант от клиента / вкладчика. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -1108,7 +1113,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["charter", "poa", "order", "personal", "other", "not_defined"]
-          description: "Основание полномочий подписанта клиента. personal — только для физлица-вкладчика, подписывающего лично."
+          description: "Основание полномочий подписанта клиента. personal — только для физлица-вкладчика, подписывающего лично. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1116,7 +1121,8 @@ checks_v8:
           label: "Подписант банка"
           type: "string"
           presentation: "fact"
-          description: "Подписант от банка."
+          description: >
+            Подписант от банка. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -1125,7 +1131,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["charter", "poa", "order", "other", "not_defined"]
-          description: "Основание полномочий подписанта банка."
+          description: "Основание полномочий подписанта банка. Внутреннее enum-поле."
           required: true
           display_in_grid: false
       store_payload: true
@@ -1586,7 +1592,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["deposit", "account", "mixed", "not_defined"]
-          description: "Тип договора (вклад / счёт / смешанный)."
+          description: "Тип договора (вклад / счёт / смешанный). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1595,7 +1601,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания суммы вклада / типа счёта."
+          description: "Статус указания суммы вклада / типа счёта. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1603,7 +1609,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Сумма вклада / тип счёта"
-          description: "Сумма вклада или тип счёта (расчётный / текущий / корр.)."
+          description: >
+            Сумма вклада или тип счёта (расчётный / текущий / корр.). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -1627,7 +1634,8 @@ checks_v8:
             - "Евро (EUR)"
             - "Иная валюта"
             - "Не удалось определить"
-          description: "Читаемая валюта для DD Grid; для вклада физлица влияет на режим 177-ФЗ."
+          description: >
+            Читаемая валюта для DD Grid; для вклада физлица влияет на режим 177-ФЗ. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -1637,7 +1645,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания срока."
+          description: "Статус указания срока. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1645,7 +1653,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Срок"
-          description: "Срок вклада или срок действия договора счёта."
+          description: >
+            Срок вклада или срок действия договора счёта. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -1669,7 +1678,8 @@ checks_v8:
             - "На иных условиях возврата"
             - "Не удалось определить"
             - "Не применимо"
-          description: "Читаемый вид вклада для DD Grid; для договора счёта — «Не применимо»."
+          description: >
+            Читаемый вид вклада для DD Grid; для договора счёта — «Не применимо». Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -1679,7 +1689,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус подтверждения передачи / зачисления средств."
+          description: "Статус подтверждения передачи / зачисления средств. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1687,7 +1697,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Подтверждение передачи средств"
-          description: "Формулировка о передаче или зачислении средств (реальность договора вклада, ст. 834 ГК РФ)."
+          description: >
+            Формулировка о передаче или зачислении средств (реальность договора вклада, ст. 834 ГК РФ). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 5
@@ -2126,7 +2137,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания процентной ставки."
+          description: "Статус указания процентной ставки. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2134,7 +2145,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Процентная ставка"
-          description: "Размер процентной ставки по вкладу."
+          description: >
+            Размер процентной ставки по вкладу. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -2144,7 +2156,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания порядка начисления."
+          description: "Статус указания порядка начисления. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2152,7 +2164,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Порядок начисления"
-          description: "Порядок начисления процентов (периодичность, база)."
+          description: >
+            Порядок начисления процентов (периодичность, база). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -2162,7 +2175,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания капитализации (есть или прямо отрицается)."
+          description: "Статус указания капитализации (есть или прямо отрицается). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2170,7 +2183,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Капитализация"
-          description: "Формулировка о капитализации процентов; влияет на эффективную доходность вклада."
+          description: >
+            Формулировка о капитализации процентов; влияет на эффективную доходность вклада. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -2180,7 +2194,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания режима изменения ставки."
+          description: "Статус указания режима изменения ставки. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2188,7 +2202,8 @@ checks_v8:
           label: "Право банка на одностороннее изменение ставки"
           type: "string"
           presentation: "fact"
-          description: "Формулировка о режиме изменения ставки (внутреннее поле для формирования _display)."
+          description: >
+            Формулировка о режиме изменения ставки (внутреннее поле для формирования _display). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -2202,7 +2217,8 @@ checks_v8:
             - "Банк вправе изменить ставку в одностороннем порядке"
             - "Изменение ставки не урегулировано"
             - "Не удалось определить"
-          description: "Читаемый вывод о режиме изменения ставки для DD Grid; показывает, в чью пользу условие."
+          description: >
+            Читаемый вывод о режиме изменения ставки для DD Grid; показывает, в чью пользу условие. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -2663,7 +2679,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания права на досрочный возврат."
+          description: "Статус указания права на досрочный возврат. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2671,7 +2687,8 @@ checks_v8:
           label: "Условия досрочного истребования вклада"
           type: "string"
           presentation: "fact"
-          description: "Формулировка о праве досрочного возврата (внутреннее поле для формирования _display)."
+          description: >
+            Формулировка о праве досрочного возврата (внутреннее поле для формирования _display). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -2685,7 +2702,8 @@ checks_v8:
             - "Право ограничено (для физлица недействительно)"
             - "Право не урегулировано"
             - "Не удалось определить"
-          description: "Читаемый вывод о режиме досрочного возврата; для ограничения права у физлица — сигнал о недействительности ограничения (ст. 837 п. 2 ГК РФ)."
+          description: >
+            Читаемый вывод о режиме досрочного возврата; для ограничения права у физлица — сигнал о недействительности ограничения (ст. 837 п. 2 ГК РФ). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -2695,7 +2713,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания пересчёта процентов."
+          description: "Статус указания пересчёта процентов. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2703,7 +2721,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Пересчёт процентов"
-          description: "Формулировка о пересчёте процентов при досрочном возврате (ст. 837 п. 3 ГК РФ)."
+          description: >
+            Формулировка о пересчёте процентов при досрочном возврате (ст. 837 п. 3 ГК РФ). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -2713,7 +2732,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания ограничений досрочного возврата."
+          description: "Статус указания ограничений досрочного возврата. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2721,7 +2740,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Ограничения досрочного возврата"
-          description: "Формулировка об ограничениях (срок, периодичность, условия, запрет)."
+          description: >
+            Формулировка об ограничениях (срок, периодичность, условия, запрет). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -2731,7 +2751,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания порядка возврата."
+          description: "Статус указания порядка возврата. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2739,7 +2759,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Порядок возврата"
-          description: "Формулировка о порядке и сроке возврата средств."
+          description: >
+            Формулировка о порядке и сроке возврата средств. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -3189,7 +3210,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания тарифов."
+          description: "Статус указания тарифов. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3197,7 +3218,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Тарифы"
-          description: "Формулировка о тарифах (ставки или отсылка к приложению)."
+          description: >
+            Формулировка о тарифах (ставки или отсылка к приложению). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -3207,7 +3229,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус перечня комиссий."
+          description: "Статус перечня комиссий. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3215,7 +3237,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Комиссии"
-          description: "Формулировка о перечне комиссий или отсылке к приложению."
+          description: >
+            Формулировка о перечне комиссий или отсылке к приложению. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -3225,7 +3248,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания режима изменения тарифов."
+          description: "Статус указания режима изменения тарифов. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3233,7 +3256,8 @@ checks_v8:
           label: "Право банка на изменение тарифов"
           type: "string"
           presentation: "fact"
-          description: "Формулировка о режиме изменения тарифов (внутреннее поле для формирования _display)."
+          description: >
+            Формулировка о режиме изменения тарифов (внутреннее поле для формирования _display). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -3247,7 +3271,8 @@ checks_v8:
             - "Банк вправе изменить тарифы без уведомления"
             - "Право изменения тарифов не урегулировано"
             - "Не удалось определить"
-          description: "Читаемый вывод о режиме изменения тарифов; «без уведомления» — сигнал риска для клиента."
+          description: >
+            Читаемый вывод о режиме изменения тарифов; «без уведомления» — сигнал риска для клиента. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -3257,7 +3282,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания порядка уведомления об изменении тарифов."
+          description: "Статус указания порядка уведомления об изменении тарифов. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3265,7 +3290,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Уведомление об изменении"
-          description: "Формулировка о порядке и сроке уведомления клиента об изменении тарифов."
+          description: >
+            Формулировка о порядке и сроке уведомления клиента об изменении тарифов. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -3723,7 +3749,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия AML/CFT-условий (общая тема покрыта global aml_kyc)."
+          description: "Статус наличия AML/CFT-условий (общая тема покрыта global aml_kyc). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3731,7 +3757,8 @@ checks_v8:
           label: "Условия ограничений по 115-ФЗ"
           type: "string"
           presentation: "fact"
-          description: "Формулировка об AML/CFT-условиях (внутреннее поле; в grid не выводится — общая тема покрыта global aml_kyc)."
+          description: >
+            Формулировка об AML/CFT-условиях (внутреннее поле; в grid не выводится — общая тема покрыта global aml_kyc). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -3740,7 +3767,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус права запрашивать документы."
+          description: "Статус права запрашивать документы. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3748,7 +3775,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Запрос документов"
-          description: "Формулировка о праве банка запрашивать документы (для идентификации, подтверждения операций)."
+          description: >
+            Формулировка о праве банка запрашивать документы (для идентификации, подтверждения операций). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -3758,7 +3786,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус раскрытия оснований блокировки."
+          description: "Статус раскрытия оснований блокировки. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3766,7 +3794,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Основания блокировки"
-          description: "Формулировка об основаниях блокировки (приостановления операций)."
+          description: >
+            Формулировка об основаниях блокировки (приостановления операций). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -3780,7 +3809,8 @@ checks_v8:
             - "Договор ссылается на 115-ФЗ без раскрытия механики"
             - "Договор не содержит AML-положений"
             - "Не удалось определить"
-          description: "Читаемый вывод о раскрытии механики блокировки; сигнал риска при отсутствии конкретики в договоре."
+          description: >
+            Читаемый вывод о раскрытии механики блокировки; сигнал риска при отсутствии конкретики в договоре. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -3790,7 +3820,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус механизма разблокировки."
+          description: "Статус механизма разблокировки. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3798,7 +3828,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Разблокировка"
-          description: "Формулировка о порядке и сроке разблокировки."
+          description: >
+            Формулировка о порядке и сроке разблокировки. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -4251,7 +4282,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус оснований списания без распоряжения."
+          description: "Статус оснований списания без распоряжения. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -4259,7 +4290,8 @@ checks_v8:
           label: "Случаи безакцептного списания средств"
           type: "string"
           presentation: "fact"
-          description: "Краткая формулировка оснований (внутреннее поле; в grid не выводится — дублирует debit_cases_details)."
+          description: >
+            Краткая формулировка оснований (внутреннее поле; в grid не выводится — дублирует debit_cases_details). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -4268,7 +4300,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус конкретного перечня случаев списания."
+          description: "Статус конкретного перечня случаев списания. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -4276,7 +4308,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Случаи списания"
-          description: "Конкретный перечень случаев списания без распоряжения клиента."
+          description: >
+            Конкретный перечень случаев списания без распоряжения клиента. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -4290,7 +4323,8 @@ checks_v8:
             - "Договор ссылается на закон без раскрытия случаев"
             - "Договор не предусматривает списания без распоряжения"
             - "Не удалось определить"
-          description: "Читаемый вывод о раскрытии механики списания без распоряжения."
+          description: >
+            Читаемый вывод о раскрытии механики списания без распоряжения. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -4300,7 +4334,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус уведомления клиента о списании."
+          description: "Статус уведомления клиента о списании. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -4308,7 +4342,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Уведомление о списании"
-          description: "Порядок и срок уведомления клиента о списании без распоряжения."
+          description: >
+            Порядок и срок уведомления клиента о списании без распоряжения. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -4318,7 +4353,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус защиты от несанкционированных списаний."
+          description: "Статус защиты от несанкционированных списаний. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -4326,7 +4361,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Защита от списаний"
-          description: "Механизм защиты клиента от несанкционированных списаний (оспаривание, возмещение, ответственность банка)."
+          description: >
+            Механизм защиты клиента от несанкционированных списаний (оспаривание, возмещение, ответственность банка). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -4784,7 +4820,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус условий ДБО."
+          description: "Статус условий ДБО. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -4792,7 +4828,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Условия ДБО"
-          description: "Канал дистанционного обслуживания (интернет-банк, мобильное приложение)."
+          description: >
+            Канал дистанционного обслуживания (интернет-банк, мобильное приложение). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -4802,7 +4839,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус механизма аутентификации."
+          description: "Статус механизма аутентификации. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -4810,7 +4847,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Аутентификация"
-          description: "Механизм аутентификации (одноразовые пароли, ЭП, биометрия и т. п.)."
+          description: >
+            Механизм аутентификации (одноразовые пароли, ЭП, биометрия и т. п.). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -4820,7 +4858,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус распределения ответственности за инциденты."
+          description: "Статус распределения ответственности за инциденты. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -4828,7 +4866,8 @@ checks_v8:
           label: "Распределение ответственности при компрометации ДБО"
           type: "string"
           presentation: "fact"
-          description: "Формулировка о распределении ответственности (внутреннее поле для формирования _display)."
+          description: >
+            Формулировка о распределении ответственности (внутреннее поле для формирования _display). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -4842,7 +4881,8 @@ checks_v8:
             - "Ответственность на банке"
             - "Распределение ответственности не урегулировано"
             - "Не удалось определить"
-          description: "Читаемый вывод о режиме ответственности за инциденты в ДБО."
+          description: >
+            Читаемый вывод о режиме ответственности за инциденты в ДБО. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -4852,7 +4892,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус правила уведомления об инцидентах."
+          description: "Статус правила уведомления об инцидентах. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -4860,7 +4900,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Уведомление об инцидентах"
-          description: "Порядок и срок уведомления банка о компрометации / несанкционированном доступе."
+          description: >
+            Порядок и срок уведомления банка о компрометации / несанкционированном доступе. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -5295,7 +5336,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус лимита овердрафта."
+          description: "Статус лимита овердрафта. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5303,7 +5344,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Лимит овердрафта"
-          description: "Размер лимита овердрафта."
+          description: >
+            Размер лимита овердрафта. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -5313,7 +5355,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус процентов за овердрафт."
+          description: "Статус процентов за овердрафт. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5321,7 +5363,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Проценты за овердрафт"
-          description: "Размер процентов за пользование овердрафтом."
+          description: >
+            Размер процентов за пользование овердрафтом. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -5331,7 +5374,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус срока / порядка погашения."
+          description: "Статус срока / порядка погашения. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5339,7 +5382,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Погашение овердрафта"
-          description: "Срок и порядок погашения овердрафта."
+          description: >
+            Срок и порядок погашения овердрафта. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -5349,7 +5393,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус оснований прекращения лимита."
+          description: "Статус оснований прекращения лимита. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5357,7 +5401,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Прекращение лимита"
-          description: "Основания прекращения лимита овердрафта банком."
+          description: >
+            Основания прекращения лимита овердрафта банком. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -5371,7 +5416,8 @@ checks_v8:
             - "Только отсылка к овердрафту без условий"
             - "Овердрафт в договоре не упомянут"
             - "Не удалось определить"
-          description: "Читаемый вывод о раскрытии условий овердрафта."
+          description: >
+            Читаемый вывод о раскрытии условий овердрафта. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 5
@@ -5816,7 +5862,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус упоминания страхования вклада в договоре."
+          description: "Статус упоминания страхования вклада в договоре. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5824,7 +5870,8 @@ checks_v8:
           label: "Упоминание системы страхования вкладов (АСВ)"
           type: "string"
           presentation: "fact"
-          description: "Формулировка о страховании вклада (внутреннее поле)."
+          description: >
+            Формулировка о страховании вклада (внутреннее поле). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -5833,7 +5880,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус участия банка в ССВ."
+          description: "Статус участия банка в ССВ. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5858,7 +5905,8 @@ checks_v8:
             - "Обезличенный металлический счёт"
             - "Иная категория"
             - "Не удалось определить"
-          description: "Читаемая категория вклада для DD Grid."
+          description: >
+            Читаемая категория вклада для DD Grid. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -5868,7 +5916,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус размера страхового покрытия."
+          description: "Статус размера страхового покрытия. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5876,7 +5924,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Размер покрытия"
-          description: "Размер страхового покрытия (лимит возмещения по 177-ФЗ)."
+          description: >
+            Размер страхового покрытия (лимит возмещения по 177-ФЗ). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -5892,7 +5941,8 @@ checks_v8:
             - "Вклад не подлежит страхованию (категория вклада)"
             - "Страхование не урегулировано в договоре"
             - "Не удалось определить"
-          description: "Читаемый вывод о покрытии вклада; ключевой сигнал риска для физлиц и юрлиц."
+          description: >
+            Читаемый вывод о покрытии вклада; ключевой сигнал риска для физлиц и юрлиц. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -6340,7 +6390,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания права клиента на закрытие счёта."
+          description: "Статус указания права клиента на закрытие счёта. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6355,7 +6405,8 @@ checks_v8:
             - "Право клиента раскрыто только через отсылку к закону"
             - "Право клиента не урегулировано"
             - "Не удалось определить"
-          description: "Читаемый вывод о праве клиента на закрытие счёта."
+          description: >
+            Читаемый вывод о праве клиента на закрытие счёта. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -6365,7 +6416,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания права банка на расторжение."
+          description: "Статус указания права банка на расторжение. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6374,7 +6425,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус конкретных оснований расторжения банком."
+          description: "Статус конкретных оснований расторжения банком. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6388,7 +6439,8 @@ checks_v8:
             - "Банк вправе расторгнуть в одностороннем порядке по иным основаниям"
             - "Право банка не урегулировано"
             - "Не удалось определить"
-          description: "Читаемый вывод о праве банка на одностороннее расторжение."
+          description: >
+            Читаемый вывод о праве банка на одностороннее расторжение. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -6398,7 +6450,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус порядка возврата остатка."
+          description: "Статус порядка возврата остатка. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6406,7 +6458,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Возврат остатка"
-          description: "Срок и/или порядок возврата остатка средств при закрытии счёта."
+          description: >
+            Срок и/или порядок возврата остатка средств при закрытии счёта. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -6416,7 +6469,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус судьбы овердрафта при закрытии."
+          description: "Статус судьбы овердрафта при закрытии. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6424,7 +6477,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Овердрафт при закрытии"
-          description: "Судьба овердрафта при закрытии счёта (досрочное погашение, превращение в кредит, иное)."
+          description: >
+            Судьба овердрафта при закрытии счёта (досрочное погашение, превращение в кредит, иное). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -7404,7 +7458,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия права на зачет/списание в счет иных обязательств."
+          description: "Статус наличия права на зачет/списание в счет иных обязательств. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -7421,7 +7475,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "В счет каких обязательств"
-          description: "Перечень обязательств, в счет которых банк может произвести зачет/списание."
+          description: >
+            Перечень обязательств, в счет которых банк может произвести зачет/списание. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -7431,7 +7486,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус обязанности уведомить о факте зачета/списания."
+          description: "Статус обязанности уведомить о факте зачета/списания. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -7439,7 +7494,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Уведомление о зачете"
-          description: "Порядок уведомления клиента о произведенном зачете или безакцептном списании."
+          description: >
+            Порядок уведомления клиента о произведенном зачете или безакцептном списании. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -7453,7 +7509,8 @@ checks_v8:
             - "Зачет возможен по любым обязательствам, включая третьих лиц"
             - "Право на зачет/списание не предусмотрено"
             - "Не удалось определить"
-          description: "Читаемый вывод о широте полномочий банка по зачету/списанию в счет иных обязательств."
+          description: >
+            Читаемый вывод о широте полномочий банка по зачету/списанию в счет иных обязательств. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -7922,7 +7979,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения каналов связи для юридически значимых сообщений."
+          description: "Статус определения каналов связи для юридически значимых сообщений. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -7930,7 +7987,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Каналы уведомлений"
-          description: "Перечень согласованных каналов связи (SMS, e-mail, push, сайт, почта, личный кабинет)."
+          description: >
+            Перечень согласованных каналов связи (SMS, e-mail, push, сайт, почта, личный кабинет). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -7940,7 +7998,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия презумпции доставки сообщения."
+          description: "Статус наличия презумпции доставки сообщения. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -7948,7 +8006,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Момент доставки"
-          description: "Условие, при котором сообщение считается юридически доставленным (презумпция доставки)."
+          description: >
+            Условие, при котором сообщение считается юридически доставленным (презумпция доставки). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -7958,7 +8017,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус возложения риска неполучения сообщения на клиента."
+          description: "Статус возложения риска неполучения сообщения на клиента. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -7966,7 +8025,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Риски клиента"
-          description: "Условия, при которых клиент несет риск неполучения юридически значимой информации."
+          description: >
+            Условия, при которых клиент несет риск неполучения юридически значимой информации. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -7980,7 +8040,8 @@ checks_v8:
             - "Банк несет риск фактической доставки сообщения"
             - "Порядок уведомления не урегулирован"
             - "Не удалось определить"
-          description: "Читаемый вывод о распределении рисков ненадлежащего уведомления между банком и клиентом."
+          description: >
+            Читаемый вывод о распределении рисков ненадлежащего уведомления между банком и клиентом. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4

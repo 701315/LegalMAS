@@ -1058,7 +1058,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["property", "personal", "liability", "mixed", "not_defined"]
-          description: "Тип страхования (технический enum)."
+          description: "Тип страхования (технический enum). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1066,7 +1066,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Тип страхования"
-          description: "Человекочитаемое обозначение типа страхования."
+          description: >
+            Человекочитаемое обозначение типа страхования. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -1075,7 +1076,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Страховщик"
-          description: "Наименование страховщика."
+          description: >
+            Наименование страховщика. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -1084,7 +1086,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Страхователь"
-          description: "Наименование страхователя."
+          description: >
+            Наименование страхователя. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -1093,7 +1096,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Объект страхования"
-          description: "Объект страхования (имущество, интерес, жизнь/здоровье, ответственность) или отсылка к Правилам/Приложению."
+          description: >
+            Объект страхования (имущество, интерес, жизнь/здоровье, ответственность) или отсылка к Правилам/Приложению. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -1102,7 +1106,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Страховой случай"
-          description: "Страховой случай / застрахованный риск или отсылка к Правилам страхования."
+          description: >
+            Страховой случай / застрахованный риск или отсылка к Правилам страхования. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 5
@@ -1111,7 +1116,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Страховая сумма"
-          description: "Страховая сумма или отсылка к полису."
+          description: >
+            Страховая сумма или отсылка к полису. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 6
@@ -1120,7 +1126,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Страховая премия"
-          description: "Страховая премия или отсылка к полису."
+          description: >
+            Страховая премия или отсылка к полису. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 7
@@ -1129,7 +1136,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Срок страхования"
-          description: "Срок страхования / срок действия договора."
+          description: >
+            Срок страхования / срок действия договора. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 8
@@ -1138,7 +1146,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Номер полиса"
-          description: "Номер полиса или договора страхования."
+          description: >
+            Номер полиса или договора страхования. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 9
@@ -1147,7 +1156,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Краткое описание страховой сделки"
-          description: "Итоговое summary для DD Grid — тип, объект, стороны, сумма, срок."
+          description: >
+            Итоговое summary для DD Grid — тип, объект, стороны, сумма, срок. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 10
@@ -1156,7 +1166,8 @@ checks_v8:
           label: "Застрахованное лицо"
           type: "string"
           presentation: "fact"
-          description: "Застрахованное лицо (если отличается от страхователя, совпадает с ним или неприменимо)."
+          description: >
+            Застрахованное лицо (если отличается от страхователя, совпадает с ним или неприменимо). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -1164,7 +1175,8 @@ checks_v8:
           label: "Выгодоприобретатель"
           type: "string"
           presentation: "fact"
-          description: "Выгодоприобретатель по договору страхования."
+          description: >
+            Выгодоприобретатель по договору страхования. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -1562,7 +1574,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["yes", "no", "unclear"]
           label: "Страховой случай определён"
-          description: "Определён ли страховой случай конкретным перечнем событий."
+          description: "Определён ли страховой случай конкретным перечнем событий. Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 1
@@ -1573,7 +1585,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["yes", "no"]
           label: "Исключения из покрытия"
-          description: "Есть ли в договоре перечень исключений из страхового покрытия."
+          description: "Есть ли в договоре перечень исключений из страхового покрытия. Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 2
@@ -1584,7 +1596,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["clear", "vague", "not_defined"]
           label: "Ясность исключений"
-          description: "Насколько ясно сформулированы исключения: закрытый перечень (clear) vs размытые формулировки (vague)."
+          description: "Насколько ясно сформулированы исключения: закрытый перечень (clear) vs размытые формулировки (vague). Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 3
@@ -1595,7 +1607,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
           label: "Открытые исключения"
-          description: "Есть ли формулировки, допускающие неограниченное расширение перечня исключений (красный флаг)."
+          description: "Есть ли формулировки, допускающие неограниченное расширение перечня исключений (красный флаг). Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 4
@@ -1604,7 +1616,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Ключевые исключения"
-          description: "Краткое перечисление ключевых исключений из покрытия или отсылка к Правилам страхования."
+          description: >
+            Краткое перечисление ключевых исключений из покрытия или отсылка к Правилам страхования. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 5
@@ -1999,7 +2012,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["yes", "no"]
           label: "Правила страхования упомянуты"
-          description: "Есть ли в договоре ссылка на конкретные Правила страхования."
+          description: "Есть ли в договоре ссылка на конкретные Правила страхования. Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 1
@@ -2010,7 +2023,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["delivered", "acknowledged_only", "not_defined"]
           label: "Вручение Правил"
-          description: "Статус вручения Правил: вручён экземпляр (delivered), только ознакомление (acknowledged_only), не раскрыто (not_defined)."
+          description: "Статус вручения Правил: вручён экземпляр (delivered), только ознакомление (acknowledged_only), не раскрыто (not_defined). Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 2
@@ -2021,7 +2034,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["incorporated", "unclear", "not_defined"]
           label: "Включение в договор"
-          description: "Включены ли Правила в договорную конструкцию: неотъемлемая часть (incorporated), статус неясен (unclear), не упомянуты (not_defined)."
+          description: "Включены ли Правила в договорную конструкцию: неотъемлемая часть (incorporated), статус неясен (unclear), не упомянуты (not_defined). Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 3
@@ -2451,7 +2464,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["yes", "no"]
           label: "Срок уведомления установлен"
-          description: "Есть ли в договоре конкретный срок уведомления о страховом случае (число + единица)."
+          description: "Есть ли в договоре конкретный срок уведомления о страховом случае (число + единица). Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 1
@@ -2460,7 +2473,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Срок уведомления"
-          description: "Конкретный срок уведомления о страховом случае или отсылка к Правилам."
+          description: >
+            Конкретный срок уведомления о страховом случае или отсылка к Правилам. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -2469,7 +2483,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Способы уведомления"
-          description: "Перечисление допустимых способов уведомления (телефон, e-mail, письмо, личный кабинет)."
+          description: >
+            Перечисление допустимых способов уведомления (телефон, e-mail, письмо, личный кабинет). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -2480,7 +2495,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["specified", "vague", "not_defined"]
           label: "Последствия просрочки"
-          description: "Указаны ли последствия несвоевременного уведомления: конкретные (specified), размытые (vague), не упомянуты (not_defined)."
+          description: "Указаны ли последствия несвоевременного уведомления: конкретные (specified), размытые (vague), не упомянуты (not_defined). Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 4
@@ -2491,7 +2506,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["clear", "unclear", "not_defined"]
           label: "Ясность порядка уведомления"
-          description: "Насколько ясно и полно сформулирован порядок уведомления о страховом случае."
+          description: "Насколько ясно и полно сформулирован порядок уведомления о страховом случае. Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 5
@@ -2914,7 +2929,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["yes", "no"]
           label: "Срок выплаты установлен"
-          description: "Есть ли в договоре конкретный срок страховой выплаты (число + единица)."
+          description: "Есть ли в договоре конкретный срок страховой выплаты (число + единица). Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 1
@@ -2923,7 +2938,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Срок выплаты"
-          description: "Конкретный срок страховой выплаты или отсылка к Правилам страхования."
+          description: >
+            Конкретный срок страховой выплаты или отсылка к Правилам страхования. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -2934,7 +2950,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["exhaustive", "open_ended", "unclear", "not_defined"]
           label: "Перечень документов"
-          description: "Статус перечня документов для выплаты: закрытый (exhaustive), открытый (open_ended), неясен (unclear), не указан (not_defined)."
+          description: "Статус перечня документов для выплаты: закрытый (exhaustive), открытый (open_ended), неясен (unclear), не указан (not_defined). Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 3
@@ -2945,7 +2961,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["yes", "no"]
           label: "Основания отказа"
-          description: "Указаны ли в договоре конкретные основания отказа в страховой выплате."
+          description: "Указаны ли в договоре конкретные основания отказа в страховой выплате. Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 4
@@ -2956,7 +2972,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["high", "medium", "low", "unclear", "not_defined"]
           label: "Дискреция страховщика"
-          description: "Уровень дискреции страховщика в определении документов и условий выплаты: high (открытый перечень, «по усмотрению»), medium, low (закрытый перечень)."
+          description: "Уровень дискреции страховщика в определении документов и условий выплаты: high (открытый перечень, «по усмотрению»), medium, low (закрытый перечень). Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 5
@@ -3369,7 +3385,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["yes", "no"]
           label: "Застрахованное лицо определено"
-          description: "Идентифицировано ли застрахованное лицо в тексте договора (ФИО, реквизиты)."
+          description: "Идентифицировано ли застрахованное лицо в тексте договора (ФИО, реквизиты). Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 1
@@ -3380,7 +3396,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["present", "not_required", "unclear", "not_defined"]
           label: "Согласие застрахованного лица"
-          description: "Статус согласия: получено (present), не требуется — страхователь = застрахованный (not_required), неясно (unclear), не раскрыто (not_defined)."
+          description: "Статус согласия: получено (present), не требуется — страхователь = застрахованный (not_required), неясно (unclear), не раскрыто (not_defined). Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 2
@@ -3391,7 +3407,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["named", "default_rules", "not_defined"]
           label: "Статус выгодоприобретателя"
-          description: "Выгодоприобретатель назван конкретно (named), определяется по закону (default_rules), не раскрыт (not_defined)."
+          description: "Выгодоприобретатель назван конкретно (named), определяется по закону (default_rules), не раскрыт (not_defined). Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 3
@@ -3779,7 +3795,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["yes", "no"]
           label: "Досрочное расторжение"
-          description: "Предусмотрена ли в договоре возможность досрочного расторжения или одностороннего отказа."
+          description: "Предусмотрена ли в договоре возможность досрочного расторжения или одностороннего отказа. Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 1
@@ -3790,7 +3806,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["full", "proportional", "none", "unclear", "not_defined"]
           label: "Возврат премии при расторжении"
-          description: "Статус возврата уплаченной премии: в полном объёме (full), пропорционально (proportional), не возвращается (none), не раскрыто (not_defined)."
+          description: "Статус возврата уплаченной премии: в полном объёме (full), пропорционально (proportional), не возвращается (none), не раскрыто (not_defined). Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 2
@@ -3799,7 +3815,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Условия расторжения и возврата"
-          description: "Краткое юридическое описание условий расторжения и порядка расчётов по страховой премии."
+          description: >
+            Краткое юридическое описание условий расторжения и порядка расчётов по страховой премии. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -4635,7 +4652,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["yes", "no"]
           label: "Раздел действий при страховом случае"
-          description: "Наличие в договоре специального раздела или регламента действий при страховом случае."
+          description: "Наличие в договоре специального раздела или регламента действий при страховом случае. Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 1
@@ -4646,7 +4663,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["present", "absent"]
           label: "Обязанность уведомить страховщика"
-          description: "Предусмотрена ли обязанность страхователя незамедлительно заявить о событии страховщику."
+          description: "Предусмотрена ли обязанность страхователя незамедлительно заявить о событии страховщику. Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 2
@@ -4657,7 +4674,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["present", "absent", "not_applicable"]
           label: "Вызов компетентных органов"
-          description: "Предусмотрена ли обязанность незамедлительно зафиксировать происшествие в компетентных органах (МЧС, полиция)."
+          description: "Предусмотрена ли обязанность незамедлительно зафиксировать происшествие в компетентных органах (МЧС, полиция). Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 3
@@ -4668,7 +4685,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["present", "absent", "not_applicable"]
           label: "Сохранение повреждённого объекта"
-          description: "Обязанность страхователя принять меры по спасению и сохранению картины происшествия."
+          description: "Обязанность страхователя принять меры по спасению и сохранению картины происшествия. Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 4
@@ -4679,7 +4696,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["present", "absent", "not_applicable"]
           label: "Запрет на ремонт до осмотра"
-          description: "Наличие запрета на проведение ремонтных работ или изменение состояния объекта до осмотра страховщиком."
+          description: "Наличие запрета на проведение ремонтных работ или изменение состояния объекта до осмотра страховщиком. Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 5
@@ -4690,7 +4707,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["comprehensive", "partial", "minimal", "absent"]
           label: "Полнота регламента действий"
-          description: "Интегральная оценка полноты и жесткости регламента действий страхователя на месте происшествия."
+          description: "Интегральная оценка полноты и жесткости регламента действий страхователя на месте происшествия. Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 6
@@ -5044,7 +5061,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
           label: "Территория покрытия определена"
-          description: "Определена ли в договоре географическая территория страхового покрытия."
+          description: "Определена ли в договоре географическая территория страхового покрытия. Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 1
@@ -5055,7 +5072,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["russia", "cis", "worldwide", "specified_countries", "not_defined"]
           label: "Географический охват"
-          description: "Географический охват страховой защиты (Россия, СНГ, Весь мир, конкретные адреса)."
+          description: "Географический охват страховой защиты (Россия, СНГ, Весь мир, конкретные адреса). Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 2
@@ -5066,7 +5083,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["present", "absent", "not_defined"]
           label: "Исключения из территории"
-          description: "Наличие территориальных исключений (зон, где покрытие не действует)."
+          description: "Наличие территориальных исключений (зон, где покрытие не действует). Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 3
@@ -5476,7 +5493,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["claims_made", "occurrence", "mixed", "unclear", "not_defined"]
           label: "Базис страхового покрытия"
-          description: "Базис действия страхового покрытия: claims-made (предъявление требований) или occurrence (наступление события)."
+          description: "Базис действия страхового покрытия: claims-made (предъявление требований) или occurrence (наступление события). Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 1
@@ -5485,7 +5502,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Ретроактивная дата"
-          description: "Дата, начиная с которой совершенные действия покрываются договором (для claims-made)."
+          description: >
+            Дата, начиная с которой совершенные действия покрываются договором (для claims-made). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -5496,7 +5514,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["present", "absent", "not_applicable", "not_defined"]
           label: "Дополнительный период (ERP)"
-          description: "Наличие права на дополнительный период уведомления о претензиях после окончания договора."
+          description: "Наличие права на дополнительный период уведомления о претензиях после окончания договора. Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 3
@@ -5505,7 +5523,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Длительность ERP"
-          description: "Продолжительность дополнительного периода извещения (Extended Reporting Period)."
+          description: >
+            Продолжительность дополнительного периода извещения (Extended Reporting Period). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -5516,7 +5535,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["high", "medium", "low", "not_defined"]
           label: "Уровень риска базиса"
-          description: "Оценка риска условий покрытия: high (claims-made без ретро-даты), medium, low (occurrence или claims-made с ретро-датой и ERP)."
+          description: "Оценка риска условий покрытия: high (claims-made без ретро-даты), medium, low (occurrence или claims-made с ретро-датой и ERP). Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 5
@@ -5880,7 +5899,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           label: "Лицензия страховщика"
-          description: "Наличие в тексте договора ссылки на лицензию страховщика."
+          description: "Наличие в тексте договора ссылки на лицензию страховщика. Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 1
@@ -5889,7 +5908,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Номер лицензии"
-          description: "Серия и номер лицензии страховщика (СЛ, СИ, ОС, ПС)."
+          description: >
+            Серия и номер лицензии страховщика (СЛ, СИ, ОС, ПС). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -5898,7 +5918,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Дата выдачи"
-          description: "Дата выдачи лицензии страховщика."
+          description: >
+            Дата выдачи лицензии страховщика. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -5907,7 +5928,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Орган выдачи"
-          description: "Орган, выдавший лицензию страховщика (Банк России, ЦБ РФ)."
+          description: >
+            Орган, выдавший лицензию страховщика (Банк России, ЦБ РФ). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -5916,7 +5938,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Описание лицензии"
-          description: "Краткое описание лицензии страховщика для DD Grid."
+          description: >
+            Краткое описание лицензии страховщика для DD Grid. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 5
@@ -6295,7 +6318,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["single", "installments", "not_defined"]
           label: "Форма уплаты премии"
-          description: "Каким платежом уплачивается премия: единовременно (single), в рассрочку/взносами (installments), не указано (not_defined)."
+          description: "Каким платежом уплачивается премия: единовременно (single), в рассрочку/взносами (installments), не указано (not_defined). Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 1
@@ -6304,7 +6327,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Срок уплаты взносов"
-          description: "Конкретные даты и сроки уплаты страховой премии или взносов."
+          description: >
+            Конкретные даты и сроки уплаты страховой премии или взносов. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -6315,7 +6339,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["upon_payment", "upon_signing", "specified_date", "not_defined"]
           label: "Вступление в силу"
-          description: "Условие вступления договора в силу: с уплаты премии (upon_payment), с подписания (upon_signing), с даты (specified_date)."
+          description: "Условие вступления договора в силу: с уплаты премии (upon_payment), с подписания (upon_signing), с даты (specified_date). Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 3
@@ -6324,7 +6348,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Просрочка взносов"
-          description: "Последствия просрочки уплаты премии или взносов (приостановление покрытия, расторжение)."
+          description: >
+            Последствия просрочки уплаты премии или взносов (приостановление покрытия, расторжение). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 4
@@ -6333,7 +6358,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Порядок оплаты премии"
-          description: "Краткое резюме порядка расчетов и условий вступления договора в силу."
+          description: >
+            Краткое резюме порядка расчетов и условий вступления договора в силу. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 5
@@ -6718,7 +6744,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["yes", "no"]
           label: "Франшиза"
-          description: "Предусмотрена ли франшиза в договоре страхования."
+          description: "Предусмотрена ли франшиза в договоре страхования. Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 1
@@ -6729,7 +6755,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["unconditional", "conditional", "dynamic", "not_defined"]
           label: "Тип франшизы"
-          description: "Тип франшизы: безусловная (вычет из каждой выплаты), условная (порог), динамическая."
+          description: "Тип франшизы: безусловная (вычет из каждой выплаты), условная (порог), динамическая. Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 2
@@ -6738,7 +6764,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Размер франшизы"
-          description: "Размер франшизы в рублях или процентах от страховой суммы/убытка."
+          description: >
+            Размер франшизы в рублях или процентах от страховой суммы/убытка. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -6749,7 +6776,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["per_claim", "per_period", "per_event", "not_defined"]
           label: "Применение франшизы"
-          description: "Порядок применения: на каждый убыток (per_claim), за период (per_period), на событие (per_event)."
+          description: "Порядок применения: на каждый убыток (per_claim), за период (per_period), на событие (per_event). Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 4
@@ -6758,7 +6785,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Описание франшизы"
-          description: "Краткое описание условий франшизы для DD Grid."
+          description: >
+            Краткое описание условий франшизы для DD Grid. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 5
@@ -7162,7 +7190,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["yes", "no"]
           label: "Суброгация"
-          description: "Есть ли в договоре условие о переходе к страховщику права требования к виновному лицу."
+          description: "Есть ли в договоре условие о переходе к страховщику права требования к виновному лицу. Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 1
@@ -7173,7 +7201,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["full", "partial", "none", "not_defined"]
           label: "Отказ от суброгации"
-          description: "Объём отказа: полный (full), частичный (partial), отсутствует (none), не раскрыт (not_defined)."
+          description: "Объём отказа: полный (full), частичный (partial), отсутствует (none), не раскрыт (not_defined). Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 2
@@ -7182,7 +7210,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Объём отказа"
-          description: "В чью пользу установлен отказ от суброгации (аффилированные лица, контрагенты, подрядчики)."
+          description: >
+            В чью пользу установлен отказ от суброгации (аффилированные лица, контрагенты, подрядчики). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -7193,7 +7222,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["present", "absent", "not_defined"]
           label: "Содействие суброгации"
-          description: "Обязанность страхователя передать документы и содействовать реализации суброгационного права."
+          description: "Обязанность страхователя передать документы и содействовать реализации суброгационного права. Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 4
@@ -7202,7 +7231,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Описание суброгации"
-          description: "Краткое описание условий суброгации и отказа от неё для DD Grid."
+          description: >
+            Краткое описание условий суброгации и отказа от неё для DD Grid. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 5
@@ -7603,7 +7633,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["yes", "no"]
           label: "Агрегатный лимит"
-          description: "Установлен ли совокупный лимит ответственности страховщика за весь период страхования."
+          description: "Установлен ли совокупный лимит ответственности страховщика за весь период страхования. Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 1
@@ -7612,7 +7642,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Размер агрегатного лимита"
-          description: "Размер совокупного лимита выплат за весь период страхования."
+          description: >
+            Размер совокупного лимита выплат за весь период страхования. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -7623,7 +7654,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["same", "lower", "higher", "not_defined"]
           label: "Лимит vs страховая сумма"
-          description: "Соотношение агрегатного лимита со страховой суммой: равен (same), ниже (lower), выше (higher)."
+          description: "Соотношение агрегатного лимита со страховой суммой: равен (same), ниже (lower), выше (higher). Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 3
@@ -7634,7 +7665,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["annual", "per_policy", "not_defined"]
           label: "Восстановление лимита"
-          description: "Восстанавливается ли агрегатный лимит: ежегодно (annual), не восстанавливается (per_policy)."
+          description: "Восстанавливается ли агрегатный лимит: ежегодно (annual), не восстанавливается (per_policy). Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 4
@@ -7643,7 +7674,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Описание лимита"
-          description: "Краткое описание агрегатного лимита и его соотношения со страховой суммой для DD Grid."
+          description: >
+            Краткое описание агрегатного лимита и его соотношения со страховой суммой для DD Grid. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 5
@@ -8038,7 +8070,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["present", "absent", "not_defined"]
           label: "Претензионный порядок"
-          description: "Установлен ли обязательный досудебный порядок разрешения споров."
+          description: "Установлен ли обязательный досудебный порядок разрешения споров. Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 1
@@ -8047,7 +8079,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Срок ответа на претензию"
-          description: "Срок ответа на претензию, установленный договором."
+          description: >
+            Срок ответа на претензию, установленный договором. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -8058,7 +8091,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["insurer_location", "policyholder_location", "neutral", "not_defined"]
           label: "Договорная подсудность"
-          description: "Суд, уполномоченный рассматривать споры: по месту нахождения страховщика, страхователя или нейтральный."
+          description: "Суд, уполномоченный рассматривать споры: по месту нахождения страховщика, страхователя или нейтральный. Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 3
@@ -8069,7 +8102,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["present", "absent", "not_defined"]
           label: "Ограничения судебной защиты"
-          description: "Наличие условий, ограничивающих право страхователя на судебную защиту."
+          description: "Наличие условий, ограничивающих право страхователя на судебную защиту. Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 4
@@ -8078,7 +8111,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Описание порядка споров"
-          description: "Краткое описание порядка разрешения споров и подсудности для DD Grid."
+          description: >
+            Краткое описание порядка разрешения споров и подсудности для DD Grid. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 5
@@ -8484,7 +8518,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["present", "absent"]
           label: "Заверения об обстоятельствах"
-          description: "Есть ли в договоре заверения страхователя об обстоятельствах, существенных для оценки риска."
+          description: "Есть ли в договоре заверения страхователя об обстоятельствах, существенных для оценки риска. Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 1
@@ -8495,7 +8529,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["specific", "general", "not_defined"]
           label: "Конкретность заверений"
-          description: "Конкретные заверения (specific) или обобщённые (general)."
+          description: "Конкретные заверения (specific) или обобщённые (general). Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 2
@@ -8506,7 +8540,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["specified", "not_defined"]
           label: "Последствия недостоверности"
-          description: "Указаны ли последствия недостоверности заверений (отказ в выплате, расторжение, признание недействительным)."
+          description: "Указаны ли последствия недостоверности заверений (отказ в выплате, расторжение, признание недействительным). Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 3
@@ -8517,7 +8551,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["present", "absent", "not_defined"]
           label: "Оговорка о добросовестности"
-          description: "Наличие оговорки о добросовестности / due diligence."
+          description: "Наличие оговорки о добросовестности / due diligence. Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 4
@@ -8526,7 +8560,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Описание заверений"
-          description: "Краткое описание заверений и последствий их недостоверности для DD Grid."
+          description: >
+            Краткое описание заверений и последствий их недостоверности для DD Grid. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 5
@@ -8942,7 +8977,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["present", "absent"]
           label: "Форс-мажорная оговорка"
-          description: "Есть ли в договоре оговорка об обстоятельствах непреодолимой силы."
+          description: "Есть ли в договоре оговорка об обстоятельствах непреодолимой силы. Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 1
@@ -8953,7 +8988,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["specific", "broad", "not_defined"]
           label: "Широта форс-мажора"
-          description: "Конкретный перечень (specific) или широкий (broad) перечень форс-мажорных обстоятельств."
+          description: "Конкретный перечень (specific) или широкий (broad) перечень форс-мажорных обстоятельств. Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 2
@@ -8964,7 +8999,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["sanctions_included", "absent", "not_defined"]
           label: "Санкционная оговорка"
-          description: "Включены ли санкции в перечень форс-мажорных обстоятельств или исключений из покрытия."
+          description: "Включены ли санкции в перечень форс-мажорных обстоятельств или исключений из покрытия. Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 3
@@ -8975,7 +9010,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["specified", "not_defined"]
           label: "Последствия форс-мажора"
-          description: "Указаны ли последствия наступления форс-мажора для договора (приостановление, расторжение, отказ в выплате)."
+          description: "Указаны ли последствия наступления форс-мажора для договора (приостановление, расторжение, отказ в выплате). Внутреннее enum-поле."
           required: true
           display_in_grid: true
           display_priority: 4
@@ -8984,7 +9019,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Порядок уведомления"
-          description: "Порядок уведомления о наступлении форс-мажора (форма, срок, адресат)."
+          description: >
+            Порядок уведомления о наступлении форс-мажора (форма, срок, адресат). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 5
@@ -8993,7 +9029,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Описание форс-мажора"
-          description: "Краткое описание форс-мажорной и санкционной оговорок для DD Grid."
+          description: >
+            Краткое описание форс-мажорной и санкционной оговорок для DD Grid. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 6

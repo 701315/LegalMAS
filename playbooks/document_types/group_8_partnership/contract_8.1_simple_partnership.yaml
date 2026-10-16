@@ -961,7 +961,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения количества товарищей."
+          description: "Статус определения количества товарищей. Внутреннее enum-поле."
           required: true
 
         - name: "partners_count_details"
@@ -970,7 +970,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Количество товарищей"
-          description: "Количество товарищей в договоре."
+          description: >
+            Количество товарищей в договоре. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "partners_identification_status"
@@ -978,7 +979,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус идентификации товарищей."
+          description: "Статус идентификации товарищей. Внутреннее enum-поле."
           required: true
 
         - name: "partners_identification_details"
@@ -987,7 +988,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Товарищи"
-          description: "Идентификация всех товарищей."
+          description: >
+            Идентификация всех товарищей. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "common_goal_status"
@@ -995,7 +997,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения общей цели."
+          description: "Статус определения общей цели. Внутреннее enum-поле."
           required: true
 
         - name: "common_goal_details"
@@ -1004,7 +1006,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Общая цель"
-          description: "Описание общей цели совместной деятельности."
+          description: >
+            Описание общей цели совместной деятельности. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "goal_type"
@@ -1014,7 +1017,8 @@ checks_v8:
           display_priority: 4
           label: "Тип цели"
           allowed_values: ["profit", "non_profit", "mixed", "not_defined"]
-          description: "Тип цели деятельности: извлечение прибыли, некоммерческая, смешанная."
+          description: >
+            Тип цели деятельности: извлечение прибыли, некоммерческая, смешанная. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "entrepreneurial_activity"
@@ -1024,7 +1028,8 @@ checks_v8:
           display_priority: 5
           label: "Предпринимательская деятельность"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Является ли деятельность предпринимательской (влияет на режим ответственности по п. 2 ст. 1047 ГК РФ)."
+          description: >
+            Является ли деятельность предпринимательской (влияет на режим ответственности по п. 2 ст. 1047 ГК РФ). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "no_legal_entity_status"
@@ -1032,7 +1037,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания «без образования юридического лица»."
+          description: "Статус указания «без образования юридического лица». Внутреннее enum-поле."
           required: false
 
         - name: "no_legal_entity_details"
@@ -1040,7 +1045,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Отсутствие юрлица"
-          description: "Прямая цитата «без образования юридического лица» для Drawer."
+          description: >
+            Прямая цитата «без образования юридического лица» для Drawer. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "contract_term_status"
@@ -1048,7 +1054,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения срока договора."
+          description: "Статус определения срока договора. Внутреннее enum-поле."
           required: false
 
         - name: "contract_term_details"
@@ -1057,7 +1063,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 6
           label: "Срок действия"
-          description: "Срок действия договора."
+          description: >
+            Срок действия договора. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -1465,7 +1472,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения вкладов."
+          description: "Статус определения вкладов. Внутреннее enum-поле."
           required: true
 
         - name: "contributions_details"
@@ -1474,7 +1481,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Вклады товарищей"
-          description: "Состав вкладов каждого товарища."
+          description: >
+            Состав вкладов каждого товарища. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "valuation_status"
@@ -1482,7 +1490,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
-          description: "Статус денежной оценки вкладов."
+          description: "Статус денежной оценки вкладов. Внутреннее enum-поле."
           required: true
 
         - name: "valuation_details"
@@ -1490,7 +1498,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Оценка вкладов"
-          description: "Значения денежной оценки каждого вклада (для Drawer)."
+          description: >
+            Значения денежной оценки каждого вклада (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "valuation_method"
@@ -1500,7 +1509,8 @@ checks_v8:
           display_priority: 2
           label: "Способ оценки"
           allowed_values: ["согласование сторон", "независимый оценщик", "смешанный", "not_defined"]
-          description: "Способ денежной оценки вкладов."
+          description: >
+            Способ денежной оценки вкладов. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "non_monetary_present"
@@ -1510,7 +1520,8 @@ checks_v8:
           display_priority: 3
           label: "Неденежные вклады"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Наличие неденежных вкладов."
+          description: >
+            Наличие неденежных вкладов. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "non_monetary_details"
@@ -1518,7 +1529,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Состав неденежных вкладов"
-          description: "Состав неденежных вкладов (для Drawer)."
+          description: >
+            Состав неденежных вкладов (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "contribution_deadline_status"
@@ -1526,7 +1538,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус сроков внесения вкладов."
+          description: "Статус сроков внесения вкладов. Внутреннее enum-поле."
           required: false
 
         - name: "contribution_deadline_details"
@@ -1535,7 +1547,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 4
           label: "Сроки внесения"
-          description: "Сроки внесения вкладов."
+          description: >
+            Сроки внесения вкладов. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -2001,7 +2014,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения ведущего дела."
+          description: "Статус определения ведущего дела. Внутреннее enum-поле."
           required: false
 
         - name: "managing_partner_details"
@@ -2010,7 +2023,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Ведущий дела"
-          description: "Идентификация товарища, ведущего общие дела."
+          description: >
+            Идентификация товарища, ведущего общие дела. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "management_type"
@@ -2020,7 +2034,8 @@ checks_v8:
           display_priority: 2
           label: "Тип управления"
           allowed_values: ["joint", "single_partner", "multiple_partners", "not_defined"]
-          description: "Тип управления товариществом."
+          description: >
+            Тип управления товариществом. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "poa_required_status"
@@ -2028,7 +2043,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус требования доверенности."
+          description: "Статус требования доверенности. Внутреннее enum-поле."
           required: false
 
         - name: "poa_required_details"
@@ -2036,7 +2051,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Доверенность"
-          description: "Условие о доверенности для ведущего дела (для Drawer)."
+          description: >
+            Условие о доверенности для ведущего дела (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "decision_rule"
@@ -2046,7 +2062,8 @@ checks_v8:
           display_priority: 3
           label: "Правило решений"
           allowed_values: ["unanimous", "qualified_majority", "simple_majority", "mixed", "not_defined"]
-          description: "Правило принятия решений."
+          description: >
+            Правило принятия решений. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "unanimous_issues_status"
@@ -2054,7 +2071,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус перечня вопросов для единогласия."
+          description: "Статус перечня вопросов для единогласия. Внутреннее enum-поле."
           required: false
 
         - name: "unanimous_issues_details"
@@ -2063,7 +2080,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 4
           label: "Вопросы единогласия"
-          description: "Перечень вопросов, требующих единогласия."
+          description: >
+            Перечень вопросов, требующих единогласия. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "authority_limits_status"
@@ -2071,7 +2089,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус ограничений полномочий."
+          description: "Статус ограничений полномочий. Внутреннее enum-поле."
           required: false
 
         - name: "authority_limits_details"
@@ -2080,7 +2098,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 5
           label: "Ограничения полномочий"
-          description: "Ограничения полномочий ведущего дела."
+          description: >
+            Ограничения полномочий ведущего дела. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "deadlock_mechanism_status"
@@ -2088,7 +2107,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус механизма разрешения разногласий."
+          description: "Статус механизма разрешения разногласий. Внутреннее enum-поле."
           required: false
 
         - name: "deadlock_mechanism_details"
@@ -2096,7 +2115,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Разрешение разногласий"
-          description: "Механизм разрешения тупиковых ситуаций (для Drawer)."
+          description: >
+            Механизм разрешения тупиковых ситуаций (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -2540,7 +2560,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения распределения прибыли."
+          description: "Статус определения распределения прибыли. Внутреннее enum-поле."
           required: true
 
         - name: "profit_distribution_details"
@@ -2549,7 +2569,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Распределение прибыли"
-          description: "Порядок распределения прибыли."
+          description: >
+            Порядок распределения прибыли. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "loss_distribution_status"
@@ -2557,7 +2578,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения покрытия убытков."
+          description: "Статус определения покрытия убытков. Внутреннее enum-поле."
           required: true
 
         - name: "loss_distribution_details"
@@ -2566,7 +2587,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Покрытие убытков"
-          description: "Порядок покрытия убытков и общих расходов."
+          description: >
+            Порядок покрытия убытков и общих расходов. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "distribution_frequency_status"
@@ -2574,7 +2596,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения периодичности."
+          description: "Статус определения периодичности. Внутреннее enum-поле."
           required: false
 
         - name: "distribution_frequency_details"
@@ -2583,7 +2605,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Периодичность"
-          description: "Периодичность распределения прибыли."
+          description: >
+            Периодичность распределения прибыли. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "profit_exclusion_status"
@@ -2591,7 +2614,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["detected", "not_detected"]
-          description: "Наличие ничтожного условия об устранении от прибыли (п. 2 ст. 1048 ГК РФ)."
+          description: "Наличие ничтожного условия об устранении от прибыли (п. 2 ст. 1048 ГК РФ). Внутреннее enum-поле."
           required: false
 
         - name: "profit_exclusion_details"
@@ -2599,7 +2622,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Устранение от прибыли"
-          description: "Цитата условия об устранении товарища от прибыли (для Drawer)."
+          description: >
+            Цитата условия об устранении товарища от прибыли (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "loss_exemption_status"
@@ -2607,7 +2631,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["detected", "not_detected"]
-          description: "Наличие ничтожного условия об освобождении от убытков (п. 2 ст. 1046 ГК РФ)."
+          description: "Наличие ничтожного условия об освобождении от убытков (п. 2 ст. 1046 ГК РФ). Внутреннее enum-поле."
           required: false
 
         - name: "loss_exemption_details"
@@ -2615,7 +2639,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Освобождение от убытков"
-          description: "Цитата условия об освобождении товарища от убытков (для Drawer)."
+          description: >
+            Цитата условия об освобождении товарища от убытков (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -3077,7 +3102,8 @@ checks_v8:
           display_priority: 1
           label: "Тип ответственности"
           allowed_values: ["solidary", "share", "not_defined"]
-          description: "Тип ответственности товарищей перед третьими лицами (солидарная / долевая)."
+          description: >
+            Тип ответственности товарищей перед третьими лицами (солидарная / долевая). Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "liability_type_details"
@@ -3085,7 +3111,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Основание ответственности"
-          description: "Прямая цитата о типе ответственности (для Drawer)."
+          description: >
+            Прямая цитата о типе ответственности (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "joint_and_several_mentioned"
@@ -3093,7 +3120,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["yes", "no", "not_defined"]
-          description: "Прямое упоминание термина «солидарная ответственность»."
+          description: "Прямое упоминание термина «солидарная ответственность». Внутреннее enum-поле."
           required: false
 
         - name: "creditor_priority_status"
@@ -3101,7 +3128,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения очерёдности взыскания."
+          description: "Статус определения очерёдности взыскания. Внутреннее enum-поле."
           required: false
 
         - name: "creditor_priority_details"
@@ -3110,7 +3137,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Очерёдность взыскания"
-          description: "Порядок взыскания кредитором (сначала общее имущество / сразу личное)."
+          description: >
+            Порядок взыскания кредитором (сначала общее имущество / сразу личное). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "regress_procedure_status"
@@ -3118,7 +3146,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения порядка регресса."
+          description: "Статус определения порядка регресса. Внутреннее enum-поле."
           required: false
 
         - name: "regress_procedure_details"
@@ -3127,7 +3155,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Порядок регресса"
-          description: "Порядок регрессных требований между товарищами."
+          description: >
+            Порядок регрессных требований между товарищами. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "internal_proportions_status"
@@ -3135,7 +3164,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения пропорций внутренних расчётов."
+          description: "Статус определения пропорций внутренних расчётов. Внутреннее enum-поле."
           required: false
 
         - name: "internal_proportions_details"
@@ -3143,7 +3172,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Пропорции расчётов"
-          description: "Пропорции внутренних расчётов при регрессе (для Drawer)."
+          description: >
+            Пропорции внутренних расчётов при регрессе (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "liability_deviations_code"
@@ -3153,7 +3183,8 @@ checks_v8:
           display_priority: 4
           label: "Отклонения от ст. 1047"
           allowed_values: ["detected", "not_detected"]
-          description: "Наличие условий, отклоняющихся от императивных правил ст. 1047 ГК РФ."
+          description: >
+            Наличие условий, отклоняющихся от императивных правил ст. 1047 ГК РФ. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "liability_deviations_details"
@@ -3161,7 +3192,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Описание отклонений"
-          description: "Описание условий, отклоняющихся от ст. 1047 ГК РФ (для Drawer)."
+          description: >
+            Описание условий, отклоняющихся от ст. 1047 ГК РФ (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -3576,7 +3608,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус признания права на информацию."
+          description: "Статус признания права на информацию. Внутреннее enum-поле."
           required: true
 
         - name: "information_right_details"
@@ -3585,7 +3617,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Право на информацию"
-          description: "Условие о праве товарищей на информацию."
+          description: >
+            Условие о праве товарищей на информацию. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "information_right_waiver"
@@ -3595,7 +3628,8 @@ checks_v8:
           display_priority: 2
           label: "Ограничение права"
           allowed_values: ["detected", "not_detected"]
-          description: "Наличие ничтожного условия об ограничении / отказе от права на информацию (п. 2 ст. 1045 ГК РФ)."
+          description: >
+            Наличие ничтожного условия об ограничении / отказе от права на информацию (п. 2 ст. 1045 ГК РФ). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "reporting_frequency_status"
@@ -3603,7 +3637,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения периодичности отчётности."
+          description: "Статус определения периодичности отчётности. Внутреннее enum-поле."
           required: false
 
         - name: "reporting_frequency_details"
@@ -3612,7 +3646,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Периодичность отчётности"
-          description: "Периодичность представления отчётов."
+          description: >
+            Периодичность представления отчётов. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "document_access_status"
@@ -3620,7 +3655,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус доступа к документации."
+          description: "Статус доступа к документации. Внутреннее enum-поле."
           required: false
 
         - name: "document_access_details"
@@ -3629,7 +3664,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 4
           label: "Доступ к документам"
-          description: "Условие о доступе к первичным документам."
+          description: >
+            Условие о доступе к первичным документам. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "audit_right_status"
@@ -3637,7 +3673,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус права на аудит."
+          description: "Статус права на аудит. Внутреннее enum-поле."
           required: false
 
         - name: "audit_right_details"
@@ -3646,7 +3682,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 5
           label: "Право на аудит"
-          description: "Условие о праве на аудит."
+          description: >
+            Условие о праве на аудит. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -4114,7 +4151,8 @@ checks_v8:
           display_priority: 1
           label: "Режим имущества"
           allowed_values: ["share", "single_owner", "other", "not_defined"]
-          description: "Режим общего имущества товарищей."
+          description: >
+            Режим общего имущества товарищей. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "common_property_regime_details"
@@ -4122,7 +4160,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Основание режима"
-          description: "Прямая цитата о режиме имущества (для Drawer)."
+          description: >
+            Прямая цитата о режиме имущества (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "regime_deviations_code"
@@ -4132,7 +4171,8 @@ checks_v8:
           display_priority: 2
           label: "Отклонения от ст. 1043"
           allowed_values: ["detected", "not_detected"]
-          description: "Наличие отклонений от презумпции общей долевой собственности (п. 1 ст. 1043 ГК РФ)."
+          description: >
+            Наличие отклонений от презумпции общей долевой собственности (п. 1 ст. 1043 ГК РФ). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "regime_deviations_details"
@@ -4140,7 +4180,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Описание отклонений"
-          description: "Описание отклонений от презумпции (для Drawer)."
+          description: >
+            Описание отклонений от презумпции (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "shares_determination_status"
@@ -4148,7 +4189,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения долей."
+          description: "Статус определения долей. Внутреннее enum-поле."
           required: false
 
         - name: "shares_determination_details"
@@ -4157,7 +4198,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Определение долей"
-          description: "Способ определения долей в общем имуществе."
+          description: >
+            Способ определения долей в общем имуществе. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "disposal_procedure_status"
@@ -4165,7 +4207,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения порядка распоряжения."
+          description: "Статус определения порядка распоряжения. Внутреннее enum-поле."
           required: false
 
         - name: "disposal_procedure_details"
@@ -4174,7 +4216,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 4
           label: "Распоряжение имуществом"
-          description: "Порядок распоряжения общим имуществом."
+          description: >
+            Порядок распоряжения общим имуществом. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "use_procedure_status"
@@ -4182,7 +4225,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения порядка пользования."
+          description: "Статус определения порядка пользования. Внутреннее enum-поле."
           required: false
 
         - name: "use_procedure_details"
@@ -4190,7 +4233,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Пользование имуществом"
-          description: "Порядок пользования общим имуществом (для Drawer)."
+          description: >
+            Порядок пользования общим имуществом (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "state_registration_status"
@@ -4198,7 +4242,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус упоминания государственной регистрации права."
+          description: "Статус упоминания государственной регистрации права. Внутреннее enum-поле."
           required: false
 
         - name: "state_registration_details"
@@ -4207,7 +4251,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 5
           label: "Госрегистрация права"
-          description: "Условие о государственной регистрации права на недвижимое имущество."
+          description: >
+            Условие о государственной регистрации права на недвижимое имущество. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -4710,7 +4755,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения права на выход."
+          description: "Статус определения права на выход. Внутреннее enum-поле."
           required: true
 
         - name: "withdrawal_right_details"
@@ -4719,7 +4764,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Право на выход"
-          description: "Условие о праве товарища на выход."
+          description: >
+            Условие о праве товарища на выход. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "withdrawal_regime_code"
@@ -4729,7 +4775,8 @@ checks_v8:
           display_priority: 2
           label: "Режим выхода"
           allowed_values: ["free", "with_cause", "mixed", "not_defined"]
-          description: "Режим выхода: свободный (бессрочный, ст. 1051) / только по уважительной причине (срочный, ст. 1052)."
+          description: >
+            Режим выхода: свободный (бессрочный, ст. 1051) / только по уважительной причине (срочный, ст. 1052). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "withdrawal_regime_details"
@@ -4737,7 +4784,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Основание режима выхода"
-          description: "Обоснование режима выхода (для Drawer)."
+          description: >
+            Обоснование режима выхода (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "notice_period_status"
@@ -4745,7 +4793,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения срока уведомления."
+          description: "Статус определения срока уведомления. Внутреннее enum-поле."
           required: false
 
         - name: "notice_period_details"
@@ -4754,7 +4802,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Срок уведомления"
-          description: "Срок уведомления о выходе."
+          description: >
+            Срок уведомления о выходе. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "valuation_method_status"
@@ -4762,7 +4811,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения способа оценки."
+          description: "Статус определения способа оценки. Внутреннее enum-поле."
           required: false
 
         - name: "valuation_method_details"
@@ -4771,7 +4820,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 4
           label: "Оценка доли"
-          description: "Способ оценки доли при выходе."
+          description: >
+            Способ оценки доли при выходе. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "payment_deadline_status"
@@ -4779,7 +4829,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения срока выплаты."
+          description: "Статус определения срока выплаты. Внутреннее enum-поле."
           required: false
 
         - name: "payment_deadline_details"
@@ -4787,7 +4837,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Срок выплаты доли"
-          description: "Срок выплаты доли выходящему товарищу (для Drawer)."
+          description: >
+            Срок выплаты доли выходящему товарищу (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "termination_grounds_status"
@@ -4795,7 +4846,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения оснований прекращения."
+          description: "Статус определения оснований прекращения. Внутреннее enum-поле."
           required: false
 
         - name: "termination_grounds_details"
@@ -4804,7 +4855,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 5
           label: "Основания прекращения"
-          description: "Основания прекращения договора."
+          description: >
+            Основания прекращения договора. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "property_division_status"
@@ -4812,7 +4864,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения раздела имущества."
+          description: "Статус определения раздела имущества. Внутреннее enum-поле."
           required: false
 
         - name: "property_division_details"
@@ -4821,7 +4873,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 6
           label: "Раздел имущества"
-          description: "Порядок раздела имущества при прекращении."
+          description: >
+            Порядок раздела имущества при прекращении. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "property_return_regime"
@@ -4831,7 +4884,8 @@ checks_v8:
           display_priority: 7
           label: "Возврат вкладов"
           allowed_values: ["in_kind", "monetary", "mixed", "not_defined"]
-          description: "Режим возврата вкладов при прекращении: в натуре / денежная компенсация."
+          description: >
+            Режим возврата вкладов при прекращении: в натуре / денежная компенсация. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -5308,7 +5362,8 @@ checks_v8:
             - "incapacity"
             - "other"
             - "not_defined"
-          description: "Тип события (смерть, банкротство, ликвидация и т.п.), указанный в договоре как основание."
+          description: >
+            Тип события (смерть, банкротство, ликвидация и т.п.), указанный в договоре как основание. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "termination_consequence_code"
@@ -5323,7 +5378,8 @@ checks_v8:
             - "continue_with_consent"
             - "mixed"
             - "not_defined"
-          description: "Последствие события для договора: прекращение / продолжение."
+          description: >
+            Последствие события для договора: прекращение / продолжение. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "termination_consequence_details"
@@ -5331,7 +5387,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Основание последствия"
-          description: "Прямая цитата о последствии события (для Drawer)."
+          description: >
+            Прямая цитата о последствии события (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "continuation_with_successors_status"
@@ -5339,7 +5396,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус условия о продолжении с правопреемниками."
+          description: "Статус условия о продолжении с правопреемниками. Внутреннее enum-поле."
           required: false
 
         - name: "continuation_with_successors_details"
@@ -5348,7 +5405,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Продолжение с правопреемниками"
-          description: "Условие о продолжении договора с правопреемниками / наследниками."
+          description: >
+            Условие о продолжении договора с правопреемниками / наследниками. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "successor_admission_status"
@@ -5356,7 +5414,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус порядка вступления правопреемника."
+          description: "Статус порядка вступления правопреемника. Внутреннее enum-поле."
           required: false
 
         - name: "successor_admission_details"
@@ -5364,7 +5422,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Вступление правопреемника"
-          description: "Порядок вступления правопреемника в товарищество (для Drawer)."
+          description: >
+            Порядок вступления правопреемника в товарищество (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "buyout_right_status"
@@ -5372,7 +5431,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус права выкупа доли остальными товарищами."
+          description: "Статус права выкупа доли остальными товарищами. Внутреннее enum-поле."
           required: false
 
         - name: "buyout_right_details"
@@ -5381,7 +5440,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 4
           label: "Право выкупа доли"
-          description: "Право выкупа доли выбывшего товарища."
+          description: >
+            Право выкупа доли выбывшего товарища. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "buyout_deadline_status"
@@ -5389,7 +5449,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус срока выкупа доли."
+          description: "Статус срока выкупа доли. Внутреннее enum-поле."
           required: false
 
         - name: "buyout_deadline_details"
@@ -5397,7 +5457,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Срок выкупа"
-          description: "Срок выкупа доли (для Drawer)."
+          description: >
+            Срок выкупа доли (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -5877,7 +5938,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения порядка принятия новых товарищей."
+          description: "Статус определения порядка принятия новых товарищей. Внутреннее enum-поле."
           required: true
 
         - name: "admission_allowed_details"
@@ -5886,7 +5947,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Принятие новых товарищей"
-          description: "Порядок принятия новых товарищей."
+          description: >
+            Порядок принятия новых товарищей. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "admission_decision_rule"
@@ -5896,7 +5958,8 @@ checks_v8:
           display_priority: 2
           label: "Правило приёма"
           allowed_values: ["unanimous", "qualified_majority", "simple_majority", "not_defined"]
-          description: "Правило решения о приёме нового товарища."
+          description: >
+            Правило решения о приёме нового товарища. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "non_compete_status"
@@ -5904,7 +5967,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус запрета конкурирующей деятельности."
+          description: "Статус запрета конкурирующей деятельности. Внутреннее enum-поле."
           required: false
 
         - name: "non_compete_details"
@@ -5913,7 +5976,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Запрет конкуренции"
-          description: "Содержание запрета конкурирующей деятельности."
+          description: >
+            Содержание запрета конкурирующей деятельности. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "non_compete_term_status"
@@ -5921,7 +5985,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус срока запрета конкуренции."
+          description: "Статус срока запрета конкуренции. Внутреннее enum-поле."
           required: false
 
         - name: "non_compete_term_details"
@@ -5929,7 +5993,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Срок запрета"
-          description: "Срок действия запрета конкуренции (для Drawer)."
+          description: >
+            Срок действия запрета конкуренции (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "non_compete_consequences_status"
@@ -5937,7 +6002,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус санкций за нарушение запрета конкуренции."
+          description: "Статус санкций за нарушение запрета конкуренции. Внутреннее enum-поле."
           required: false
 
         - name: "non_compete_consequences_details"
@@ -5945,7 +6010,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Санкции за нарушение"
-          description: "Санкции за нарушение запрета конкуренции (для Drawer)."
+          description: >
+            Санкции за нарушение запрета конкуренции (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "conflict_disclosure_status"
@@ -5953,7 +6019,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус порядка раскрытия конфликта интересов."
+          description: "Статус порядка раскрытия конфликта интересов. Внутреннее enum-поле."
           required: false
 
         - name: "conflict_disclosure_details"
@@ -5962,7 +6028,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 4
           label: "Раскрытие конфликта"
-          description: "Порядок раскрытия конфликта интересов."
+          description: >
+            Порядок раскрытия конфликта интересов. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "conflict_consequences_status"
@@ -5970,7 +6037,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус последствий нераскрытия конфликта интересов."
+          description: "Статус последствий нераскрытия конфликта интересов. Внутреннее enum-поле."
           required: false
 
         - name: "conflict_consequences_details"
@@ -5978,7 +6045,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Последствия нераскрытия"
-          description: "Последствия нераскрытия конфликта интересов (для Drawer)."
+          description: >
+            Последствия нераскрытия конфликта интересов (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -6448,7 +6516,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения ответственного за учёт."
+          description: "Статус определения ответственного за учёт. Внутреннее enum-поле."
           required: true
 
         - name: "accounting_responsible_details"
@@ -6457,7 +6525,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Кто ведёт учёт"
-          description: "Лицо, ответственное за налоговый / бухгалтерский учёт."
+          description: >
+            Лицо, ответственное за налоговый / бухгалтерский учёт. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "tax_regime_code"
@@ -6467,7 +6536,8 @@ checks_v8:
           display_priority: 2
           label: "Налоговый режим"
           allowed_values: ["osn", "usn", "eshn", "mixed", "not_defined"]
-          description: "Налоговый режим товарищей (ОСН / УСН / ЕСХН / смешанный)."
+          description: >
+            Налоговый режим товарищей (ОСН / УСН / ЕСХН / смешанный). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "tax_regime_details"
@@ -6475,7 +6545,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Детали режима"
-          description: "Описание налогового режима (для Drawer)."
+          description: >
+            Описание налогового режима (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "separate_balance_status"
@@ -6483,7 +6554,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания об отдельном балансе (п. 2 ст. 1043 ГК РФ)."
+          description: "Статус указания об отдельном балансе (п. 2 ст. 1043 ГК РФ). Внутреннее enum-поле."
           required: false
 
         - name: "separate_balance_details"
@@ -6492,7 +6563,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Отдельный баланс"
-          description: "Условие об учёте общего имущества на отдельном балансе."
+          description: >
+            Условие об учёте общего имущества на отдельном балансе. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "vat_handling_status"
@@ -6500,7 +6572,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения порядка учёта НДС."
+          description: "Статус определения порядка учёта НДС. Внутреннее enum-поле."
           required: false
 
         - name: "vat_handling_details"
@@ -6508,7 +6580,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Учёт НДС"
-          description: "Порядок учёта НДС (счёт-фактуры, восстановление НДС при вкладе) (для Drawer)."
+          description: >
+            Порядок учёта НДС (счёт-фактуры, восстановление НДС при вкладе) (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "tax_allocation_status"
@@ -6516,7 +6589,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус распределения налоговой базы."
+          description: "Статус распределения налоговой базы. Внутреннее enum-поле."
           required: false
 
         - name: "tax_allocation_details"
@@ -6525,7 +6598,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 4
           label: "Распределение налогов"
-          description: "Распределение налоговой базы / прибыли между товарищами."
+          description: >
+            Распределение налоговой базы / прибыли между товарищами. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "document_flow_status"
@@ -6533,7 +6607,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения документооборота."
+          description: "Статус определения документооборота. Внутреннее enum-поле."
           required: false
 
         - name: "document_flow_details"
@@ -6541,7 +6615,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Документооборот"
-          description: "Порядок документооборота товарищества (для Drawer)."
+          description: >
+            Порядок документооборота товарищества (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -6965,7 +7040,8 @@ checks_v8:
           display_priority: 1
           label: "Штат товарищества"
           allowed_values: ["detected", "not_detected"]
-          description: "Наличие упоминания штата/персонала товарищества."
+          description: >
+            Наличие упоминания штата/персонала товарищества. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "staff_mention_details"
@@ -6973,7 +7049,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Описание штата"
-          description: "Упоминание штата/персонала товарищества как единого целого (для Drawer)."
+          description: >
+            Упоминание штата/персонала товарищества как единого целого (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "bank_account_mention_status"
@@ -6983,7 +7060,8 @@ checks_v8:
           display_priority: 2
           label: "Счёт товарищества"
           allowed_values: ["detected", "not_detected"]
-          description: "Наличие упоминания расчётного счёта товарищества."
+          description: >
+            Наличие упоминания расчётного счёта товарищества. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "bank_account_mention_details"
@@ -6991,7 +7069,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Описание счёта"
-          description: "Упоминание расчётного/банковского счёта на имя товарищества (для Drawer)."
+          description: >
+            Упоминание расчётного/банковского счёта на имя товарищества (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "office_signage_mention_status"
@@ -7001,7 +7080,8 @@ checks_v8:
           display_priority: 3
           label: "Офис/печать"
           allowed_values: ["detected", "not_detected"]
-          description: "Наличие упоминания вывески/офиса/печати товарищества."
+          description: >
+            Наличие упоминания вывески/офиса/печати товарищества. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "office_signage_mention_details"
@@ -7009,7 +7089,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Описание офиса/печати"
-          description: "Упоминание вывески, офиса или печати товарищества (для Drawer)."
+          description: >
+            Упоминание вывески, офиса или печати товарищества (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "separate_balance_mention_status"
@@ -7019,7 +7100,8 @@ checks_v8:
           display_priority: 4
           label: "Отдельный баланс"
           allowed_values: ["detected", "not_detected"]
-          description: "Наличие упоминания отдельного баланса товарищества как признака ЮЛ."
+          description: >
+            Наличие упоминания отдельного баланса товарищества как признака ЮЛ. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "separate_balance_mention_details"
@@ -7027,7 +7109,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Описание отдельного баланса"
-          description: "Упоминание отдельного баланса или обособленного имущества (для Drawer)."
+          description: >
+            Упоминание отдельного баланса или обособленного имущества (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -7450,7 +7533,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения защиты от выдела доли кредитором."
+          description: "Статус определения защиты от выдела доли кредитором. Внутреннее enum-поле."
           required: true
 
         - name: "seizure_protection_details"
@@ -7459,7 +7542,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Защита от выдела"
-          description: "Механизмы защиты товарищества от выдела доли кредитором товарища."
+          description: >
+            Механизмы защиты товарищества от выдела доли кредитором товарища. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "buyout_right_status"
@@ -7467,7 +7551,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус преимущественного права выкупа."
+          description: "Статус преимущественного права выкупа. Внутреннее enum-поле."
           required: false
 
         - name: "buyout_right_details"
@@ -7476,7 +7560,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Преимущественное право выкупа"
-          description: "Условия преимущественного права выкупа доли."
+          description: >
+            Условия преимущественного права выкупа доли. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "buyout_valuation_method_status"
@@ -7484,7 +7569,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения способа оценки доли при выкупе."
+          description: "Статус определения способа оценки доли при выкупе. Внутреннее enum-поле."
           required: false
 
         - name: "buyout_valuation_method_details"
@@ -7492,7 +7577,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Способ оценки"
-          description: "Способ оценки доли при выкупе (для Drawer)."
+          description: >
+            Способ оценки доли при выкупе (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "subsidiary_liability_status"
@@ -7500,7 +7586,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус субсидиарной ответственности оставшихся товарищей."
+          description: "Статус субсидиарной ответственности оставшихся товарищей. Внутреннее enum-поле."
           required: false
 
         - name: "subsidiary_liability_details"
@@ -7508,7 +7594,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Субсидиарная ответственность"
-          description: "Условие о субсидиарной ответственности оставшихся товарищей (для Drawer)."
+          description: >
+            Условие о субсидиарной ответственности оставшихся товарищей (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "non_seizure_clause"
@@ -7518,7 +7605,8 @@ checks_v8:
           display_priority: 3
           label: "Запрет выдела"
           allowed_values: ["detected", "not_detected"]
-          description: "Наличие договорного запрета на выдел доли кредитором (оспорим — императивная норма ст. 1049 ГК РФ)."
+          description: >
+            Наличие договорного запрета на выдел доли кредитором (оспорим — императивная норма ст. 1049 ГК РФ). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -7935,7 +8023,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус условия об ответственности выбывшего товарища."
+          description: "Статус условия об ответственности выбывшего товарища. Внутреннее enum-поле."
           required: true
 
         - name: "post_term_liability_details"
@@ -7944,7 +8032,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Ответственность после выхода"
-          description: "Условие об ответственности выбывшего товарища после выхода."
+          description: >
+            Условие об ответственности выбывшего товарища после выхода. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "post_term_liability_scope"
@@ -7954,7 +8043,8 @@ checks_v8:
           display_priority: 2
           label: "Объём ответственности"
           allowed_values: ["all_period", "before_exit_only", "not_defined"]
-          description: "Объём сохраняемой ответственности выбывшего товарища."
+          description: >
+            Объём сохраняемой ответственности выбывшего товарища. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "post_term_liability_term_status"
@@ -7962,7 +8052,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус срока сохранения ответственности."
+          description: "Статус срока сохранения ответственности. Внутреннее enum-поле."
           required: false
 
         - name: "post_term_liability_term_details"
@@ -7971,7 +8061,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Срок ответственности"
-          description: "Срок сохранения ответственности после выхода (по умолчанию 3 года)."
+          description: >
+            Срок сохранения ответственности после выхода (по умолчанию 3 года). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "third_party_notification_status"
@@ -7979,7 +8070,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус порядка уведомления третьих лиц о выходе."
+          description: "Статус порядка уведомления третьих лиц о выходе. Внутреннее enum-поле."
           required: false
 
         - name: "third_party_notification_details"
@@ -7987,7 +8078,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Уведомление третьих лиц"
-          description: "Порядок уведомления третьих лиц о выходе товарища (для Drawer)."
+          description: >
+            Порядок уведомления третьих лиц о выходе товарища (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "exit_liability_waiver"
@@ -7997,7 +8089,8 @@ checks_v8:
           display_priority: 4
           label: "Освобождение от ответственности"
           allowed_values: ["detected", "not_detected"]
-          description: "Попытка полного освобождения выбывшего товарища от ответственности (оспоримо перед третьими лицами)."
+          description: >
+            Попытка полного освобождения выбывшего товарища от ответственности (оспоримо перед третьими лицами). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -8428,7 +8521,8 @@ checks_v8:
           display_priority: 1
           label: "Режим раскрытия"
           allowed_values: ["open", "implicit", "mixed", "not_defined"]
-          description: "Режим раскрытия существования товарищества третьим лицам."
+          description: >
+            Режим раскрытия существования товарищества третьим лицам. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "disclosure_regime_details"
@@ -8436,7 +8530,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Основание режима"
-          description: "Прямая цитата обоснования режима (для Drawer)."
+          description: >
+            Прямая цитата обоснования режима (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "public_partner_status"
@@ -8444,7 +8539,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения публичного товарища."
+          description: "Статус определения публичного товарища. Внутреннее enum-поле."
           required: false
 
         - name: "public_partner_details"
@@ -8453,7 +8548,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Публичный товарищ"
-          description: "Товарищ, публично действующий от имени товарищества."
+          description: >
+            Товарищ, публично действующий от имени товарищества. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "disclosed_liability_status"
@@ -8461,7 +8557,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус ответственности при раскрытии существования товарищества."
+          description: "Статус ответственности при раскрытии существования товарищества. Внутреннее enum-поле."
           required: false
 
         - name: "disclosed_liability_details"
@@ -8469,7 +8565,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Ответственность при раскрытии"
-          description: "Режим ответственности при раскрытии (для Drawer)."
+          description: >
+            Режим ответственности при раскрытии (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "termination_liability_status"
@@ -8477,7 +8574,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус ответственности при прекращении."
+          description: "Статус ответственности при прекращении. Внутреннее enum-поле."
           required: false
 
         - name: "termination_liability_details"
@@ -8486,7 +8583,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Ответственность при прекращении"
-          description: "Ответственность товарищей при прекращении негласного товарищества."
+          description: >
+            Ответственность товарищей при прекращении негласного товарищества. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "non_disclosure_prohibition"
@@ -8496,7 +8594,8 @@ checks_v8:
           display_priority: 4
           label: "Запрет раскрытия"
           allowed_values: ["detected", "not_detected"]
-          description: "Прямой запрет раскрывать существование товарищества третьим лицам."
+          description: >
+            Прямой запрет раскрывать существование товарищества третьим лицам. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -8930,7 +9029,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения порядка изменения договора."
+          description: "Статус определения порядка изменения договора. Внутреннее enum-поле."
           required: true
 
         - name: "amendment_procedure_details"
@@ -8939,7 +9038,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Порядок изменения"
-          description: "Порядок изменения договора простого товарищества."
+          description: >
+            Порядок изменения договора простого товарищества. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "amendment_rule"
@@ -8949,7 +9049,8 @@ checks_v8:
           display_priority: 2
           label: "Правило изменения"
           allowed_values: ["unanimous", "qualified_majority", "simple_majority", "not_defined"]
-          description: "Правило принятия изменений в договор."
+          description: >
+            Правило принятия изменений в договор. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "amendment_form_requirement_status"
@@ -8957,7 +9058,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус требования к форме изменений."
+          description: "Статус требования к форме изменений. Внутреннее enum-поле."
           required: false
 
         - name: "amendment_form_requirement_details"
@@ -8965,7 +9066,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Форма изменений"
-          description: "Требование к форме изменений (для Drawer)."
+          description: >
+            Требование к форме изменений (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "amendment_registration_status"
@@ -8973,7 +9075,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус порядка государственной регистрации изменений."
+          description: "Статус порядка государственной регистрации изменений. Внутреннее enum-поле."
           required: false
 
         - name: "amendment_registration_details"
@@ -8981,7 +9083,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Регистрация изменений"
-          description: "Порядок государственной регистрации изменений (для Drawer)."
+          description: >
+            Порядок государственной регистрации изменений (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "amendment_refusal_consequences_status"
@@ -8989,7 +9092,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус последствий отказа от подписания изменений."
+          description: "Статус последствий отказа от подписания изменений. Внутреннее enum-поле."
           required: false
 
         - name: "amendment_refusal_consequences_details"
@@ -8998,7 +9101,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Последствия отказа"
-          description: "Последствия отказа товарища от подписания изменений."
+          description: >
+            Последствия отказа товарища от подписания изменений. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "unilateral_amendment_prohibition"
@@ -9008,7 +9112,8 @@ checks_v8:
           display_priority: 4
           label: "Запрет одностороннего изменения"
           allowed_values: ["detected", "not_detected"]
-          description: "Наличие прямого запрета на одностороннее изменение договора."
+          description: >
+            Наличие прямого запрета на одностороннее изменение договора. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -9477,7 +9582,8 @@ checks_v8:
           display_priority: 1
           label: "Признаки инвесттоварищества"
           allowed_values: ["detected", "not_detected"]
-          description: "Признаки инвестиционного товарищества (ФЗ №335)."
+          description: >
+            Признаки инвестиционного товарищества (ФЗ №335). Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "investment_partnership_signs_details"
@@ -9485,7 +9591,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Основание признаков"
-          description: "Обоснование признаков инвесттоварищества (для Drawer)."
+          description: >
+            Обоснование признаков инвесттоварищества (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "investment_partnership_compliance"
@@ -9495,7 +9602,8 @@ checks_v8:
           display_priority: 2
           label: "Соответствие 335-ФЗ"
           allowed_values: ["compliant", "partially", "non_compliant", "not_applicable", "not_defined"]
-          description: "Соответствие требованиям ФЗ №335 (нотариат + ЕГРЮЛ)."
+          description: >
+            Соответствие требованиям ФЗ №335 (нотариат + ЕГРЮЛ). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "investment_registration_status"
@@ -9503,7 +9611,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения регистрации / нотариата."
+          description: "Статус определения регистрации / нотариата. Внутреннее enum-поле."
           required: false
 
         - name: "investment_registration_details"
@@ -9511,7 +9619,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Регистрация / нотариат"
-          description: "Указание нотариального удостоверения или регистрации в ЕГРЮЛ (для Drawer)."
+          description: >
+            Указание нотариального удостоверения или регистрации в ЕГРЮЛ (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "srp_signs_code"
@@ -9521,7 +9630,8 @@ checks_v8:
           display_priority: 3
           label: "Признаки СРП"
           allowed_values: ["detected", "not_detected"]
-          description: "Признаки соглашения о разделе продукции (ФЗ №225)."
+          description: >
+            Признаки соглашения о разделе продукции (ФЗ №225). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "srp_signs_details"
@@ -9529,7 +9639,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Основание СРП"
-          description: "Обоснование признаков СРП (для Drawer)."
+          description: >
+            Обоснование признаков СРП (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "construction_signs_code"
@@ -9539,7 +9650,8 @@ checks_v8:
           display_priority: 4
           label: "Признаки долевого строительства"
           allowed_values: ["detected", "not_detected"]
-          description: "Признаки долевого строительства (214-ФЗ)."
+          description: >
+            Признаки долевого строительства (214-ФЗ). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "construction_signs_details"
@@ -9547,7 +9659,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Основание 214-ФЗ"
-          description: "Обоснование признаков долевого строительства (для Drawer)."
+          description: >
+            Обоснование признаков долевого строительства (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "requalification_risk_summary"
@@ -9556,7 +9669,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 5
           label: "Итоговая оценка"
-          description: "Сводная оценка риска переквалификации."
+          description: >
+            Сводная оценка риска переквалификации. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -9969,7 +10083,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения взаимозависимости товарищей."
+          description: "Статус определения взаимозависимости товарищей. Внутреннее enum-поле."
           required: true
 
         - name: "interdependence_details"
@@ -9978,7 +10092,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Взаимозависимость"
-          description: "Признаки взаимозависимости товарищей."
+          description: >
+            Признаки взаимозависимости товарищей. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "interdependence_grounds_code"
@@ -9988,7 +10103,8 @@ checks_v8:
           display_priority: 2
           label: "Основание взаимозависимости"
           allowed_values: ["equity_participation", "common_management", "common_owners", "other", "not_defined"]
-          description: "Основание взаимозависимости товарищей (ст. 105.1 НК РФ)."
+          description: >
+            Основание взаимозависимости товарищей (ст. 105.1 НК РФ). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "controlled_transactions_status"
@@ -9996,7 +10112,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания о контролируемых сделках."
+          description: "Статус указания о контролируемых сделках. Внутреннее enum-поле."
           required: false
 
         - name: "controlled_transactions_details"
@@ -10005,7 +10121,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Контролируемые сделки"
-          description: "Условия или признаки контролируемых сделок."
+          description: >
+            Условия или признаки контролируемых сделок. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "turnover_threshold_status"
@@ -10013,7 +10130,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания порога оборота."
+          description: "Статус указания порога оборота. Внутреннее enum-поле."
           required: false
 
         - name: "turnover_threshold_details"
@@ -10021,7 +10138,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Порог оборота"
-          description: "Порог оборота операций через товарищество (для Drawer)."
+          description: >
+            Порог оборота операций через товарищество (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "market_valuation_basis_status"
@@ -10029,7 +10147,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус обоснования рыночности цен."
+          description: "Статус обоснования рыночности цен. Внутреннее enum-поле."
           required: false
 
         - name: "market_valuation_basis_details"
@@ -10038,7 +10156,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 4
           label: "Рыночная оценка"
-          description: "Обоснование соответствия цен рыночным (ст. 105.3 НК РФ)."
+          description: >
+            Обоснование соответствия цен рыночным (ст. 105.3 НК РФ). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -10464,7 +10583,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения конкуренции товарищей."
+          description: "Статус определения конкуренции товарищей. Внутреннее enum-поле."
           required: true
 
         - name: "competitors_details"
@@ -10473,7 +10592,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Товарищи-конкуренты"
-          description: "Признаки конкуренции товарищей на одном товарном рынке."
+          description: >
+            Признаки конкуренции товарищей на одном товарном рынке. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "market_division_signs_code"
@@ -10483,7 +10603,8 @@ checks_v8:
           display_priority: 2
           label: "Раздел рынка"
           allowed_values: ["detected", "not_detected"]
-          description: "Признаки раздела рынка (территория, клиенты, ассортимент)."
+          description: >
+            Признаки раздела рынка (территория, клиенты, ассортимент). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "market_division_details"
@@ -10491,7 +10612,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Основание раздела рынка"
-          description: "Основание признаков раздела рынка (для Drawer)."
+          description: >
+            Основание признаков раздела рынка (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "price_coordination_signs_code"
@@ -10501,7 +10623,8 @@ checks_v8:
           display_priority: 3
           label: "Координация цен"
           allowed_values: ["detected", "not_detected"]
-          description: "Признаки согласования цен / единой ценовой политики."
+          description: >
+            Признаки согласования цен / единой ценовой политики. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "price_coordination_details"
@@ -10509,7 +10632,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Основание координации"
-          description: "Основание признаков координации цен (для Drawer)."
+          description: >
+            Основание признаков координации цен (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "non_compete_compliance_status"
@@ -10517,7 +10641,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус оценки соответствия non-compete требованиям ст. 11 ФЗ №135."
+          description: "Статус оценки соответствия non-compete требованиям ст. 11 ФЗ №135. Внутреннее enum-поле."
           required: false
 
         - name: "non_compete_compliance_details"
@@ -10526,7 +10650,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 4
           label: "Non-compete и ФЗ №135"
-          description: "Соответствие non-compete требованиям (срок, территория, вид деятельности)."
+          description: >
+            Соответствие non-compete требованиям (срок, территория, вид деятельности). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "antitrust_risk_summary"
@@ -10535,7 +10660,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 5
           label: "Итоговая оценка риска"
-          description: "Сводная оценка антимонопольного риска."
+          description: >
+            Сводная оценка антимонопольного риска. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -10958,7 +11084,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания нерезидентов среди товарищей."
+          description: "Статус указания нерезидентов среди товарищей. Внутреннее enum-поле."
           required: true
 
         - name: "non_resident_details"
@@ -10967,7 +11093,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Нерезиденты"
-          description: "Перечень товарищей-нерезидентов."
+          description: >
+            Перечень товарищей-нерезидентов. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "currency_of_contributions_status"
@@ -10975,7 +11102,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания валюты вкладов и расчётов."
+          description: "Статус указания валюты вкладов и расчётов. Внутреннее enum-поле."
           required: false
 
         - name: "currency_of_contributions_details"
@@ -10984,7 +11111,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Валюта вкладов"
-          description: "Валюта вкладов и расчётов между товарищами."
+          description: >
+            Валюта вкладов и расчётов между товарищами. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "settlement_regime_status"
@@ -10992,7 +11120,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения режима расчётов."
+          description: "Статус определения режима расчётов. Внутреннее enum-поле."
           required: false
 
         - name: "settlement_regime_details"
@@ -11001,7 +11129,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Режим расчётов"
-          description: "Режим расчётов (уполномоченный банк, паспорт сделки)."
+          description: >
+            Режим расчётов (уполномоченный банк, паспорт сделки). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "currency_control_obligations_status"
@@ -11009,7 +11138,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус обязанностей валютного контроля."
+          description: "Статус обязанностей валютного контроля. Внутреннее enum-поле."
           required: false
 
         - name: "currency_control_obligations_details"
@@ -11017,7 +11146,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Валютный контроль"
-          description: "Обязанности валютного контроля (для Drawer)."
+          description: >
+            Обязанности валютного контроля (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "repatriation_obligations_status"
@@ -11025,7 +11155,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус обязанностей репатриации."
+          description: "Статус обязанностей репатриации. Внутреннее enum-поле."
           required: false
 
         - name: "repatriation_obligations_details"
@@ -11033,7 +11163,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Репатриация"
-          description: "Обязанности репатриации валютной выручки (для Drawer)."
+          description: >
+            Обязанности репатриации валютной выручки (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -11447,7 +11578,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания страхования."
+          description: "Статус указания страхования. Внутреннее enum-поле."
           required: true
 
         - name: "insurance_details"
@@ -11456,7 +11587,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Страхование"
-          description: "Условия страхования общего имущества и ответственности."
+          description: >
+            Условия страхования общего имущества и ответственности. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "insured_object_code"
@@ -11466,7 +11598,8 @@ checks_v8:
           display_priority: 2
           label: "Объект страхования"
           allowed_values: ["property", "liability", "both", "not_defined"]
-          description: "Объект страхования: имущество / ответственность / оба."
+          description: >
+            Объект страхования: имущество / ответственность / оба. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "insured_object_details"
@@ -11474,7 +11607,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Детали объекта"
-          description: "Детали объекта страхования (для Drawer)."
+          description: >
+            Детали объекта страхования (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "insurance_responsible_status"
@@ -11482,7 +11616,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения страхователя."
+          description: "Статус определения страхователя. Внутреннее enum-поле."
           required: false
 
         - name: "insurance_responsible_details"
@@ -11491,7 +11625,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Кто страхует"
-          description: "Товарищ, на которого возложена обязанность страхования."
+          description: >
+            Товарищ, на которого возложена обязанность страхования. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "insurance_cost_allocation_status"
@@ -11499,7 +11634,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус распределения расходов на страхование."
+          description: "Статус распределения расходов на страхование. Внутреннее enum-поле."
           required: false
 
         - name: "insurance_cost_allocation_details"
@@ -11507,7 +11642,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Распределение затрат"
-          description: "Порядок распределения расходов на страхование (для Drawer)."
+          description: >
+            Порядок распределения расходов на страхование (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "insurance_payout_allocation_status"
@@ -11515,7 +11651,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус распределения страховых выплат."
+          description: "Статус распределения страховых выплат. Внутреннее enum-поле."
           required: false
 
         - name: "insurance_payout_allocation_details"
@@ -11524,7 +11660,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 4
           label: "Распределение выплат"
-          description: "Порядок распределения страховых выплат между товарищами."
+          description: >
+            Порядок распределения страховых выплат между товарищами. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -11943,7 +12080,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус условий конфиденциальности между товарищами."
+          description: "Статус условий конфиденциальности между товарищами. Внутреннее enum-поле."
           required: true
 
         - name: "confidentiality_details"
@@ -11952,7 +12089,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Конфиденциальность между товарищами"
-          description: "Условия внутренней конфиденциальности между товарищами."
+          description: >
+            Условия внутренней конфиденциальности между товарищами. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "confidential_info_scope"
@@ -11961,7 +12099,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Состав конфиденциальной информации"
-          description: "Перечень сведений, отнесённых к конфиденциальным."
+          description: >
+            Перечень сведений, отнесённых к конфиденциальным. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "confidentiality_term_status"
@@ -11969,7 +12108,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания срока конфиденциальности."
+          description: "Статус указания срока конфиденциальности. Внутреннее enum-поле."
           required: false
 
         - name: "confidentiality_term_details"
@@ -11978,7 +12117,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Срок конфиденциальности"
-          description: "Срок сохранения конфиденциальности."
+          description: >
+            Срок сохранения конфиденциальности. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "post_exit_confidentiality_status"
@@ -11986,7 +12126,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус обязанностей после выхода."
+          description: "Статус обязанностей после выхода. Внутреннее enum-поле."
           required: false
 
         - name: "post_exit_confidentiality_details"
@@ -11994,7 +12134,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Конфиденциальность после выхода"
-          description: "Обязанности по сохранению тайны после выхода из товарищества (для Drawer)."
+          description: >
+            Обязанности по сохранению тайны после выхода из товарищества (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "breach_consequences_status"
@@ -12002,7 +12143,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус последствий разглашения."
+          description: "Статус последствий разглашения. Внутреннее enum-поле."
           required: false
 
         - name: "breach_consequences_details"
@@ -12011,7 +12152,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 4
           label: "Последствия разглашения"
-          description: "Последствия нарушения конфиденциальности (неустойка, убытки, исключение)."
+          description: >
+            Последствия нарушения конфиденциальности (неустойка, убытки, исключение). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -12457,7 +12599,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания создания IP в рамках ПТ."
+          description: "Статус указания создания IP в рамках ПТ. Внутреннее enum-поле."
           required: true
 
         - name: "ip_creation_details"
@@ -12466,7 +12608,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Создание IP"
-          description: "Какие объекты IP создаются в рамках совместной деятельности."
+          description: >
+            Какие объекты IP создаются в рамках совместной деятельности. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "ip_ownership_regime_code"
@@ -12476,7 +12619,8 @@ checks_v8:
           display_priority: 2
           label: "Режим владения IP"
           allowed_values: ["joint", "single_partner", "joint_with_roles", "not_defined"]
-          description: "Режим исключительных прав на создаваемые результаты."
+          description: >
+            Режим исключительных прав на создаваемые результаты. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "ip_ownership_details"
@@ -12484,7 +12628,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Детали режима"
-          description: "Детали режима владения IP (для Drawer)."
+          description: >
+            Детали режима владения IP (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "ip_use_after_exit_status"
@@ -12492,7 +12637,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус порядка использования IP после выхода."
+          description: "Статус порядка использования IP после выхода. Внутреннее enum-поле."
           required: false
 
         - name: "ip_use_after_exit_details"
@@ -12501,7 +12646,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "IP после выхода"
-          description: "Порядок использования IP после выхода товарища."
+          description: >
+            Порядок использования IP после выхода товарища. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "license_payments_distribution_status"
@@ -12509,7 +12655,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус распределения лицензионных платежей."
+          description: "Статус распределения лицензионных платежей. Внутреннее enum-поле."
           required: false
 
         - name: "license_payments_distribution_details"
@@ -12517,7 +12663,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Распределение платежей"
-          description: "Порядок распределения лицензионных платежей (для Drawer)."
+          description: >
+            Порядок распределения лицензионных платежей (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "ip_protection_responsibility_status"
@@ -12525,7 +12672,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус ответственности за защиту IP."
+          description: "Статус ответственности за защиту IP. Внутреннее enum-поле."
           required: false
 
         - name: "ip_protection_responsibility_details"
@@ -12534,7 +12681,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 4
           label: "Ответственный за защиту IP"
-          description: "Кто отвечает за защиту исключительных прав."
+          description: >
+            Кто отвечает за защиту исключительных прав. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -12994,7 +13142,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус условий обработки ПДн между товарищами."
+          description: "Статус условий обработки ПДн между товарищами. Внутреннее enum-поле."
           required: true
 
         - name: "data_processing_details"
@@ -13003,7 +13151,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Обработка ПДн"
-          description: "Условия обработки персональных данных между товарищами."
+          description: >
+            Условия обработки персональных данных между товарищами. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "data_processing_roles_code"
@@ -13013,7 +13162,8 @@ checks_v8:
           display_priority: 2
           label: "Роли операторов ПДн"
           allowed_values: ["single_operator", "joint_operators", "processor_model", "not_defined"]
-          description: "Модель распределения ролей операторов ПДн между товарищами."
+          description: >
+            Модель распределения ролей операторов ПДн между товарищами. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "data_processing_roles_details"
@@ -13021,7 +13171,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Детали ролей"
-          description: "Детали распределения ролей операторов (для Drawer)."
+          description: >
+            Детали распределения ролей операторов (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "personal_data_scope_status"
@@ -13029,7 +13180,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания состава ПДн."
+          description: "Статус указания состава ПДн. Внутреннее enum-поле."
           required: false
 
         - name: "personal_data_scope_details"
@@ -13038,7 +13189,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Состав ПДн"
-          description: "Состав обрабатываемых персональных данных."
+          description: >
+            Состав обрабатываемых персональных данных. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "data_breach_liability_status"
@@ -13046,7 +13198,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус ответственности за утечки ПДн."
+          description: "Статус ответственности за утечки ПДн. Внутреннее enum-поле."
           required: false
 
         - name: "data_breach_liability_details"
@@ -13055,7 +13207,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 4
           label: "Ответственность за утечки"
-          description: "Распределение ответственности за утечки ПДн."
+          description: >
+            Распределение ответственности за утечки ПДн. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "consent_management_status"
@@ -13063,7 +13216,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус управления согласиями субъектов ПДн."
+          description: "Статус управления согласиями субъектов ПДн. Внутреннее enum-поле."
           required: false
 
         - name: "consent_management_details"
@@ -13071,7 +13224,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Согласия субъектов"
-          description: "Порядок управления согласиями субъектов ПДн (для Drawer)."
+          description: >
+            Порядок управления согласиями субъектов ПДн (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "data_after_exit_status"
@@ -13079,7 +13233,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус судьбы ПДн при выходе товарища."
+          description: "Статус судьбы ПДн при выходе товарища. Внутреннее enum-поле."
           required: false
 
         - name: "data_after_exit_details"
@@ -13087,7 +13241,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "ПДн после выхода"
-          description: "Судьба ПДн при выходе товарища (для Drawer)."
+          description: >
+            Судьба ПДн при выходе товарища (для Drawer). Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true

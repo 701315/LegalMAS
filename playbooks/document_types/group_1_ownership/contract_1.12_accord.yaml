@@ -7059,7 +7059,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус идентификации обеспеченного обязательства."
+          description: "Статус идентификации обеспеченного обязательства. Внутреннее enum-поле."
           required: true
 
         - name: "secured_obligation_identified_details"
@@ -7067,7 +7067,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Обеспеченное обязательство"
-          description: "Описание обеспеченного обязательства."
+          description: >
+            Описание обеспеченного обязательства. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "security_type"
@@ -7085,7 +7086,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус указания на прекращение обеспечения."
+          description: "Статус указания на прекращение обеспечения. Внутреннее enum-поле."
           required: true
 
         - name: "security_termination_details"
@@ -7094,7 +7095,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Прекращение обеспечения"
-          description: "Формулировка о прекращении залога, ипотеки или поручительства."
+          description: >
+            Формулировка о прекращении залога, ипотеки или поручительства. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "mortgage_release_procedure_status"
@@ -7103,7 +7105,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус описания процедуры погашения ипотечной записи."
+          description: "Статус описания процедуры погашения ипотечной записи. Внутреннее enum-поле."
           required: true
 
         - name: "mortgage_release_procedure_details"
@@ -7111,7 +7113,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Погашение ипотечной записи"
-          description: "Формулировка о погашении записи об ипотеке."
+          description: >
+            Формулировка о погашении записи об ипотеке. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "surety_notification_status"
@@ -7120,7 +7123,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус указания на уведомление поручителей."
+          description: "Статус указания на уведомление поручителей. Внутреннее enum-поле."
           required: true
 
         - name: "surety_notification_details"
@@ -7128,7 +7131,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Уведомление поручителей"
-          description: "Формулировка об уведомлении поручителей."
+          description: >
+            Формулировка об уведомлении поручителей. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "pledge_document_return_status"
@@ -7137,7 +7141,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус возврата документов по залогу / закладной."
+          description: "Статус возврата документов по залогу / закладной. Внутреннее enum-поле."
           required: true
 
         - name: "pledge_document_return_details"
@@ -7146,7 +7150,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Возврат документов по обеспечению"
-          description: "Формулировка о возврате закладной или документов по залогу."
+          description: >
+            Формулировка о возврате закладной или документов по залогу. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
         - name: "security_release_costs_status"
@@ -7155,7 +7160,7 @@ checks_v8:
           risk_weight: "low"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус распределения расходов на снятие обеспечения."
+          description: "Статус распределения расходов на снятие обеспечения. Внутреннее enum-поле."
           required: true
 
         - name: "security_release_costs_details"
@@ -7163,7 +7168,8 @@ checks_v8:
           presentation: "fact"
           display_in_grid: false
           label: "Расходы на снятие обеспечения"
-          description: "Формулировка о распределении расходов на снятие обеспечения."
+          description: >
+            Формулировка о распределении расходов на снятие обеспечения. Fallback: "Не установлено" / "Не удалось определить".
           required: false
       store_payload: true
 

@@ -808,7 +808,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Комитент"
-          description: "Комитент по договору комиссии."
+          description: >
+            Комитент по договору комиссии. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -817,7 +818,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Комиссионер"
-          description: "Комиссионер по договору комиссии."
+          description: >
+            Комиссионер по договору комиссии. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -827,7 +829,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["self", "principal", "unclear", "not_defined"]
-          description: "От чьего имени действует комиссионер (self = от своего имени, признак комиссии; principal = от имени комитента, признак поручения)."
+          description: "От чьего имени действует комиссионер (self = от своего имени, признак комиссии; principal = от имени комитента, признак поручения). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -836,7 +838,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["sale", "purchase", "mixed", "unclear", "not_defined"]
-          description: "Тип поручаемых сделок."
+          description: "Тип поручаемых сделок. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -844,7 +846,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Предмет комиссии"
-          description: "Предмет комиссии (сделки, товары) или указание на рамочный характер с отсылкой к поручениям."
+          description: >
+            Предмет комиссии (сделки, товары) или указание на рамочный характер с отсылкой к поручениям. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -854,7 +857,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["present", "unclear", "not_defined"]
-          description: "Наличие условия о комиссионном вознаграждении (сигнал возмездности по ст. 991 ГК РФ)."
+          description: "Наличие условия о комиссионном вознаграждении (сигнал возмездности по ст. 991 ГК РФ). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -863,7 +866,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["present", "not_defined"]
-          description: "Наличие оговорки о сохранении собственности комитента на переданный товар."
+          description: "Наличие оговорки о сохранении собственности комитента на переданный товар. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -872,7 +875,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["present", "not_defined"]
-          description: "Наличие условия об отчётности комиссионера (ст. 999 ГК РФ)."
+          description: "Наличие условия об отчётности комиссионера (ст. 999 ГК РФ). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -881,7 +884,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["present", "absent", "not_defined"]
-          description: "Наличие ручательства комиссионера за третье лицо (делькредере, ст. 991 ГК РФ)."
+          description: "Наличие ручательства комиссионера за третье лицо (делькредере, ст. 991 ГК РФ). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1262,7 +1265,7 @@ checks_v8:
             - "mandate_like_model"
             - "unclear"
             - "not_defined"
-          description: "Юридическая модель действия: комиссия (ст. 990 ГК РФ) vs поручение (Гл. 49 ГК РФ)."
+          description: "Юридическая модель действия: комиссия (ст. 990 ГК РФ) vs поручение (Гл. 49 ГК РФ). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1275,7 +1278,7 @@ checks_v8:
             - "framework_specific"
             - "generic"
             - "not_defined"
-          description: "Степень конкретизации предмета комиссии."
+          description: "Степень конкретизации предмета комиссии. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1289,7 +1292,7 @@ checks_v8:
             - "referred"
             - "not_applicable"
             - "not_defined"
-          description: "Наличие и тип ценовых лимитов (ст. 995 ГК РФ)."
+          description: "Наличие и тип ценовых лимитов (ст. 995 ГК РФ). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1684,7 +1687,7 @@ checks_v8:
             - "partial"
             - "referred"
             - "not_defined"
-          description: "Определённость комиссионного вознаграждения (ст. 991 ГК РФ)."
+          description: "Определённость комиссионного вознаграждения (ст. 991 ГК РФ). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1698,7 +1701,7 @@ checks_v8:
             - "included"
             - "referred"
             - "not_defined"
-          description: "Механизм возмещения расходов комиссионера (ст. 1001 ГК РФ)."
+          description: "Механизм возмещения расходов комиссионера (ст. 1001 ГК РФ). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1711,7 +1714,7 @@ checks_v8:
             - "limited"
             - "excluded"
             - "not_defined"
-          description: "Право удержания причитающихся сумм (ст. 997 ГК РФ, императивная норма)."
+          description: "Право удержания причитающихся сумм (ст. 997 ГК РФ, императивная норма). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2103,7 +2106,7 @@ checks_v8:
             - "partial"
             - "referred"
             - "not_defined"
-          description: "Порядок и периодичность отчётности комиссионера (ст. 999 п.1 ГК РФ)."
+          description: "Порядок и периодичность отчётности комиссионера (ст. 999 п.1 ГК РФ). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2115,7 +2118,7 @@ checks_v8:
             - "defined"
             - "by_law"
             - "not_defined"
-          description: "Срок возражений комитента на отчёт (ст. 999 п.3 ГК РФ, по умолчанию 30 дней)."
+          description: "Срок возражений комитента на отчёт (ст. 999 п.3 ГК РФ, по умолчанию 30 дней). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2129,7 +2132,7 @@ checks_v8:
             - "by_law"
             - "referred"
             - "not_defined"
-          description: "Срок перечисления выручки комитенту (ст. 999 п.2 ГК РФ, по умолчанию немедленно)."
+          description: "Срок перечисления выручки комитенту (ст. 999 п.2 ГК РФ, по умолчанию немедленно). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2521,7 +2524,7 @@ checks_v8:
             - "defined"
             - "explicit_transfer"
             - "not_defined"
-          description: "Оговорка о сохранении собственности комитента (ст. 996 п.1 ГК РФ). explicit_transfer — красный флаг (купля-продажа)."
+          description: "Оговорка о сохранении собственности комитента (ст. 996 п.1 ГК РФ). explicit_transfer — красный флаг (купля-продажа). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2534,7 +2537,7 @@ checks_v8:
             - "partial"
             - "referred"
             - "not_defined"
-          description: "Обособление товара: раздельное хранение и учёт (ст. 996 п.2 ГК РФ)."
+          description: "Обособление товара: раздельное хранение и учёт (ст. 996 п.2 ГК РФ). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2546,7 +2549,7 @@ checks_v8:
             - "defined"
             - "explicit_waiver"
             - "not_defined"
-          description: "Защита от включения имущества комитента в конкурсную массу (ст. 132 ФЗ о банкротстве)."
+          description: "Защита от включения имущества комитента в конкурсную массу (ст. 132 ФЗ о банкротстве). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2891,7 +2894,7 @@ checks_v8:
           allowed_values:
             - "defined"
             - "not_defined"
-          description: "Наличие специального условия о распределении дополнительной выгоды."
+          description: "Наличие специального условия о распределении дополнительной выгоды. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2905,7 +2908,7 @@ checks_v8:
             - "all_to_commissioner"
             - "custom"
             - "not_defined"
-          description: "Модель распределения дополнительной выгоды (ст. 992 ГК РФ)."
+          description: "Модель распределения дополнительной выгоды (ст. 992 ГК РФ). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3275,7 +3278,7 @@ checks_v8:
             - "by_law"
             - "unclear"
             - "not_defined"
-          description: "Режим допустимости субкомиссии в договоре (ст. 994 ГК РФ)."
+          description: "Режим допустимости субкомиссии в договоре (ст. 994 ГК РФ). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3288,7 +3291,7 @@ checks_v8:
             - "no"
             - "by_law"
             - "not_defined"
-          description: "Необходимость согласия комитента на привлечение субкомиссионера."
+          description: "Необходимость согласия комитента на привлечение субкомиссионера. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3301,7 +3304,7 @@ checks_v8:
             - "by_law"
             - "excluded"
             - "not_defined"
-          description: "Объём ответственности комиссионера за действия субкомиссионера (excluded — красный флаг)."
+          description: "Объём ответственности комиссионера за действия субкомиссионера (excluded — красный флаг). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3680,7 +3683,7 @@ checks_v8:
             - "partial"
             - "absent"
             - "not_defined"
-          description: "Статус принятия комиссионером ручательства за третье лицо (делькредере, ст. 993 ГК РФ)."
+          description: "Статус принятия комиссионером ручательства за третье лицо (делькредере, ст. 993 ГК РФ). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3693,7 +3696,7 @@ checks_v8:
             - "included"
             - "not_stipulated"
             - "not_defined"
-          description: "Наличие и порядок согласования дополнительного вознаграждения за делькредере (ст. 991 п. 1 ГК РФ)."
+          description: "Наличие и порядок согласования дополнительного вознаграждения за делькредере (ст. 991 п. 1 ГК РФ). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3707,7 +3710,7 @@ checks_v8:
             - "solidary"
             - "unclear"
             - "not_defined"
-          description: "Определённость оснований, сроков и характера ответственности комиссионера при делькредере."
+          description: "Определённость оснований, сроков и характера ответственности комиссионера при делькредере. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -4097,7 +4100,7 @@ checks_v8:
             - "commissioner_refusal_only"
             - "by_law"
             - "not_defined"
-          description: "Порядок и основания прекращения договора комиссии (ст. 1002–1004 ГК РФ)."
+          description: "Порядок и основания прекращения договора комиссии (ст. 1002–1004 ГК РФ). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -4110,7 +4113,7 @@ checks_v8:
             - "commissioner_sale_right"
             - "by_law"
             - "not_defined"
-          description: "Судьба нереализованного товара и право комиссионера на продажу невостребованного имущества (ст. 1003 п. 2 ГК РФ)."
+          description: "Судьба нереализованного товара и право комиссионера на продажу невостребованного имущества (ст. 1003 п. 2 ГК РФ). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -4125,7 +4128,7 @@ checks_v8:
             - "excluded"
             - "by_law"
             - "not_defined"
-          description: "Порядок расчетов и компенсаций при досрочном прекращении комиссии (ст. 1003 п. 1 ГК РФ)."
+          description: "Порядок расчетов и компенсаций при досрочном прекращении комиссии (ст. 1003 п. 1 ГК РФ). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -4528,7 +4531,7 @@ checks_v8:
             - "vat_exempt_usn"
             - "by_law"
             - "not_defined"
-          description: "Налоговый режим и условие об НДС с комиссионного вознаграждения (ст. 156 НК РФ)."
+          description: "Налоговый режим и условие об НДС с комиссионного вознаграждения (ст. 156 НК РФ). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -4543,7 +4546,7 @@ checks_v8:
             - "partial"
             - "by_law"
             - "not_defined"
-          description: "Порядок оформления счетов-фактур и статус отчета как первичного учетного документа (ст. 169 НК РФ, Закон № 402-ФЗ)."
+          description: "Порядок оформления счетов-фактур и статус отчета как первичного учетного документа (ст. 169 НК РФ, Закон № 402-ФЗ). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -4556,7 +4559,7 @@ checks_v8:
             - "transit_funds_clause"
             - "by_law"
             - "not_defined"
-          description: "Подтверждение того, что доходом комиссионера является исключительно вознаграждение (ст. 251 п. 1 пп. 9 НК РФ)."
+          description: "Подтверждение того, что доходом комиссионера является исключительно вознаграждение (ст. 251 п. 1 пп. 9 НК РФ). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -4975,7 +4978,7 @@ checks_v8:
             - "shared"
             - "by_law"
             - "not_defined"
-          description: "Распределение риска утраты, недостачи и повреждения товара комитента (ст. 998 ГК РФ)."
+          description: "Распределение риска утраты, недостачи и повреждения товара комитента (ст. 998 ГК РФ). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -4989,7 +4992,7 @@ checks_v8:
             - "joint"
             - "not_required"
             - "not_defined"
-          description: "Обязанность страхования товара и распределение расходов на страхование."
+          description: "Обязанность страхования товара и распределение расходов на страхование. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5001,7 +5004,7 @@ checks_v8:
             - "defined"
             - "partial"
             - "not_defined"
-          description: "Порядок приёмки товара комиссионером (осмотр, акт, скрытые дефекты)."
+          description: "Порядок приёмки товара комиссионером (осмотр, акт, скрытые дефекты). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5014,7 +5017,7 @@ checks_v8:
             - "unlimited"
             - "excluded"
             - "not_defined"
-          description: "Ограничение ответственности комиссионера за утрату/повреждение товара (excluded — красный флаг)."
+          description: "Ограничение ответственности комиссионера за утрату/повреждение товара (excluded — красный флаг). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5413,7 +5416,7 @@ checks_v8:
             - "principal_handles"
             - "joint"
             - "not_defined"
-          description: "Порядок рассмотрения претензий третьих лиц (покупателей) по ст. 990 п. 1 ГК РФ."
+          description: "Порядок рассмотрения претензий третьих лиц (покупателей) по ст. 990 п. 1 ГК РФ. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5426,7 +5429,7 @@ checks_v8:
             - "immediate"
             - "by_law"
             - "not_defined"
-          description: "Срок уведомления комитента о претензии третьего лица (ст. 998 п. 2 ГК РФ — немедленно)."
+          description: "Срок уведомления комитента о претензии третьего лица (ст. 998 п. 2 ГК РФ — немедленно). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5440,7 +5443,7 @@ checks_v8:
             - "excluded"
             - "by_law"
             - "not_defined"
-          description: "Регрессное право комиссионера к комитенту по расходам на удовлетворение претензий (excluded — красный флаг)."
+          description: "Регрессное право комиссионера к комитенту по расходам на удовлетворение претензий (excluded — красный флаг). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5808,7 +5811,7 @@ checks_v8:
             - "not_required"
             - "by_law"
             - "not_defined"
-          description: "Порядок авансирования расходов комитентом (ст. 1000 ГК РФ)."
+          description: "Порядок авансирования расходов комитентом (ст. 1000 ГК РФ). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5821,7 +5824,7 @@ checks_v8:
             - "offset_against_commission"
             - "by_law"
             - "not_defined"
-          description: "Порядок и сроки возврата неизрасходованного аванса комитенту."
+          description: "Порядок и сроки возврата неизрасходованного аванса комитенту. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6129,7 +6132,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "by_law", "not_defined"]
-          description: "Наличие неустойки за просрочку перечисления выручки комитенту."
+          description: "Наличие неустойки за просрочку перечисления выручки комитенту. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6138,7 +6141,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "by_law", "not_defined"]
-          description: "Наличие неустойки за просрочку предоставления отчета комиссионера."
+          description: "Наличие неустойки за просрочку предоставления отчета комиссионера. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6147,7 +6150,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["capped", "uncapped", "excluded", "not_defined"]
-          description: "Наличие ограничения (лимита) ответственности комиссионера (excluded — красный флаг)."
+          description: "Наличие ограничения (лимита) ответственности комиссионера (excluded — красный флаг). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6453,7 +6456,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["prohibited", "allowed_with_consent", "allowed_unconditionally", "not_defined"]
-          description: "Статус разрешения комиссионеру выступать покупателем товара (ст. 990 п. 2 ГК РФ)."
+          description: "Статус разрешения комиссионеру выступать покупателем товара (ст. 990 п. 2 ГК РФ). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6461,7 +6464,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Условия покупки комиссионером"
-          description: "Конкретные условия, при которых комиссионер может купить товар (или текст запрета)."
+          description: >
+            Конкретные условия, при которых комиссионер может купить товар (или текст запрета). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1

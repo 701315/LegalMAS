@@ -855,14 +855,15 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус определённости реквизитов поставщика."
+          description: "Статус определённости реквизитов поставщика. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "supplier_details_value"
           type: "string"
           presentation: "fact"
           label: "Поставщик"
-          description: "Полное наименование и реквизиты поставщика (ИНН, ОГРН)."
+          description: >
+            Полное наименование и реквизиты поставщика (ИНН, ОГРН). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -870,28 +871,30 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Подписант поставщика"
-          description: "ФИО и должность подписанта со стороны поставщика."
+          description: >
+            ФИО и должность подписанта со стороны поставщика. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "supplier_signatory_basis"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Документ-основание полномочий подписанта поставщика."
+          description: "Документ-основание полномочий подписанта поставщика. Внутреннее enum-поле."
           required: true
           allowed_values: ["charter", "poa", "order", "other", "not_defined"]
         - name: "buyer_details_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус определённости реквизитов покупателя."
+          description: "Статус определённости реквизитов покупателя. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "buyer_details_value"
           type: "string"
           presentation: "fact"
           label: "Покупатель"
-          description: "Полное наименование и реквизиты покупателя (ИНН, ОГРН)."
+          description: >
+            Полное наименование и реквизиты покупателя (ИНН, ОГРН). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -899,14 +902,15 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Подписант покупателя"
-          description: "ФИО и должность подписанта со стороны покупателя."
+          description: >
+            ФИО и должность подписанта со стороны покупателя. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "buyer_signatory_basis"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Документ-основание полномочий подписанта покупателя."
+          description: "Документ-основание полномочий подписанта покупателя. Внутреннее enum-поле."
           required: true
           allowed_values: ["charter", "poa", "order", "other", "not_defined"]
       store_payload: true
@@ -1250,14 +1254,15 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус определённости предмета поставки."
+          description: "Статус определённости предмета поставки. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "subject_details"
           type: "string"
           presentation: "fact"
           label: "Предмет поставки"
-          description: "Наименование товара, ГОСТ/ТУ или иное описание предмета поставки."
+          description: >
+            Наименование товара, ГОСТ/ТУ или иное описание предмета поставки. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -1265,28 +1270,30 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус определённости количества товара."
+          description: "Статус определённости количества товара. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "quantity_details"
           type: "string"
           presentation: "fact"
           label: "Количество"
-          description: "Количество товара с единицей измерения или порядок его определения."
+          description: >
+            Количество товара с единицей измерения или порядок его определения. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "price_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус определённости цены товара."
+          description: "Статус определённости цены товара. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "price_details"
           type: "string"
           presentation: "fact"
           label: "Цена"
-          description: "Цена товара (сумма, единица, валюта) или механизм её определения."
+          description: >
+            Цена товара (сумма, единица, валюта) или механизм её определения. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -1294,14 +1301,14 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Статус наличия указания на НДС в цене товара."
+          description: "Статус наличия указания на НДС в цене товара. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "price_change_mechanism_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Статус наличия механизма изменения/индексации цены."
+          description: "Статус наличия механизма изменения/индексации цены. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
       store_payload: true
@@ -1695,14 +1702,15 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус определённости срока поставки."
+          description: "Статус определённости срока поставки. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "delivery_term_details"
           type: "string"
           presentation: "fact"
           label: "Срок поставки"
-          description: "Конкретный срок поставки — дата, количество дней или иной период."
+          description: >
+            Конкретный срок поставки — дата, количество дней или иной период. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -1710,42 +1718,44 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Тип графика поставок: фиксированные даты, периодический или по заявкам."
+          description: "Тип графика поставок: фиксированные даты, периодический или по заявкам. Внутреннее enum-поле."
           required: true
           allowed_values: ["fixed_dates", "periodic", "upon_request", "not_defined"]
         - name: "periodicity"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Периодичность поставок, если задана в договоре."
+          description: "Периодичность поставок, если задана в договоре. Внутреннее enum-поле."
           required: true
           allowed_values: ["monthly", "quarterly", "weekly", "daily", "not_defined"]
         - name: "batch_size_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Статус определённости размера партии поставки."
+          description: "Статус определённости размера партии поставки. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "batch_size_details"
           type: "string"
           presentation: "fact"
           label: "Размер партии"
-          description: "Размер партии поставки с единицей измерения."
+          description: >
+            Размер партии поставки с единицей измерения. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "shortfall_replenishment_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Статус наличия условия о восполнении недопоставки."
+          description: "Статус наличия условия о восполнении недопоставки. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "shortfall_replenishment_details"
           type: "string"
           presentation: "fact"
           label: "Восполнение недопоставки"
-          description: "Условия и порядок восполнения недопоставленного товара."
+          description: >
+            Условия и порядок восполнения недопоставленного товара. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -1753,14 +1763,15 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Статус наличия условия о замене ассортимента при восполнении."
+          description: "Статус наличия условия о замене ассортимента при восполнении. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "assortment_substitution_details"
           type: "string"
           presentation: "fact"
           label: "Замена ассортимента"
-          description: "Условия допустимости замены ассортимента при восполнении недопоставки."
+          description: >
+            Условия допустимости замены ассортимента при восполнении недопоставки. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
       store_payload: true
@@ -2173,28 +2184,29 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус определённости формы оплаты."
+          description: "Статус определённости формы оплаты. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "payment_method_code"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Форма оплаты: предоплата, постоплата, рассрочка, аккредитив."
+          description: "Форма оплаты: предоплата, постоплата, рассрочка, аккредитив. Внутреннее enum-поле."
           required: true
           allowed_values: ["prepayment", "postpayment", "installments", "letter_of_credit", "not_defined"]
         - name: "payment_deadline_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус определённости срока оплаты."
+          description: "Статус определённости срока оплаты. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "payment_deadline_details"
           type: "string"
           presentation: "fact"
           label: "Срок оплаты"
-          description: "Конкретный срок оплаты (дней, дата, период)."
+          description: >
+            Конкретный срок оплаты (дней, дата, период). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -2202,21 +2214,22 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус определённости момента перехода риска случайной гибели."
+          description: "Статус определённости момента перехода риска случайной гибели. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "risk_transfer_moment"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Момент перехода риска случайной гибели товара."
+          description: "Момент перехода риска случайной гибели товара. Внутреннее enum-поле."
           required: true
           allowed_values: ["upon_delivery", "upon_carrier", "upon_payment", "upon_act", "custom", "not_defined"]
         - name: "risk_transfer_details"
           type: "string"
           presentation: "fact"
           label: "Переход риска"
-          description: "Формулировка договора о моменте перехода риска случайной гибели."
+          description: >
+            Формулировка договора о моменте перехода риска случайной гибели. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -2224,35 +2237,36 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус определённости момента перехода права собственности."
+          description: "Статус определённости момента перехода права собственности. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "title_transfer_moment"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Момент перехода права собственности на товар."
+          description: "Момент перехода права собственности на товар. Внутреннее enum-поле."
           required: true
           allowed_values: ["upon_delivery", "upon_carrier", "upon_payment", "upon_act", "custom", "not_defined"]
         - name: "title_transfer_details"
           type: "string"
           presentation: "fact"
           label: "Переход права собственности"
-          description: "Формулировка договора о моменте перехода права собственности."
+          description: >
+            Формулировка договора о моменте перехода права собственности. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "retention_of_title_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Наличие retention of title — сохранение собственности за поставщиком до оплаты."
+          description: "Наличие retention of title — сохранение собственности за поставщиком до оплаты. Внутреннее enum-поле."
           required: true
           allowed_values: ["yes", "no", "not_defined"]
         - name: "title_risk_alignment"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Совпадают ли моменты перехода риска и права собственности."
+          description: "Совпадают ли моменты перехода риска и права собственности. Внутреннее enum-поле."
           required: true
           allowed_values: ["same", "different", "not_defined"]
       store_payload: true
@@ -2632,28 +2646,30 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус определённости срока проверки количества при приёмке."
+          description: "Статус определённости срока проверки количества при приёмке. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "quantity_check_period_details"
           type: "string"
           presentation: "fact"
           label: "Срок проверки количества"
-          description: "Конкретный срок (дни, рабочие дни) для проверки количества при приёмке."
+          description: >
+            Конкретный срок (дни, рабочие дни) для проверки количества при приёмке. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "quality_check_period_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус определённости срока проверки качества при приёмке."
+          description: "Статус определённости срока проверки качества при приёмке. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "quality_check_period_details"
           type: "string"
           presentation: "fact"
           label: "Срок проверки качества"
-          description: "Конкретный срок (дни, рабочие дни) для проверки качества при приёмке."
+          description: >
+            Конкретный срок (дни, рабочие дни) для проверки качества при приёмке. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -2661,14 +2677,15 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Статус наличия указания на передаточный документ при приёмке."
+          description: "Статус наличия указания на передаточный документ при приёмке. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "acceptance_document_details"
           type: "string"
           presentation: "fact"
           label: "Документ приёмки"
-          description: "Название документа, оформляемого при приёмке (акт, накладная, УПД)."
+          description: >
+            Название документа, оформляемого при приёмке (акт, накладная, УПД). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -2676,28 +2693,29 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Статус определённости срока уведомления поставщика о недостатках."
+          description: "Статус определённости срока уведомления поставщика о недостатках. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "claim_notification_period_details"
           type: "string"
           presentation: "fact"
           label: "Срок уведомления о недостатках"
-          description: "Конкретный срок уведомления поставщика об обнаруженных недостатках."
+          description: >
+            Конкретный срок уведомления поставщика об обнаруженных недостатках. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "responsible_storage_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Статус наличия условия об ответственном хранении при отказе от приёмки."
+          description: "Статус наличия условия об ответственном хранении при отказе от приёмки. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "storage_cost_allocation"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Сторона, несущая расходы на ответственное хранение при отказе от приёмки."
+          description: "Сторона, несущая расходы на ответственное хранение при отказе от приёмки. Внутреннее enum-поле."
           required: true
           allowed_values: ["supplier", "buyer", "at_fault_party", "not_defined"]
       store_payload: true
@@ -3111,14 +3129,15 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус наличия гарантийного срока в договоре."
+          description: "Статус наличия гарантийного срока в договоре. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "warranty_details"
           type: "string"
           presentation: "fact"
           label: "Гарантийный срок"
-          description: "Гарантийный срок (число месяцев/лет) и момент начала его исчисления."
+          description: >
+            Гарантийный срок (число месяцев/лет) и момент начала его исчисления. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -3126,14 +3145,15 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус наличия требований к качеству товара (ГОСТ/ТУ)."
+          description: "Статус наличия требований к качеству товара (ГОСТ/ТУ). Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "quality_standard_details"
           type: "string"
           presentation: "fact"
           label: "Стандарт качества"
-          description: "Наименование применимого стандарта качества (ГОСТ, ТУ, иное)."
+          description: >
+            Наименование применимого стандарта качества (ГОСТ, ТУ, иное). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -3141,63 +3161,66 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Статус определённости срока предъявления требований по явным недостаткам."
+          description: "Статус определённости срока предъявления требований по явным недостаткам. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "apparent_defects_claim_period_details"
           type: "string"
           presentation: "fact"
           label: "Срок по явным недостаткам"
-          description: "Конкретный срок уведомления/предъявления требований по явным недостаткам."
+          description: >
+            Конкретный срок уведомления/предъявления требований по явным недостаткам. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "hidden_defects_claim_period_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Статус определённости срока предъявления требований по скрытым недостаткам."
+          description: "Статус определённости срока предъявления требований по скрытым недостаткам. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "hidden_defects_claim_period_details"
           type: "string"
           presentation: "fact"
           label: "Срок по скрытым недостаткам"
-          description: "Конкретный срок предъявления требований по скрытым недостаткам товара."
+          description: >
+            Конкретный срок предъявления требований по скрытым недостаткам товара. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "defect_act_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Статус наличия требования о форме акта о недостатках."
+          description: "Статус наличия требования о форме акта о недостатках. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "replacement_right_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус наличия права покупателя требовать замены товара."
+          description: "Статус наличия права покупателя требовать замены товара. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "replacement_right_details"
           type: "string"
           presentation: "fact"
           label: "Право замены товара"
-          description: "Формулировка договора о праве покупателя на замену некачественного товара."
+          description: >
+            Формулировка договора о праве покупателя на замену некачественного товара. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "rejection_right_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус наличия права одностороннего отказа от некачественного товара."
+          description: "Статус наличия права одностороннего отказа от некачественного товара. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "cover_purchase_right_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус наличия права замещающей покупки у третьих лиц за счёт поставщика."
+          description: "Статус наличия права замещающей покупки у третьих лиц за счёт поставщика. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
       store_payload: true
@@ -3517,14 +3540,15 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус наличия термина Инкотермс в договоре."
+          description: "Статус наличия термина Инкотермс в договоре. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "incoterms_rule"
           type: "string"
           presentation: "fact"
           label: "Условие Инкотермс"
-          description: "Термин Инкотермс, применимый к данному договору (аббревиатура)."
+          description: >
+            Термин Инкотермс, применимый к данному договору (аббревиатура). Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -3532,21 +3556,22 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Версия Инкотермс, указанная в договоре (2020 или 2010)."
+          description: "Версия Инкотермс, указанная в договоре (2020 или 2010). Внутреннее enum-поле."
           required: true
           allowed_values: ["2020", "2010", "not_defined"]
         - name: "named_place_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус наличия именованного места поставки по Инкотермс."
+          description: "Статус наличия именованного места поставки по Инкотермс. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "named_place_value"
           type: "string"
           presentation: "fact"
           label: "Именованное место"
-          description: "Конкретное географическое место, указанное после термина Инкотермс."
+          description: >
+            Конкретное географическое место, указанное после термина Инкотермс. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -3554,7 +3579,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Статус ясности распределения расходов согласно применённому термину."
+          description: "Статус ясности распределения расходов согласно применённому термину. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
       store_payload: true
@@ -3871,14 +3896,15 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус наличия прямого подтверждения факта изготовления товара под заказ."
+          description: "Статус наличия прямого подтверждения факта изготовления товара под заказ. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "custom_order_confirmed_details"
           type: "string"
           presentation: "fact"
           label: "Заказ под спецификацию"
-          description: "Формулировка о факте изготовления товара под индивидуальную спецификацию."
+          description: >
+            Формулировка о факте изготовления товара под индивидуальную спецификацию. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -3886,28 +3912,30 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус определённости момента, с которого отказ от товара влечёт компенсацию."
+          description: "Статус определённости момента, с которого отказ от товара влечёт компенсацию. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "cancellation_point_details"
           type: "string"
           presentation: "fact"
           label: "Момент платной отмены"
-          description: "С какого момента отказ покупателя от товара является платным."
+          description: >
+            С какого момента отказ покупателя от товара является платным. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "compensation_for_costs_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус наличия условия о возмещении затрат поставщика при отказе покупателя."
+          description: "Статус наличия условия о возмещении затрат поставщика при отказе покупателя. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "compensation_for_costs_details"
           type: "string"
           presentation: "fact"
           label: "Возмещение затрат"
-          description: "Условия и размер возмещения фактически понесённых затрат поставщика."
+          description: >
+            Условия и размер возмещения фактически понесённых затрат поставщика. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -4215,21 +4243,22 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус наличия форс-мажорной оговорки в договоре."
+          description: "Статус наличия форс-мажорной оговорки в договоре. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "specific_events_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус наличия перечня конкретных форс-мажорных событий."
+          description: "Статус наличия перечня конкретных форс-мажорных событий. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "specific_events_details"
           type: "string"
           presentation: "fact"
           label: "События форс-мажора"
-          description: "Перечень конкретных событий, признаваемых форс-мажором по договору."
+          description: >
+            Перечень конкретных событий, признаваемых форс-мажором по договору. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -4237,35 +4266,37 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Статус определённости процедуры уведомления о форс-мажоре."
+          description: "Статус определённости процедуры уведомления о форс-мажоре. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "notification_procedure_details"
           type: "string"
           presentation: "fact"
           label: "Процедура уведомления"
-          description: "Срок и способ уведомления о наступлении форс-мажорных обстоятельств."
+          description: >
+            Срок и способ уведомления о наступлении форс-мажорных обстоятельств. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "tpp_certificate_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Статус требования подтверждения форс-мажора свидетельством ТПП."
+          description: "Статус требования подтверждения форс-мажора свидетельством ТПП. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "max_duration_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Статус определённости максимального срока форс-мажора до права расторжения."
+          description: "Статус определённости максимального срока форс-мажора до права расторжения. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "max_duration_details"
           type: "string"
           presentation: "fact"
           label: "Максимальный срок форс-мажора"
-          description: "Предельный срок действия форс-мажора, по истечении которого сторона вправе расторгнуть договор."
+          description: >
+            Предельный срок действия форс-мажора, по истечении которого сторона вправе расторгнуть договор. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -4273,7 +4304,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус прямого упоминания санкций как форс-мажорного обстоятельства."
+          description: "Статус прямого упоминания санкций как форс-мажорного обстоятельства. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
       store_payload: true
@@ -4596,14 +4627,15 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус наличия перечня передаваемых с товаром документов."
+          description: "Статус наличия перечня передаваемых с товаром документов. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "documents_list_details"
           type: "string"
           presentation: "fact"
           label: "Перечень документов"
-          description: "Конкретный перечень документов, передаваемых с товаром."
+          description: >
+            Конкретный перечень документов, передаваемых с товаром. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -4611,28 +4643,30 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Статус наличия требований к упаковке и маркировке товара."
+          description: "Статус наличия требований к упаковке и маркировке товара. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "packaging_requirements_details"
           type: "string"
           presentation: "fact"
           label: "Требования к упаковке"
-          description: "Конкретные требования к упаковке, маркировке и этикетированию товара."
+          description: >
+            Конкретные требования к упаковке, маркировке и этикетированию товара. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "certification_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус требования сертификата/декларации соответствия ТР ТС."
+          description: "Статус требования сертификата/декларации соответствия ТР ТС. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "certification_details"
           type: "string"
           presentation: "fact"
           label: "Сертификация"
-          description: "Тип и реквизиты требуемой сертификации (ТР ТС, ЕАС и т.п.)."
+          description: >
+            Тип и реквизиты требуемой сертификации (ТР ТС, ЕАС и т.п.). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -4640,28 +4674,30 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "low"
-          description: "Статус наличия условия о возврате многооборотной тары."
+          description: "Статус наличия условия о возврате многооборотной тары. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "returnable_packaging_details"
           type: "string"
           presentation: "fact"
           label: "Возврат тары"
-          description: "Срок и условия возврата многооборотной тары поставщику."
+          description: >
+            Срок и условия возврата многооборотной тары поставщику. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "pickup_condition_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Статус наличия условий самовывоза товара со склада поставщика."
+          description: "Статус наличия условий самовывоза товара со склада поставщика. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "pickup_condition_details"
           type: "string"
           presentation: "fact"
           label: "Условия самовывоза"
-          description: "Условия самовывоза товара и последствия невыборки в срок."
+          description: >
+            Условия самовывоза товара и последствия невыборки в срок. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -5008,14 +5044,15 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус наличия неустойки за просрочку поставки."
+          description: "Статус наличия неустойки за просрочку поставки. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "delivery_penalty_details"
           type: "string"
           presentation: "fact"
           label: "Неустойка поставщика"
-          description: "Ставка и база неустойки поставщика за просрочку поставки."
+          description: >
+            Ставка и база неустойки поставщика за просрочку поставки. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -5023,14 +5060,15 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус наличия неустойки за просрочку оплаты."
+          description: "Статус наличия неустойки за просрочку оплаты. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "payment_penalty_details"
           type: "string"
           presentation: "fact"
           label: "Неустойка покупателя"
-          description: "Ставка неустойки покупателя за просрочку оплаты или ссылка на ст. 395 ГК РФ."
+          description: >
+            Ставка неустойки покупателя за просрочку оплаты или ссылка на ст. 395 ГК РФ. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -5038,56 +5076,59 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Статус наличия ограничения максимального размера неустойки."
+          description: "Статус наличия ограничения максимального размера неустойки. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "penalty_cap_details"
           type: "string"
           presentation: "fact"
           label: "Максимальный размер неустойки"
-          description: "Ограничение (cap) максимальной суммы неустойки в % от суммы договора или иное."
+          description: >
+            Ограничение (cap) максимальной суммы неустойки в % от суммы договора или иное. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "buyer_termination_grounds_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус наличия оснований одностороннего расторжения покупателем."
+          description: "Статус наличия оснований одностороннего расторжения покупателем. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "buyer_termination_grounds_details"
           type: "string"
           presentation: "fact"
           label: "Расторжение покупателем"
-          description: "Конкретные основания одностороннего расторжения договора покупателем."
+          description: >
+            Конкретные основания одностороннего расторжения договора покупателем. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "supplier_termination_grounds_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус наличия оснований одностороннего расторжения поставщиком."
+          description: "Статус наличия оснований одностороннего расторжения поставщиком. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "supplier_termination_grounds_details"
           type: "string"
           presentation: "fact"
           label: "Расторжение поставщиком"
-          description: "Конкретные основания одностороннего расторжения договора поставщиком."
+          description: >
+            Конкретные основания одностороннего расторжения договора поставщиком. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "goods_return_on_termination_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Статус наличия условия о порядке возврата товара при расторжении."
+          description: "Статус наличия условия о порядке возврата товара при расторжении. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "money_return_on_termination_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Статус наличия условия о порядке возврата денежных средств при расторжении."
+          description: "Статус наличия условия о порядке возврата денежных средств при расторжении. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
       store_payload: true
@@ -5346,14 +5387,15 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Статус наличия условий об ограничении уступки прав/перевода долга."
+          description: "Статус наличия условий об ограничении уступки прав/перевода долга. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "assignment_restriction_details"
           type: "string"
           presentation: "fact"
           label: "Уступка прав"
-          description: "Условия уступки прав по договору: запрет, только с согласия или свободно."
+          description: >
+            Условия уступки прав по договору: запрет, только с согласия или свободно. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -5719,14 +5761,15 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус наличия заверений о налоговой добросовестности контрагента."
+          description: "Статус наличия заверений о налоговой добросовестности контрагента. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "tax_representations_details"
           type: "string"
           presentation: "fact"
           label: "Налоговые заверения"
-          description: "Содержание заверений о налоговой добросовестности контрагента."
+          description: >
+            Содержание заверений о налоговой добросовестности контрагента. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -5734,14 +5777,15 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус наличия обязательства о возмещении имущественных потерь."
+          description: "Статус наличия обязательства о возмещении имущественных потерь. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "loss_indemnification_details"
           type: "string"
           presentation: "fact"
           label: "Возмещение потерь"
-          description: "Условия и порядок возмещения имущественных потерь при доначислении налогов."
+          description: >
+            Условия и порядок возмещения имущественных потерь при доначислении налогов. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -5749,28 +5793,30 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Статус наличия обязанности предоставлять документы по запросу."
+          description: "Статус наличия обязанности предоставлять документы по запросу. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "documents_on_request_details"
           type: "string"
           presentation: "fact"
           label: "Документы по запросу"
-          description: "Срок и порядок предоставления документов по запросу контрагента."
+          description: >
+            Срок и порядок предоставления документов по запросу контрагента. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "beneficial_owners_disclosure_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Статус наличия обязанности раскрывать цепочку собственников."
+          description: "Статус наличия обязанности раскрывать цепочку собственников. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "beneficial_owners_disclosure_details"
           type: "string"
           presentation: "fact"
           label: "Раскрытие бенефициаров"
-          description: "Условия раскрытия информации о цепочке собственников и бенефициарах."
+          description: >
+            Условия раскрытия информации о цепочке собственников и бенефициарах. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
       store_payload: true
@@ -6130,14 +6176,15 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус наличия адресов для юридически значимых сообщений."
+          description: "Статус наличия адресов для юридически значимых сообщений. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "notice_addresses_details"
           type: "string"
           presentation: "fact"
           label: "Адреса для уведомлений"
-          description: "Адреса и реквизиты сторон для направления юридически значимых сообщений."
+          description: >
+            Адреса и реквизиты сторон для направления юридически значимых сообщений. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -6145,14 +6192,15 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус наличия порядка направления уведомлений."
+          description: "Статус наличия порядка направления уведомлений. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "notice_procedure_details"
           type: "string"
           presentation: "fact"
           label: "Порядок уведомлений"
-          description: "Порядок направления и момент получения юридически значимых сообщений."
+          description: >
+            Порядок направления и момент получения юридически значимых сообщений. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -6160,28 +6208,30 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Статус признания юридической силы документов, подписанных ЭЦП."
+          description: "Статус признания юридической силы документов, подписанных ЭЦП. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "e_signature_recognition_details"
           type: "string"
           presentation: "fact"
           label: "Признание ЭЦП"
-          description: "Формулировка о признании юридической силы электронных подписей."
+          description: >
+            Формулировка о признании юридической силы электронных подписей. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "edo_agreement_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Статус наличия соглашения об ЭДО."
+          description: "Статус наличия соглашения об ЭДО. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "edo_agreement_details"
           type: "string"
           presentation: "fact"
           label: "ЭДО"
-          description: "Оператор ЭДО и тип электронной подписи, применяемые сторонами."
+          description: >
+            Оператор ЭДО и тип электронной подписи, применяемые сторонами. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
       store_payload: true
@@ -6535,14 +6585,15 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус наличия определения существенного нарушения."
+          description: "Статус наличия определения существенного нарушения. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "material_breach_definition_details"
           type: "string"
           presentation: "fact"
           label: "Существенное нарушение"
-          description: "Конкретные критерии существенного нарушения, закреплённые в договоре."
+          description: >
+            Конкретные критерии существенного нарушения, закреплённые в договоре. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -6550,42 +6601,45 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус наличия оснований для расторжения в судебном порядке."
+          description: "Статус наличия оснований для расторжения в судебном порядке. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "judicial_termination_grounds_details"
           type: "string"
           presentation: "fact"
           label: "Расторжение в суде"
-          description: "Основания для расторжения договора в судебном порядке."
+          description: >
+            Основания для расторжения договора в судебном порядке. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "unilateral_refusal_grounds_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус наличия оснований одностороннего отказа от договора."
+          description: "Статус наличия оснований одностороннего отказа от договора. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "unilateral_refusal_grounds_details"
           type: "string"
           presentation: "fact"
           label: "Односторонний отказ"
-          description: "Основания одностороннего отказа от договора."
+          description: >
+            Основания одностороннего отказа от договора. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "material_change_of_circumstances_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Статус наличия условия о существенном изменении обстоятельств."
+          description: "Статус наличия условия о существенном изменении обстоятельств. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "material_change_of_circumstances_details"
           type: "string"
           presentation: "fact"
           label: "Существенное изменение обстоятельств"
-          description: "Условия существенного изменения обстоятельств по договору."
+          description: >
+            Условия существенного изменения обстоятельств по договору. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
       store_payload: true
@@ -6962,14 +7016,15 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Статус указания валюты цены."
+          description: "Статус указания валюты цены. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "price_currency_details"
           type: "string"
           presentation: "fact"
           label: "Валюта цены"
-          description: "Валюта, в которой выражена цена товара."
+          description: >
+            Валюта, в которой выражена цена товара. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -6977,14 +7032,15 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Статус указания валюты платежа."
+          description: "Статус указания валюты платежа. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "payment_currency_details"
           type: "string"
           presentation: "fact"
           label: "Валюта платежа"
-          description: "Валюта, в которой производится оплата товара."
+          description: >
+            Валюта, в которой производится оплата товара. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -6992,42 +7048,45 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Статус наличия валютной оговорки."
+          description: "Статус наличия валютной оговорки. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "currency_clause_details"
           type: "string"
           presentation: "fact"
           label: "Валютная оговорка"
-          description: "Условия привязки цены или платежа к курсу валюты."
+          description: >
+            Условия привязки цены или платежа к курсу валюты. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "bank_registration_status"
           type: "string"
           presentation: "signal"
           risk_weight: "low"
-          description: "Статус наличия условия о постановке контракта на учёт в банке."
+          description: "Статус наличия условия о постановке контракта на учёт в банке. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "bank_registration_details"
           type: "string"
           presentation: "fact"
           label: "Постановка на учёт"
-          description: "Условия постановки контракта на учёт в уполномоченном банке."
+          description: >
+            Условия постановки контракта на учёт в уполномоченном банке. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "repatriation_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Статус наличия условия о репатриации валютной выручки."
+          description: "Статус наличия условия о репатриации валютной выручки. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "repatriation_details"
           type: "string"
           presentation: "fact"
           label: "Репатриация выручки"
-          description: "Условия репатриации валютной выручки по контракту."
+          description: >
+            Условия репатриации валютной выручки по контракту. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
       store_payload: true
@@ -7372,14 +7431,15 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус наличия условия о безвозмездности коммерческого кредита."
+          description: "Статус наличия условия о безвозмездности коммерческого кредита. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "interest_free_details"
           type: "string"
           presentation: "fact"
           label: "Безвозмездность"
-          description: "Формулировка о безвозмездности коммерческого кредита или об отсутствии процентов."
+          description: >
+            Формулировка о безвозмездности коммерческого кредита или об отсутствии процентов. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -7387,42 +7447,45 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Статус наличия условия о процентах на предоплату (аванс)."
+          description: "Статус наличия условия о процентах на предоплату (аванс). Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "prepayment_interest_details"
           type: "string"
           presentation: "fact"
           label: "Проценты на предоплату"
-          description: "Условия начисления процентов на сумму предоплаты (аванса)."
+          description: >
+            Условия начисления процентов на сумму предоплаты (аванса). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "deferred_payment_interest_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Статус наличия условия о процентах на отсрочку или рассрочку."
+          description: "Статус наличия условия о процентах на отсрочку или рассрочку. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "deferred_payment_interest_details"
           type: "string"
           presentation: "fact"
           label: "Проценты на отсрочку"
-          description: "Условия начисления процентов на отсрочку или рассрочку платежа."
+          description: >
+            Условия начисления процентов на отсрочку или рассрочку платежа. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "interest_rate_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
-          description: "Статус указания ставки процентов."
+          description: "Статус указания ставки процентов. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "interest_rate_details"
           type: "string"
           presentation: "fact"
           label: "Ставка процентов"
-          description: "Конкретная ставка процентов, указанная в договоре."
+          description: >
+            Конкретная ставка процентов, указанная в договоре. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
       store_payload: true
@@ -7786,14 +7849,15 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус наличия заверений об отсутствии процедур банкротства."
+          description: "Статус наличия заверений об отсутствии процедур банкротства. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "insolvency_representations_details"
           type: "string"
           presentation: "fact"
           label: "Заверения о банкротстве"
-          description: "Содержание заверений об отсутствии процедур банкротства или о платёжеспособности."
+          description: >
+            Содержание заверений об отсутствии процедур банкротства или о платёжеспособности. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -7801,14 +7865,15 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус наличия права на приостановку исполнения при риске банкротства."
+          description: "Статус наличия права на приостановку исполнения при риске банкротства. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "suspension_right_details"
           type: "string"
           presentation: "fact"
           label: "Приостановка исполнения"
-          description: "Условия приостановки исполнения при появлении признаков банкротства контрагента."
+          description: >
+            Условия приостановки исполнения при появлении признаков банкротства контрагента. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -7816,28 +7881,30 @@ checks_v8:
           type: "string"
           presentation: "signal"
           risk_weight: "high"
-          description: "Статус наличия права на расторжение при возбуждении дела о банкротстве."
+          description: "Статус наличия права на расторжение при возбуждении дела о банкротстве. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "termination_right_details"
           type: "string"
           presentation: "fact"
           label: "Расторжение при банкротстве"
-          description: "Условия расторжения договора при возбуждении дела о банкротстве контрагента."
+          description: >
+            Условия расторжения договора при возбуждении дела о банкротстве контрагента. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "efrsb_notification_status"
           type: "string"
           presentation: "signal"
           risk_weight: "low"
-          description: "Статус наличия обязанности уведомлять о публикациях в ЕФРСБ."
+          description: "Статус наличия обязанности уведомлять о публикациях в ЕФРСБ. Внутреннее enum-поле."
           required: true
           allowed_values: ["defined", "not_defined"]
         - name: "efrsb_notification_details"
           type: "string"
           presentation: "fact"
           label: "Уведомление ЕФРСБ"
-          description: "Условия уведомления контрагента о публикациях в ЕФРСБ."
+          description: >
+            Условия уведомления контрагента о публикациях в ЕФРСБ. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
       store_payload: true

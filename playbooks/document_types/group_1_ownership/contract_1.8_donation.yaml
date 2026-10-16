@@ -1144,7 +1144,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус определения реквизитов Дарителя."
+          description: "Статус определения реквизитов Дарителя. Внутреннее enum-поле."
           required: true
 
         - name: "donor_details_value"
@@ -1164,7 +1164,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["legal_entity", "individual_entrepreneur", "individual", "not_defined"]
           display_in_grid: false
-          description: "Тип Дарителя."
+          description: "Тип Дарителя. Внутреннее enum-поле."
           required: true
 
         - name: "donor_signatory"
@@ -1183,7 +1183,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["charter", "poa", "order", "personal", "other", "not_defined"]
           display_in_grid: false
-          description: "Основание полномочий подписанта Дарителя."
+          description: "Основание полномочий подписанта Дарителя. Внутреннее enum-поле."
           required: true
 
         - name: "donee_details_status"
@@ -1192,7 +1192,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус определения реквизитов Одаряемого."
+          description: "Статус определения реквизитов Одаряемого. Внутреннее enum-поле."
           required: true
 
         - name: "donee_details_value"
@@ -1212,7 +1212,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["legal_entity", "individual_entrepreneur", "individual", "not_defined"]
           display_in_grid: false
-          description: "Тип Одаряемого."
+          description: "Тип Одаряемого. Внутреннее enum-поле."
           required: true
 
         - name: "donee_signatory"
@@ -1231,7 +1231,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["charter", "poa", "order", "personal", "other", "not_defined"]
           display_in_grid: false
-          description: "Основание полномочий подписанта Одаряемого."
+          description: "Основание полномочий подписанта Одаряемого. Внутреннее enum-поле."
           required: true
 
         - name: "corporate_approval_status"
@@ -1240,7 +1240,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия корпоративного одобрения."
+          description: "Статус наличия корпоративного одобрения. Внутреннее enum-поле."
           required: true
 
         - name: "corporate_approval_details"
@@ -1260,7 +1260,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия признаков несовершеннолетия или недееспособности."
+          description: "Статус наличия признаков несовершеннолетия или недееспособности. Внутреннее enum-поле."
           required: true
 
         - name: "guardianship_consent_status"
@@ -1269,7 +1269,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия согласия органа опеки."
+          description: "Статус наличия согласия органа опеки. Внутреннее enum-поле."
           required: true
 
         - name: "owner_consent_status"
@@ -1278,7 +1278,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия согласия собственника при хозяйственном ведении/оперативном управлении."
+          description: "Статус наличия согласия собственника при хозяйственном ведении/оперативном управлении. Внутреннее enum-поле."
           required: true
 
       store_payload: true
@@ -1674,7 +1674,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус определения предмета дарения."
+          description: "Статус определения предмета дарения. Внутреннее enum-поле."
           required: true
 
         - name: "donation_subject_value"
@@ -1696,7 +1696,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["thing", "right", "debt_release", "mixed", "not_defined"]
           display_in_grid: false
-          description: "Тип предмета дарения."
+          description: "Тип предмета дарения. Внутреннее enum-поле."
           required: true
 
         - name: "subject_specificity"
@@ -1705,7 +1705,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["specific", "vague", "not_defined"]
           display_in_grid: false
-          description: "Степень определённости предмета дарения."
+          description: "Степень определённости предмета дарения. Внутреннее enum-поле."
           required: true
 
         - name: "gratuitousness_status"
@@ -1714,7 +1714,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия условия о безвозмездности."
+          description: "Статус наличия условия о безвозмездности. Внутреннее enum-поле."
           required: true
 
         - name: "gratuitousness_explicitness"
@@ -1723,7 +1723,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["explicit", "implied", "contradicted", "not_defined"]
           display_in_grid: false
-          description: "Способ выражения безвозмездности в тексте договора."
+          description: "Способ выражения безвозмездности в тексте договора. Внутреннее enum-поле."
           required: true
 
         - name: "counter_performance_signs"
@@ -1732,7 +1732,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия признаков встречного предоставления."
+          description: "Статус наличия признаков встречного предоставления. Внутреннее enum-поле."
           required: true
 
         - name: "sham_prevention_status"
@@ -1741,7 +1741,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия оговорки о непритворности."
+          description: "Статус наличия оговорки о непритворности. Внутреннее enum-поле."
           required: true
 
         - name: "transfer_timing"
@@ -1750,7 +1750,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["immediate", "future_promise", "not_defined"]
           display_in_grid: false
-          description: "Характер передачи дара: немедленно или в будущем."
+          description: "Характер передачи дара: немедленно или в будущем. Внутреннее enum-поле."
           required: true
 
       store_payload: true
@@ -2087,7 +2087,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["sale", "exchange", "annuity", "sham", "not_applicable"]
           display_in_grid: false
-          description: "Наиболее вероятная альтернатива квалификации сделки при наличии встречного предоставления."
+          description: "Наиболее вероятная альтернатива квалификации сделки при наличии встречного предоставления. Внутреннее enum-поле."
           required: true
 
         - name: "protective_clause_present"
@@ -2096,7 +2096,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия защитной оговорки об отсутствии обязательств одаряемого."
+          description: "Статус наличия защитной оговорки об отсутствии обязательств одаряемого. Внутреннее enum-поле."
           required: true
 
       store_payload: true
@@ -2466,7 +2466,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия обещания дарения в будущем."
+          description: "Статус наличия обещания дарения в будущем. Внутреннее enum-поле."
           required: true
 
         - name: "written_form_status"
@@ -2475,7 +2475,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус соблюдения письменной формы обещания."
+          description: "Статус соблюдения письменной формы обещания. Внутреннее enum-поле."
           required: true
 
         - name: "subject_specificity_status"
@@ -2484,7 +2484,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус определённости предмета обещания дарения."
+          description: "Статус определённости предмета обещания дарения. Внутреннее enum-поле."
           required: true
 
         - name: "subject_specificity_code"
@@ -2493,7 +2493,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["specific", "vague", "all_property", "not_defined"]
           display_in_grid: false
-          description: "Степень конкретности предмета обещания дарения."
+          description: "Степень конкретности предмета обещания дарения. Внутреннее enum-поле."
           required: true
 
         - name: "triggering_condition_status"
@@ -2502,7 +2502,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия условия вступления обещания в силу."
+          description: "Статус наличия условия вступления обещания в силу. Внутреннее enum-поле."
           required: true
 
         - name: "triggering_condition_details"
@@ -2525,11 +2525,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Наследственные последствия обещания"
-          description: >
-            Статус наличия оговорки о наследственных последствиях обещания дарения
-            (ст. 581 ГК РФ): переход обязанности к наследникам дарителя при его смерти
-            до передачи дара, прекращение обещания при смерти одаряемого,
-            или прямое исключение перехода к наследникам.
+          description: >-
+            Статус наличия оговорки о наследственных последствиях обещания дарения (ст. 581 ГК РФ): переход обязанности к наследникам дарителя при его смерти до передачи дара, прекращение обещания при смерти одаряемого, или прямое исключение перехода к наследникам. Внутреннее enum-поле.
           required: true
 
       store_payload: true
@@ -2880,7 +2877,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус определения порядка передачи дара."
+          description: "Статус определения порядка передачи дара. Внутреннее enum-поле."
           required: true
 
         - name: "transfer_date_status"
@@ -2889,7 +2886,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус определения даты или срока передачи дара."
+          description: "Статус определения даты или срока передачи дара. Внутреннее enum-поле."
           required: true
 
         - name: "transfer_date_details"
@@ -2910,7 +2907,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия условия об акте приёма-передачи дара."
+          description: "Статус наличия условия об акте приёма-передачи дара. Внутреннее enum-поле."
           required: true
 
         - name: "transfer_location_status"
@@ -2919,7 +2916,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус определения места передачи дара."
+          description: "Статус определения места передачи дара. Внутреннее enum-поле."
           required: true
 
         - name: "transfer_location_details"
@@ -2940,7 +2937,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус определения момента перехода права собственности."
+          description: "Статус определения момента перехода права собственности. Внутреннее enum-поле."
           required: true
 
         - name: "ownership_transfer_moment"
@@ -2951,7 +2948,7 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Момент перехода права"
-          description: "Момент перехода права собственности на предмет дарения."
+          description: "Момент перехода права собственности на предмет дарения. Внутреннее enum-поле."
           required: true
 
       store_payload: true
@@ -3360,7 +3357,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия условия об отмене дарения."
+          description: "Статус наличия условия об отмене дарения. Внутреннее enum-поле."
           required: true
 
         - name: "revocation_grounds_status"
@@ -3369,7 +3366,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус перечисления оснований для отмены дарения."
+          description: "Статус перечисления оснований для отмены дарения. Внутреннее enum-поле."
           required: true
 
         - name: "revocation_grounds_lawful"
@@ -3380,7 +3377,7 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Основания отмены соответствуют ГК РФ"
-          description: "Соответствие оснований отмены ст. 577-578 ГК РФ."
+          description: "Соответствие оснований отмены ст. 577-578 ГК РФ. Внутреннее enum-поле."
           required: true
 
         - name: "donor_refusal_promise_status"
@@ -3391,11 +3388,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Отказ дарителя от обещания"
-          description: >
-            Статус наличия условия о праве дарителя отказаться от исполнения
-            обещания дарения (ст. 577 п. 2-3 ГК РФ): при существенном ухудшении
-            имущественного/семейного положения, состояния здоровья, или по
-            основаниям ст. 578 ГК РФ.
+          description: >-
+            Статус наличия условия о праве дарителя отказаться от исполнения обещания дарения (ст. 577 п. 2-3 ГК РФ): при существенном ухудшении имущественного/семейного положения, состояния здоровья, или по основаниям ст. 578 ГК РФ. Внутреннее enum-поле.
           required: true
 
         - name: "donee_death_reversion_status"
@@ -3404,7 +3398,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия условия о возврате дара при смерти одаряемого ранее дарителя."
+          description: "Статус наличия условия о возврате дара при смерти одаряемого ранее дарителя. Внутреннее enum-поле."
           required: true
 
         - name: "donee_refusal_right_status"
@@ -3413,7 +3407,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия права одаряемого отказаться от принятия дара."
+          description: "Статус наличия права одаряемого отказаться от принятия дара. Внутреннее enum-поле."
           required: true
 
         - name: "revocation_restrictions_status"
@@ -3424,9 +3418,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Ограничения на отмену дарения"
-          description: >
-            Статус наличия ограничений на отмену дарения (ст. 579 ГК РФ):
-            запрет отмены пожертвования, иные договорные ограничения.
+          description: >-
+            Статус наличия ограничений на отмену дарения (ст. 579 ГК РФ): запрет отмены пожертвования, иные договорные ограничения. Внутреннее enum-поле.
           required: true
 
         - name: "return_in_kind_status"
@@ -3437,9 +3430,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 4
           label: "Возврат дара в натуре"
-          description: >
-            Статус наличия условия о возврате дара в натуре при отмене
-            дарения (ст. 578 п. 5 ГК РФ).
+          description: >-
+            Статус наличия условия о возврате дара в натуре при отмене дарения (ст. 578 п. 5 ГК РФ). Внутреннее enum-поле.
           required: true
 
       store_payload: true
@@ -3840,7 +3832,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия заверения об отсутствии обременений на предмет дарения."
+          description: "Статус наличия заверения об отсутствии обременений на предмет дарения. Внутреннее enum-поле."
           required: true
 
         - name: "encumbrances_warranty_details"
@@ -3861,7 +3853,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус заверения об отсутствии залога на предмет дарения."
+          description: "Статус заверения об отсутствии залога на предмет дарения. Внутреннее enum-поле."
           required: true
 
         - name: "arrest_absence_status"
@@ -3870,7 +3862,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус заверения об отсутствии ареста на предмет дарения."
+          description: "Статус заверения об отсутствии ареста на предмет дарения. Внутреннее enum-поле."
           required: true
 
         - name: "third_party_rights_status"
@@ -3879,7 +3871,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус заверения об отсутствии прав третьих лиц на предмет дарения."
+          description: "Статус заверения об отсутствии прав третьих лиц на предмет дарения. Внутреннее enum-поле."
           required: true
 
         - name: "bankruptcy_warranty_status"
@@ -3890,7 +3882,7 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Заверение об отсутствии банкротства"
-          description: "Статус наличия заверения о банкротном статусе дарителя."
+          description: "Статус наличия заверения о банкротном статусе дарителя. Внутреннее enum-поле."
           required: true
 
         - name: "insolvency_signs_warranty_status"
@@ -3899,7 +3891,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия заверения об отсутствии признаков неплатёжеспособности дарителя."
+          description: "Статус наличия заверения об отсутствии признаков неплатёжеспособности дарителя. Внутреннее enum-поле."
           required: true
 
         - name: "bankruptcy_clawback_warranty_status"
@@ -3910,10 +3902,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Оспаривание по ст. 61.2–61.3 ФЗ-127"
-          description: >
-            Статус наличия заверения о невозможности оспаривания дарения
-            по основаниям ст. 61.2–61.3 ФЗ-127 (период подозрительности,
-            неравноценность, причинение вреда кредиторам).
+          description: >-
+            Статус наличия заверения о невозможности оспаривания дарения по основаниям ст. 61.2–61.3 ФЗ-127 (период подозрительности, неравноценность, причинение вреда кредиторам). Внутреннее enum-поле.
           required: true
 
         - name: "creditors_not_harmed_status"
@@ -3922,7 +3912,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия заверения о ненарушении прав кредиторов."
+          description: "Статус наличия заверения о ненарушении прав кредиторов. Внутреннее enum-поле."
           required: true
 
         - name: "sham_prevention_status"
@@ -3933,7 +3923,7 @@ checks_v8:
           display_in_grid: true
           display_priority: 4
           label: "Оговорка о непритворности"
-          description: "Статус наличия заверения о непритворности договора дарения."
+          description: "Статус наличия заверения о непритворности договора дарения. Внутреннее enum-поле."
           required: true
 
       store_payload: true
@@ -4294,7 +4284,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус определения режима собственности на предмет дарения."
+          description: "Статус определения режима собственности на предмет дарения. Внутреннее enum-поле."
           required: true
 
         - name: "ownership_regime_code"
@@ -4303,7 +4293,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["sole", "joint", "shared", "not_defined"]
           display_in_grid: false
-          description: "Режим собственности на предмет дарения."
+          description: "Режим собственности на предмет дарения. Внутреннее enum-поле."
           required: true
 
         - name: "co_owner_consent_status"
@@ -4312,7 +4302,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия согласия сособственников или заверения об его ненужности."
+          description: "Статус наличия согласия сособственников или заверения об его ненужности. Внутреннее enum-поле."
           required: true
 
         - name: "co_owner_consent_code"
@@ -4321,7 +4311,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["obtained", "not_required_stated", "not_defined"]
           display_in_grid: false
-          description: "Статус согласия сособственников при дарении из общей собственности."
+          description: "Статус согласия сособственников при дарении из общей собственности. Внутреннее enum-поле."
           required: true
 
         - name: "spousal_consent_status"
@@ -4330,7 +4320,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия согласия супруга или подтверждения отсутствия брака."
+          description: "Статус наличия согласия супруга или подтверждения отсутствия брака. Внутреннее enum-поле."
           required: true
 
         - name: "spousal_consent_code"
@@ -4339,7 +4329,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["consent_present", "not_married_confirmed", "prenuptial", "not_defined"]
           display_in_grid: false
-          description: "Статус согласия супруга дарителя на дарение."
+          description: "Статус согласия супруга дарителя на дарение. Внутреннее enum-поле."
           required: true
 
       store_payload: true
@@ -4687,7 +4677,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус определения целевого использования пожертвованного имущества."
+          description: "Статус определения целевого использования пожертвованного имущества. Внутреннее enum-поле."
           required: true
 
         - name: "target_use_details"
@@ -4708,7 +4698,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия обязанности одаряемого отчитываться перед жертвователем."
+          description: "Статус наличия обязанности одаряемого отчитываться перед жертвователем. Внутреннее enum-поле."
           required: true
 
         - name: "reporting_frequency_status"
@@ -4717,7 +4707,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус определения периодичности отчётности."
+          description: "Статус определения периодичности отчётности. Внутреннее enum-поле."
           required: true
 
         - name: "reporting_frequency_details"
@@ -4738,7 +4728,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус определения порядка изменения цели использования пожертвования."
+          description: "Статус определения порядка изменения цели использования пожертвования. Внутреннее enum-поле."
           required: true
 
         - name: "non_target_use_consequences_status"
@@ -4747,7 +4737,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус определения последствий нецелевого использования пожертвованного имущества."
+          description: "Статус определения последствий нецелевого использования пожертвованного имущества. Внутреннее enum-поле."
           required: true
 
       store_payload: true
@@ -5186,7 +5176,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия кадастрового номера объекта дарения."
+          description: "Статус наличия кадастрового номера объекта дарения. Внутреннее enum-поле."
           required: true
 
         - name: "cadastral_number_value"
@@ -5206,7 +5196,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия ссылки на выписку из ЕГРН."
+          description: "Статус наличия ссылки на выписку из ЕГРН. Внутреннее enum-поле."
           required: true
 
         - name: "donor_title_basis_status"
@@ -5215,7 +5205,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус определения основания права собственности дарителя."
+          description: "Статус определения основания права собственности дарителя. Внутреннее enum-поле."
           required: true
 
         - name: "donor_title_basis_details"
@@ -5238,7 +5228,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия заверения об отсутствии обременений на объект дарения."
+          description: "Статус наличия заверения об отсутствии обременений на объект дарения. Внутреннее enum-поле."
           required: true
 
         - name: "encumbrances_details"
@@ -5258,7 +5248,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус определения порядка государственной регистрации перехода права собственности."
+          description: "Статус определения порядка государственной регистрации перехода права собственности. Внутреннее enum-поле."
           required: true
 
         - name: "registration_cost_status"
@@ -5267,7 +5257,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус определения распределения расходов на госпошлину."
+          description: "Статус определения распределения расходов на госпошлину. Внутреннее enum-поле."
           required: true
 
         - name: "residents_list_status"
@@ -5276,7 +5266,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия перечня лиц, сохраняющих право пользования объектом после дарения."
+          description: "Статус наличия перечня лиц, сохраняющих право пользования объектом после дарения. Внутреннее enum-поле."
           required: true
 
         - name: "residents_list_regime"
@@ -5287,7 +5277,7 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Сохраняющие право пользования лица"
-          description: "Режим указания лиц, сохраняющих право пользования подаренным объектом недвижимости."
+          description: "Режим указания лиц, сохраняющих право пользования подаренным объектом недвижимости. Внутреннее enum-поле."
           required: true
 
         - name: "transfer_act_status"
@@ -5296,7 +5286,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия условия о передаточном акте при дарении недвижимости."
+          description: "Статус наличия условия о передаточном акте при дарении недвижимости. Внутреннее enum-поле."
           required: true
 
         - name: "donor_lifetime_residence_status"
@@ -5307,11 +5297,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 4
           label: "Право пожизненного проживания дарителя"
-          description: >
-            Статус наличия оговорки о сохранении за дарителем права
-            пожизненного проживания (пользования) в подаренном объекте
-            недвижимости. Распространена в договорах дарения между
-            родственниками. Создаёт обременение для одаряемого.
+          description: >-
+            Статус наличия оговорки о сохранении за дарителем права пожизненного проживания (пользования) в подаренном объекте недвижимости. Распространена в договорах дарения между родственниками. Создаёт обременение для одаряемого. Внутреннее enum-поле.
           required: true
 
       store_payload: true
@@ -5641,7 +5628,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия налоговой оговорки об НДФЛ в договоре."
+          description: "Статус наличия налоговой оговорки об НДФЛ в договоре. Внутреннее enum-поле."
           required: true
 
         - name: "close_relative_status_stated"
@@ -5650,7 +5637,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия прямого указания на родство сторон в договоре."
+          description: "Статус наличия прямого указания на родство сторон в договоре. Внутреннее enum-поле."
           required: true
 
         - name: "close_relative_status"
@@ -5661,7 +5648,7 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Статус родства сторон"
-          description: "Статус родства дарителя и одаряемого по тексту договора."
+          description: "Статус родства дарителя и одаряемого по тексту договора. Внутреннее enum-поле."
           required: true
 
         - name: "close_relative_exemption_status"
@@ -5670,7 +5657,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия указания на освобождение от НДФЛ для близких родственников (ст. 217 п. 18.1 НК РФ)."
+          description: "Статус наличия указания на освобождение от НДФЛ для близких родственников (ст. 217 п. 18.1 НК РФ). Внутреннее enum-поле."
           required: true
 
         - name: "tax_declaration_status"
@@ -5679,7 +5666,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия указания на обязанность подачи декларации 3-НДФЛ одаряемым."
+          description: "Статус наличия указания на обязанность подачи декларации 3-НДФЛ одаряемым. Внутреннее enum-поле."
           required: true
 
       store_payload: true
@@ -6049,7 +6036,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия нотариальной формы удостоверения договора дарения доли."
+          description: "Статус наличия нотариальной формы удостоверения договора дарения доли. Внутреннее enum-поле."
           required: true
 
         - name: "share_size_status"
@@ -6058,7 +6045,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус определения размера даримой доли в уставном капитале ООО."
+          description: "Статус определения размера даримой доли в уставном капитале ООО. Внутреннее enum-поле."
           required: true
 
         - name: "share_size_value"
@@ -6079,7 +6066,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус определения номинальной стоимости даримой доли."
+          description: "Статус определения номинальной стоимости даримой доли. Внутреннее enum-поле."
           required: true
 
         - name: "share_nominal_value_value"
@@ -6100,7 +6087,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус определения порядка внесения изменений в ЕГРЮЛ после дарения доли."
+          description: "Статус определения порядка внесения изменений в ЕГРЮЛ после дарения доли. Внутреннее enum-поле."
           required: true
 
         - name: "charter_restrictions_status"
@@ -6109,7 +6096,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус упоминания уставных ограничений на дарение доли в ООО."
+          description: "Статус упоминания уставных ограничений на дарение доли в ООО. Внутреннее enum-поле."
           required: true
 
         - name: "participants_consent_status"
@@ -6118,7 +6105,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия согласия участников общества на дарение доли."
+          description: "Статус наличия согласия участников общества на дарение доли. Внутреннее enum-поле."
           required: true
 
         - name: "preemptive_right_status"
@@ -6127,7 +6114,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус рассмотрения вопроса о преимущественном праве участников при дарении доли."
+          description: "Статус рассмотрения вопроса о преимущественном праве участников при дарении доли. Внутреннее enum-поле."
           required: true
 
         - name: "preemptive_right_code"
@@ -6138,7 +6125,7 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Преимущественное право"
-          description: "Статус соблюдения преимущественного права участников ООО при дарении доли."
+          description: "Статус соблюдения преимущественного права участников ООО при дарении доли. Внутреннее enum-поле."
           required: true
 
       store_payload: true
@@ -6536,7 +6523,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["no_violation", "violation_detected", "not_defined"]
           display_in_grid: false
-          description: "Статус соблюдения запрета дарения от имени малолетних и недееспособных (п. 1 ст. 575 ГК РФ)."
+          description: "Статус соблюдения запрета дарения от имени малолетних и недееспособных (п. 1 ст. 575 ГК РФ). Внутреннее enum-поле."
           required: true
 
         - name: "institutional_worker_status"
@@ -6545,7 +6532,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["no_violation", "violation_detected", "not_defined"]
           display_in_grid: false
-          description: "Статус соблюдения запрета дарения работникам образовательных, медицинских и социальных организаций (п. 2 ст. 575 ГК РФ)."
+          description: "Статус соблюдения запрета дарения работникам образовательных, медицинских и социальных организаций (п. 2 ст. 575 ГК РФ). Внутреннее enum-поле."
           required: true
 
         - name: "public_official_status"
@@ -6554,7 +6541,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["no_violation", "violation_detected", "not_defined"]
           display_in_grid: false
-          description: "Статус соблюдения запрета дарения государственным и муниципальным служащим (п. 3 ст. 575 ГК РФ)."
+          description: "Статус соблюдения запрета дарения государственным и муниципальным служащим (п. 3 ст. 575 ГК РФ). Внутреннее enum-поле."
           required: true
 
         - name: "commercial_entity_status"
@@ -6563,7 +6550,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["no_violation", "violation_detected", "not_defined"]
           display_in_grid: false
-          description: "Статус соблюдения запрета дарения между коммерческими организациями свыше 3 000 руб. (п. 4 ст. 575 ГК РФ)."
+          description: "Статус соблюдения запрета дарения между коммерческими организациями свыше 3 000 руб. (п. 4 ст. 575 ГК РФ). Внутреннее enum-поле."
           required: true
 
         - name: "prohibition_violation_status"
@@ -6574,7 +6561,7 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Запреты ст. 575 ГК РФ"
-          description: "Агрегатный статус нарушения запретов дарения по ст. 575 ГК РФ."
+          description: "Агрегатный статус нарушения запретов дарения по ст. 575 ГК РФ. Внутреннее enum-поле."
           required: true
 
         - name: "prohibition_violation_details"
@@ -6945,7 +6932,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус раскрытия сведений об известных недостатках/дефектах дара."
+          description: "Статус раскрытия сведений об известных недостатках/дефектах дара. Внутреннее enum-поле."
           required: true
 
         - name: "known_defects_disclosed_details"
@@ -6967,7 +6954,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия оговорки о принятии дара в текущем состоянии («как есть»)."
+          description: "Статус наличия оговорки о принятии дара в текущем состоянии («как есть»). Внутреннее enum-поле."
           required: true
 
         - name: "donor_liability_clause_status"
@@ -6976,7 +6963,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Статус наличия условия об ответственности дарителя за вред от недостатков (ст. 580 ГК РФ)."
+          description: "Статус наличия условия об ответственности дарителя за вред от недостатков (ст. 580 ГК РФ). Внутреннее enum-поле."
           required: true
 
         - name: "donor_liability_clause_display"

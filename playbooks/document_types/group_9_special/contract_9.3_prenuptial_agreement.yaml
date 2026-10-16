@@ -928,7 +928,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
-          description: "Статус идентификации первого супруга."
+          description: "Статус идентификации первого супруга. Внутреннее enum-поле."
           required: true
         - name: "spouse_1_name_value"
           type: "string"
@@ -936,14 +936,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Супруг 1"
-          description: "ФИО и паспортные данные первого супруга; при частичных данных — описание пробелов."
+          description: >
+            ФИО и паспортные данные первого супруга; при частичных данных — описание пробелов. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "spouse_2_name_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
-          description: "Статус идентификации второго супруга."
+          description: "Статус идентификации второго супруга. Внутреннее enum-поле."
           required: true
         - name: "spouse_2_name_value"
           type: "string"
@@ -951,56 +952,59 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Супруг 2"
-          description: "ФИО и паспортные данные второго супруга; при частичных данных — описание пробелов."
+          description: >
+            ФИО и паспортные данные второго супруга; при частичных данных — описание пробелов. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "foreign_element_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["no_foreign_element", "foreign_element_present", "not_defined"]
-          description: "Наличие иностранного элемента (гражданства) в составе сторон."
+          description: "Наличие иностранного элемента (гражданства) в составе сторон. Внутреннее enum-поле."
           required: true
         - name: "foreign_element_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Иностранный элемент"
-          description: "Описание гражданства сторон и наличия иностранного элемента (для ст. 161 СК РФ)."
+          description: >
+            Описание гражданства сторон и наличия иностранного элемента (для ст. 161 СК РФ). Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "legal_capacity_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["confirmed", "limitations_mentioned", "not_defined"]
-          description: "Статус дееспособности сторон по тексту договора."
+          description: "Статус дееспособности сторон по тексту договора. Внутреннее enum-поле."
           required: true
         - name: "marital_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["before_marriage", "during_marriage", "not_defined"]
-          description: "Статус отношений на момент заключения договора."
+          description: "Статус отношений на момент заключения договора. Внутреннее enum-поле."
           required: true
         - name: "marriage_registration_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined_with_details", "defined_no_details", "not_applicable", "not_defined"]
-          description: "Статус реквизитов свидетельства о браке."
+          description: "Статус реквизитов свидетельства о браке. Внутреннее enum-поле."
           required: true
         - name: "marriage_registration_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Свидетельство о браке"
-          description: "Реквизиты свидетельства о браке или причина неприменимости."
+          description: >
+            Реквизиты свидетельства о браке или причина неприменимости. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "notarial_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["certified", "mentioned", "not_defined"]
-          description: "Статус нотариального удостоверения договора."
+          description: "Статус нотариального удостоверения договора. Внутреннее enum-поле."
           required: true
         - name: "notarial_form_display"
           type: "string"
@@ -1012,42 +1016,45 @@ checks_v8:
             - "Удостоверено нотариально"
             - "Указано, но без подтверждения удостоверения"
             - "Не указано"
-          description: "Человекочитаемая форма договора (нотариальная — deal-breaker при отсутствии, ст. 41 п.2 СК РФ)."
+          description: >
+            Человекочитаемая форма договора (нотариальная — deal-breaker при отсутствии, ст. 41 п.2 СК РФ). Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "notary_name_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания ФИО нотариуса."
+          description: "Статус указания ФИО нотариуса. Внутреннее enum-поле."
           required: true
         - name: "notary_name_value"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Нотариус"
-          description: "ФИО и место нахождения нотариуса, удостоверившего договор."
+          description: >
+            ФИО и место нахождения нотариуса, удостоверившего договор. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "registry_number_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус номера в реестре нотариальных действий."
+          description: "Статус номера в реестре нотариальных действий. Внутреннее enum-поле."
           required: true
         - name: "registry_number_value"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Номер в реестре"
-          description: "Номер записи в реестре нотариальных действий."
+          description: >
+            Номер записи в реестре нотариальных действий. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "effective_date_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания момента вступления договора в силу."
+          description: "Статус указания момента вступления договора в силу. Внутреннее enum-поле."
           required: true
         - name: "effective_date_details"
           type: "string"
@@ -1055,7 +1062,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 4
           label: "Момент вступления в силу"
-          description: "Момент вступления договора в силу (с момента регистрации брака / с момента нотариального удостоверения / иное)."
+          description: >
+            Момент вступления договора в силу (с момента регистрации брака / с момента нотариального удостоверения / иное). Fallback: "Не установлено" / "Не удалось определить".
           required: true
       store_payload: true
 
@@ -1573,14 +1581,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
-          description: "Статус определения режима добрачного имущества."
+          description: "Статус определения режима добрачного имущества. Внутреннее enum-поле."
           required: true
         - name: "premarital_regime_code"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["remains_personal", "transferred_to_joint", "transferred_to_shared", "mixed", "not_defined"]
-          description: "Правовое состояние добрачного имущества по договору."
+          description: "Правовое состояние добрачного имущества по договору. Внутреннее enum-поле."
           required: true
         - name: "premarital_regime_details"
           type: "string"
@@ -1588,21 +1596,22 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Добрачное имущество"
-          description: "Описание режима добрачного имущества каждого супруга."
+          description: >
+            Описание режима добрачного имущества каждого супруга. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "marital_regime_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
-          description: "Статус определения режима имущества, нажитого в браке."
+          description: "Статус определения режима имущества, нажитого в браке. Внутреннее enum-поле."
           required: true
         - name: "marital_regime_code"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["joint", "separate", "shared", "mixed", "not_defined"]
-          description: "Режим имущества, нажитого в браке."
+          description: "Режим имущества, нажитого в браке. Внутреннее enum-поле."
           required: true
         - name: "marital_regime_details"
           type: "string"
@@ -1610,21 +1619,22 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Имущество в браке"
-          description: "Описание режима имущества, нажитого в браке."
+          description: >
+            Описание режима имущества, нажитого в браке. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "inherited_gifted_regime_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
-          description: "Статус режима наследственного и подаренного имущества."
+          description: "Статус режима наследственного и подаренного имущества. Внутреннее enum-поле."
           required: true
         - name: "inherited_gifted_regime_code"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["remains_personal", "made_joint", "case_by_case", "not_addressed", "not_defined"]
-          description: "Режим наследства и дара (ст. 36 СК РФ). made_joint — потенциальный риск ничтожности."
+          description: "Режим наследства и дара (ст. 36 СК РФ). made_joint — потенциальный риск ничтожности. Внутреннее enum-поле."
           required: true
         - name: "inherited_gifted_regime_details"
           type: "string"
@@ -1632,49 +1642,52 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Наследство и дар"
-          description: "Описание режима имущества, полученного по наследству и в дар."
+          description: >
+            Описание режима имущества, полученного по наследству и в дар. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "temporal_scope_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "partial", "not_defined"]
-          description: "Статус определения временного охвата договора."
+          description: "Статус определения временного охвата договора. Внутреннее enum-поле."
           required: true
         - name: "temporal_scope_code"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["existing_only", "future_only", "both", "not_defined"]
-          description: "Временной охват режима (ст. 42 п.2 СК РФ)."
+          description: "Временной охват режима (ст. 42 п.2 СК РФ). Внутреннее enum-поле."
           required: true
         - name: "temporal_scope_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Временной охват"
-          description: "Описание временного охвата (существующее / будущее имущество)."
+          description: >
+            Описание временного охвата (существующее / будущее имущество). Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "special_regimes_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "partial", "not_defined"]
-          description: "Статус наличия специальных режимов для отдельных категорий имущества."
+          description: "Статус наличия специальных режимов для отдельных категорий имущества. Внутреннее enum-поле."
           required: true
         - name: "special_regimes_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Специальные режимы"
-          description: "Специальные режимы для отдельных категорий (недвижимость, доли в ООО, акции, счета, транспорт)."
+          description: >
+            Специальные режимы для отдельных категорий (недвижимость, доли в ООО, акции, счета, транспорт). Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "assets_inventory_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "partial", "not_defined"]
-          description: "Статус наличия перечня объектов имущества с идентификацией."
+          description: "Статус наличия перечня объектов имущества с идентификацией. Внутреннее enum-поле."
           required: true
         - name: "assets_inventory_details"
           type: "string"
@@ -1682,14 +1695,16 @@ checks_v8:
           display_in_grid: true
           display_priority: 4
           label: "Перечень имущества"
-          description: "Описание перечня объектов имущества с идентификационными признаками."
+          description: >
+            Описание перечня объектов имущества с идентификационными признаками. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "inventory_appendix_reference"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Ссылка на приложение"
-          description: "Конкретная ссылка на приложение с перечнем имущества."
+          description: >
+            Конкретная ссылка на приложение с перечнем имущества. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "regime_summary_display"
           type: "string"
@@ -2209,21 +2224,22 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["full", "substantial", "partial_category", "none", "not_defined"]
-          description: "Степень отказа одного из супругов от имущества (маркер риска ст. 44 п.2 СК РФ)."
+          description: "Степень отказа одного из супругов от имущества (маркер риска ст. 44 п.2 СК РФ). Внутреннее enum-поле."
           required: true
         - name: "full_refusal_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Отказ от имущества"
-          description: "Описание условий отказа от имущества одним из супругов."
+          description: >
+            Описание условий отказа от имущества одним из супругов. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "unfavorable_position_clause_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
-          description: "Статус явного указания на недопустимость крайне неблагоприятного положения (ст. 42 п.3 СК РФ)."
+          description: "Статус явного указания на недопустимость крайне неблагоприятного положения (ст. 42 п.3 СК РФ). Внутреннее enum-поле."
           required: true
         - name: "unfavorable_position_clause_details"
           type: "string"
@@ -2231,28 +2247,30 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Неблагоприятное положение"
-          description: "Явное указание на недопустимость крайне неблагоприятного положения или его отсутствие."
+          description: >
+            Явное указание на недопустимость крайне неблагоприятного положения или его отсутствие. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "proportionality_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["proportional", "disproportionate", "extreme_disparity", "not_defined"]
-          description: "Оценка соразмерности распределения имущества между супругами."
+          description: "Оценка соразмерности распределения имущества между супругами. Внутреннее enum-поле."
           required: true
         - name: "proportionality_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Соразмерность"
-          description: "Описание соразмерности или диспропорции в распределении имущества."
+          description: >
+            Описание соразмерности или диспропорции в распределении имущества. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "housing_rights_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "partial", "not_defined"]
-          description: "Статус гарантий жилищных прав более слабой стороны."
+          description: "Статус гарантий жилищных прав более слабой стороны. Внутреннее enum-поле."
           required: true
         - name: "housing_rights_details"
           type: "string"
@@ -2260,7 +2278,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Жилищные права"
-          description: "Гарантии жилищных прав (право пользования, проживания, срок, адрес)."
+          description: >
+            Гарантии жилищных прав (право пользования, проживания, срок, адрес). Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "compensation_type_code"
           type: "string"
@@ -2269,7 +2288,8 @@ checks_v8:
           display_priority: 3
           label: "Вид компенсации"
           allowed_values: ["lump_sum", "periodic", "housing_right", "property_share", "combination", "none", "not_defined"]
-          description: "Вид компенсационного механизма для экономически более слабой стороны."
+          description: >
+            Вид компенсационного механизма для экономически более слабой стороны. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "compensation_type_details"
           type: "string"
@@ -2277,35 +2297,38 @@ checks_v8:
           display_in_grid: true
           display_priority: 4
           label: "Компенсационные механизмы"
-          description: "Подробное описание компенсационных механизмов (суммы, условия, порядок)."
+          description: >
+            Подробное описание компенсационных механизмов (суммы, условия, порядок). Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "compensation_trigger"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["on_divorce", "on_death", "during_marriage", "combined", "not_defined"]
-          description: "Событие, при котором срабатывает компенсационный механизм."
+          description: "Событие, при котором срабатывает компенсационный механизм. Внутреннее enum-поле."
           required: true
         - name: "compensation_payment_terms"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Порядок выплаты"
-          description: "Срок, порядок и условия выплаты компенсации (единовременно, рассрочка, индексация)."
+          description: >
+            Срок, порядок и условия выплаты компенсации (единовременно, рассрочка, индексация). Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "homemaker_compensation_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "partial", "not_defined"]
-          description: "Статус компенсации за ведение домашнего хозяйства и уход за детьми (ст. 34 п.3 СК РФ)."
+          description: "Статус компенсации за ведение домашнего хозяйства и уход за детьми (ст. 34 п.3 СК РФ). Внутреннее enum-поле."
           required: true
         - name: "homemaker_compensation_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Компенсация за домашнее хозяйство"
-          description: "Описание компенсации или признания вклада в домашнее хозяйство и уход за детьми."
+          description: >
+            Описание компенсации или признания вклада в домашнее хозяйство и уход за детьми. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "balance_summary_display"
           type: "string"
@@ -2758,7 +2781,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["separate", "joint", "mixed", "not_defined"]
-          description: "Режим бизнес-активов (доли в ООО, акции, предприятия)."
+          description: "Режим бизнес-активов (доли в ООО, акции, предприятия). Внутреннее enum-поле."
           required: true
         - name: "business_assets_regime_details"
           type: "string"
@@ -2766,14 +2789,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Бизнес-активы"
-          description: "Описание режима бизнес-активов (доли, акции, предприятия)."
+          description: >
+            Описание режима бизнес-активов (доли, акции, предприятия). Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "business_income_regime_code"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["separate", "joint", "mixed", "not_defined"]
-          description: "Режим доходов от предпринимательской деятельности (ст. 34 п.2 СК РФ)."
+          description: "Режим доходов от предпринимательской деятельности (ст. 34 п.2 СК РФ). Внутреннее enum-поле."
           required: true
         - name: "business_income_regime_details"
           type: "string"
@@ -2781,14 +2805,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Доходы от бизнеса"
-          description: "Описание режима доходов от предпринимательской деятельности (дивиденды, прибыль)."
+          description: >
+            Описание режима доходов от предпринимательской деятельности (дивиденды, прибыль). Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "ip_rights_regime_code"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["personal_and_separate", "separate_exclusive_only", "joint", "mixed", "not_defined"]
-          description: "Режим интеллектуальной собственности с учётом двойственной природы (ст. 1228 ГК РФ)."
+          description: "Режим интеллектуальной собственности с учётом двойственной природы (ст. 1228 ГК РФ). Внутреннее enum-поле."
           required: true
         - name: "ip_rights_regime_details"
           type: "string"
@@ -2796,28 +2821,30 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Интеллектуальная собственность"
-          description: "Описание режима исключительных и личных неимущественных прав на РИД."
+          description: >
+            Описание режима исключительных и личных неимущественных прав на РИД. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "pre_existing_business_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "partial", "not_defined"]
-          description: "Статус разграничения бизнеса, созданного до брака и в браке (ст. 36 vs 34 СК РФ)."
+          description: "Статус разграничения бизнеса, созданного до брака и в браке (ст. 36 vs 34 СК РФ). Внутреннее enum-поле."
           required: true
         - name: "pre_existing_business_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Бизнес до брака / в браке"
-          description: "Разграничение бизнеса, существовавшего до брака и созданного в браке."
+          description: >
+            Разграничение бизнеса, существовавшего до брака и созданного в браке. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "specific_companies_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "partial", "not_defined"]
-          description: "Статус перечня конкретных компаний/бизнесов с идентификацией."
+          description: "Статус перечня конкретных компаний/бизнесов с идентификацией. Внутреннее enum-поле."
           required: true
         - name: "specific_companies_details"
           type: "string"
@@ -2825,21 +2852,23 @@ checks_v8:
           display_in_grid: true
           display_priority: 4
           label: "Компании"
-          description: "Перечень конкретных компаний/бизнесов (название, ИНН, ОГРН)."
+          description: >
+            Перечень конкретных компаний/бизнесов (название, ИНН, ОГРН). Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "voting_rights_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["protected", "shared", "not_defined"]
-          description: "Статус защиты корпоративных прав управления (право голоса) от раздела."
+          description: "Статус защиты корпоративных прав управления (право голоса) от раздела. Внутреннее enum-поле."
           required: true
         - name: "divorce_scenario_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Сценарий при разводе"
-          description: "Что происходит с бизнес-активами при расторжении брака (компенсация, выкуп, сохранение)."
+          description: >
+            Что происходит с бизнес-активами при расторжении брака (компенсация, выкуп, сохранение). Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "business_summary_display"
           type: "string"
@@ -3253,35 +3282,36 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["enhanced", "preserved", "restricted", "not_defined"]
-          description: "Статус алиментных условий супругов по договору."
+          description: "Статус алиментных условий супругов по договору. Внутреннее enum-поле."
           required: true
         - name: "restriction_detected"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["none", "waiver_detected", "partial_restriction", "not_defined"]
-          description: "Наличие и характер ограничений алиментных прав супругов."
+          description: "Наличие и характер ограничений алиментных прав супругов. Внутреннее enum-поле."
           required: true
         - name: "waiver_risk_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["void_clause_risk", "low_risk", "not_defined"]
-          description: "Юридический риск ничтожности условий договора об отказе от содержания (ст. 42 п.3 СК РФ)."
+          description: "Юридический риск ничтожности условий договора об отказе от содержания (ст. 42 п.3 СК РФ). Внутреннее enum-поле."
           required: true
         - name: "waiver_risk_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Риск ничтожности алиментных оговорок"
-          description: "Детальный правовой анализ риска ничтожности оговорок об отказе от взаимного содержания."
+          description: >
+            Детальный правовой анализ риска ничтожности оговорок об отказе от взаимного содержания. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "alimony_amount_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "partial", "not_defined"]
-          description: "Статус указания размера алиментных выплат."
+          description: "Статус указания размера алиментных выплат. Внутреннее enum-поле."
           required: true
         - name: "alimony_amount_details"
           type: "string"
@@ -3289,14 +3319,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Размер алиментов"
-          description: "Установленный размер, периодичность и валюта алиментных обязательств супругов."
+          description: >
+            Установленный размер, периодичность и валюта алиментных обязательств супругов. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "mutual_maintenance_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "partial", "restricted", "not_defined"]
-          description: "Статус условий о взаимном содержании супругов."
+          description: "Статус условий о взаимном содержании супругов. Внутреннее enum-поле."
           required: true
         - name: "mutual_maintenance_details"
           type: "string"
@@ -3304,7 +3335,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Взаимное содержание"
-          description: "Детали порядка и условий предоставления взаимного материального содержания."
+          description: >
+            Детали порядка и условий предоставления взаимного материального содержания. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "alimony_summary_display"
           type: "string"
@@ -3706,14 +3738,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
-          description: "Статус урегулированности распределения долгов супругов."
+          description: "Статус урегулированности распределения долгов супругов. Внутреннее enum-поле."
           required: true
         - name: "debt_allocation_regime_code"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["separate_debts_only", "joint_debts_exist", "mixed", "not_defined"]
-          description: "Режим ответственности супругов по долгам и кредитам."
+          description: "Режим ответственности супругов по долгам и кредитам. Внутреннее enum-поле."
           required: true
         - name: "debt_allocation_details"
           type: "string"
@@ -3721,14 +3753,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Распределение долгов"
-          description: "Порядок распределения ответственности по личным и общим долгам (ст. 45 СК РФ)."
+          description: >
+            Порядок распределения ответственности по личным и общим долгам (ст. 45 СК РФ). Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "mortgage_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "partial", "not_mentioned", "not_defined"]
-          description: "Статус урегулирования ипотечных обязательств по договору."
+          description: "Статус урегулирования ипотечных обязательств по договору. Внутреннее enum-поле."
           required: true
         - name: "mortgage_details"
           type: "string"
@@ -3736,42 +3769,45 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Ипотечные обязательства"
-          description: "Условия погашения ипотеки, распределение бремени платежей и объект залога."
+          description: >
+            Условия погашения ипотеки, распределение бремени платежей и объект залога. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "bank_consent_clause_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия условия о получении согласия банка на изменение кредита (ст. 391 ГК РФ)."
+          description: "Статус наличия условия о получении согласия банка на изменение кредита (ст. 391 ГК РФ). Внутреннее enum-поле."
           required: true
         - name: "bank_consent_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Согласие банка-кредитора"
-          description: "Условия о согласовании перевода долга и вывода созаёмщика с банком-кредитором."
+          description: >
+            Условия о согласовании перевода долга и вывода созаёмщика с банком-кредитором. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "co_borrower_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_applicable", "not_defined"]
-          description: "Статус определения роли супруга как созаёмщика или поручителя."
+          description: "Статус определения роли супруга как созаёмщика или поручителя. Внутреннее enum-поле."
           required: true
         - name: "co_borrower_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Статус созаёмщика"
-          description: "Правовой статус второго супруга по ипотечному договору (созаёмщик, поручитель, не участвует)."
+          description: >
+            Правовой статус второго супруга по ипотечному договору (созаёмщик, поручитель, не участвует). Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "divorce_debt_procedure_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "partial", "not_defined"]
-          description: "Статус порядка урегулирования долгов при расторжении брака."
+          description: "Статус порядка урегулирования долгов при расторжении брака. Внутреннее enum-поле."
           required: true
         - name: "divorce_debt_procedure_details"
           type: "string"
@@ -3779,7 +3815,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Долги при разводе"
-          description: "Порядок переоформления, погашения или компенсации долгов при расторжении брака."
+          description: >
+            Порядок переоформления, погашения или компенсации долгов при расторжении брака. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "debt_summary_display"
           type: "string"
@@ -4187,7 +4224,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
-          description: "Статус наличия положения об уведомлении кредиторов (ст. 46 СК РФ)."
+          description: "Статус наличия положения об уведомлении кредиторов (ст. 46 СК РФ). Внутреннее enum-поле."
           required: true
         - name: "creditor_notification_details"
           type: "string"
@@ -4195,49 +4232,53 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Уведомление кредиторов"
-          description: "Положения договора об обязанности извещения кредиторов о заключении/изменении договора."
+          description: >
+            Положения договора об обязанности извещения кредиторов о заключении/изменении договора. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "notification_timeline_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Срок и порядок уведомления"
-          description: "Сроки и процедура направления уведомлений существующим и будущим кредиторам."
+          description: >
+            Сроки и процедура направления уведомлений существующим и будущим кредиторам. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "notification_obligor_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["both_spouses", "debtor_spouse", "not_defined"]
-          description: "Субъект, на которого возложена обязанность уведомления кредиторов."
+          description: "Субъект, на которого возложена обязанность уведомления кредиторов. Внутреннее enum-поле."
           required: true
         - name: "notification_obligor_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Кто уведомляет кредиторов"
-          description: "Кто из супругов обязан направить извещения кредиторам."
+          description: >
+            Кто из супругов обязан направить извещения кредиторам. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "non_notification_consequences_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["statutory_liability", "custom_terms", "not_defined"]
-          description: "Статус оговорки о правовых последствиях неуведомления кредиторов."
+          description: "Статус оговорки о правовых последствиях неуведомления кредиторов. Внутреннее enum-поле."
           required: true
         - name: "non_notification_consequences_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Последствия неуведомления"
-          description: "Правовые последствия неисполнения обязанности по извещению кредиторов (ст. 46 п.1 СК РФ)."
+          description: >
+            Правовые последствия неисполнения обязанности по извещению кредиторов (ст. 46 п.1 СК РФ). Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "protection_from_creditors_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
-          description: "Статус механизмов защиты личного имущества супруга от кредиторов другого супруга."
+          description: "Статус механизмов защиты личного имущества супруга от кредиторов другого супруга. Внутреннее enum-поле."
           required: true
         - name: "protection_from_creditors_details"
           type: "string"
@@ -4245,7 +4286,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Защита от кредиторов"
-          description: "Условия об исключении субсидиарной ответственности и защите раздельного имущества от долгов другого супруга."
+          description: >
+            Условия об исключении субсидиарной ответственности и защите раздельного имущества от долгов другого супруга. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "creditor_summary_display"
           type: "string"
@@ -4675,7 +4717,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["extreme_shift", "partial_shift", "balanced", "not_defined"]
-          description: "Степень концентрации активов на одном из супругов."
+          description: "Степень концентрации активов на одном из супругов. Внутреннее enum-поле."
           required: true
         - name: "asset_shift_details"
           type: "string"
@@ -4683,14 +4725,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Распределение активов"
-          description: "Описание диспропорции или концентрации имущества на одном супруге."
+          description: >
+            Описание диспропорции или концентрации имущества на одном супруге. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "gratuitous_transfer_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["gratuitous_detected", "with_compensation", "not_defined"]
-          description: "Наличие признаков безвозмездности и отсутствия встречного предоставления (п. 1 ст. 61.2 ФЗ-127)."
+          description: "Наличие признаков безвозмездности и отсутствия встречного предоставления (п. 1 ст. 61.2 ФЗ-127). Внутреннее enum-поле."
           required: true
         - name: "gratuitous_transfer_details"
           type: "string"
@@ -4698,42 +4741,45 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Безвозмездность и компенсация"
-          description: "Условия о компенсации и возмездности передачи активов между супругами."
+          description: >
+            Условия о компенсации и возмездности передачи активов между супругами. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "debt_asset_mismatch_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["high_mismatch", "aligned", "not_defined"]
-          description: "Признак вывода активов: перекос между получателем имущества и плательщиком долгов."
+          description: "Признак вывода активов: перекос между получателем имущества и плательщиком долгов. Внутреннее enum-поле."
           required: true
         - name: "debt_asset_mismatch_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Соотношение активов и долгов"
-          description: "Сопоставление условий распределения имущества и обязательств по кредитам."
+          description: >
+            Сопоставление условий распределения имущества и обязательств по кредитам. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "bankruptcy_clauses_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["explicit_clauses_present", "no_mention", "not_defined"]
-          description: "Наличие прямых положений о банкротстве, финансовом управляющем или защите от кредиторов."
+          description: "Наличие прямых положений о банкротстве, финансовом управляющем или защите от кредиторов. Внутреннее enum-поле."
           required: true
         - name: "bankruptcy_clauses_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Оговорки о банкротстве"
-          description: "Прямые оговорки договора, касающиеся несостоятельности (банкротства) сторон."
+          description: >
+            Прямые оговорки договора, касающиеся несостоятельности (банкротства) сторон. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "bankruptcy_risk_level"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["high_risk", "moderate_risk", "low_risk", "not_defined"]
-          description: "Итоговый уровень риска признания брачного договора недействительным по ст. 61.2 ФЗ-127."
+          description: "Итоговый уровень риска признания брачного договора недействительным по ст. 61.2 ФЗ-127. Внутреннее enum-поле."
           required: true
         - name: "bankruptcy_summary_display"
           type: "string"
@@ -5173,7 +5219,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
-          description: "Статус идентификации объектов недвижимости по договору."
+          description: "Статус идентификации объектов недвижимости по договору. Внутреннее enum-поле."
           required: true
         - name: "real_estate_objects_details"
           type: "string"
@@ -5181,14 +5227,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Объекты недвижимости"
-          description: "Перечень объектов недвижимости с адресами и кадастровыми номерами."
+          description: >
+            Перечень объектов недвижимости с адресами и кадастровыми номерами. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "division_mechanism_code"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["to_specific_spouse", "proportional_shares", "sale_and_split", "compensation_based", "mixed", "not_defined"]
-          description: "Юридический механизм распределения недвижимости при расторжении брака."
+          description: "Юридический механизм распределения недвижимости при расторжении брака. Внутреннее enum-поле."
           required: true
         - name: "division_mechanism_details"
           type: "string"
@@ -5196,42 +5243,45 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Механизм раздела"
-          description: "Порядок перехода недвижимости (одному супругу, выдел долей, совместная продажа)."
+          description: >
+            Порядок перехода недвижимости (одному супругу, выдел долей, совместная продажа). Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "compensation_amount_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_applicable", "not_defined"]
-          description: "Статус урегулированности компенсационных выплат за отказ от доли в недвижимости."
+          description: "Статус урегулированности компенсационных выплат за отказ от доли в недвижимости. Внутреннее enum-поле."
           required: true
         - name: "compensation_amount_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Компенсация за недвижимость"
-          description: "Размер, валюта и порядок выплаты компенсации за отказ от прав на недвижимое имущество."
+          description: >
+            Размер, валюта и порядок выплаты компенсации за отказ от прав на недвижимое имущество. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "mortgage_encumbrance_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["mortgaged_addressed", "free_of_encumbrance", "not_addressed", "not_defined"]
-          description: "Статус распределения ипотечных обязательств и обременений по передаваемой недвижимости."
+          description: "Статус распределения ипотечных обязательств и обременений по передаваемой недвижимости. Внутреннее enum-поле."
           required: true
         - name: "mortgage_encumbrance_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Ипотека и обременения недвижимости"
-          description: "Условия погашения ипотеки, переоформления залога и согласия банка-залогодержателя."
+          description: >
+            Условия погашения ипотеки, переоформления залога и согласия банка-залогодержателя. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "transfer_timeline_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "partial", "not_defined"]
-          description: "Статус определения сроков фактической передачи и перерегистрации прав."
+          description: "Статус определения сроков фактической передачи и перерегистрации прав. Внутреннее enum-поле."
           required: true
         - name: "transfer_timeline_details"
           type: "string"
@@ -5239,14 +5289,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Сроки передачи и регистрации"
-          description: "Сроки освобождения объекта, подписания передаточного акта и регистрации в Росреестре."
+          description: >
+            Сроки освобождения объекта, подписания передаточного акта и регистрации в Росреестре. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "state_registration_clause_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия оговорки об обязанности регистрации перехода прав в Росреестре (218-ФЗ)."
+          description: "Статус наличия оговорки об обязанности регистрации перехода прав в Росреестре (218-ФЗ). Внутреннее enum-поле."
           required: true
         - name: "real_estate_summary_display"
           type: "string"
@@ -5685,7 +5736,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["violation_found", "clean", "not_defined"]
-          description: "Общий статус чистоты брачного договора от ничтожных условий (ст. 42 п. 3 СК РФ)."
+          description: "Общий статус чистоты брачного договора от ничтожных условий (ст. 42 п. 3 СК РФ). Внутреннее enum-поле."
           required: true
         - name: "prohibited_conditions_summary_display"
           type: "string"
@@ -5700,21 +5751,22 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["prohibited_detected", "none", "not_defined"]
-          description: "Статус выявления условий о личных неимущественных отношениях супругов."
+          description: "Статус выявления условий о личных неимущественных отношениях супругов. Внутреннее enum-поле."
           required: true
         - name: "personal_nonproperty_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Личные неимущественные условия"
-          description: "Формулировки условий о морали, поведении и неимущественных отношениях."
+          description: >
+            Формулировки условий о морали, поведении и неимущественных отношениях. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "infidelity_penalty_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["prohibited_detected", "none", "not_defined"]
-          description: "Статус выявления штрафов и санкций за супружескую измену/неверность."
+          description: "Статус выявления штрафов и санкций за супружескую измену/неверность. Внутреннее enum-поле."
           required: true
         - name: "infidelity_penalty_details"
           type: "string"
@@ -5722,14 +5774,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Санкции за измену (infidelity clause)"
-          description: "Условия о лишении имущества или денежных штрафах за супружескую измену."
+          description: >
+            Условия о лишении имущества или денежных штрафах за супружескую измену. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "children_provisions_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["prohibited_detected", "none", "not_defined"]
-          description: "Статус выявления незаконных условий в отношении несовершеннолетних детей."
+          description: "Статус выявления незаконных условий в отношении несовершеннолетних детей. Внутреннее enum-поле."
           required: true
         - name: "children_provisions_details"
           type: "string"
@@ -5737,14 +5790,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Условия о детях"
-          description: "Условия о месте жительства, порядке общения, воспитании и алиментах на детей."
+          description: >
+            Условия о месте жительства, порядке общения, воспитании и алиментах на детей. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "capacity_restriction_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["prohibited_detected", "none", "not_defined"]
-          description: "Статус выявления ограничений правоспособности, дееспособности, права на труд и судебную защиту."
+          description: "Статус выявления ограничений правоспособности, дееспособности, права на труд и судебную защиту. Внутреннее enum-поле."
           required: true
         - name: "capacity_restriction_details"
           type: "string"
@@ -5752,21 +5806,23 @@ checks_v8:
           display_in_grid: true
           display_priority: 4
           label: "Ограничение правоспособности и суда"
-          description: "Формулировки запретов на труд, выбор профессии, бизнес или отказ от судебной защиты."
+          description: >
+            Формулировки запретов на труд, выбор профессии, бизнес или отказ от судебной защиты. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "mortis_causa_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["prohibited_detected", "none", "not_defined"]
-          description: "Статус выявления распоряжений имуществом на случай смерти (подмена завещания, ст. 1118 ГК РФ)."
+          description: "Статус выявления распоряжений имуществом на случай смерти (подмена завещания, ст. 1118 ГК РФ). Внутреннее enum-поле."
           required: true
         - name: "mortis_causa_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Распоряжения на случай смерти"
-          description: "Условия о наследовании и переходе прав при смерти супруга, включённые в брачный договор."
+          description: >
+            Условия о наследовании и переходе прав при смерти супруга, включённые в брачный договор. Fallback: "Не установлено" / "Не удалось определить".
           required: false
 
       store_payload: true
@@ -6190,7 +6246,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["notarial_required", "simple_written_stated", "not_defined"]
-          description: "Статус порядка изменения и расторжения договора (ст. 43 п. 1 СК РФ)."
+          description: "Статус порядка изменения и расторжения договора (ст. 43 п. 1 СК РФ). Внутреннее enum-поле."
           required: true
         - name: "amendment_procedure_details"
           type: "string"
@@ -6198,42 +6254,45 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Изменение и расторжение"
-          description: "Порядок изменения и расторжения брачного договора (согласие сторон, нотариальная форма)."
+          description: >
+            Порядок изменения и расторжения брачного договора (согласие сторон, нотариальная форма). Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "unilateral_refusal_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["prohibited_stated", "permitted_stated", "not_defined"]
-          description: "Статус оговорки о запрете одностороннего отказа от исполнения договора (ст. 43 п. 3 СК РФ)."
+          description: "Статус оговорки о запрете одностороннего отказа от исполнения договора (ст. 43 п. 3 СК РФ). Внутреннее enum-поле."
           required: true
         - name: "unilateral_refusal_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Односторонний отказ"
-          description: "Условие о недопустимости одностороннего отказа от исполнения обязательств."
+          description: >
+            Условие о недопустимости одностороннего отказа от исполнения обязательств. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "post_divorce_survival_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус сохранения силы имущественных обязательств после прекращения брака (ст. 43 п. 3 СК РФ)."
+          description: "Статус сохранения силы имущественных обязательств после прекращения брака (ст. 43 п. 3 СК РФ). Внутреннее enum-поле."
           required: true
         - name: "post_divorce_survival_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Действие после развода"
-          description: "Оговорка о сохранении юридической силы условий договора после расторжения брака."
+          description: >
+            Оговорка о сохранении юридической силы условий договора после расторжения брака. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "dispute_resolution_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["negotiation_then_court", "court_general", "mediation", "not_defined"]
-          description: "Порядок урегулирования споров и договорная подсудность."
+          description: "Порядок урегулирования споров и договорная подсудность. Внутреннее enum-поле."
           required: true
         - name: "dispute_resolution_details"
           type: "string"
@@ -6241,14 +6300,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Разрешение споров"
-          description: "Порядок разрешения споров, досудебные процедуры, медиация и подсудность."
+          description: >
+            Порядок разрешения споров, досудебные процедуры, медиация и подсудность. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "severability_clause_status"
           type: "string"
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие оговорки о делимости договора при частичной недействительности (ст. 180 ГК РФ)."
+          description: "Наличие оговорки о делимости договора при частичной недействительности (ст. 180 ГК РФ). Внутреннее enum-поле."
           required: true
         - name: "severability_clause_details"
           type: "string"
@@ -6256,7 +6316,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Оговорка о делимости"
-          description: "Условие о сохранении юридической силы брачного договора при недействительности его отдельных положений."
+          description: >
+            Условие о сохранении юридической силы брачного договора при недействительности его отдельных положений. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "closing_provisions_summary_display"
           type: "string"
@@ -6700,7 +6761,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["rf_law_chosen", "foreign_law_chosen", "no_choice_stated", "not_defined"]
-          description: "Статус выбора применимого права к брачному договору (ст. 161 СК РФ)."
+          description: "Статус выбора применимого права к брачному договору (ст. 161 СК РФ). Внутреннее enum-поле."
           required: true
         - name: "governing_law_details"
           type: "string"
@@ -6708,28 +6769,30 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Применимое право"
-          description: "Выбранное сторонами применимое право (право РФ или иностранная юрисдикция)."
+          description: >
+            Выбранное сторонами применимое право (право РФ или иностранная юрисдикция). Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "foreign_element_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["foreign_citizenship", "foreign_assets_present", "both_foreign_elements", "none_detected", "not_defined"]
-          description: "Наличие и характер иностранного элемента (гражданство, зарубежное имущество, счета)."
+          description: "Наличие и характер иностранного элемента (гражданство, зарубежное имущество, счета). Внутреннее enum-поле."
           required: true
         - name: "foreign_element_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Иностранный элемент"
-          description: "Описание иностранного гражданства сторон или активов за пределами РФ."
+          description: >
+            Описание иностранного гражданства сторон или активов за пределами РФ. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "foreign_assets_regime_code"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["separate_property", "joint_property", "mixed", "not_mentioned", "not_defined"]
-          description: "Режим собственности на зарубежные активы, счета в иностранных банках и КИК."
+          description: "Режим собственности на зарубежные активы, счета в иностранных банках и КИК. Внутреннее enum-поле."
           required: true
         - name: "foreign_assets_regime_details"
           type: "string"
@@ -6737,14 +6800,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Зарубежные активы и счета"
-          description: "Порядок владения недвижимостью за рубежом, счетами в иностранных банках и иностранными компаниями."
+          description: >
+            Порядок владения недвижимостью за рубежом, счетами в иностранных банках и иностранными компаниями. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "digital_assets_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["regulated_separate", "regulated_joint", "not_addressed", "not_defined"]
-          description: "Статус правового режима цифровой валюты (криптовалюты) и ЦФА (259-ФЗ)."
+          description: "Статус правового режима цифровой валюты (криптовалюты) и ЦФА (259-ФЗ). Внутреннее enum-поле."
           required: true
         - name: "digital_assets_details"
           type: "string"
@@ -6752,21 +6816,23 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Цифровые активы и криптовалюта"
-          description: "Режим криптовалюты, цифровых финансовых активов (ЦФА), токенов и аккаунтов на биржах."
+          description: >
+            Режим криптовалюты, цифровых финансовых активов (ЦФА), токенов и аккаунтов на биржах. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "crypto_wallets_disclosure_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["disclosure_required", "as_is_no_disclosure", "not_defined"]
-          description: "Статус условий о раскрытии криптокошельков, приватных ключей и seed-фраз."
+          description: "Статус условий о раскрытии криптокошельков, приватных ключей и seed-фраз. Внутреннее enum-поле."
           required: true
         - name: "crypto_wallets_disclosure_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Раскрытие криптокошельков"
-          description: "Условия доступа к приватным ключам, seed-фразам и раскрытия криптокошельков."
+          description: >
+            Условия доступа к приватным ключам, seed-фразам и раскрытия криптокошельков. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "foreign_digital_summary_display"
           type: "string"
@@ -7176,7 +7242,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
-          description: "Статус оговорки о полном раскрытии активов (full disclosure)."
+          description: "Статус оговорки о полном раскрытии активов (full disclosure). Внутреннее enum-поле."
           required: true
         - name: "full_disclosure_clause_details"
           type: "string"
@@ -7184,42 +7250,45 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Раскрытие активов"
-          description: "Оговорка о полном и достоверном раскрытии активов сторонами."
+          description: >
+            Оговорка о полном и достоверном раскрытии активов сторонами. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "asset_schedule_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
-          description: "Статус перечня имущества на дату заключения договора."
+          description: "Статус перечня имущества на дату заключения договора. Внутреннее enum-поле."
           required: true
         - name: "asset_schedule_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Перечень активов на дату"
-          description: "Перечень/приложение с активами сторон на дату заключения договора."
+          description: >
+            Перечень/приложение с активами сторон на дату заключения договора. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "hidden_assets_confirmation_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
-          description: "Статус подтверждения сторон об отсутствии скрытых активов."
+          description: "Статус подтверждения сторон об отсутствии скрытых активов. Внутреннее enum-поле."
           required: true
         - name: "hidden_assets_confirmation_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Скрытые активы"
-          description: "Подтверждение об отсутствии скрытых активов и добросовестности сторон."
+          description: >
+            Подтверждение об отсутствии скрытых активов и добросовестности сторон. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "concealment_consequences_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус оговорки о последствиях сокрытия активов (ст. 178, 179 ГК РФ)."
+          description: "Статус оговорки о последствиях сокрытия активов (ст. 178, 179 ГК РФ). Внутреннее enum-поле."
           required: true
         - name: "concealment_consequences_details"
           type: "string"
@@ -7227,7 +7296,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Последствия сокрытия"
-          description: "Правовые последствия сокрытия существенных активов (основание для оспаривания)."
+          description: >
+            Правовые последствия сокрытия существенных активов (основание для оспаривания). Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "disclosure_summary_display"
           type: "string"
@@ -7636,7 +7706,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["compliant", "conflict_detected", "not_mentioned", "not_defined"]
-          description: "Статус соответствия условий договора императивной норме о МК (ст. 10 ФЗ-256)."
+          description: "Статус соответствия условий договора императивной норме о МК (ст. 10 ФЗ-256). Внутреннее enum-поле."
           required: true
         - name: "maternity_capital_details"
           type: "string"
@@ -7644,14 +7714,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Материнский капитал"
-          description: "Условия о материнском (семейном) капитале и долевой собственности детей."
+          description: >
+            Условия о материнском (семейном) капитале и долевой собственности детей. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "mk_conflict_detected"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["no_conflict", "void_clause", "not_applicable", "not_defined"]
-          description: "Наличие конфликта с императивной нормой ФЗ-256 (ничтожное условие)."
+          description: "Наличие конфликта с императивной нормой ФЗ-256 (ничтожное условие). Внутреннее enum-поле."
           required: true
         - name: "mk_conflict_details"
           type: "string"
@@ -7659,35 +7730,38 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Конфликт с ФЗ-256"
-          description: "Описание ничтожного условия, противоречащего ст. 10 ФЗ-256."
+          description: >
+            Описание ничтожного условия, противоречащего ст. 10 ФЗ-256. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "pension_savings_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["separate", "joint", "not_defined"]
-          description: "Режим пенсионных накоплений супругов (ст. 36 СК РФ)."
+          description: "Режим пенсионных накоплений супругов (ст. 36 СК РФ). Внутреннее enum-поле."
           required: true
         - name: "pension_savings_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Пенсионные накопления"
-          description: "Условия о режиме пенсионных накоплений и накопительной пенсии."
+          description: >
+            Условия о режиме пенсионных накоплений и накопительной пенсии. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "insurance_payouts_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "partial", "not_defined"]
-          description: "Статус урегулированности страховых выплат и выгодоприобретателей."
+          description: "Статус урегулированности страховых выплат и выгодоприобретателей. Внутреннее enum-поле."
           required: true
         - name: "insurance_payouts_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Страховые выплаты"
-          description: "Режим страховых выплат по договорам страхования жизни и статус выгодоприобретателя."
+          description: >
+            Режим страховых выплат по договорам страхования жизни и статус выгодоприобретателя. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "social_assets_summary_display"
           type: "string"
@@ -8111,14 +8185,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
-          description: "Статус определения метода оценки имущества при разделе."
+          description: "Статус определения метода оценки имущества при разделе. Внутреннее enum-поле."
           required: true
         - name: "valuation_method_code"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["independent_appraiser", "market_value", "cadastral", "not_defined"]
-          description: "Метод оценки имущества (независимый оценщик, рыночная, кадастровая)."
+          description: "Метод оценки имущества (независимый оценщик, рыночная, кадастровая). Внутреннее enum-поле."
           required: true
         - name: "valuation_method_details"
           type: "string"
@@ -8126,14 +8200,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Оценка имущества"
-          description: "Порядок и метод оценки имущества при разделе (оценщик, дата оценки)."
+          description: >
+            Порядок и метод оценки имущества при разделе (оценщик, дата оценки). Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "payment_terms_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
-          description: "Статус определения сроков и порядка выплаты компенсаций."
+          description: "Статус определения сроков и порядка выплаты компенсаций. Внутреннее enum-поле."
           required: true
         - name: "payment_terms_details"
           type: "string"
@@ -8141,49 +8216,53 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Порядок расчётов"
-          description: "Сроки, рассрочка и порядок выплаты компенсационных платежей."
+          description: >
+            Сроки, рассрочка и порядок выплаты компенсационных платежей. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "currency_and_indexation_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения валюты и индексации денежных обязательств."
+          description: "Статус определения валюты и индексации денежных обязательств. Внутреннее enum-поле."
           required: true
         - name: "currency_and_indexation_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Валюта и индексация"
-          description: "Валюта выплат и порядок индексации (ИПЦ, ключевая ставка)."
+          description: >
+            Валюта выплат и порядок индексации (ИПЦ, ключевая ставка). Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "security_for_performance_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус обеспечения исполнения обязательств (залог, поручительство)."
+          description: "Статус обеспечения исполнения обязательств (залог, поручительство). Внутреннее enum-поле."
           required: true
         - name: "security_for_performance_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Обеспечение исполнения"
-          description: "Способы обеспечения исполнения компенсационных обязательств."
+          description: >
+            Способы обеспечения исполнения компенсационных обязательств. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "preemptive_right_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус преимущественного права выкупа доли в бизнесе или недвижимости."
+          description: "Статус преимущественного права выкупа доли в бизнесе или недвижимости. Внутреннее enum-поле."
           required: true
         - name: "preemptive_right_details"
           type: "string"
           presentation: "fact"
           display_in_grid: false
           label: "Преимущественное право"
-          description: "Условия преимущественного права покупки доли в бизнесе или недвижимости."
+          description: >
+            Условия преимущественного права покупки доли в бизнесе или недвижимости. Fallback: "Не установлено" / "Не удалось определить".
           required: false
         - name: "exit_mechanics_summary_display"
           type: "string"
@@ -8199,10 +8278,7 @@ checks_v8:
   - id: source_of_funds_commingling_check
     name: "Источники финансирования и предотвращение смешения активов"
     description: >
-      Фактографическая проверка наличия механизмов, предотвращающих смешение (commingling) 
-      личного добрачного имущества и имущества, приобретённого в браке. Проверка условий 
-      о том, что имущество, купленное в браке на средства, вырученные от отчуждения 
-      личного добрачного имущества, сохраняет статус личной собственности.
+      Фактографическая проверка наличия механизмов, предотвращающих смешение (commingling)  личного добрачного имущества и имущества, приобретённого в браке. Проверка условий  о том, что имущество, купленное в браке на средства, вырученные от отчуждения  личного добрачного имущества, сохраняет статус личной собственности.
     triggers: {}
     ui_mode: "field_extraction"
     severity: "high"
@@ -8341,7 +8417,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
-          description: "Статус оговорки о недопустимости трансформации личного имущества в совместное."
+          description: "Статус оговорки о недопустимости трансформации личного имущества в совместное. Внутреннее enum-поле."
           required: true
         - name: "commingling_prevention_details"
           type: "string"
@@ -8349,14 +8425,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Защита от смешения"
-          description: "Условие о сохранении статуса личной собственности при приобретении имущества в браке на личные средства."
+          description: >
+            Условие о сохранении статуса личной собственности при приобретении имущества в браке на личные средства. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "source_of_funds_tracking_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия механизма документального подтверждения источника средств."
+          description: "Статус наличия механизма документального подтверждения источника средств. Внутреннее enum-поле."
           required: true
         - name: "source_of_funds_tracking_details"
           type: "string"
@@ -8364,7 +8441,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Отслеживание источников"
-          description: "Требования к документам, подтверждающим происхождение средств (выписки, договоры)."
+          description: >
+            Требования к документам, подтверждающим происхождение средств (выписки, договоры). Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "source_of_funds_summary_display"
           type: "string"
@@ -8380,9 +8458,7 @@ checks_v8:
   - id: tax_and_maintenance_expenses_check
     name: "Налоговые обязательства и расходы на содержание имущества (ст. 34, 36 СК РФ)"
     description: >
-      Фактографическая проверка распределения обязанности по уплате налогов (НДФЛ, налог на имущество), 
-      коммунальных и эксплуатационных расходов за имущество, переведённое в раздельную собственность, 
-      а также распределение налогового бремени при выплате компенсаций.
+      Фактографическая проверка распределения обязанности по уплате налогов (НДФЛ, налог на имущество),  коммунальных и эксплуатационных расходов за имущество, переведённое в раздельную собственность,  а также распределение налогового бремени при выплате компенсаций.
     triggers: {}
     ui_mode: "field_extraction"
     severity: "medium"
@@ -8502,7 +8578,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "partial", "not_defined"]
-          description: "Статус распределения налоговых обязательств (НДФЛ, налог на имущество)."
+          description: "Статус распределения налоговых обязательств (НДФЛ, налог на имущество). Внутреннее enum-поле."
           required: true
         - name: "tax_liability_details"
           type: "string"
@@ -8510,14 +8586,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Налоговые обязательства"
-          description: "Кто и в каком порядке уплачивает налоги, связанные с имуществом и компенсациями."
+          description: >
+            Кто и в каком порядке уплачивает налоги, связанные с имуществом и компенсациями. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "maintenance_expenses_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "partial", "not_defined"]
-          description: "Статус распределения расходов на содержание имущества (коммунальные, эксплуатационные)."
+          description: "Статус распределения расходов на содержание имущества (коммунальные, эксплуатационные). Внутреннее enum-поле."
           required: true
         - name: "maintenance_expenses_details"
           type: "string"
@@ -8525,7 +8602,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Расходы на содержание"
-          description: "Порядок оплаты коммунальных услуг, ремонта и содержания раздельного имущества."
+          description: >
+            Порядок оплаты коммунальных услуг, ремонта и содержания раздельного имущества. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "tax_and_maintenance_summary_display"
           type: "string"
@@ -8541,10 +8619,7 @@ checks_v8:
   - id: high_value_personal_property_pets_check
     name: "Драгоценности, предметы искусства и домашние животные (ст. 36, 137 ГК РФ)"
     description: >
-      Фактографическая проверка режима собственности на вещи индивидуального пользования, 
-      предметы роскоши (ювелирные изделия, искусство), а также на домашних животных (питомцев), 
-      которые по закону являются объектами права собственности, но часто становятся предметом 
-      острых споров при разделе имущества.
+      Фактографическая проверка режима собственности на вещи индивидуального пользования,  предметы роскоши (ювелирные изделия, искусство), а также на домашних животных (питомцев),  которые по закону являются объектами права собственности, но часто становятся предметом  острых споров при разделе имущества.
     triggers: {}
     ui_mode: "field_extraction"
     severity: "medium"
@@ -8665,7 +8740,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "partial", "not_defined"]
-          description: "Статус распределения прав на ювелирные изделия, предметы искусства и коллекции."
+          description: "Статус распределения прав на ювелирные изделия, предметы искусства и коллекции. Внутреннее enum-поле."
           required: true
         - name: "luxury_items_details"
           type: "string"
@@ -8673,14 +8748,15 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Драгоценности и искусство"
-          description: "Условия о принадлежности и разделе предметов роскоши и вещей индивидуального пользования."
+          description: >
+            Условия о принадлежности и разделе предметов роскоши и вещей индивидуального пользования. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "pets_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "partial", "not_defined"]
-          description: "Статус регулирования права собственности на домашних животных (ст. 137 ГК РФ)."
+          description: "Статус регулирования права собственности на домашних животных (ст. 137 ГК РФ). Внутреннее enum-поле."
           required: true
         - name: "pets_details"
           type: "string"
@@ -8688,7 +8764,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Домашние животные"
-          description: "Определение собственника питомца и порядка его содержания/общения с ним."
+          description: >
+            Определение собственника питомца и порядка его содержания/общения с ним. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "personal_property_summary_display"
           type: "string"
@@ -8704,10 +8781,7 @@ checks_v8:
   - id: change_of_circumstances_waiver_check
     name: "Оговорка о недопустимости расторжения из-за изменения обстоятельств (ст. 451 ГК РФ)"
     description: >
-      Фактографическая проверка наличия прямого отказа сторон от права требовать изменения 
-      или расторжения брачного договора в судебном порядке по основанию существенного изменения 
-      обстоятельств (ст. 451 ГК РФ). Это критически важно для предотвращения попыток оспорить 
-      договор при потере работы, изменении дохода или иных финансовых трудностях.
+      Фактографическая проверка наличия прямого отказа сторон от права требовать изменения  или расторжения брачного договора в судебном порядке по основанию существенного изменения  обстоятельств (ст. 451 ГК РФ). Это критически важно для предотвращения попыток оспорить  договор при потере работы, изменении дохода или иных финансовых трудностях.
     triggers: {}
     ui_mode: "field_extraction"
     severity: "high"
@@ -8823,7 +8897,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
-          description: "Статус прямого отказа сторон от права требовать расторжения договора по ст. 451 ГК РФ."
+          description: "Статус прямого отказа сторон от права требовать расторжения договора по ст. 451 ГК РФ. Внутреннее enum-поле."
           required: true
         - name: "art_451_waiver_details"
           type: "string"
@@ -8831,7 +8905,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Отказ от ст. 451 ГК РФ"
-          description: "Условие о том, что изменение финансового положения не является основанием для расторжения договора."
+          description: >
+            Условие о том, что изменение финансового положения не является основанием для расторжения договора. Fallback: "Не установлено" / "Не удалось определить".
           required: true
         - name: "change_of_circumstances_summary_display"
           type: "string"

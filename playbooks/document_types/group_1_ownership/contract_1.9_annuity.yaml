@@ -1117,13 +1117,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус идентификации получателя ренты."
+          description: "Статус идентификации получателя ренты. Внутреннее enum-поле."
           required: true
         - name: "receiver_details_value"
           type: "string"
           presentation: "fact"
           label: "Получатель ренты: реквизиты"
-          description: "Наименование и реквизиты получателя ренты."
+          description: >
+            Наименование и реквизиты получателя ренты. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -1132,13 +1133,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["individual", "nco", "commercial", "not_defined"]
-          description: "Тип получателя ренты."
+          description: "Тип получателя ренты. Внутреннее enum-поле."
           required: true
         - name: "receiver_signatory"
           type: "string"
           presentation: "fact"
           label: "Получатель ренты: подписант"
-          description: "Подписант от получателя ренты."
+          description: >
+            Подписант от получателя ренты. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "receiver_signatory_basis"
@@ -1146,20 +1148,21 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["charter", "poa", "order", "personal", "other", "not_defined"]
-          description: "Основание полномочий подписанта получателя ренты."
+          description: "Основание полномочий подписанта получателя ренты. Внутреннее enum-поле."
           required: true
         - name: "payer_details_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус идентификации плательщика ренты."
+          description: "Статус идентификации плательщика ренты. Внутреннее enum-поле."
           required: true
         - name: "payer_details_value"
           type: "string"
           presentation: "fact"
           label: "Плательщик ренты: реквизиты"
-          description: "Наименование и реквизиты плательщика ренты."
+          description: >
+            Наименование и реквизиты плательщика ренты. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -1168,13 +1171,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["individual", "legal_entity", "not_defined"]
-          description: "Тип плательщика ренты."
+          description: "Тип плательщика ренты. Внутреннее enum-поле."
           required: true
         - name: "payer_signatory"
           type: "string"
           presentation: "fact"
           label: "Плательщик ренты: подписант"
-          description: "Подписант от плательщика ренты."
+          description: >
+            Подписант от плательщика ренты. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "payer_signatory_basis"
@@ -1182,20 +1186,21 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["charter", "poa", "order", "personal", "other", "not_defined"]
-          description: "Основание полномочий подписанта плательщика ренты."
+          description: "Основание полномочий подписанта плательщика ренты. Внутреннее enum-поле."
           required: true
         - name: "capacity_confirmed_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия подтверждения дееспособности."
+          description: "Статус наличия подтверждения дееспособности. Внутреннее enum-поле."
           required: true
         - name: "capacity_confirmed_details"
           type: "string"
           presentation: "fact"
           label: "Подтверждение дееспособности"
-          description: "Текст о проверке дееспособности получателя ренты."
+          description: >
+            Текст о проверке дееспособности получателя ренты. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "receiver_rent_type_for_eligibility"
@@ -1203,20 +1208,21 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["permanent", "life_annuity", "lifetime_maintenance", "not_defined"]
-          description: "Вид ренты, определённый для целей проверки допустимости получателя."
+          description: "Вид ренты, определённый для целей проверки допустимости получателя. Внутреннее enum-поле."
           required: true
         - name: "receiver_eligibility_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["eligible", "ineligible", "not_defined"]
-          description: "Вывод о соответствии типа получателя виду ренты."
+          description: "Вывод о соответствии типа получателя виду ренты. Внутреннее enum-поле."
           required: true
         - name: "receiver_eligibility_details"
           type: "string"
           presentation: "fact"
           label: "Допустимость получателя"
-          description: "Краткое обоснование соответствия типа получателя виду ренты."
+          description: >
+            Краткое обоснование соответствия типа получателя виду ренты. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -1570,34 +1576,35 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения вида ренты."
+          description: "Статус определения вида ренты. Внутреннее enum-поле."
           required: true
         - name: "rent_type_code"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["permanent", "life_annuity", "lifetime_maintenance", "mixed", "not_defined"]
-          description: "Вид договора ренты."
+          description: "Вид договора ренты. Внутреннее enum-поле."
           required: true
         - name: "rent_type_explicitly_stated"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["yes", "implied", "not_defined"]
-          description: "Прямо ли назван вид ренты в тексте."
+          description: "Прямо ли назван вид ренты в тексте. Внутреннее enum-поле."
           required: true
         - name: "property_description_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус описания имущества, передаваемого под выплату ренты."
+          description: "Статус описания имущества, передаваемого под выплату ренты. Внутреннее enum-поле."
           required: true
         - name: "property_description_value"
           type: "string"
           presentation: "fact"
           label: "Передаваемое имущество"
-          description: "Описание имущества, передаваемого плательщику ренты."
+          description: >
+            Описание имущества, передаваемого плательщику ренты. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -1606,49 +1613,49 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["real_estate", "movable", "mixed", "not_defined"]
-          description: "Категория передаваемого имущества."
+          description: "Категория передаваемого имущества. Внутреннее enum-поле."
           required: true
         - name: "payment_form_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения формы рентного предоставления."
+          description: "Статус определения формы рентного предоставления. Внутреннее enum-поле."
           required: true
         - name: "payment_form_code"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["money", "in_kind", "mixed", "not_defined"]
-          description: "Форма рентного предоставления."
+          description: "Форма рентного предоставления. Внутреннее enum-поле."
           required: true
         - name: "payment_periodicity_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения периодичности выплат или содержания."
+          description: "Статус определения периодичности выплат или содержания. Внутреннее enum-поле."
           required: true
         - name: "payment_periodicity_code"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["monthly", "quarterly", "yearly", "custom", "not_defined"]
-          description: "Периодичность рентных платежей или содержания."
+          description: "Периодичность рентных платежей или содержания. Внутреннее enum-поле."
           required: true
         - name: "transfer_character_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения характера передачи имущества."
+          description: "Статус определения характера передачи имущества. Внутреннее enum-поле."
           required: true
         - name: "transfer_character_code"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["paid", "free", "not_defined"]
-          description: "Передача имущества за плату или бесплатно."
+          description: "Передача имущества за плату или бесплатно. Внутреннее enum-поле."
           required: true
       store_payload: true
 
@@ -1962,27 +1969,28 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус подтверждения нотариальной формы договора ренты."
+          description: "Статус подтверждения нотариальной формы договора ренты. Внутреннее enum-поле."
           required: true
         - name: "notarization_level"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["clearly_notarial", "mentioned", "not_defined"]
-          description: "Уровень подтверждения нотариального удостоверения."
+          description: "Уровень подтверждения нотариального удостоверения. Внутреннее enum-поле."
           required: true
         - name: "notary_details_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия реквизитов нотариуса."
+          description: "Статус наличия реквизитов нотариуса. Внутреннее enum-поле."
           required: true
         - name: "notary_details_value"
           type: "string"
           presentation: "fact"
           label: "Нотариус"
-          description: "ФИО нотариуса и/или нотариальный округ."
+          description: >
+            ФИО нотариуса и/или нотариальный округ. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -1991,13 +1999,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия даты нотариального удостоверения."
+          description: "Статус наличия даты нотариального удостоверения. Внутреннее enum-поле."
           required: true
         - name: "notary_date_value"
           type: "string"
           presentation: "fact"
           label: "Дата нотариального удостоверения"
-          description: "Дата нотариального удостоверения договора ренты."
+          description: >
+            Дата нотариального удостоверения договора ренты. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -2006,13 +2015,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия реестрового номера нотариального действия."
+          description: "Статус наличия реестрового номера нотариального действия. Внутреннее enum-поле."
           required: true
         - name: "registry_number_value"
           type: "string"
           presentation: "fact"
           label: "Реестровый номер"
-          description: "Реестровый номер нотариального действия."
+          description: >
+            Реестровый номер нотариального действия. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "nullity_risk"
@@ -2314,13 +2324,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус идентификации имущества, передаваемого под выплату ренты."
+          description: "Статус идентификации имущества, передаваемого под выплату ренты. Внутреннее enum-поле."
           required: true
         - name: "property_description"
           type: "string"
           presentation: "fact"
           label: "Имущество под ренту"
-          description: "Описание имущества, передаваемого плательщику ренты."
+          description: >
+            Описание имущества, передаваемого плательщику ренты. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -2329,20 +2340,21 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["real_estate", "movable", "mixed", "not_defined"]
-          description: "Категория передаваемого имущества."
+          description: "Категория передаваемого имущества. Внутреннее enum-поле."
           required: true
         - name: "cadastral_number_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия кадастрового номера."
+          description: "Статус наличия кадастрового номера. Внутреннее enum-поле."
           required: true
         - name: "cadastral_number_value"
           type: "string"
           presentation: "fact"
           label: "Кадастровый номер"
-          description: "Кадастровый номер передаваемого объекта недвижимости."
+          description: >
+            Кадастровый номер передаваемого объекта недвижимости. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -2640,13 +2652,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия условия о залоге в силу закона."
+          description: "Статус наличия условия о залоге в силу закона. Внутреннее enum-поле."
           required: true
         - name: "statutory_pledge_details"
           type: "string"
           presentation: "fact"
           label: "Залог в силу закона"
-          description: "Текст договора о залоге в силу закона в пользу получателя ренты."
+          description: >
+            Текст договора о залоге в силу закона в пользу получателя ренты. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -2655,21 +2668,21 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия условия о регистрации обременения рентой."
+          description: "Статус наличия условия о регистрации обременения рентой. Внутреннее enum-поле."
           required: true
         - name: "movable_security_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия обеспечения выплаты ренты по движимому имуществу."
+          description: "Статус наличия обеспечения выплаты ренты по движимому имуществу. Внутреннее enum-поле."
           required: true
         - name: "movable_security_type"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["guarantee", "surety", "pledge", "insurance", "not_applicable", "not_defined"]
-          description: "Вид обеспечения выплаты ренты по движимому имуществу."
+          description: "Вид обеспечения выплаты ренты по движимому имуществу. Внутреннее enum-поле."
           required: true
       store_payload: true
 
@@ -2997,13 +3010,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения размера ренты."
+          description: "Статус определения размера ренты. Внутреннее enum-поле."
           required: true
         - name: "rent_amount_value"
           type: "string"
           presentation: "fact"
           label: "Размер ренты"
-          description: "Размер ренты или содержания в денежном выражении."
+          description: >
+            Размер ренты или содержания в денежном выражении. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -3012,13 +3026,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия привязки к прожиточному минимуму."
+          description: "Статус наличия привязки к прожиточному минимуму. Внутреннее enum-поле."
           required: true
         - name: "pm_link_details"
           type: "string"
           presentation: "fact"
           label: "Привязка к прожиточному минимуму"
-          description: "Текст договора о привязке размера ренты к прожиточному минимуму."
+          description: >
+            Текст договора о привязке размера ренты к прожиточному минимуму. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -3027,41 +3042,42 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения механизма индексации."
+          description: "Статус определения механизма индексации. Внутреннее enum-поле."
           required: true
         - name: "indexation_mechanism"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["pm_based", "inflation", "custom", "not_defined"]
-          description: "Механизм индексации рентных выплат."
+          description: "Механизм индексации рентных выплат. Внутреннее enum-поле."
           required: true
         - name: "payment_periodicity_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения периодичности рентных выплат."
+          description: "Статус определения периодичности рентных выплат. Внутреннее enum-поле."
           required: true
         - name: "payment_periodicity_code"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["monthly", "quarterly", "yearly", "custom", "not_defined"]
-          description: "Периодичность рентных выплат."
+          description: "Периодичность рентных выплат. Внутреннее enum-поле."
           required: true
         - name: "late_payment_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения последствий просрочки рентных платежей."
+          description: "Статус определения последствий просрочки рентных платежей. Внутреннее enum-поле."
           required: true
         - name: "late_payment_details"
           type: "string"
           presentation: "fact"
           label: "Просрочка рентных платежей"
-          description: "Условие о пене, процентах или иной ответственности за просрочку."
+          description: >
+            Условие о пене, процентах или иной ответственности за просрочку. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
       store_payload: true
@@ -3510,62 +3526,63 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения объёма натурального содержания."
+          description: "Статус определения объёма натурального содержания. Внутреннее enum-поле."
           required: true
         - name: "maintenance_scope_level"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["detailed", "general", "not_defined"]
-          description: "Степень детализации состава содержания."
+          description: "Степень детализации состава содержания. Внутреннее enum-поле."
           required: true
         - name: "housing_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус включения жилья в состав содержания."
+          description: "Статус включения жилья в состав содержания. Внутреннее enum-поле."
           required: true
         - name: "food_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус включения питания в состав содержания."
+          description: "Статус включения питания в состав содержания. Внутреннее enum-поле."
           required: true
         - name: "medical_care_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус включения медицинской помощи в состав содержания."
+          description: "Статус включения медицинской помощи в состав содержания. Внутреннее enum-поле."
           required: true
         - name: "clothing_status"
           type: "string"
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус включения одежды, обуви или гигиены в состав содержания."
+          description: "Статус включения одежды, обуви или гигиены в состав содержания. Внутреннее enum-поле."
           required: true
         - name: "utilities_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус включения коммунальных услуг в состав содержания."
+          description: "Статус включения коммунальных услуг в состав содержания. Внутреннее enum-поле."
           required: true
         - name: "residence_right_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_applicable", "not_defined"]
-          description: "Статус наличия условия о сохранении за получателем ренты права проживания в переданном жилом помещении."
+          description: "Статус наличия условия о сохранении за получателем ренты права проживания в переданном жилом помещении. Внутреннее enum-поле."
           required: true
         - name: "residence_right_details"
           type: "string"
           presentation: "fact"
           label: "Право проживания получателя"
-          description: "Текст о сохранении за получателем ренты права проживания в переданном жилом помещении."
+          description: >
+            Текст о сохранении за получателем ренты права проживания в переданном жилом помещении. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -3574,13 +3591,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения срока сохранения права проживания."
+          description: "Статус определения срока сохранения права проживания. Внутреннее enum-поле."
           required: true
         - name: "residence_term_details"
           type: "string"
           presentation: "fact"
           label: "Срок проживания"
-          description: "Текст о сроке сохранения права проживания получателя ренты."
+          description: >
+            Текст о сроке сохранения права проживания получателя ренты. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "residence_family_scope_status"
@@ -3588,13 +3606,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус распространения права проживания на членов семьи получателя."
+          description: "Статус распространения права проживания на членов семьи получателя. Внутреннее enum-поле."
           required: true
         - name: "residence_family_scope_details"
           type: "string"
           presentation: "fact"
           label: "Члены семьи получателя"
-          description: "Текст о праве проживания членов семьи получателя ренты."
+          description: >
+            Текст о праве проживания членов семьи получателя ренты. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "funeral_services_status"
@@ -3602,13 +3621,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия условия о ритуальных услугах."
+          description: "Статус наличия условия о ритуальных услугах. Внутреннее enum-поле."
           required: true
         - name: "funeral_services_details"
           type: "string"
           presentation: "fact"
           label: "Ритуальные услуги"
-          description: "Текст условия о ритуальных услугах и погребении."
+          description: >
+            Текст условия о ритуальных услугах и погребении. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -3617,13 +3637,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения стоимости содержания."
+          description: "Статус определения стоимости содержания. Внутреннее enum-поле."
           required: true
         - name: "maintenance_value_value"
           type: "string"
           presentation: "fact"
           label: "Стоимость содержания"
-          description: "Стоимость пожизненного содержания в денежном выражении."
+          description: >
+            Стоимость пожизненного содержания в денежном выражении. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -3632,13 +3653,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия условия о замене содержания денежными выплатами."
+          description: "Статус наличия условия о замене содержания денежными выплатами. Внутреннее enum-поле."
           required: true
         - name: "cash_substitution_details"
           type: "string"
           presentation: "fact"
           label: "Замена содержания деньгами"
-          description: "Текст условия о замене натурального содержания денежными выплатами."
+          description: >
+            Текст условия о замене натурального содержания денежными выплатами. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
       store_payload: true
@@ -3939,27 +3961,28 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия условия о выкупе ренты."
+          description: "Статус наличия условия о выкупе ренты. Внутреннее enum-поле."
           required: true
         - name: "buyout_right_holder"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["receiver", "payer", "both", "not_defined"]
-          description: "Сторона, у которой есть право требовать выкупа ренты."
+          description: "Сторона, у которой есть право требовать выкупа ренты. Внутреннее enum-поле."
           required: true
         - name: "buyout_price_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения выкупной цены или методики её расчёта."
+          description: "Статус определения выкупной цены или методики её расчёта. Внутреннее enum-поле."
           required: true
         - name: "buyout_price_details"
           type: "string"
           presentation: "fact"
           label: "Выкупная цена"
-          description: "Сумма или методика определения выкупной цены ренты."
+          description: >
+            Сумма или методика определения выкупной цены ренты. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -3968,13 +3991,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения срока уведомления о намерении выкупить ренту."
+          description: "Статус определения срока уведомления о намерении выкупить ренту. Внутреннее enum-поле."
           required: true
         - name: "buyout_notice_period_value"
           type: "string"
           presentation: "fact"
           label: "Срок уведомления о выкупе"
-          description: "Срок уведомления о намерении выкупить ренту."
+          description: >
+            Срок уведомления о намерении выкупить ренту. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -4256,28 +4280,28 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения оснований расторжения договора ренты."
+          description: "Статус определения оснований расторжения договора ренты. Внутреннее enum-поле."
           required: true
         - name: "breach_criteria_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения критериев существенного нарушения."
+          description: "Статус определения критериев существенного нарушения. Внутреннее enum-поле."
           required: true
         - name: "return_of_property_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия условия о возврате имущества при расторжении."
+          description: "Статус наличия условия о возврате имущества при расторжении. Внутреннее enum-поле."
           required: true
         - name: "encumbrance_removal_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус урегулирования снятия обременения рентой."
+          description: "Статус урегулирования снятия обременения рентой. Внутреннее enum-поле."
           required: true
       store_payload: true
 
@@ -4575,27 +4599,28 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус распределения риска случайной гибели имущества."
+          description: "Статус распределения риска случайной гибели имущества. Внутреннее enum-поле."
           required: true
         - name: "risk_allocation_code"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["payer", "receiver", "not_defined"]
-          description: "Сторона, несущая риск случайной гибели имущества."
+          description: "Сторона, несущая риск случайной гибели имущества. Внутреннее enum-поле."
           required: true
         - name: "loss_non_discharge_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания, освобождает ли гибель имущества от выплаты ренты."
+          description: "Статус указания, освобождает ли гибель имущества от выплаты ренты. Внутреннее enum-поле."
           required: true
         - name: "loss_non_discharge_details"
           type: "string"
           presentation: "fact"
           label: "Влияние гибели имущества на выплату ренты"
-          description: "Текст договора о влиянии гибели имущества на обязанность выплачивать ренту."
+          description: >
+            Текст договора о влиянии гибели имущества на обязанность выплачивать ренту. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -4604,20 +4629,21 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия страхования имущества или ответственности."
+          description: "Статус наличия страхования имущества или ответственности. Внутреннее enum-поле."
           required: true
         - name: "insurance_beneficiary_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения выгодоприобретателя по страхованию."
+          description: "Статус определения выгодоприобретателя по страхованию. Внутреннее enum-поле."
           required: true
         - name: "insurance_beneficiary_value"
           type: "string"
           presentation: "fact"
           label: "Выгодоприобретатель по страхованию"
-          description: "Сторона, указанная выгодоприобретателем по договору страхования."
+          description: >
+            Сторона, указанная выгодоприобретателем по договору страхования. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
       store_payload: true
@@ -4879,13 +4905,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия условия о ставке пени или процентов за просрочку рентных платежей."
+          description: "Статус наличия условия о ставке пени или процентов за просрочку рентных платежей. Внутреннее enum-поле."
           required: true
         - name: "late_payment_rate_value"
           type: "string"
           presentation: "fact"
           label: "Пеня/проценты за просрочку"
-          description: "Ставка пени, процентов или иное условие ответственности за просрочку рентных платежей."
+          description: >
+            Ставка пени, процентов или иное условие ответственности за просрочку рентных платежей. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -5303,13 +5330,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус подтверждения добровольности заключения договора."
+          description: "Статус подтверждения добровольности заключения договора. Внутреннее enum-поле."
           required: true
         - name: "voluntariness_details"
           type: "string"
           presentation: "fact"
           label: "Добровольность и осознание последствий"
-          description: "Текст о добровольности заключения договора и осознании его последствий."
+          description: >
+            Текст о добровольности заключения договора и осознании его последствий. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -5318,34 +5346,35 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус упоминания разъяснений нотариуса."
+          description: "Статус упоминания разъяснений нотариуса. Внутреннее enum-поле."
           required: true
         - name: "independent_valuation_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус упоминания независимой оценки имущества."
+          description: "Статус упоминания независимой оценки имущества. Внутреннее enum-поле."
           required: true
         - name: "pressure_absence_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус подтверждения отсутствия давления или принуждения."
+          description: "Статус подтверждения отсутствия давления или принуждения. Внутреннее enum-поле."
           required: true
         - name: "abuse_protection_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия механизмов защиты получателя ренты."
+          description: "Статус наличия механизмов защиты получателя ренты. Внутреннее enum-поле."
           required: true
         - name: "abuse_protection_details"
           type: "string"
           presentation: "fact"
           label: "Механизмы защиты получателя"
-          description: "Текст о механизмах защиты получателя ренты."
+          description: >
+            Текст о механизмах защиты получателя ренты. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -5354,41 +5383,42 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия права родственников навещать получателя."
+          description: "Статус наличия права родственников навещать получателя. Внутреннее enum-поле."
           required: true
         - name: "care_quality_control_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия механизма контроля качества ухода."
+          description: "Статус наличия механизма контроля качества ухода. Внутреннее enum-поле."
           required: true
         - name: "legal_capacity_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия заверения о специальной дееспособности получателя ренты."
+          description: "Статус наличия заверения о специальной дееспособности получателя ренты. Внутреннее enum-поле."
           required: true
         - name: "legal_capacity_age_code"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["adult", "minor", "not_defined"]
-          description: "Возраст получателя ренты (совершеннолетний / несовершеннолетний)."
+          description: "Возраст получателя ренты (совершеннолетний / несовершеннолетний). Внутреннее enum-поле."
           required: true
         - name: "legal_capacity_limitations_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия заверения об отсутствии ограничений дееспособности получателя ренты."
+          description: "Статус наличия заверения об отсутствии ограничений дееспособности получателя ренты. Внутреннее enum-поле."
           required: true
         - name: "legal_capacity_details"
           type: "string"
           presentation: "fact"
           label: "Специальная дееспособность получателя"
-          description: "Текст о дееспособности, возрасте и ограничениях получателя ренты."
+          description: >
+            Текст о дееспособности, возрасте и ограничениях получателя ренты. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -5716,41 +5746,42 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия ограничения на распоряжение имуществом."
+          description: "Статус наличия ограничения на распоряжение имуществом. Внутреннее enum-поле."
           required: true
         - name: "restriction_scope"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["full_ban", "consent_required", "limited", "not_defined"]
-          description: "Объём ограничения распоряжения имуществом."
+          description: "Объём ограничения распоряжения имуществом. Внутреннее enum-поле."
           required: true
         - name: "pledge_ban_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус прямого запрета залога имущества."
+          description: "Статус прямого запрета залога имущества. Внутреннее enum-поле."
           required: true
         - name: "lease_ban_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус прямого запрета аренды или иного обременения имущества."
+          description: "Статус прямого запрета аренды или иного обременения имущества. Внутреннее enum-поле."
           required: true
         - name: "consent_procedure_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения процедуры получения согласия получателя ренты."
+          description: "Статус определения процедуры получения согласия получателя ренты. Внутреннее enum-поле."
           required: true
         - name: "consent_procedure_details"
           type: "string"
           presentation: "fact"
           label: "Порядок получения согласия"
-          description: "Текст о порядке получения согласия получателя ренты на распоряжение имуществом."
+          description: >
+            Текст о порядке получения согласия получателя ренты на распоряжение имуществом. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -5759,13 +5790,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения последствий нарушения ограничения распоряжения."
+          description: "Статус определения последствий нарушения ограничения распоряжения. Внутреннее enum-поле."
           required: true
         - name: "violation_consequence_details"
           type: "string"
           presentation: "fact"
           label: "Последствия нарушения ограничения"
-          description: "Текст о последствиях нарушения запрета или ограничения распоряжения имуществом."
+          description: >
+            Текст о последствиях нарушения запрета или ограничения распоряжения имуществом. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
       store_payload: true
@@ -6223,27 +6255,28 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения характера передачи имущества."
+          description: "Статус определения характера передачи имущества. Внутреннее enum-поле."
           required: true
         - name: "transfer_type_code"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["paid", "free", "not_defined"]
-          description: "Передача имущества за плату или бесплатно."
+          description: "Передача имущества за плату или бесплатно. Внутреннее enum-поле."
           required: true
         - name: "transfer_price_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения цены при возмездной передаче имущества."
+          description: "Статус определения цены при возмездной передаче имущества. Внутреннее enum-поле."
           required: true
         - name: "transfer_price_value"
           type: "string"
           presentation: "fact"
           label: "Цена передачи имущества"
-          description: "Цена передачи имущества, если оно передаётся за плату."
+          description: >
+            Цена передачи имущества, если оно передаётся за плату. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -6252,13 +6285,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия условия о переходе рентных обязательств к новому собственнику."
+          description: "Статус наличия условия о переходе рентных обязательств к новому собственнику. Внутреннее enum-поле."
           required: true
         - name: "succession_clause_details"
           type: "string"
           presentation: "fact"
           label: "Переход рентных обязательств"
-          description: "Текст о переходе рентных обязательств к новому собственнику имущества."
+          description: >
+            Текст о переходе рентных обязательств к новому собственнику имущества. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -6267,34 +6301,35 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения вида ответственности прежнего плательщика."
+          description: "Статус определения вида ответственности прежнего плательщика. Внутреннее enum-поле."
           required: true
         - name: "liability_type_code"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["subsidiary", "solidary", "not_defined"]
-          description: "Вид ответственности прежнего плательщика ренты."
+          description: "Вид ответственности прежнего плательщика ренты. Внутреннее enum-поле."
           required: true
         - name: "notification_procedure_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения порядка уведомления получателя ренты о смене плательщика."
+          description: "Статус определения порядка уведомления получателя ренты о смене плательщика. Внутреннее enum-поле."
           required: true
         - name: "price_adequacy_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["confirmed", "not_defined"]
-          description: "Статус подтверждения соответствия цены передачи рыночной стоимости или наличия независимой оценки."
+          description: "Статус подтверждения соответствия цены передачи рыночной стоимости или наличия независимой оценки. Внутреннее enum-поле."
           required: true
         - name: "price_adequacy_details"
           type: "string"
           presentation: "fact"
           label: "Соответствие цены рыночной"
-          description: "Текст о независимой оценке или заверении о соответствии цены передачи рыночной стоимости."
+          description: >
+            Текст о независимой оценке или заверении о соответствии цены передачи рыночной стоимости. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -6303,13 +6338,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["affiliated", "independent", "not_defined"]
-          description: "Статус раскрытия аффилированности / взаимозависимости сторон сделки."
+          description: "Статус раскрытия аффилированности / взаимозависимости сторон сделки. Внутреннее enum-поле."
           required: true
         - name: "related_party_details"
           type: "string"
           presentation: "fact"
           label: "Аффилированность сторон"
-          description: "Текст о раскрытии (или об отсутствии) аффилированности сторон сделки."
+          description: >
+            Текст о раскрытии (или об отсутствии) аффилированности сторон сделки. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 4
@@ -6652,13 +6688,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус заверения об отсутствии обременений."
+          description: "Статус заверения об отсутствии обременений. Внутреннее enum-поле."
           required: true
         - name: "encumbrance_warranty_details"
           type: "string"
           presentation: "fact"
           label: "Заверение об отсутствии обременений"
-          description: "Текст заверения об отсутствии обременений (залог, арест, сервитут, аренда)."
+          description: >
+            Текст заверения об отсутствии обременений (залог, арест, сервитут, аренда). Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -6667,13 +6704,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус ссылки на выписку ЕГРН или иной подтверждающий документ."
+          description: "Статус ссылки на выписку ЕГРН или иной подтверждающий документ. Внутреннее enum-поле."
           required: true
         - name: "egrn_reference_details"
           type: "string"
           presentation: "fact"
           label: "Выписка ЕГРН"
-          description: "Реквизиты выписки ЕГРН или иного документа, подтверждающего титул."
+          description: >
+            Реквизиты выписки ЕГРН или иного документа, подтверждающего титул. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -6682,13 +6720,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус заверения об отсутствии прав третьих лиц на имущество."
+          description: "Статус заверения об отсутствии прав третьих лиц на имущество. Внутреннее enum-поле."
           required: true
         - name: "third_party_rights_warranty_details"
           type: "string"
           presentation: "fact"
           label: "Заверение об отсутствии прав третьих лиц"
-          description: "Текст заверения об отсутствии прав третьих лиц на имущество."
+          description: >
+            Текст заверения об отсутствии прав третьих лиц на имущество. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "litigation_warranty_status"
@@ -6696,13 +6735,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус заверения об отсутствии судебных споров об имуществе."
+          description: "Статус заверения об отсутствии судебных споров об имуществе. Внутреннее enum-поле."
           required: true
         - name: "litigation_warranty_details"
           type: "string"
           presentation: "fact"
           label: "Заверение об отсутствии споров"
-          description: "Текст заверения об отсутствии судебных споров об имуществе."
+          description: >
+            Текст заверения об отсутствии судебных споров об имуществе. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "known_encumbrances_disclosure_status"
@@ -6710,13 +6750,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_applicable", "not_defined"]
-          description: "Статус раскрытия известных обременений."
+          description: "Статус раскрытия известных обременений. Внутреннее enum-поле."
           required: true
         - name: "known_encumbrances_disclosure_details"
           type: "string"
           presentation: "fact"
           label: "Раскрытые обременения"
-          description: "Текст о раскрытых известных обременениях имущества."
+          description: >
+            Текст о раскрытых известных обременениях имущества. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
       store_payload: true
@@ -7061,13 +7102,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_applicable", "not_defined"]
-          description: "Статус согласия супруга (супруги) на отчуждение имущества."
+          description: "Статус согласия супруга (супруги) на отчуждение имущества. Внутреннее enum-поле."
           required: true
         - name: "spouse_consent_details"
           type: "string"
           presentation: "fact"
           label: "Согласие супруга"
-          description: "Текст о согласии супруга (супруги) либо об отсутствии совместной собственности."
+          description: >
+            Текст о согласии супруга (супруги) либо об отсутствии совместной собственности. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -7076,13 +7118,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_applicable", "not_defined"]
-          description: "Статус разрешения органа опеки и попечительства."
+          description: "Статус разрешения органа опеки и попечительства. Внутреннее enum-поле."
           required: true
         - name: "guardianship_consent_details"
           type: "string"
           presentation: "fact"
           label: "Разрешение органа опеки"
-          description: "Текст о разрешении органа опеки либо об отсутствии необходимости."
+          description: >
+            Текст о разрешении органа опеки либо об отсутствии необходимости. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -7091,13 +7134,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_applicable", "not_defined"]
-          description: "Статус согласия залогодержателя на отчуждение имущества."
+          description: "Статус согласия залогодержателя на отчуждение имущества. Внутреннее enum-поле."
           required: true
         - name: "pledgee_consent_details"
           type: "string"
           presentation: "fact"
           label: "Согласие залогодержателя"
-          description: "Текст о согласии залогодержателя либо об отсутствии залога."
+          description: >
+            Текст о согласии залогодержателя либо об отсутствии залога. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3
@@ -7106,13 +7150,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_applicable", "not_defined"]
-          description: "Статус соблюдения преимущественного права участников долевой собственности."
+          description: "Статус соблюдения преимущественного права участников долевой собственности. Внутреннее enum-поле."
           required: true
         - name: "co_owners_notice_details"
           type: "string"
           presentation: "fact"
           label: "Уведомление участников долевой собственности"
-          description: "Текст об уведомлении участников долевой собственности или отказе от преимущественного права."
+          description: >
+            Текст об уведомлении участников долевой собственности или отказе от преимущественного права. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
         - name: "other_consents_status"
@@ -7120,13 +7165,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия иных согласий (например, арендатора)."
+          description: "Статус наличия иных согласий (например, арендатора). Внутреннее enum-поле."
           required: true
         - name: "other_consents_details"
           type: "string"
           presentation: "fact"
           label: "Иные согласия"
-          description: "Текст об иных согласиях и разрешениях третьих лиц."
+          description: >
+            Текст об иных согласиях и разрешениях третьих лиц. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
       store_payload: true
@@ -7478,27 +7524,28 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["permanent", "life_annuity", "lifetime_maintenance", "not_defined"]
-          description: "Вид ренты, определённый для целей проверки соответствия."
+          description: "Вид ренты, определённый для целей проверки соответствия. Внутреннее enum-поле."
           required: true
         - name: "receiver_type_code"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["individual", "nco", "commercial", "not_defined"]
-          description: "Тип получателя ренты (гражданин / НКО / коммерческая организация)."
+          description: "Тип получателя ренты (гражданин / НКО / коммерческая организация). Внутреннее enum-поле."
           required: true
         - name: "eligibility_outcome"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["eligible", "ineligible", "not_defined"]
-          description: "Вывод о соответствии типа получателя виду ренты."
+          description: "Вывод о соответствии типа получателя виду ренты. Внутреннее enum-поле."
           required: true
         - name: "eligibility_rule"
           type: "string"
           presentation: "fact"
           label: "Применённое императивное правило"
-          description: "Краткое описание императивного правила ГК РФ, применённого для вывода."
+          description: >
+            Краткое описание императивного правила ГК РФ, применённого для вывода. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -7506,7 +7553,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Обоснование соответствия"
-          description: "Краткое обоснование вывода на русском языке."
+          description: >
+            Краткое обоснование вывода на русском языке. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -7870,27 +7918,28 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["permanent", "life_annuity", "lifetime_maintenance", "not_defined"]
-          description: "Вид ренты, определённый для целей проверки минимума."
+          description: "Вид ренты, определённый для целей проверки минимума. Внутреннее enum-поле."
           required: true
         - name: "minimum_threshold_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия в тексте ссылки на императивный минимум размера ренты."
+          description: "Статус наличия в тексте ссылки на императивный минимум размера ренты. Внутреннее enum-поле."
           required: true
         - name: "minimum_threshold_rule_code"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["mrot_1", "pm_1", "pm_2", "custom", "not_defined"]
-          description: "Правило привязки размера ренты к императивному минимуму."
+          description: "Правило привязки размера ренты к императивному минимуму. Внутреннее enum-поле."
           required: true
         - name: "minimum_threshold_details"
           type: "string"
           presentation: "fact"
           label: "Императивный минимум"
-          description: "Текст договора о привязке размера ренты к императивному минимуму."
+          description: >
+            Текст договора о привязке размера ренты к императивному минимуму. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -7899,13 +7948,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["compliant", "potentially_noncompliant", "not_defined"]
-          description: "Вывод о соответствии заявленного размера применимому императивному минимуму."
+          description: "Вывод о соответствии заявленного размера применимому императивному минимуму. Внутреннее enum-поле."
           required: true
         - name: "compliance_details"
           type: "string"
           presentation: "fact"
           label: "Обоснование соответствия минимуму"
-          description: "Краткое обоснование вывода о соответствии или несоответствии императивному минимуму."
+          description: >
+            Краткое обоснование вывода о соответствии или несоответствии императивному минимуму. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -8276,20 +8326,21 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["real_estate", "movable", "mixed", "not_defined"]
-          description: "Вид имущества, передаваемого под выплату ренты."
+          description: "Вид имущества, передаваемого под выплату ренты. Внутреннее enum-поле."
           required: true
         - name: "transfer_registration_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_applicable", "not_defined"]
-          description: "Статус условия о государственной регистрации перехода права собственности."
+          description: "Статус условия о государственной регистрации перехода права собственности. Внутреннее enum-поле."
           required: true
         - name: "transfer_registration_details"
           type: "string"
           presentation: "fact"
           label: "Регистрация перехода права"
-          description: "Текст о государственной регистрации перехода права собственности или о её неприменимости."
+          description: >
+            Текст о государственной регистрации перехода права собственности или о её неприменимости. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 1
@@ -8298,13 +8349,14 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_applicable", "not_defined"]
-          description: "Статус условия о государственной регистрации обременения рентой."
+          description: "Статус условия о государственной регистрации обременения рентой. Внутреннее enum-поле."
           required: true
         - name: "encumbrance_registration_details"
           type: "string"
           presentation: "fact"
           label: "Регистрация обременения"
-          description: "Текст о государственной регистрации обременения рентой или о её неприменимости."
+          description: >
+            Текст о государственной регистрации обременения рентой или о её неприменимости. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 2
@@ -8313,20 +8365,21 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения привязки момента начала рентных выплат."
+          description: "Статус определения привязки момента начала рентных выплат. Внутреннее enum-поле."
           required: true
         - name: "effective_date_code"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["registration", "signing", "transfer", "custom", "not_defined"]
-          description: "Событие, к которому привязано начало рентных выплат."
+          description: "Событие, к которому привязано начало рентных выплат. Внутреннее enum-поле."
           required: true
         - name: "effective_date_details"
           type: "string"
           presentation: "fact"
           label: "Начало выплат"
-          description: "Текст о привязке момента начала рентных выплат."
+          description: >
+            Текст о привязке момента начала рентных выплат. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: true
           display_priority: 3

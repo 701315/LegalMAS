@@ -777,7 +777,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Доверитель"
-          description: "Доверитель по договору поручения."
+          description: >
+            Доверитель по договору поручения. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 1
@@ -786,7 +787,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Поверенный"
-          description: "Поверенный по договору поручения."
+          description: >
+            Поверенный по договору поручения. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 2
@@ -795,7 +797,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Предмет поручения"
-          description: "Перечень юридических действий, составляющих предмет поручения."
+          description: >
+            Перечень юридических действий, составляющих предмет поручения. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: true
           display_priority: 3
@@ -815,7 +818,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["principal", "agent", "unclear", "not_defined"]
           display_in_grid: false
-          description: "От чьего имени действует поверенный."
+          description: "От чьего имени действует поверенный. Внутреннее enum-поле."
           required: true
 
         - name: "poa_status"
@@ -824,7 +827,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["required_and_mentioned", "mentioned", "not_required", "not_defined"]
           display_in_grid: false
-          description: "Статус доверенности в договоре."
+          description: "Статус доверенности в договоре. Внутреннее enum-поле."
           required: true
 
         - name: "remuneration_status"
@@ -833,7 +836,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["paid", "free", "unclear", "not_defined"]
           display_in_grid: false
-          description: "Статус возмездности договора поручения."
+          description: "Статус возмездности договора поручения. Внутреннее enum-поле."
           required: true
 
         - name: "reporting_status"
@@ -842,7 +845,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["present", "not_defined"]
           display_in_grid: false
-          description: "Наличие отчётности поверенного."
+          description: "Наличие отчётности поверенного. Внутреннее enum-поле."
           required: true
 
         - name: "termination_status"
@@ -851,7 +854,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["present", "not_defined"]
           display_in_grid: false
-          description: "Наличие условий прекращения договора."
+          description: "Наличие условий прекращения договора. Внутреннее enum-поле."
           required: true
 
       store_payload: true
@@ -1173,7 +1176,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["specific", "partial", "generic", "not_defined"]
           display_in_grid: false
-          description: "Степень конкретизации действий."
+          description: "Степень конкретизации действий. Внутреннее enum-поле."
           required: true
 
         - name: "actions_nature"
@@ -1182,7 +1185,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["legal", "mixed", "factual_or_service_like", "unclear", "not_defined"]
           display_in_grid: false
-          description: "Юридическая природа действий."
+          description: "Юридическая природа действий. Внутреннее enum-поле."
           required: true
 
       store_payload: true
@@ -1518,7 +1521,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["required", "mentioned", "not_defined"]
           display_in_grid: false
-          description: "Наличие обязанности выдать доверенность."
+          description: "Наличие обязанности выдать доверенность. Внутреннее enum-поле."
           required: true
 
         - name: "authority_scope_status"
@@ -1527,7 +1530,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "generic", "not_defined"]
           display_in_grid: false
-          description: "Определённость объёма полномочий."
+          description: "Определённость объёма полномочий. Внутреннее enum-поле."
           required: true
 
         - name: "notarial_poa_reference"
@@ -1536,7 +1539,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["present", "not_defined"]
           display_in_grid: false
-          description: "Указание на нотариальную форму доверенности."
+          description: "Указание на нотариальную форму доверенности. Внутреннее enum-поле."
           required: true
 
       store_payload: true
@@ -1863,7 +1866,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["present", "partial", "not_defined"]
           display_in_grid: false
-          description: "Статус ограничений полномочий поверенного."
+          description: "Статус ограничений полномочий поверенного. Внутреннее enum-поле."
           required: true
 
         - name: "conflict_of_interest_status"
@@ -1872,7 +1875,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["present", "partial", "not_defined"]
           display_in_grid: false
-          description: "Наличие антиконфликтных оговорок."
+          description: "Наличие антиконфликтных оговорок. Внутреннее enum-поле."
           required: true
 
       store_payload: true
@@ -2212,7 +2215,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Наличие указаний доверителя."
+          description: "Наличие указаний доверителя. Внутреннее enum-поле."
           required: true
 
         - name: "expense_reimbursement_status"
@@ -2221,7 +2224,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Наличие порядка возмещения расходов."
+          description: "Наличие порядка возмещения расходов. Внутреннее enum-поле."
           required: true
 
         - name: "advance_status"
@@ -2230,7 +2233,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Наличие авансирования расходов."
+          description: "Наличие авансирования расходов. Внутреннее enum-поле."
           required: true
 
       store_payload: true
@@ -2569,7 +2572,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["paid", "free", "unclear", "not_defined"]
           display_in_grid: false
-          description: "Модель возмездности договора."
+          description: "Модель возмездности договора. Внутреннее enum-поле."
           required: true
 
         - name: "remuneration_amount_status"
@@ -2578,7 +2581,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Определённость размера вознаграждения."
+          description: "Определённость размера вознаграждения. Внутреннее enum-поле."
           required: true
 
         - name: "payment_procedure_status"
@@ -2587,7 +2590,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Определённость порядка выплаты."
+          description: "Определённость порядка выплаты. Внутреннее enum-поле."
           required: true
 
       store_payload: true
@@ -2927,7 +2930,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["present", "partial", "not_defined"]
           display_in_grid: false
-          description: "Статус отчётности поверенного."
+          description: "Статус отчётности поверенного. Внутреннее enum-поле."
           required: true
 
         - name: "supporting_docs_required"
@@ -2936,7 +2939,7 @@ checks_v8:
           risk_weight: "low"
           allowed_values: ["yes", "no", "not_defined"]
           display_in_grid: false
-          description: "Требуются ли подтверждающие документы."
+          description: "Требуются ли подтверждающие документы. Внутреннее enum-поле."
           required: true
 
         - name: "transfer_of_proceeds_status"
@@ -2945,7 +2948,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["present", "not_defined"]
           display_in_grid: false
-          description: "Наличие обязанности передать всё полученное."
+          description: "Наличие обязанности передать всё полученное. Внутреннее enum-поле."
           required: true
 
         - name: "report_acceptance_mechanism"
@@ -2954,7 +2957,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["present", "not_defined"]
           display_in_grid: false
-          description: "Наличие порядка принятия/оспаривания отчёта."
+          description: "Наличие порядка принятия/оспаривания отчёта. Внутреннее enum-поле."
           required: true
 
       store_payload: true
@@ -3299,7 +3302,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["present", "partial", "not_defined"]
           display_in_grid: false
-          description: "Наличие порядка прекращения."
+          description: "Наличие порядка прекращения. Внутреннее enum-поле."
           required: true
 
         - name: "poa_return_status"
@@ -3308,7 +3311,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["present", "not_defined"]
           display_in_grid: false
-          description: "Наличие возврата/отзыва доверенности."
+          description: "Наличие возврата/отзыва доверенности. Внутреннее enum-поле."
           required: true
 
         - name: "third_party_notice_status"
@@ -3317,7 +3320,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["present", "not_defined"]
           display_in_grid: false
-          description: "Наличие уведомления третьих лиц."
+          description: "Наличие уведомления третьих лиц. Внутреннее enum-поле."
           required: true
 
         - name: "settlement_upon_termination_status"
@@ -3326,7 +3329,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["present", "not_defined"]
           display_in_grid: false
-          description: "Наличие окончательного расчёта при прекращении."
+          description: "Наличие окончательного расчёта при прекращении. Внутреннее enum-поле."
           required: true
 
       store_payload: true
@@ -3666,7 +3669,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["allowed", "prohibited", "unclear", "not_defined"]
           display_in_grid: false
-          description: "Статус передоверия."
+          description: "Статус передоверия. Внутреннее enum-поле."
           required: true
 
         - name: "principal_consent_required"
@@ -3675,7 +3678,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["yes", "no", "not_defined"]
           display_in_grid: false
-          description: "Требуется ли согласие доверителя."
+          description: "Требуется ли согласие доверителя. Внутреннее enum-поле."
           required: true
 
         - name: "agent_liability_for_subagent"
@@ -3684,7 +3687,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["choice_only", "full_liability", "not_defined"]
           display_in_grid: false
-          description: "Объём ответственности поверенного за заместителя."
+          description: "Объём ответственности поверенного за заместителя. Внутреннее enum-поле."
           required: true
 
       store_payload: true
@@ -4020,7 +4023,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["present", "not_defined"]
           display_in_grid: false
-          description: "Наличие статуса коммерческого представителя."
+          description: "Наличие статуса коммерческого представителя. Внутреннее enum-поле."
           required: true
 
         - name: "dual_representation_status"
@@ -4029,7 +4032,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["present", "not_defined"]
           display_in_grid: false
-          description: "Наличие условия о представлении обеих сторон."
+          description: "Наличие условия о представлении обеих сторон. Внутреннее enum-поле."
           required: true
 
         - name: "written_form_status"
@@ -4038,7 +4041,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["present", "not_defined"]
           display_in_grid: false
-          description: "Наличие фиксации полномочий непосредственно в договоре."
+          description: "Наличие фиксации полномочий непосредственно в договоре. Внутреннее enum-поле."
           required: true
 
       store_payload: true
@@ -4406,7 +4409,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Указан ли срок доверенности."
+          description: "Указан ли срок доверенности. Внутреннее enum-поле."
           required: true
 
         - name: "poa_term_alignment"
@@ -4415,7 +4418,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["aligned", "misaligned", "not_defined"]
           display_in_grid: false
-          description: "Соответствие срока доверенности сроку поручения."
+          description: "Соответствие срока доверенности сроку поручения. Внутреннее enum-поле."
           required: true
 
         - name: "poa_renewal_mechanism"
@@ -4424,7 +4427,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["present", "not_defined"]
           display_in_grid: false
-          description: "Наличие механизма продления или перевыдачи доверенности."
+          description: "Наличие механизма продления или перевыдачи доверенности. Внутреннее enum-поле."
           required: true
 
         - name: "irrevocable_poa_status"
@@ -4433,7 +4436,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["present", "not_defined"]
           display_in_grid: false
-          description: "Наличие условия о безотзывной доверенности."
+          description: "Наличие условия о безотзывной доверенности. Внутреннее enum-поле."
           required: true
 
         - name: "subdelegation_notarial_requirement"
@@ -4442,7 +4445,7 @@ checks_v8:
           risk_weight: "low"
           allowed_values: ["present", "not_defined"]
           display_in_grid: false
-          description: "Требование нотариальной формы доверенности при передоверии."
+          description: "Требование нотариальной формы доверенности при передоверии. Внутреннее enum-поле."
           required: true
 
       store_payload: true
@@ -4759,7 +4762,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["present", "not_defined"]
           display_in_grid: false
-          description: "Наличие пункта, прямо исключающего право отмены поручения."
+          description: "Наличие пункта, прямо исключающего право отмены поручения. Внутреннее enum-поле."
           required: true
 
         - name: "termination_restriction_clause"
@@ -4768,7 +4771,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["present", "not_defined"]
           display_in_grid: false
-          description: "Наличие пункта, косвенно ограничивающего право отмены поручения."
+          description: "Наличие пункта, косвенно ограничивающего право отмены поручения. Внутреннее enum-поле."
           required: true
 
       store_payload: true
@@ -5117,7 +5120,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["present", "not_defined"]
           display_in_grid: false
-          description: "Наличие договорных санкций за ненадлежащее исполнение."
+          description: "Наличие договорных санкций за ненадлежащее исполнение. Внутреннее enum-поле."
           required: true
 
         - name: "liability_cap_status"
@@ -5126,7 +5129,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["present", "not_defined"]
           display_in_grid: false
-          description: "Наличие ограничения ответственности поверенного."
+          description: "Наличие ограничения ответственности поверенного. Внутреннее enum-поле."
           required: true
 
         - name: "deviation_procedure_status"
@@ -5135,7 +5138,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["present", "not_defined"]
           display_in_grid: false
-          description: "Наличие порядка отступления от указаний доверителя."
+          description: "Наличие порядка отступления от указаний доверителя. Внутреннее enum-поле."
           required: true
 
         - name: "deviation_notification_status"
@@ -5144,7 +5147,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["present", "not_defined"]
           display_in_grid: false
-          description: "Наличие обязанности уведомления об отступлении."
+          description: "Наличие обязанности уведомления об отступлении. Внутреннее enum-поле."
           required: true
 
       store_payload: true
@@ -5519,7 +5522,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Наличие обязанности принять исполнение."
+          description: "Наличие обязанности принять исполнение. Внутреннее enum-поле."
           required: true
 
         - name: "remuneration_payment_term_status"
@@ -5528,7 +5531,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Наличие срока выплаты вознаграждения."
+          description: "Наличие срока выплаты вознаграждения. Внутреннее enum-поле."
           required: true
 
         - name: "expenses_reimbursement_term_status"
@@ -5537,7 +5540,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Наличие срока возмещения расходов."
+          description: "Наличие срока возмещения расходов. Внутреннее enum-поле."
           required: true
 
         - name: "principal_default_liability_status"
@@ -5546,7 +5549,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Наличие ответственности доверителя за просрочку."
+          description: "Наличие ответственности доверителя за просрочку. Внутреннее enum-поле."
           required: true
 
         - name: "refusal_to_accept_consequences_status"
@@ -5555,7 +5558,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Наличие последствий отказа от принятия исполнения."
+          description: "Наличие последствий отказа от принятия исполнения. Внутреннее enum-поле."
           required: true
 
       store_payload: true
@@ -5927,7 +5930,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Наличие механизма последующего одобрения сделок."
+          description: "Наличие механизма последующего одобрения сделок. Внутреннее enum-поле."
           required: true
 
         - name: "approval_deadline_status"
@@ -5936,7 +5939,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Наличие срока на одобрение/отказ."
+          description: "Наличие срока на одобрение/отказ. Внутреннее enum-поле."
           required: true
 
         - name: "approval_form_status"
@@ -5945,7 +5948,7 @@ checks_v8:
           risk_weight: "low"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Наличие указания на форму одобрения."
+          description: "Наличие указания на форму одобрения. Внутреннее enum-поле."
           required: true
 
         - name: "silence_as_approval_status"
@@ -5954,7 +5957,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Урегулирован ли вопрос о молчании как форме одобрения."
+          description: "Урегулирован ли вопрос о молчании как форме одобрения. Внутреннее enum-поле."
           required: true
 
         - name: "non_approval_consequences_status"
@@ -5963,7 +5966,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Наличие последствий неодобрения для поверенного."
+          description: "Наличие последствий неодобрения для поверенного. Внутреннее enum-поле."
           required: true
 
       store_payload: true
@@ -6334,7 +6337,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Наличие момента вступления в силу."
+          description: "Наличие момента вступления в силу. Внутреннее enum-поле."
           required: true
 
         - name: "agreement_term_status"
@@ -6343,7 +6346,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Наличие срока действия договора."
+          description: "Наличие срока действия договора. Внутреннее enum-поле."
           required: true
 
         - name: "term_vs_poa_alignment"
@@ -6352,7 +6355,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["aligned", "misaligned", "not_defined"]
           display_in_grid: false
-          description: "Соответствие срока договора сроку поручения."
+          description: "Соответствие срока договора сроку поручения. Внутреннее enum-поле."
           required: true
 
         - name: "auto_renewal_status"
@@ -6361,7 +6364,7 @@ checks_v8:
           risk_weight: "low"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Наличие условий автоматической пролонгации."
+          description: "Наличие условий автоматической пролонгации. Внутреннее enum-поле."
           required: true
 
         - name: "post_term_effects_status"
@@ -6370,7 +6373,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Наличие последствий исполнения после истечения срока."
+          description: "Наличие последствий исполнения после истечения срока. Внутреннее enum-поле."
           required: true
 
       store_payload: true
@@ -6725,7 +6728,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Наличие критерия исполнения поручения."
+          description: "Наличие критерия исполнения поручения. Внутреннее enum-поле."
           required: true
 
         - name: "completion_fixing_status"
@@ -6734,7 +6737,7 @@ checks_v8:
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Наличие порядка фиксации исполнения."
+          description: "Наличие порядка фиксации исполнения. Внутреннее enum-поле."
           required: true
 
         - name: "completion_moment_status"
@@ -6743,7 +6746,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Наличие момента прекращения полномочий при исполнении."
+          description: "Наличие момента прекращения полномочий при исполнении. Внутреннее enum-поле."
           required: true
 
         - name: "post_completion_duties_status"
@@ -6752,7 +6755,7 @@ checks_v8:
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           display_in_grid: false
-          description: "Наличие обязанностей сторон после исполнения."
+          description: "Наличие обязанностей сторон после исполнения. Внутреннее enum-поле."
           required: true
 
       store_payload: true

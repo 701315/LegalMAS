@@ -1282,7 +1282,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения реквизитов продавца."
+          description: "Статус определения реквизитов продавца. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1290,7 +1290,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Реквизиты продавца"
-          description: "Полные реквизиты продавца."
+          description: >
+            Полные реквизиты продавца. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -1311,7 +1312,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["legal_entity", "individual", "ip", "not_defined"]
-          description: "Тип продавца."
+          description: "Тип продавца. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1319,7 +1320,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Подписант продавца"
-          description: "Подписант продавца."
+          description: >
+            Подписант продавца. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
 
@@ -1328,7 +1330,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["charter", "poa", "order", "personal", "other", "not_defined"]
-          description: "Основание полномочий подписанта продавца."
+          description: "Основание полномочий подписанта продавца. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1337,7 +1339,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения реквизитов покупателя."
+          description: "Статус определения реквизитов покупателя. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1345,7 +1347,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Реквизиты покупателя"
-          description: "Полные реквизиты покупателя."
+          description: >
+            Полные реквизиты покупателя. Fallback: "Не установлено" / "Не удалось определить".
           required: true
           display_in_grid: false
 
@@ -1366,7 +1369,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["legal_entity", "individual", "ip", "not_defined"]
-          description: "Тип покупателя."
+          description: "Тип покупателя. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1374,7 +1377,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Подписант покупателя"
-          description: "Подписант покупателя."
+          description: >
+            Подписант покупателя. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
 
@@ -1383,7 +1387,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["charter", "poa", "order", "personal", "other", "not_defined"]
-          description: "Основание полномочий подписанта покупателя."
+          description: "Основание полномочий подписанта покупателя. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -1392,7 +1396,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия корпоративного одобрения или указания, что оно не требуется."
+          description: "Статус наличия корпоративного одобрения или указания, что оно не требуется. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2034,7 +2038,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения кадастрового номера."
+          description: "Статус определения кадастрового номера. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2056,7 +2060,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения адреса."
+          description: "Статус определения адреса. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2077,7 +2081,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения площади."
+          description: "Статус определения площади. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2098,7 +2102,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["apartment", "house", "land", "building", "non_residential", "share", "unfinished", "other", "not_defined"]
-          description: "Тип объекта недвижимости."
+          description: "Тип объекта недвижимости. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2119,7 +2123,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус упоминания выписки ЕГРН."
+          description: "Статус упоминания выписки ЕГРН. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2127,7 +2131,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Выписка ЕГРН"
-          description: "Реквизиты выписки ЕГРН."
+          description: >
+            Реквизиты выписки ЕГРН. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
 
@@ -2136,7 +2141,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания правоустанавливающего документа."
+          description: "Статус указания правоустанавливающего документа. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2144,7 +2149,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Тип основания права"
-          description: "Тип правоустанавливающего документа."
+          description: >
+            Тип правоустанавливающего документа. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
 
@@ -2152,7 +2158,8 @@ checks_v8:
           type: "string"
           presentation: "fact"
           label: "Реквизиты основания права"
-          description: "Реквизиты правоустанавливающего документа."
+          description: >
+            Реквизиты правоустанавливающего документа. Fallback: "Не установлено" / "Не удалось определить".
           required: false
           display_in_grid: false
 
@@ -2692,7 +2699,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус заверения или раскрытия по обременениям объекта."
+          description: "Статус заверения или раскрытия по обременениям объекта. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2713,7 +2720,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус заверения или раскрытия по арестам и запретам регистрационных действий."
+          description: "Статус заверения или раскрытия по арестам и запретам регистрационных действий. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2734,7 +2741,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус раскрытия аренды, найма или иного пользования объектом."
+          description: "Статус раскрытия аренды, найма или иного пользования объектом. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -2755,7 +2762,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус раскрытия задолженности по объекту."
+          description: "Статус раскрытия задолженности по объекту. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3323,7 +3330,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус раскрытия ЗОУИТ, охранных и санитарно-защитных зон."
+          description: "Статус раскрытия ЗОУИТ, охранных и санитарно-защитных зон. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3344,7 +3351,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус упоминания объекта культурного наследия (ОКН)."
+          description: "Статус упоминания объекта культурного наследия (ОКН). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3365,7 +3372,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус раскрытия экологического состояния объекта."
+          description: "Статус раскрытия экологического состояния объекта. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3387,7 +3394,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус раскрытия инженерных сервитутов и коммуникаций."
+          description: "Статус раскрытия инженерных сервитутов и коммуникаций. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3409,7 +3416,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус раскрытия перепланировок и реконструкции."
+          description: "Статус раскрытия перепланировок и реконструкции. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3874,7 +3881,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус заверения или раскрытия по банкротным процедурам продавца."
+          description: "Статус заверения или раскрытия по банкротным процедурам продавца. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3895,7 +3902,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус заверения или раскрытия по признакам несостоятельности."
+          description: "Статус заверения или раскрытия по признакам несостоятельности. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -3916,7 +3923,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус упоминания риска оспаривания сделки по ст. 61.2 ФЗ-127."
+          description: "Статус упоминания риска оспаривания сделки по ст. 61.2 ФЗ-127. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -4559,7 +4566,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения цены объекта."
+          description: "Статус определения цены объекта. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -4581,7 +4588,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения способа расчётов."
+          description: "Статус определения способа расчётов. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -4590,7 +4597,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["accreditive", "escrow", "bank_cell", "notary_deposit", "cashless", "cash", "installment", "mixed", "not_defined"]
-          description: "Код способа расчётов."
+          description: "Код способа расчётов. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -4610,7 +4617,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения типа обеспечительного платежа."
+          description: "Статус определения типа обеспечительного платежа. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -4619,7 +4626,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["advance", "zadatok", "security_payment", "not_defined"]
-          description: "Код типа обеспечительного платежа."
+          description: "Код типа обеспечительного платежа. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -4652,7 +4659,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус условий возврата или удержания платежа."
+          description: "Статус условий возврата или удержания платежа. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -4673,7 +4680,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус налоговой оговорки."
+          description: "Статус налоговой оговорки. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5011,7 +5018,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения распределения расходов на регистрацию."
+          description: "Статус определения распределения расходов на регистрацию. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5482,7 +5489,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус регулирования ипотеки в силу закона."
+          description: "Статус регулирования ипотеки в силу закона. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5491,7 +5498,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["arises", "excluded", "not_addressed", "not_defined"]
-          description: "Режим ипотеки в силу закона."
+          description: "Режим ипотеки в силу закона. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -5513,7 +5520,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус условий прекращения ипотеки в силу закона."
+          description: "Статус условий прекращения ипотеки в силу закона. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6175,7 +6182,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус срока подачи документов на регистрацию."
+          description: "Статус срока подачи документов на регистрацию. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6196,7 +6203,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус крайнего срока закрытия сделки."
+          description: "Статус крайнего срока закрытия сделки. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6217,7 +6224,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус отлагательных условий закрытия."
+          description: "Статус отлагательных условий закрытия. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6238,7 +6245,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия и момента подписания передаточного акта."
+          description: "Статус наличия и момента подписания передаточного акта. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6259,7 +6266,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус срока фактического освобождения объекта."
+          description: "Статус срока фактического освобождения объекта. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6279,7 +6286,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус условий о выписке зарегистрированных лиц."
+          description: "Статус условий о выписке зарегистрированных лиц. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6300,7 +6307,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус порядка при приостановке или отказе в регистрации."
+          description: "Статус порядка при приостановке или отказе в регистрации. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6321,7 +6328,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "low"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус передачи технической документации."
+          description: "Статус передачи технической документации. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6811,7 +6818,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус оснований расторжения договора."
+          description: "Статус оснований расторжения договора. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6832,7 +6839,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус последствий расторжения договора."
+          description: "Статус последствий расторжения договора. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6854,7 +6861,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус регулирования уступки прав."
+          description: "Статус регулирования уступки прав. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -6863,7 +6870,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["prohibited", "allowed_with_consent", "allowed", "not_defined"]
-          description: "Режим уступки прав требования."
+          description: "Режим уступки прав требования. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -7276,7 +7283,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус распределения риска случайной гибели объекта."
+          description: "Статус распределения риска случайной гибели объекта. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -7297,7 +7304,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус условий страхования объекта."
+          description: "Статус условий страхования объекта. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -7610,7 +7617,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Наличие кадастрового номера земельного участка в договоре."
+          description: "Наличие кадастрового номера земельного участка в договоре. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8105,7 +8112,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия согласия залогодержателя на сделку."
+          description: "Статус наличия согласия залогодержателя на сделку. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8126,7 +8133,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения механизма погашения ипотеки."
+          description: "Статус определения механизма погашения ипотеки. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8135,7 +8142,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["accreditive", "escrow", "notary_deposit", "direct_payment", "prepaid", "not_defined"]
-          description: "Код механизма погашения ипотеки."
+          description: "Код механизма погашения ипотеки. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8157,7 +8164,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус условия об одновременности регистраций."
+          description: "Статус условия об одновременности регистраций. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8179,7 +8186,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения суммы ипотечного долга."
+          description: "Статус определения суммы ипотечного долга. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8698,7 +8705,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения вида передаваемых прав на землю."
+          description: "Статус определения вида передаваемых прав на землю. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8707,7 +8714,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["ownership", "lease", "perpetual_use", "gratuitous_use", "other", "not_defined"]
-          description: "Вид передаваемых прав на земельный участок."
+          description: "Вид передаваемых прав на земельный участок. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8729,7 +8736,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения кадастрового номера участка."
+          description: "Статус определения кадастрового номера участка. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8751,7 +8758,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения площади участка."
+          description: "Статус определения площади участка. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -8772,7 +8779,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус условия о согласии арендодателя."
+          description: "Статус условия о согласии арендодателя. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -9171,7 +9178,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия полного перечня объектов сделки."
+          description: "Статус наличия полного перечня объектов сделки. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -9656,7 +9663,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус сведений о согласии супруга."
+          description: "Статус сведений о согласии супруга. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -9677,7 +9684,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус сведений об опеке и несовершеннолетних собственниках."
+          description: "Статус сведений об опеке и несовершеннолетних собственниках. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -9698,7 +9705,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус сведений о материнском капитале."
+          description: "Статус сведений о материнском капитале. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -10064,7 +10071,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания нотариальной или простой письменной формы."
+          description: "Статус указания нотариальной или простой письменной формы. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -10085,7 +10092,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус распределения расходов на нотариуса."
+          description: "Статус распределения расходов на нотариуса. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -10614,7 +10621,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус раскрытия информации об отказниках от приватизации."
+          description: "Статус раскрытия информации об отказниках от приватизации. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -10636,7 +10643,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус раскрытия получателей ренты или лиц по договору пожизненного содержания."
+          description: "Статус раскрытия получателей ренты или лиц по договору пожизненного содержания. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -10657,7 +10664,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус раскрытия бывших членов семьи с сохранённым правом пользования."
+          description: "Статус раскрытия бывших членов семьи с сохранённым правом пользования. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -10678,7 +10685,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус раскрытия лиц по завещательному отказу."
+          description: "Статус раскрытия лиц по завещательному отказу. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -10699,7 +10706,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус обязательств продавца при выявлении лиц с сохранённым правом."
+          description: "Статус обязательств продавца при выявлении лиц с сохранённым правом. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -11269,7 +11276,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения режима гарантийных обязательств."
+          description: "Статус определения режима гарантийных обязательств. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -11278,7 +11285,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["warranty_provided", "as_is", "statutory", "mixed", "not_defined"]
-          description: "Код модели гарантийного режима."
+          description: "Код модели гарантийного режима. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -11300,7 +11307,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения гарантийного срока."
+          description: "Статус определения гарантийного срока. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -11321,7 +11328,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус раскрытия недостатков объекта."
+          description: "Статус раскрытия недостатков объекта. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -11342,7 +11349,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус подтверждения осмотра объекта покупателем."
+          description: "Статус подтверждения осмотра объекта покупателем. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -11363,7 +11370,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус порядка предъявления претензий по качеству."
+          description: "Статус порядка предъявления претензий по качеству. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -11384,7 +11391,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус последствий обнаружения недостатков."
+          description: "Статус последствий обнаружения недостатков. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -11980,7 +11987,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия выделенного раздела заверений."
+          description: "Статус наличия выделенного раздела заверений. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -11989,7 +11996,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["comprehensive", "standard", "minimal", "none", "not_defined"]
-          description: "Код объёма заверений продавца."
+          description: "Код объёма заверений продавца. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -12011,7 +12018,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия ссылки на ст. 431.2 ГК РФ."
+          description: "Статус наличия ссылки на ст. 431.2 ГК РФ. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -12031,7 +12038,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус режима ответственности за недостоверность заверений."
+          description: "Статус режима ответственности за недостоверность заверений. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -12052,7 +12059,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус количественных ограничений ответственности."
+          description: "Статус количественных ограничений ответственности. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -12074,7 +12081,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус срока действия заверений после сделки."
+          description: "Статус срока действия заверений после сделки. Внутреннее enum-поле."
           required: true
           display_in_grid: false
 
@@ -12095,7 +12102,7 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус оговорки о знании покупателя (sandbagging)."
+          description: "Статус оговорки о знании покупателя (sandbagging). Внутреннее enum-поле."
           required: true
           display_in_grid: false
 

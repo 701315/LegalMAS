@@ -3637,7 +3637,8 @@ checks_v8:
           presentation: "fact"
           label: "Основания досрочного истребования кредита"
           display_in_grid: false
-          description: "Полный перечень оснований для досрочного возврата (массив строк для payload)."
+          description: >
+            Полный перечень оснований для досрочного возврата (массив строк для payload). Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "borrower_cure_period"
@@ -4872,7 +4873,8 @@ checks_v8:
           presentation: "fact"
           label: "Очередность погашения требований"
           display_in_grid: false
-          description: "Полный упорядоченный перечень категорий погашения (массив строк для payload)."
+          description: >
+            Полный упорядоченный перечень категорий погашения (массив строк для payload). Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "allocation_order_summary"
@@ -5474,7 +5476,8 @@ checks_v8:
           presentation: "fact"
           label: "Перечень финансовых ковенантов"
           display_in_grid: false
-          description: "Полный перечень ковенантов с формулами и порогами (массив строк для payload)."
+          description: >
+            Полный перечень ковенантов с формулами и порогами (массив строк для payload). Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "breach_consequences"
@@ -7662,7 +7665,8 @@ checks_v8:
           presentation: "fact"
           label: "Виды обеспечения кредита"
           display_in_grid: false
-          description: "Полный перечень видов обеспечения с конкретикой (массив строк для payload)."
+          description: >
+            Полный перечень видов обеспечения с конкретикой (массив строк для payload). Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "collateral_valuation_status"
@@ -8191,7 +8195,8 @@ checks_v8:
           presentation: "fact"
           label: "Документы отлагательных условий (CP)"
           display_in_grid: false
-          description: "Полный перечень условий предоставления (массив строк для payload)."
+          description: >
+            Полный перечень условий предоставления (массив строк для payload). Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "bank_refusal_right_status"
@@ -8706,7 +8711,8 @@ checks_v8:
           presentation: "fact"
           label: "Виды негативных ковенантов"
           display_in_grid: false
-          description: "Полный перечень негативных ковенантов (массив строк для payload)."
+          description: >
+            Полный перечень негативных ковенантов (массив строк для payload). Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "affirmative_covenants_types"
@@ -8714,7 +8720,8 @@ checks_v8:
           presentation: "fact"
           label: "Виды позитивных ковенантов"
           display_in_grid: false
-          description: "Полный перечень позитивных ковенантов (массив строк для payload)."
+          description: >
+            Полный перечень позитивных ковенантов (массив строк для payload). Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "non_financial_covenants_summary"
@@ -11291,7 +11298,8 @@ checks_v8:
           presentation: "fact"
           label: "Способы отправки юридически значимых уведомлений"
           display_in_grid: false
-          description: "Полный перечень способов направления уведомлений (массив строк для payload)."
+          description: >
+            Полный перечень способов направления уведомлений (массив строк для payload). Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "notice_effective_moment_status"
@@ -13210,7 +13218,8 @@ checks_v8:
           presentation: "fact"
           label: "Перечень заверений заёмщика"
           display_in_grid: false
-          description: "Полный перечень заверений с краткой формулировкой (массив строк для payload)."
+          description: >
+            Полный перечень заверений с краткой формулировкой (массив строк для payload). Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "repeating_reps_status"
