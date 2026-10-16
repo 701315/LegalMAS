@@ -1761,7 +1761,7 @@ checks_v8:
       Детекторная проверка наличия признаков встречного предоставления, несовместимых
       с дарением. Не оценивает "насколько это плохо" — только фиксирует факты.
     triggers: {}
-    ui_mode: "risk_detection"
+    ui_mode: "field_extraction"
     severity: "critical"
     severity_if_pass: "pass"
     severity_if_fail: "critical"
