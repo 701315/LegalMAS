@@ -87,3 +87,4 @@ docs/*.md.bak-*
 
 # Test reports (локальные артефакты)
 _test_output/
+docs/ukbusinessworkbook2026.xlsx
