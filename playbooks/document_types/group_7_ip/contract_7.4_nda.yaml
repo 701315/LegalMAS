@@ -953,6 +953,8 @@ checks_v8:
 
       store_payload: true
 
+
+
   - id: confidential_info_definition_check
     name: "Определение конфиденциальной информации и проверка на catch-all"
     description: >
@@ -1212,9 +1214,16 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 2200
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "confidential_info_definition_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из NDA определение конфиденциальной
@@ -1222,6 +1231,8 @@ checks_v8:
         маркировки, наличие catch-all формулировок.
         Не анализируй исключения из конфиденциальности, меры защиты,
         ответственность или срок действия соглашения.
+        Не оценивай риски.
+        Анализируй только текст договора.
         </role>
 
         <context>
@@ -1229,125 +1240,266 @@ checks_v8:
         </context>
 
         <task>
-        Заполни строго следующие 11 полей + evidence (всего 12 ключей):
-        1. definition_status — "defined" или "not_defined".
-        2. definition_type_code — "categories" / "specific_list" / "both" / "unclear" / "not_defined".
-        3. definition_type_details — описание типа определения.
-        4. categories_status — "defined" или "not_defined".
-        5. categories_details — перечень общих категорий (типов) информации.
-        6. examples_status — "defined" или "not_defined".
-        7. examples_details — конкретные примеры (экземпляры внутри категорий).
-        8. marking_required_status — "defined" или "not_defined".
-        9. marking_required_details — требование маркировки «Конфиденциально» / «Коммерческая тайна».
-        10. catch_all_phrases_code — "present" / "absent" / "not_defined".
-        11. catch_all_phrases_details — выявленные catch-all формулировки или описание закрытости определения.
+        Заполни строго следующие поля:
 
-        Если данные отсутствуют в тексте и нет отсылки к приложению:
-        - статус = "not_defined"
-        - текст = "Данные не определены"
+        0. confidential_info_definition_check_presence:
+          Агрегатное signal-поле — наличие регулирования по теме.
+          - "missing" — если фрагментов по теме в тексте нет вообще
+            (следствие: все содержательные поля = "not_defined");
+          - "present" — если фрагменты по теме есть: либо хотя бы одно
+            содержательное поле ≠ "not_defined", либо тема упомянута,
+            но прямо исключена / отложена на будущее / раскрыта только общей фразой;
+          - "unclear" — если фрагменты по теме есть, но из-за противоречий
+            вывод невозможен.
 
-        Если параметр определяется через отсылку к приложению/спецификации:
-        - статус = "defined"
-        - в details укажи ссылку (например, «определяется по Приложению №1»).
+          Если presence = "missing":
+          - definition_status = "not_defined";
+          - definition_type_code = "not_defined";
+          - categories_status = "not_defined";
+          - examples_status = "not_defined";
+          - marking_required_status = "not_defined";
+          - catch_all_phrases_code = "not_defined";
+          - все *_details = "Данные не определены";
+          - не выполняй остальные шаги.
+
+        1. definition_status:
+          - "defined" — если в тексте прямо есть определение конфиденциальной информации
+            или отсылка к приложению/спецификации;
+          - "not_defined" — если определения нет.
+
+        2. definition_type_code:
+          - "categories" — если даны только общие категории/типы информации;
+          - "specific_list" — если дан конкретный закрытый перечень;
+          - "both" — если приведены и категории, и конкретный перечень внутри них;
+          - "unclear" — если определение размыто и невозможно классифицировать;
+          - "not_defined" — если определения нет.
+
+        3. definition_type_details:
+          Краткое описание типа определения на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
+
+        4. categories_status:
+          - "defined" — если в тексте прямо указаны общие категории информации;
+          - "not_defined" — если категории не указаны.
+
+        5. categories_details:
+          Перечень общих категорий (типов) конфиденциальной информации на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
+
+        6. examples_status:
+          - "defined" — если в тексте прямо указаны конкретные примеры (названия, номера, файлы);
+          - "not_defined" — если примеры не указаны.
+
+        7. examples_details:
+          Конкретные экземпляры конфиденциальной информации на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
+
+        8. marking_required_status:
+          - "defined" — если в тексте прямо указано требование маркировки
+            «Конфиденциально» / «Коммерческая тайна»;
+          - "not_defined" — если требование маркировки не указано.
+
+        9. marking_required_details:
+          Формулировка требования маркировки на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
+
+        10. catch_all_phrases_code:
+            - "present" — если присутствуют формулировки «любая информация»,
+              «вся информация», «в любой форме», «без ограничений»,
+              «including but not limited to» и аналогичные;
+            - "absent" — если определение закрытое, чётко ограниченное;
+            - "not_defined" — если самого определения нет.
+
+        11. catch_all_phrases_details:
+            Выявленные catch-all формулировки или описание закрытости определения
+            на русском языке.
+            Если данных нет — "Данные не определены".
+            Если данные противоречивы — "Не удалось определить".
         </task>
 
-        <rules>
-        - Используй только текст договора.
-        - definition_type_code:
-          * "categories" — если даны только общие категории/типы информации;
-          * "specific_list" — если дан конкретный закрытый перечень (с названиями,
-            номерами, файлами);
-          * "both" — если приведены и категории, и конкретный перечень внутри них;
-          * "unclear" — если определение размыто и невозможно классифицировать;
-          * "not_defined" — если определения нет.
+        <context_rules>
+        - Перед остальными полями заполни confidential_info_definition_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все содержательные поля = "not_defined", все *_details = "Данные не определены".
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона, обычную практику или предположения вместо текста договора.
+        - Не делай выводов по типовой структуре договора.
         - Различай:
           * категории = общие типы («технические данные», «финансовая информация»);
           * примеры = конкретные экземпляры («исходный код ProdCore», «клиент ООО X»).
-        - catch_all_phrases_code:
-          * "present" — если присутствуют формулировки «любая информация»,
-            «вся информация», «в любой форме», «без ограничений», «including
-            but not limited to» и аналогичные;
-          * "absent" — если определение закрытое, чётко ограниченное;
-          * "not_defined" — если самого определения нет.
-        - Верни РОВНО один валидный JSON-объект со всеми 12 ключами,
-          без markdown, без комментариев, без текста до или после.
-        </rules>
+        - Если параметр определяется через отсылку к приложению/спецификации,
+          это не отсутствие регулирования; отрази это в user-facing поле.
+        - catch_all_phrases_code = "present" только при прямом наличии размывающих формулировок.
+        - catch_all_phrases_code = "absent" только при закрытом, чётко ограниченном определении.
+        - Если в разных фрагментах указаны разные данные и конфликт нельзя разрешить по тексту,
+          не выбирай один из вариантов: верни "Не удалось определить", а в status используй "not_defined".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+          В тексте нет ни определения, ни отсылки к приложению.
+          → presence = "missing";
+            все *_status = "not_defined";
+            все *_details = "Данные не определены".
+
+        2. Определение только через отсылку к приложению.
+          "Перечень конфиденциальной информации приведён в Приложении №1".
+          → presence = "present";
+            definition_status = "defined";
+            definition_type_details = "Определяется по Приложению №1".
+
+        3. Противоречие между фрагментами.
+          В разных частях договора указаны разные перечни категорий.
+          → presence = "unclear";
+            соответствующий *_status = "not_defined";
+            *_details = "Не удалось определить".
+
+        4. Catch-all без конкретики.
+          "Конфиденциальная информация — это любая информация, раскрытая Раскрывающей стороной".
+          → presence = "present";
+            definition_status = "defined";
+            definition_type_code = "unclear";
+            catch_all_phrases_code = "present".
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для confidential_info_definition_check_presence используй только: "present", "missing", "unclear".
+        - Для definition_status, categories_status, examples_status, marking_required_status используй только: "defined", "not_defined".
+        - Для definition_type_code используй только: "categories", "specific_list", "both", "unclear", "not_defined".
+        - Для catch_all_phrases_code используй только: "present", "absent", "not_defined".
+        - Fallback при отсутствии данных:
+          * все *_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
       fields:
+        - name: "confidential_info_definition_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по определению конфиденциальной информации. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "definition_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия определения конфиденциальной информации в NDA."
+          display_in_grid: false
+          description: "Статус наличия определения конфиденциальной информации. Внутреннее enum-поле."
           required: true
+
         - name: "definition_type_code"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["categories", "specific_list", "both", "unclear", "not_defined"]
-          description: "Тип определения: общие категории / конкретный перечень / оба / размытое / отсутствует."
+          display_in_grid: false
+          description: "Тип определения: категории / перечень / оба / размытое / отсутствует. Внутреннее enum-поле."
           required: true
+
         - name: "definition_type_details"
           type: "string"
           presentation: "fact"
-          label: "Определение"
-          description: "Описание типа определения конфиденциальной информации."
-          required: true
           display_in_grid: true
           display_priority: 1
+          label: "Определение"
+          description: >
+            Описание типа определения конфиденциальной информации.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+
         - name: "categories_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия перечня общих категорий информации."
+          display_in_grid: false
+          description: "Статус наличия перечня общих категорий информации. Внутреннее enum-поле."
           required: true
+
         - name: "categories_details"
           type: "string"
           presentation: "fact"
-          label: "Категории информации"
-          description: "Перечень общих категорий (типов) конфиденциальной информации."
-          required: true
           display_in_grid: true
           display_priority: 2
+          label: "Категории информации"
+          description: >
+            Перечень общих категорий (типов) конфиденциальной информации.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+
         - name: "examples_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия конкретных примеров конфиденциальной информации."
+          display_in_grid: false
+          description: "Статус наличия конкретных примеров конфиденциальной информации. Внутреннее enum-поле."
           required: true
+
         - name: "examples_details"
           type: "string"
           presentation: "fact"
           label: "Конкретные примеры"
-          description: "Конкретные экземпляры конфиденциальной информации (названия, номера, файлы)."
+          description: >
+            Конкретные экземпляры конфиденциальной информации (названия, номера, файлы).
+            Fallback: "Данные не определены" / "Не удалось определить".
           required: false
           display_in_grid: false
+
         - name: "marking_required_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия требования маркировки информации."
+          display_in_grid: false
+          description: "Статус наличия требования маркировки информации. Внутреннее enum-поле."
           required: true
+
         - name: "marking_required_details"
           type: "string"
           presentation: "fact"
-          label: "Маркировка"
-          description: "Формулировка требования маркировки «Конфиденциально» / «Коммерческая тайна»."
-          required: true
           display_in_grid: true
           display_priority: 3
+          label: "Маркировка"
+          description: >
+            Формулировка требования маркировки «Конфиденциально» / «Коммерческая тайна».
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+
         - name: "catch_all_phrases_code"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["present", "absent", "not_defined"]
-          description: "Наличие catch-all формулировок: present — есть (красный флаг); absent — определение закрытое; not_defined — определения нет."
+          display_in_grid: false
+          description: "Наличие catch-all формулировок. Внутреннее enum-поле."
           required: true
+
         - name: "catch_all_phrases_details"
           type: "string"
           presentation: "fact"
-          label: "Catch-all формулировки"
-          description: "Выявленные catch-all формулировки или описание закрытости определения."
-          required: true
           display_in_grid: true
           display_priority: 4
+          label: "Catch-all формулировки"
+          description: >
+            Выявленные catch-all формулировки или описание закрытости определения.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+
+      store_payload: true
 
   - id: exceptions_check
     name: "Исключения из конфиденциальности"
@@ -1578,9 +1730,16 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1200
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "exceptions_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из NDA стандартные исключения из режима
@@ -1588,6 +1747,8 @@ checks_v8:
         от третьих лиц, независимая разработка, раскрытие по закону/суду/госоргану.
         Не анализируй определение конфиденциальной информации, меры защиты,
         ответственность или срок действия соглашения.
+        Не оценивай риски.
+        Анализируй только текст договора.
         </role>
 
         <context>
@@ -1595,110 +1756,241 @@ checks_v8:
         </context>
 
         <task>
-        Заполни строго следующие 10 полей + evidence (всего 11 ключей):
-        1. public_domain_status — "defined" или "not_defined".
-        2. public_domain_details — формулировка исключения об общедоступности.
-        3. prior_knowledge_status — "defined" или "not_defined".
-        4. prior_knowledge_details — формулировка исключения о предшествующем знании.
-        5. third_party_lawful_status — "defined" или "not_defined".
-        6. third_party_lawful_details — формулировка исключения о получении от третьих лиц.
-        7. independent_development_status — "defined" или "not_defined".
-        8. independent_development_details — формулировка исключения о независимой разработке.
-        9. government_required_status — "defined" или "not_defined".
-        10. government_required_details — формулировка исключения о раскрытии по закону/суду/госоргану.
+        Заполни строго следующие поля:
 
-        Если исключение отсутствует в тексте и нет отсылки к приложению:
-        - статус = "not_defined"
-        - текст = "Данные не определены"
+        0. exceptions_check_presence:
+          Агрегатное signal-поле — наличие регулирования по теме.
+          - "missing" — если фрагментов по теме в тексте нет вообще
+            (следствие: все содержательные поля = "not_defined");
+          - "present" — если фрагменты по теме есть: либо хотя бы одно
+            содержательное поле ≠ "not_defined", либо тема упомянута,
+            но прямо исключена / отложена на будущее / раскрыта только общей фразой;
+          - "unclear" — если фрагменты по теме есть, но из-за противоречий
+            вывод невозможен.
 
-        Если параметр определяется через отсылку к приложению/иному документу:
-        - статус = "defined"
-        - в details укажи ссылку (например, «определяется по Приложению №2»).
+          Если presence = "missing":
+          - public_domain_status = "not_defined";
+          - prior_knowledge_status = "not_defined";
+          - third_party_lawful_status = "not_defined";
+          - independent_development_status = "not_defined";
+          - government_required_status = "not_defined";
+          - все *_details = "Данные не определены";
+          - не выполняй остальные шаги.
+
+        1. public_domain_status:
+          - "defined" — если в тексте прямо указано исключение об общедоступности;
+          - "not_defined" — если исключение не указано.
+
+        2. public_domain_details:
+          Формулировка исключения об общедоступности на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
+
+        3. prior_knowledge_status:
+          - "defined" — если в тексте прямо указано исключение о предшествующем знании;
+          - "not_defined" — если исключение не указано.
+
+        4. prior_knowledge_details:
+          Формулировка исключения о предшествующем знании на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
+
+        5. third_party_lawful_status:
+          - "defined" — если в тексте прямо указано исключение о получении от третьих лиц;
+          - "not_defined" — если исключение не указано.
+
+        6. third_party_lawful_details:
+          Формулировка исключения о получении от третьих лиц на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
+
+        7. independent_development_status:
+          - "defined" — если в тексте прямо указано исключение о независимой разработке;
+          - "not_defined" — если исключение не указано.
+
+        8. independent_development_details:
+          Формулировка исключения о независимой разработке на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
+
+        9. government_required_status:
+          - "defined" — если в тексте прямо указано исключение о раскрытии по закону/суду/госоргану;
+          - "not_defined" — если исключение не указано.
+
+        10. government_required_details:
+            Формулировка исключения о раскрытии по закону/суду/госоргану на русском языке.
+            Если данных нет — "Данные не определены".
+            Если данные противоречивы — "Не удалось определить".
         </task>
 
-        <rules>
-        - Используй только текст договора.
-        - Не выводи исключения из норм закона — только из текста договора.
-        - Для каждого из 5 исключений ищи отдельную формулировку. Если все 5
-          перечислены в одном пункте (список (а)–(д)) — это нормально, извлеки
-          каждое отдельно.
+        <context_rules>
+        - Перед остальными полями заполни exceptions_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все содержательные поля = "not_defined", все *_details = "Данные не определены".
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона, обычную практику или предположения вместо текста договора.
+        - Не делай выводов по типовой структуре договора.
+        - Для каждого из 5 исключений ищи отдельную формулировку.
+        - Если все 5 перечислены в одном пункте (список (а)–(д)) — извлеки каждое отдельно.
         - government_required: учитывай формулировки «по требованию суда»,
-          «по требованию государственного органа», «в соответствии с
-          законодательством», «по запросу регулятора».
-        - Верни РОВНО один валидный JSON-объект со всеми 11 ключами,
-          без markdown, без комментариев, без текста до или после.
-        </rules>
+          «по требованию государственного органа», «в соответствии с законодательством»,
+          «по запросу регулятора».
+        - Если параметр определяется через отсылку к приложению/иному документу,
+          это не отсутствие регулирования; отрази это в user-facing поле.
+        - Если в разных фрагментах указаны разные данные и конфликт нельзя разрешить по тексту,
+          не выбирай один из вариантов: верни "Не удалось определить", а в status используй "not_defined".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+          В тексте нет ни одного из 5 стандартных исключений.
+          → presence = "missing";
+            все *_status = "not_defined";
+            все *_details = "Данные не определены".
+
+        2. Только часть исключений.
+          Указаны только 2 из 5 стандартных исключений.
+          → presence = "present";
+            соответствующие *_status = "defined";
+            остальные *_status = "not_defined".
+
+        3. Противоречие между фрагментами.
+          В разных частях договора указаны разные формулировки одного исключения.
+          → presence = "unclear";
+            соответствующий *_status = "not_defined";
+            *_details = "Не удалось определить".
+
+        4. Исключения через отсылку к приложению.
+          "Перечень исключений приведён в Приложении №2".
+          → presence = "present";
+            все *_status = "defined";
+            *_details содержат ссылку на приложение.
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для exceptions_check_presence используй только: "present", "missing", "unclear".
+        - Для status-полей используй только: "defined", "not_defined".
+        - Fallback при отсутствии данных:
+          * все *_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
       fields:
+        - name: "exceptions_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по исключениям из конфиденциальности. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "public_domain_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус исключения об общедоступности информации."
+          display_in_grid: false
+          description: "Статус исключения об общедоступности информации. Внутреннее enum-поле."
           required: true
+
         - name: "public_domain_details"
           type: "string"
           presentation: "fact"
-          label: "Общедоступность"
-          description: "Формулировка исключения: информация стала общедоступной не по вине получающей стороны."
-          required: true
           display_in_grid: true
           display_priority: 1
+          label: "Общедоступность"
+          description: >
+            Формулировка исключения: информация стала общедоступной не по вине получающей стороны.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+
         - name: "prior_knowledge_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус исключения о предшествующем знании."
+          display_in_grid: false
+          description: "Статус исключения о предшествующем знании. Внутреннее enum-поле."
           required: true
+
         - name: "prior_knowledge_details"
           type: "string"
           presentation: "fact"
-          label: "Предшествующее знание"
-          description: "Формулировка исключения: информация была известна получающей стороне до раскрытия."
-          required: true
           display_in_grid: true
           display_priority: 2
+          label: "Предшествующее знание"
+          description: >
+            Формулировка исключения: информация была известна получающей стороне до раскрытия.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+
         - name: "third_party_lawful_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус исключения о правомерном получении от третьих лиц."
+          display_in_grid: false
+          description: "Статус исключения о правомерном получении от третьих лиц. Внутреннее enum-поле."
           required: true
+
         - name: "third_party_lawful_details"
           type: "string"
           presentation: "fact"
-          label: "Третьи лица"
-          description: "Формулировка исключения: информация получена от третьих лиц без нарушения обязательств."
-          required: true
           display_in_grid: true
           display_priority: 3
+          label: "Третьи лица"
+          description: >
+            Формулировка исключения: информация получена от третьих лиц без нарушения обязательств.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+
         - name: "independent_development_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус исключения о независимой разработке."
+          display_in_grid: false
+          description: "Статус исключения о независимой разработке. Внутреннее enum-поле."
           required: true
+
         - name: "independent_development_details"
           type: "string"
           presentation: "fact"
-          label: "Независимая разработка"
-          description: "Формулировка исключения: информация независимо разработана получающей стороной."
-          required: true
           display_in_grid: true
           display_priority: 4
+          label: "Независимая разработка"
+          description: >
+            Формулировка исключения: информация независимо разработана получающей стороной.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+
         - name: "government_required_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус исключения о раскрытии по требованию закона, суда или госоргана."
+          display_in_grid: false
+          description: "Статус исключения о раскрытии по требованию закона, суда или госоргана. Внутреннее enum-поле."
           required: true
+
         - name: "government_required_details"
           type: "string"
           presentation: "fact"
-          label: "Раскрытие по закону"
-          description: "Формулировка исключения: раскрытие по требованию закона, суда или государственного органа."
-          required: true
           display_in_grid: true
           display_priority: 5
+          label: "Раскрытие по закону"
+          description: >
+            Формулировка исключения: раскрытие по требованию закона, суда или государственного органа.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+
+      store_payload: true
 
   - id: obligations_protection_check
     name: "Меры защиты информации и распространение на консультантов"
@@ -1945,9 +2237,16 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 2000
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "obligations_protection_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из NDA обязательства по защите
@@ -1956,6 +2255,8 @@ checks_v8:
         консультантов, ответственность за действия третьих лиц.
         Не анализируй определение конфиденциальной информации, исключения,
         ответственность за нарушение (штрафы/неустойки) или срок.
+        Не оценивай риски.
+        Анализируй только текст договора.
         </role>
 
         <context>
@@ -1963,120 +2264,246 @@ checks_v8:
         </context>
 
         <task>
-        Заполни строго следующие 10 полей + evidence (всего 11 ключей):
-        1. protection_standard_status — "defined" или "not_defined".
-        2. protection_standard_details — стандарт защиты (например,
-           «не ниже мер для собственной информации», «reasonable care»).
-        3. access_restriction_status — "defined" или "not_defined".
-        4. access_restriction_details — ограничение доступа (need-to-know).
-        5. advisor_disclosure_status — "defined" или "not_defined".
-        6. advisor_disclosure_details — условия раскрытия консультантам
-           и аффилированным лицам.
-        7. advisor_nda_binding_status — "defined" или "not_defined".
-        8. advisor_nda_binding_details — требование подписания NDA
-           или аналогичного обязательства консультантами.
-        9. advisor_liability_status — "defined" или "not_defined".
-        10. advisor_liability_details — ответственность получающей стороны
-            за действия консультантов и третьих лиц.
+        Заполни строго следующие поля:
 
-        Если условие отсутствует в тексте и нет отсылки к приложению/политике:
-        - статус = "not_defined"
-        - текст = "Данные не определены"
+        0. obligations_protection_check_presence:
+          Агрегатное signal-поле — наличие регулирования по теме.
+          - "missing" — если фрагментов по теме в тексте нет вообще
+            (следствие: все содержательные поля = "not_defined");
+          - "present" — если фрагменты по теме есть: либо хотя бы одно
+            содержательное поле ≠ "not_defined", либо тема упомянута,
+            но прямо исключена / отложена на будущее / раскрыта только общей фразой;
+          - "unclear" — если фрагменты по теме есть, но из-за противоречий
+            вывод невозможен.
 
-        Если параметр определяется через отсылку к приложению, политике
-        безопасности или иному документу:
-        - статус = "defined"
-        - в details укажи ссылку (например, «в соответствии с Политикой
-          ИБ, Приложение №3»).
+          Если presence = "missing":
+          - protection_standard_status = "not_defined";
+          - access_restriction_status = "not_defined";
+          - advisor_disclosure_status = "not_defined";
+          - advisor_nda_binding_status = "not_defined";
+          - advisor_liability_status = "not_defined";
+          - все *_details = "Данные не определены";
+          - не выполняй остальные шаги.
+
+        1. protection_standard_status:
+          - "defined" — если в тексте прямо указан стандарт защиты
+            (reasonable care / «не ниже мер для собственной» / конкретный стандарт);
+          - "not_defined" — если стандарт не указан.
+
+        2. protection_standard_details:
+          Стандарт защиты на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
+
+        3. access_restriction_status:
+          - "defined" — если в тексте прямо указано ограничение доступа (need-to-know);
+          - "not_defined" — если ограничение не указано.
+
+        4. access_restriction_details:
+          Формулировка ограничения доступа на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
+
+        5. advisor_disclosure_status:
+          - "defined" — если в тексте прямо указаны условия раскрытия консультантам/аффилированным;
+          - "not_defined" — если условия не указаны.
+
+        6. advisor_disclosure_details:
+          Условия раскрытия информации консультантам на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
+
+        7. advisor_nda_binding_status:
+          - "defined" — если в тексте прямо указано требование подписания NDA консультантами;
+          - "not_defined" — если требование не указано.
+
+        8. advisor_nda_binding_details:
+          Требование подписания NDA или back-to-back обязательства на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
+
+        9. advisor_liability_status:
+          - "defined" — если в тексте прямо указана ответственность получающей стороны за действия консультантов;
+          - "not_defined" — если ответственность не указана.
+
+        10. advisor_liability_details:
+            Формулировка ответственности за действия консультантов и третьих лиц на русском языке.
+            Если данных нет — "Данные не определены".
+            Если данные противоречивы — "Не удалось определить".
         </task>
 
-        <rules>
-        - Используй только текст договора.
+        <context_rules>
+        - Перед остальными полями заполни obligations_protection_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все содержательные поля = "not_defined", все *_details = "Данные не определены".
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона, обычную практику или предположения вместо текста договора.
+        - Не делай выводов по типовой структуре договора.
         - protection_standard: ищи формулировки «не ниже мер для собственной»,
-          «reasonable care», «разумная степень заботливости», «надлежащие
-          технические и организационные меры».
-        - access_restriction: ищи «need-to-know», «только сотрудникам,
-          которым необходимо знать», «ограниченный круг лиц».
-        - advisor_disclosure: учитывай как разрешение («допускается при
-          условии»), так и запрет («не передавать третьим лицам»).
-        - advisor_nda_binding: ищи «подписание NDA», «обязательство о
-          неразглашении», «соглашение о конфиденциальности», «back-to-back
-          обязательства».
-        - advisor_liability: ищи «как за свои собственные», «несёт
-          ответственность за действия», «отвечает за нарушение».
-        - Верни РОВНО один валидный JSON-объект со всеми 11 ключами,
-          без markdown, без комментариев, без текста до или после.
-        </rules>
+          «reasonable care», «разумная степень заботливости», «надлежащие технические и организационные меры».
+        - access_restriction: ищи «need-to-know», «только сотрудникам, которым необходимо знать»,
+          «ограниченный круг лиц».
+        - advisor_disclosure: учитывай как разрешение («допускается при условии»),
+          так и запрет («не передавать третьим лицам»).
+        - advisor_nda_binding: ищи «подписание NDA», «обязательство о неразглашении»,
+          «соглашение о конфиденциальности», «back-to-back обязательства».
+        - advisor_liability: ищи «как за свои собственные», «несёт ответственность за действия»,
+          «отвечает за нарушение».
+        - Если параметр определяется через отсылку к приложению/политике,
+          это не отсутствие регулирования; отрази это в user-facing поле.
+        - Если в разных фрагментах указаны разные данные и конфликт нельзя разрешить по тексту,
+          не выбирай один из вариантов: верни "Не удалось определить", а в status используй "not_defined".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+          В тексте нет ни стандарта защиты, ни ограничений доступа, ни условий раскрытия.
+          → presence = "missing";
+            все *_status = "not_defined";
+            все *_details = "Данные не определены".
+
+        2. Общая фраза о защите без конкретики.
+          "Получающая сторона обязуется хранить информацию в тайне".
+          → presence = "present";
+            protection_standard_status = "not_defined";
+            protection_standard_details = "Данные не определены".
+
+        3. Противоречие между фрагментами.
+          В разных частх договора указаны разные стандарты защиты.
+          → presence = "unclear";
+            соответствующий *_status = "not_defined";
+            *_details = "Не удалось определить".
+
+        4. Раскрытие консультантам без требования NDA.
+          "Раскрытие консультантам допускается", но нет требования подписания NDA.
+          → presence = "present";
+            advisor_disclosure_status = "defined";
+            advisor_nda_binding_status = "not_defined".
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для obligations_protection_check_presence используй только: "present", "missing", "unclear".
+        - Для status-полей используй только: "defined", "not_defined".
+        - Fallback при отсутствии данных:
+          * все *_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
       fields:
+        - name: "obligations_protection_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по мерам защиты информации. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "protection_standard_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия стандарта защиты конфиденциальной информации."
+          display_in_grid: false
+          description: "Статус наличия стандарта защиты конфиденциальной информации. Внутреннее enum-поле."
           required: true
+
         - name: "protection_standard_details"
           type: "string"
           presentation: "fact"
-          label: "Стандарт защиты"
-          description: "Формулировка стандарта защиты (reasonable care / «не ниже мер для собственной» / конкретный стандарт)."
-          required: true
           display_in_grid: true
           display_priority: 1
+          label: "Стандарт защиты"
+          description: >
+            Формулировка стандарта защиты (reasonable care / «не ниже мер для собственной» / конкретный стандарт).
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+
         - name: "access_restriction_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия ограничения доступа к информации."
+          display_in_grid: false
+          description: "Статус наличия ограничения доступа к информации. Внутреннее enum-поле."
           required: true
+
         - name: "access_restriction_details"
           type: "string"
           presentation: "fact"
-          label: "Ограничение доступа"
-          description: "Формулировка ограничения доступа (need-to-know / ограниченный круг лиц)."
-          required: true
           display_in_grid: true
           display_priority: 2
+          label: "Ограничение доступа"
+          description: >
+            Формулировка ограничения доступа (need-to-know / ограниченный круг лиц).
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+
         - name: "advisor_disclosure_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия условий раскрытия консультантам и аффилированным лицам."
+          display_in_grid: false
+          description: "Статус наличия условий раскрытия консультантам и аффилированным лицам. Внутреннее enum-поле."
           required: true
+
         - name: "advisor_disclosure_details"
           type: "string"
           presentation: "fact"
-          label: "Раскрытие консультантам"
-          description: "Условия раскрытия информации консультантам, аудиторам, аффилированным лицам (разрешение или запрет)."
-          required: true
           display_in_grid: true
           display_priority: 3
+          label: "Раскрытие консультантам"
+          description: >
+            Условия раскрытия информации консультантам, аудиторам, аффилированным лицам (разрешение или запрет).
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+
         - name: "advisor_nda_binding_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус требования подписания NDA или аналогичного обязательства консультантами."
+          display_in_grid: false
+          description: "Статус требования подписания NDA или аналогичного обязательства консультантами. Внутреннее enum-поле."
           required: true
+
         - name: "advisor_nda_binding_details"
           type: "string"
           presentation: "fact"
           label: "NDA для консультантов"
-          description: "Требование подписания NDA или back-to-back обязательства консультантами и третьими лицами."
+          description: >
+            Требование подписания NDA или back-to-back обязательства консультантами и третьими лицами.
+            Fallback: "Данные не определены" / "Не удалось определить".
           required: false
           display_in_grid: false
+
         - name: "advisor_liability_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус ответственности получающей стороны за действия консультантов."
+          display_in_grid: false
+          description: "Статус ответственности получающей стороны за действия консультантов. Внутреннее enum-поле."
           required: true
+
         - name: "advisor_liability_details"
           type: "string"
           presentation: "fact"
-          label: "Ответственность за третьих лиц"
-          description: "Формулировка ответственности получающей стороны за действия консультантов и третьих лиц."
-          required: true
           display_in_grid: true
           display_priority: 4
+          label: "Ответственность за третьих лиц"
+          description: >
+            Формулировка ответственности получающей стороны за действия консультантов и третьих лиц.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+
+      store_payload: true
 
   - id: term_survival_check
     name: "Срок действия NDA, срок конфиденциальности и survival clause"
@@ -2318,9 +2745,16 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1000
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "term_survival_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из NDA сведения о сроке действия
@@ -2329,6 +2763,8 @@ checks_v8:
         прекращения соглашения).
         Не анализируй определение конфиденциальной информации, исключения,
         меры защиты или ответственность за нарушение.
+        Не оценивай риски.
+        Анализируй только текст договора.
         </role>
 
         <context>
@@ -2336,92 +2772,214 @@ checks_v8:
         </context>
 
         <task>
-        Заполни строго следующие 8 полей + evidence (всего 9 ключей):
-        1. nda_term_status — "defined" или "not_defined".
-        2. nda_term_details — срок действия самого соглашения NDA (период раскрытия).
-        3. confidentiality_term_status — "defined" или "not_defined".
-        4. confidentiality_term_details — срок действия обязательств конфиденциальности.
-        5. perpetual_status — "defined" или "not_defined".
-        6. perpetual_details — условие о бессрочной охране (если есть).
-        7. survival_clause_status — "defined" или "not_defined".
-        8. survival_clause_details — условие о сохранении обязательств после расторжения/истечения NDA.
+        Заполни строго следующие поля:
 
-        Если условие отсутствует в тексте и нет отсылки к приложению/договору:
-        - статус = "not_defined"
-        - текст = "Данные не определены"
+        0. term_survival_check_presence:
+          Агрегатное signal-поле — наличие регулирования по теме.
+          - "missing" — если фрагментов по теме в тексте нет вообще
+            (следствие: все содержательные поля = "not_defined");
+          - "present" — если фрагменты по теме есть: либо хотя бы одно
+            содержательное поле ≠ "not_defined", либо тема упомянута,
+            но прямо исключена / отложена на будущее / раскрыта только общей фразой;
+          - "unclear" — если фрагменты по теме есть, но из-за противоречий
+            вывод невозможен.
 
-        Если параметр определяется через отсылку к другому документу/событию:
-        - статус = "defined"
-        - в details укажи точную формулировку (например, «до момента исполнения обязательств по Договору №1»).
+          Если presence = "missing":
+          - nda_term_status = "not_defined";
+          - confidentiality_term_status = "not_defined";
+          - perpetual_status = "not_defined";
+          - survival_clause_status = "not_defined";
+          - все *_details = "Данные не определены";
+          - не выполняй остальные шаги.
+
+        1. nda_term_status:
+          - "defined" — если в тексте прямо указан срок действия самого соглашения NDA;
+          - "not_defined" — если срок не указан.
+
+        2. nda_term_details:
+          Срок действия соглашения (период правомерного раскрытия информации) на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
+
+        3. confidentiality_term_status:
+          - "defined" — если в тексте прямо указан срок действия обязательств конфиденциальности;
+          - "not_defined" — если срок не указан.
+
+        4. confidentiality_term_details:
+          Срок действия обязательств по сохранению конфиденциальности на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
+
+        5. perpetual_status:
+          - "defined" — если в тексте прямо указано условие о бессрочной охране;
+          - "not_defined" — если условие не указано.
+
+        6. perpetual_details:
+          Формулировка условия о бессрочной конфиденциальности на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
+
+        7. survival_clause_status:
+          - "defined" — если в тексте прямо указана оговорка о сохранении обязательств после прекращения;
+          - "not_defined" — если оговорка не указана.
+
+        8. survival_clause_details:
+          Формулировка survival clause на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
         </task>
 
-        <rules>
-        - Используй только текст договора.
+        <context_rules>
+        - Перед остальными полями заполни term_survival_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все содержательные поля = "not_defined", все *_details = "Данные не определены".
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона, обычную практику или предположения вместо текста договора.
+        - Не делай выводов по типовой структуре договора.
         - Различай:
           * nda_term: срок действия соглашения в целом (например, «действует 1 год»);
           * confidentiality_term: срок обязанности сохранять тайну (например, «в течение 3 лет после прекращения»);
           * perpetual: прямое указание на бессрочность («бессрочно», «в течение неограниченного срока»);
           * survival_clause: условие о том, что обязательства переживают прекращение NDA («сохраняют силу после расторжения»).
-        - Верни РОВНО один валидный JSON-объект со всеми 9 ключами,
-          без markdown, без комментариев, без текста до или после.
-        </rules>
+        - Если параметр определяется через отсылку к другому документу/событию,
+          это не отсутствие регулирования; отрази это в user-facing поле.
+        - Если в разных фрагментах указаны разные данные и конфликт нельзя разрешить по тексту,
+          не выбирай один из вариантов: верни "Не удалось определить", а в status используй "not_defined".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+          В тексте нет ни срока действия NDA, ни срока конфиденциальности, ни survival clause.
+          → presence = "missing";
+            все *_status = "not_defined";
+            все *_details = "Данные не определены".
+
+        2. Только срок действия NDA без срока конфиденциальности.
+          "Соглашение действует в течение 1 года", но нет условия о сроке охраны.
+          → presence = "present";
+            nda_term_status = "defined";
+            confidentiality_term_status = "not_defined".
+
+        3. Противоречие между фрагментами.
+          В разных частях договора указаны разные сроки действия.
+          → presence = "unclear";
+            соответствующий *_status = "not_defined";
+            *_details = "Не удалось определить".
+
+        4. Бессрочная конфиденциальность.
+          "Обязательства по неразглашению носят бессрочный характер".
+          → presence = "present";
+            perpetual_status = "defined";
+            perpetual_details = "обязательства по неразглашению носят бессрочный характер".
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для term_survival_check_presence используй только: "present", "missing", "unclear".
+        - Для status-полей используй только: "defined", "not_defined".
+        - Fallback при отсутствии данных:
+          * все *_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
       fields:
+        - name: "term_survival_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по срокам действия и survival clause. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "nda_term_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания срока действия самого соглашения NDA."
+          display_in_grid: false
+          description: "Статус указания срока действия самого соглашения NDA. Внутреннее enum-поле."
           required: true
+
         - name: "nda_term_details"
           type: "string"
           presentation: "fact"
-          label: "Срок действия NDA"
-          description: "Срок действия соглашения (период правомерного раскрытия информации)."
-          required: true
           display_in_grid: true
           display_priority: 1
+          label: "Срок действия NDA"
+          description: >
+            Срок действия соглашения (период правомерного раскрытия информации).
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+
         - name: "confidentiality_term_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания срока охраны конфиденциальности."
+          display_in_grid: false
+          description: "Статус указания срока охраны конфиденциальности. Внутреннее enum-поле."
           required: true
+
         - name: "confidentiality_term_details"
           type: "string"
           presentation: "fact"
-          label: "Срок конфиденциальности"
-          description: "Срок действия обязательств по сохранению конфиденциальности (в т.ч. post-termination)."
-          required: true
           display_in_grid: true
           display_priority: 2
+          label: "Срок конфиденциальности"
+          description: >
+            Срок действия обязательств по сохранению конфиденциальности (в т.ч. post-termination).
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+
         - name: "perpetual_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия условия о бессрочной охране конфиденциальности."
+          display_in_grid: false
+          description: "Статус наличия условия о бессрочной охране конфиденциальности. Внутреннее enum-поле."
           required: true
+
         - name: "perpetual_details"
           type: "string"
           presentation: "fact"
-          label: "Бессрочность"
-          description: "Формулировка условия о бессрочной конфиденциальности (если предусмотрена)."
-          required: true
           display_in_grid: true
           display_priority: 3
+          label: "Бессрочность"
+          description: >
+            Формулировка условия о бессрочной конфиденциальности (если предусмотрена).
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+
         - name: "survival_clause_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия оговорки о сохранении обязательств после прекращения соглашения (survival clause)."
+          display_in_grid: false
+          description: "Статус наличия оговорки о сохранении обязательств после прекращения соглашения. Внутреннее enum-поле."
           required: true
+
         - name: "survival_clause_details"
           type: "string"
           presentation: "fact"
-          label: "Survival clause"
-          description: "Формулировка survival clause (сохранение силы обязательств после прекращения/расторжения NDA)."
-          required: true
           display_in_grid: true
           display_priority: 4
+          label: "Survival clause"
+          description: >
+            Формулировка survival clause (сохранение силы обязательств после прекращения/расторжения NDA).
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+
+      store_payload: true
+
+
+
 
   - id: liability_breach_notification_check
     name: "Ответственность за нарушение и уведомление об утечке"
