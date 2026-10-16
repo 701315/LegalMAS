@@ -6693,6 +6693,7 @@ checks_v8:
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 1000
+
       compact_output: false
 
       presence_signal:
@@ -6722,10 +6723,11 @@ checks_v8:
 
         0. payment_allocation_priority_check_presence:
            Агрегатное signal-поле — наличие регулирования по теме.
-           - "present" — если хотя бы одно из содержательных полей
-             (allocation_status, allocation_rules_status,
-              bank_priority_status, deviation_from_law_status) ≠ "not_defined";
-           - "missing" — если все четыре содержательных поля = "not_defined";
+           - "missing" — если фрагментов по теме в тексте нет вообще
+             (следствие: все содержательные поля = "not_defined");
+           - "present" — если фрагменты по теме есть: либо хотя бы одно
+             содержательное поле ≠ "not_defined", либо тема упомянута,
+             но прямо исключена / отложена на будущее / раскрыта только общей фразой;
            - "unclear" — если фрагменты по теме есть, но из-за противоречий
              вывод невозможен.
 
@@ -6869,22 +6871,24 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия условия об очерёдности списания."
-          required: true
           display_in_grid: false
+          description: "Статус наличия условия об очерёдности списания. Внутреннее enum-поле."
+          required: true
 
         - name: "allocation_reference_type"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["specific", "law_reference", "internal_rules", "not_defined"]
-          description: "Режим раскрытия очерёдности (внутренний enum)."
-          required: true
           display_in_grid: false
+          description: "Режим раскрытия очерёдности (внутренний enum). Внутреннее enum-поле."
+          required: true
 
         - name: "allocation_mode_display"
           type: "string"
           presentation: "fact"
+          display_in_grid: true
+          display_priority: 1
           label: "Режим очерёдности"
           allowed_values:
             - "Очерёдность раскрыта в договоре"
@@ -6892,69 +6896,75 @@ checks_v8:
             - "Очерёдность определяется внутренними правилами Банка"
             - "Очерёдность не урегулирована"
             - "Не удалось определить"
-          description: "Читаемый вывод о режиме раскрытия очерёдности списания."
+          description: >
+            Читаемый вывод о режиме раскрытия очерёдности списания.
+            Fallback: "Очерёдность не урегулирована" / "Не удалось определить".
           required: true
-          display_in_grid: true
-          display_priority: 1
 
         - name: "allocation_rules_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус формулировки очерёдности."
-          required: true
           display_in_grid: false
+          description: "Статус формулировки очерёдности. Внутреннее enum-поле."
+          required: true
 
         - name: "allocation_rules_details"
           type: "string"
           presentation: "fact"
-          label: "Очерёдность списания"
-          description: "Формулировка очерёдности списания при недостаточности средств."
-          required: true
           display_in_grid: true
           display_priority: 2
+          label: "Очерёдность списания"
+          description: >
+            Формулировка очерёдности списания при недостаточности средств.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
 
         - name: "bank_priority_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания приоритета требований банка."
-          required: true
           display_in_grid: false
+          description: "Статус указания приоритета требований банка. Внутреннее enum-поле."
+          required: true
 
         - name: "bank_priority_details"
           type: "string"
           presentation: "fact"
-          label: "Приоритет требований банка"
-          description: "Формулировка о приоритете требований банка (комиссии, овердрафт) перед платежами клиента."
-          required: true
           display_in_grid: true
           display_priority: 3
+          label: "Приоритет требований банка"
+          description: >
+            Формулировка о приоритете требований банка (комиссии, овердрафт) перед платежами клиента.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
 
         - name: "deviation_from_law_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус отклонения от очерёдности ст. 855 ГК РФ."
-          required: true
           display_in_grid: false
+          description: "Статус отклонения от очерёдности ст. 855 ГК РФ. Внутреннее enum-поле."
+          required: true
 
         - name: "deviation_from_law_display"
           type: "string"
           presentation: "fact"
+          display_in_grid: true
+          display_priority: 4
           label: "Отклонения от закона"
           allowed_values:
             - "Есть отклонение от законной очерёдности (приоритет банка)"
             - "Есть иное отклонение от законной очерёдности"
             - "Отклонений не установлено"
             - "Не удалось определить"
-          description: "Читаемый вывод о соответствии очерёдности в договоре ст. 855 ГК РФ."
+          description: >
+            Читаемый вывод о соответствии очерёдности в договоре ст. 855 ГК РФ.
+            Fallback: "Отклонений не установлено" / "Не удалось определить".
           required: true
-          display_in_grid: true
-          display_priority: 4
 
       store_payload: true
 

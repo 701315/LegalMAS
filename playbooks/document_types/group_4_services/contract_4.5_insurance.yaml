@@ -4070,12 +4070,11 @@ checks_v8:
         0. risk_increase_and_policyholder_duties_check_presence:
            Агрегатное signal-поле — наличие обязанностей страхователя
            по контролю риска.
-           - "present" — если хотя бы одно из содержательных полей
-             (risk_increase_notification_clause, non_notification_consequences,
-              inspection_access_clause, policyholder_duties_completeness)
-             ≠ "not_defined" / "absent";
-           - "missing" — если все четыре содержательных поля = "absent"
-             или "not_defined";
+           - "missing" — если фрагментов по теме в тексте нет вообще
+             (следствие: все содержательные поля = "not_defined" или "absent");
+           - "present" — если фрагменты по теме есть: либо хотя бы одно
+             содержательное поле ≠ "not_defined" / "absent", либо тема упомянута,
+             но прямо исключена / отложена на будущее / раскрыта только общей фразой;
            - "unclear" — если фрагменты по теме есть, но из-за противоречий
              вывод невозможен.
 
@@ -4087,59 +4086,46 @@ checks_v8:
            - notification_deadline = "not_defined";
            - не выполняй остальные шаги.
 
-        1. risk_increase_notification_clause — есть ли в договоре обязанность
-           уведомлять об увеличении степени страхового риска:
-           "present" — обязанность прямо установлена;
-           "absent" — обязанность не упомянута.
+        1. risk_increase_notification_clause:
+           - "present" — обязанность уведомлять об увеличении степени риска прямо установлена;
+           - "absent" — обязанность не упомянута.
 
-        2. notification_deadline — конкретный срок и способ уведомления об
-           увеличении степени риска.
+        2. notification_deadline:
+           Конкретный срок и способ уведомления об увеличении степени риска.
            Если срок не установлен — "not_defined".
 
-        3. non_notification_consequences — указаны ли в договоре последствия
-           нарушения обязанности по уведомлению о риске:
-           "specified" — последствия описаны;
-           "not_defined" — последствия не указаны или есть бланкетная
-           отсылка к закону.
+        3. non_notification_consequences:
+           - "specified" — последствия нарушения обязанности по уведомлению прямо описаны в договоре;
+           - "not_defined" — последствия не указаны или есть только бланкетная отсылка к закону.
 
-        4. inspection_access_clause — обязанность страхователя допускать
-           страховщика для осмотра застрахованного объекта:
-           "present" — обязанность прямо прописана;
-           "absent" — обязанность не упомянута;
-           "not_applicable" — осмотр имущества неприменим по типу договора.
+        4. inspection_access_clause:
+           - "present" — обязанность допускать страховщика для осмотра объекта прямо прописана;
+           - "absent" — обязанность не упомянута;
+           - "not_applicable" — осмотр имущества неприменим по типу договора (например, страхование ответственности).
 
-        5. policyholder_duties_completeness — оценка полноты обязанностей
-           страхователя:
-           "comprehensive" — детально описаны уведомление о рисках и
-           правила эксплуатации / сохранности и допуск к осмотру;
-           "partial" — есть только обязанность сообщить об изменении риска,
-           но без сроков и осмотра;
-           "minimal" — обязанности носят сугубо общий, декларативный
-           характер;
-           "absent" — обязанности в тексте договора не раскрыты.
+        5. policyholder_duties_completeness:
+           - "comprehensive" — детально описаны уведомление о рисках (со сроками), правила эксплуатации/сохранности и допуск к осмотру;
+           - "partial" — есть только общая обязанность сообщить об изменении риска, без конкретных сроков и без правил осмотра;
+           - "minimal" — обязанности сформулированы сугубо декларативно («соблюдать правила»);
+           - "absent" — обязанности в тексте договора не раскрыты.
         </task>
 
         <context_rules>
         - Перед остальными полями заполни risk_increase_and_policyholder_duties_check_presence по правилу из пункта 0 task.
         - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
         - Если presence = "missing" — risk_increase_notification_clause = "absent", non_notification_consequences = "not_defined", inspection_access_clause = "absent", policyholder_duties_completeness = "absent", notification_deadline = "not_defined".
-        - Используй только текст договора из <context>. Не подставляй нормы
-          закона вместо текста договора.
-        - Срок уведомления об увеличении риска — это не срок сообщения о самом
-          страховом случае (не путай их!).
-        - Если застрахован объект гражданской ответственности, финансовый риск
-          или жизнь/здоровье, осмотр имущества чаще всего "not_applicable".
+        - Используй только текст договора из <context>. Не подставляй нормы закона вместо текста договора.
+        - Срок уведомления об увеличении риска — это не срок сообщения о самом страховом случае (не путай их!).
+        - Если застрахован объект гражданской ответственности, финансовый риск или жизнь/здоровье, осмотр имущества чаще всего "not_applicable".
         - Не делай предположений сверх того, что прямо следует из текста.
-        - Если в разных фрагментах указаны противоречивые данные — верни
-          "not_defined" для сигнальных полей, "Не установлено" для текстового.
+        - Если в разных фрагментах указаны противоречивые данные — верни "not_defined" для сигнальных полей, "Не установлено" для текстового.
         - Не используй пустые строки.
         - Все текстовые значения пиши на русском языке.
         </context_rules>
 
         <edge_cases>
         1. Полное отсутствие темы.
-           В тексте нет ни обязанности уведомлять об увеличении риска,
-           ни правил осмотра, ни других обязанностей страхователя.
+           В тексте нет ни обязанности уведомлять об увеличении риска, ни правил осмотра, ни других обязанностей страхователя.
            → presence = "missing";
              risk_increase_notification_clause = "absent";
              non_notification_consequences = "not_defined";
@@ -4148,8 +4134,7 @@ checks_v8:
              notification_deadline = "not_defined".
 
         2. Общая фраза без сроков.
-           В договоре есть обязанность сообщать об изменении обстоятельств,
-           но без указания срока и без правил осмотра.
+           В договоре есть обязанность сообщать об изменении обстоятельств, но без указания срока и без правил осмотра.
            → presence = "present";
              risk_increase_notification_clause = "present";
              notification_deadline = "not_defined";
@@ -4158,15 +4143,13 @@ checks_v8:
              policyholder_duties_completeness = "partial".
 
         3. Противоречие между фрагментами.
-           В разных частях договора указаны разные сроки уведомления
-           или разные правила осмотра.
+           В разных частях договора указаны разные сроки уведомления или разные правила осмотра.
            → presence = "unclear";
              соответствующие сигнальные поля = "not_defined";
              notification_deadline = "Не установлено".
 
         4. Обязанности прописаны детально.
-           В договоре есть срок уведомления, последствия неуведомления,
-           правила осмотра и сохранности.
+           В договоре есть срок уведомления, последствия неуведомления, правила осмотра и сохранности.
            → presence = "present";
              risk_increase_notification_clause = "present";
              non_notification_consequences = "specified";
@@ -4177,25 +4160,17 @@ checks_v8:
 
         <output_expectations>
         - Все свободные текстовые поля заполняй на русском языке.
-        - Для risk_increase_and_policyholder_duties_check_presence используй
-          только: "present", "missing", "unclear".
-        - Для risk_increase_notification_clause допустимо только:
-          present / absent.
-        - Для notification_deadline допустимо только: конкретный текст
-          или not_defined.
-        - Для non_notification_consequences допустимо только:
-          specified / not_defined.
-        - Для inspection_access_clause допустимо только:
-          present / absent / not_applicable.
-        - Для policyholder_duties_completeness допустимо только:
-          comprehensive / partial / minimal / absent.
+        - Для risk_increase_and_policyholder_duties_check_presence используй только: "present", "missing", "unclear".
+        - Для risk_increase_notification_clause допустимо только: "present", "absent".
+        - Для notification_deadline допустимо только: конкретный текст или "not_defined".
+        - Для non_notification_consequences допустимо только: "specified", "not_defined".
+        - Для inspection_access_clause допустимо только: "present", "absent", "not_applicable".
+        - Для policyholder_duties_completeness допустимо только: "comprehensive", "partial", "minimal", "absent".
         - Fallback для notification_deadline: "not_defined".
-        - evidence — массив объектов вида {"clause_ref": "...", "quote": "..."},
-          а не строка.
-        - Технический формат JSON (value / confidence / location) задан
-          отдельным контрактом — соблюдай его, но не описывай здесь.
+        - evidence — массив объектов вида {"clause_ref": "...", "quote": "..."}, а не строка.
         - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
         - name: "risk_increase_and_policyholder_duties_check_presence"
           type: "string"
@@ -4211,53 +4186,47 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["present", "absent"]
-          label: "Обязанность уведомлять о риске"
-          description: "Предусмотрена ли обязанность незамедлительно уведомлять страховщика об увеличении степени риска (ст. 959 ГК РФ)."
+          display_in_grid: false
+          description: "Предусмотрена ли обязанность уведомлять страховщика об увеличении степени риска. Внутреннее enum-поле."
           required: true
-          display_in_grid: true
-          display_priority: 1
 
         - name: "notification_deadline"
           type: "string"
           presentation: "fact"
-          label: "Срок уведомления о риске"
-          description: "Конкретный срок и способ уведомления об увеличении степени риска."
-          required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
+          label: "Срок уведомления о риске"
+          description: >
+            Конкретный срок и способ уведомления об увеличении степени риска.
+            Fallback: "not_defined" / "Не установлено".
+          required: true
 
         - name: "non_notification_consequences"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["specified", "not_defined"]
-          label: "Последствия неуведомления"
-          description: "Предусмотрены ли в договоре последствия неисполнения обязанности сообщить об изменении риска."
+          display_in_grid: false
+          description: "Предусмотрены ли в договоре последствия неисполнения обязанности сообщить об изменении риска. Внутреннее enum-поле."
           required: true
-          display_in_grid: true
-          display_priority: 3
 
         - name: "inspection_access_clause"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["present", "absent", "not_applicable"]
-          label: "Допуск к осмотру"
-          description: "Установлена ли обязанность страхователя допускать страховщика к осмотру застрахованного объекта."
+          display_in_grid: false
+          description: "Установлена ли обязанность страхователя допускать страховщика к осмотру застрахованного объекта. Внутреннее enum-поле."
           required: true
-          display_in_grid: true
-          display_priority: 4
 
         - name: "policyholder_duties_completeness"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["comprehensive", "partial", "minimal", "absent"]
-          label: "Полнота обязанностей"
-          description: "Общий уровень детальности и жесткости обязанностей страхователя по уходу за риском в период действия договора."
+          display_in_grid: false
+          description: "Общий уровень детальности и жесткости обязанностей страхователя по уходу за риском. Внутреннее enum-поле."
           required: true
-          display_in_grid: true
-          display_priority: 5
 
       store_payload: true
 

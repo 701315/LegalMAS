@@ -4603,7 +4603,6 @@ checks_v8:
           required: false
       store_payload: true
 
-
   - id: illegal_restrictions_detection
     name: "Выявление ущемляющих условий (детектор запрещённых фраз)"
     description: >
@@ -5123,8 +5122,6 @@ checks_v8:
             Fallback при отсутствии нарушений: "Не выявлено".
           required: true
       store_payload: true
-
-
 
   - id: warranty_and_defects_rights_check
     name: "Гарантийный срок и права потребителя при недостатках товара"
@@ -6120,8 +6117,6 @@ checks_v8:
           * refund_term_details → "Не установлен".
         - Fallback при противоречии или неоднозначности:
           * все *_details/*_display → "Не удалось определить".
-        - Технический формат JSON (value / confidence / location) задан отдельным
-          контрактом — соблюдай его, но не описывай здесь.
         - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
@@ -6210,6 +6205,7 @@ checks_v8:
             при отказе от товара при дистанционной продаже.
             Fallback: "Не установлен" / "Не удалось определить".
           required: true
+
       store_payload: true
 
   - id: technical_goods_return_rules_check

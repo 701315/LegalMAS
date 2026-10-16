@@ -4935,10 +4935,6 @@ checks_v8:
 
       store_payload: true
 
-
-
-
-
   - id: dispute_resolution_check
     name: "Применимое право, разрешение споров и обеспечительные меры"
     description: >
@@ -7680,10 +7676,6 @@ checks_v8:
           display_in_grid: false
 
       store_payload: true
-
-
-
-
 
   - id: nda_self_confidentiality_check
     name: "Конфиденциальность самого NDA (условия и факт заключения)"

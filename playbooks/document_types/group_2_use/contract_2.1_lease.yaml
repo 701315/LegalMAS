@@ -867,6 +867,8 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 1100
+
       compact_output: false
 
       presence_signal:
@@ -874,8 +876,6 @@ checks_v8:
         present_values: ["present"]
         missing_values: ["missing"]
         unclear_values: ["unclear"]
-
-      llm_max_tokens: 1100
 
       llm_prompt_extraction: |
         <role>
@@ -896,11 +896,11 @@ checks_v8:
 
         0. lease_subject_extraction_presence:
            Агрегатное signal-поле — наличие регулирования по теме.
-           - "present" — если хотя бы одно из содержательных статусных полей
-             (asset_description_status, lease_term_status, rent_amount_status,
-              use_purpose_status, handover_mechanism) ≠ "not_defined"
-              или тип объекта asset_type ≠ "not_defined";
-           - "missing" — если все эти содержательные поля = "not_defined";
+           - "missing" — если фрагментов по теме в тексте нет вообще
+             (следствие: все содержательные поля = "not_defined");
+           - "present" — если фрагменты по теме есть: либо хотя бы одно
+             содержательное поле ≠ "not_defined", либо тема упомянута,
+             но прямо исключена / отложена на будущее / раскрыта только общей фразой;
            - "unclear" — если фрагменты по теме есть, но из-за противоречий
              вывод невозможен.
 

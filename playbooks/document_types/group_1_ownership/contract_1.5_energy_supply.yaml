@@ -4979,6 +4979,8 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
+      llm_max_tokens: 850
+
       compact_output: false
 
       presence_signal:
@@ -4986,8 +4988,6 @@ checks_v8:
         present_values: ["present"]
         missing_values: ["missing"]
         unclear_values: ["unclear"]
-
-      llm_max_tokens: 850
 
       llm_prompt_extraction: |
         <role>
@@ -4997,6 +4997,8 @@ checks_v8:
         восстановление подачи, компенсацию убытков от простоя и запрет полного отключения.
         Не анализируй стандартные условия обычного абонента, тариф, качество энергии
         или общую процедуру ограничения подачи.
+        Не оценивай риски.
+        Анализируй только текст договора.
         </role>
 
         <context>
@@ -5007,16 +5009,19 @@ checks_v8:
         Заполни строго следующие поля:
 
         0. industrial_consumer_protection_presence:
-           Агрегатное signal-поле — наличие регулирования по теме особых условий для промышленных потребителей.
-           - "present" — если хотя бы одно из содержательных полей
-             (reliability_category_status, backup_power_status, priority_restoration_status,
-              downtime_compensation_status, disconnection_prohibition_status) ≠ "not_defined";
-           - "missing" — если все пять содержательных полей = "not_defined";
+           Агрегатное signal-поле — наличие регулирования по теме особых условий
+           для промышленных потребителей.
+           - "missing" — если фрагментов по теме в тексте нет вообще
+             (следствие: все содержательные поля = "not_defined");
+           - "present" — если фрагменты по теме есть: либо хотя бы одно
+             содержательное поле ≠ "not_defined", либо тема упомянута,
+             но прямо исключена / отложена на будущее / раскрыта только общей фразой;
            - "unclear" — если фрагменты по теме есть, но из-за противоречий
              вывод невозможен.
 
            Если presence = "missing":
            - reliability_category_status = "not_defined";
+           - reliability_category_code = "not_defined";
            - backup_power_status = "not_defined";
            - priority_restoration_status = "not_defined";
            - downtime_compensation_status = "not_defined";
@@ -5025,22 +5030,26 @@ checks_v8:
            - не выполняй остальные шаги.
 
         1. reliability_category_status:
-           - "defined" — если прямо указана категория надёжности;
+           - "defined" — если прямо указана категория надёжности (I, II или III);
            - "not_defined" — если не указана.
 
         2. reliability_category_code:
-           - "I", "II", "III" или "not_defined".
+           - "I" — первая категория надёжности;
+           - "II" — вторая категория надёжности;
+           - "III" — третья категория надёжности;
+           - "not_defined" — если категория не указана.
 
         3. backup_power_status:
            - "defined" — если указаны требования к резервному питанию;
            - "not_defined" — если не указаны.
 
         4. backup_power_details:
-           Краткое user-facing описание требований.
+           Краткое user-facing описание требований к резервному питанию на русском языке.
            Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
 
         5. priority_restoration_status:
-           - "defined" — если указано приоритетное восстановление;
+           - "defined" — если указано приоритетное восстановление подачи;
            - "not_defined" — если не указано.
 
         6. downtime_compensation_status:
@@ -5048,8 +5057,9 @@ checks_v8:
            - "not_defined" — если не указана.
 
         7. downtime_compensation_details:
-           Краткое user-facing описание условий компенсации.
+           Краткое user-facing описание условий компенсации убытков от простоя на русском языке.
            Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
 
         8. disconnection_prohibition_status:
            - "defined" — если указан запрет полного отключения;
@@ -5060,11 +5070,19 @@ checks_v8:
         - Перед остальными полями заполни industrial_consumer_protection_presence по правилу из пункта 0 task.
         - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
         - Если presence = "missing" — все *_status = "not_defined", все *_details/*_code = соответствующий fallback.
-        - Используй только текст договора.
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона, обычную практику или предположения вместо текста договора.
+        - Не делай выводов по типовой структуре договора.
         - Не выводи категорию надёжности из характера объекта без прямого указания.
         - Учитывай только специальные условия для промышленных потребителей,
           объектов первой/второй/третьей категории, критической инфраструктуры
           или объектов жизнеобеспечения.
+        - Если параметр определяется через отсылку к другому документу,
+          это не отсутствие регулирования; отрази это в user-facing поле.
+        - Если в разных фрагментах указаны разные данные и конфликт нельзя разрешить по тексту,
+          не выбирай один из вариантов: верни "Не удалось определить", а в status используй "not_defined".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
         </context_rules>
 
         <edge_cases>
@@ -5075,6 +5093,7 @@ checks_v8:
              все *_details/*_code = соответствующий fallback.
 
         2. Неполное раскрытие темы (только категория без деталей).
+           Указана только категория надёжности, остальные условия не раскрыты.
            → presence = "present";
              reliability_category_status = "defined";
              остальные *_status = "not_defined".
@@ -5094,6 +5113,7 @@ checks_v8:
         - Все свободные текстовые поля заполняй на русском языке.
         - Для industrial_consumer_protection_presence используй только: "present", "missing", "unclear".
         - Для статусных enum-полей используй только: "defined" или "not_defined".
+        - Для reliability_category_code используй только: "I", "II", "III", "not_defined".
         - Fallback при отсутствии данных:
           * backup_power_details, downtime_compensation_details → "Данные не определены".
         - Fallback при противоречии или неоднозначности:
@@ -5116,7 +5136,8 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения категории надёжности."
+          display_in_grid: false
+          description: "Статус определения категории надёжности. Внутреннее enum-поле."
           required: true
 
         - name: "reliability_category_code"
@@ -5124,7 +5145,8 @@ checks_v8:
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["I", "II", "III", "not_defined"]
-          description: "Категория надёжности энергоснабжения (I, II или III)."
+          display_in_grid: false
+          description: "Категория надёжности энергоснабжения (I, II или III). Внутреннее enum-поле."
           required: true
 
         - name: "backup_power_status"
@@ -5132,24 +5154,28 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия требований к резервному питанию."
+          display_in_grid: false
+          description: "Статус наличия требований к резервному питанию. Внутреннее enum-поле."
           required: true
 
         - name: "backup_power_details"
           type: "string"
           presentation: "fact"
-          label: "Резервное питание"
-          description: "Требования к резервному источнику или резервному энергоснабжению."
-          required: false
           display_in_grid: true
           display_priority: 1
+          label: "Резервное питание"
+          description: >
+            Требования к резервному источнику или резервному энергоснабжению.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: false
 
         - name: "priority_restoration_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус условия о приоритетном восстановлении подачи."
+          display_in_grid: false
+          description: "Статус условия о приоритетном восстановлении подачи. Внутреннее enum-поле."
           required: true
 
         - name: "downtime_compensation_status"
@@ -5157,24 +5183,28 @@ checks_v8:
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения компенсации убытков от простоя."
+          display_in_grid: false
+          description: "Статус определения компенсации убытков от простоя. Внутреннее enum-поле."
           required: true
 
         - name: "downtime_compensation_details"
           type: "string"
           presentation: "fact"
-          label: "Компенсация убытков от простоя"
-          description: "Условия компенсации убытков от простоя из-за перерыва энергоснабжения."
-          required: false
           display_in_grid: true
           display_priority: 2
+          label: "Компенсация убытков от простоя"
+          description: >
+            Условия компенсации убытков от простоя из-за перерыва энергоснабжения.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: false
 
         - name: "disconnection_prohibition_status"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус запрета полного отключения для специальных объектов."
+          display_in_grid: false
+          description: "Статус запрета полного отключения для специальных объектов. Внутреннее enum-поле."
           required: true
 
       store_payload: true
