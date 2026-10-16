@@ -2976,9 +2976,6 @@ checks_v8:
 
       store_payload: true
 
-
-
-
   - id: liability_breach_notification_check
     name: "Ответственность за нарушение и уведомление об утечке"
     description: >
@@ -4942,7 +4939,6 @@ checks_v8:
 
 
 
-
   - id: dispute_resolution_check
     name: "Применимое право, разрешение споров и обеспечительные меры"
     description: >
@@ -5201,120 +5197,272 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1000
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "dispute_resolution_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
-        Ты — российский юрист. Извлеки из NDA положения о применимом праве, порядке разрешения споров, подсудности, претензионном порядке и праве на обеспечительные меры (injunctive relief).
+        <role>
+        Ты — российский юрист. Извлеки из NDA положения о применимом праве,
+        порядке разрешения споров, подсудности, претензионном порядке и праве
+        на обеспечительные меры (injunctive relief).
         Не анализируй определение конфиденциальной информации, исключения, меры защиты или ответственность за нарушение.
+        Не оценивай риски.
+        Анализируй только текст договора.
+        </role>
 
         <context>
         {context}
         </context>
 
         <task>
-        Заполни строго следующие 10 полей + evidence (всего 11 ключей):
-        1. governing_law_status — "defined" или "not_defined".
-        2. governing_law_details — применимое материальное право.
-        3. dispute_method_code — "court" / "arbitration" / "negotiation" / "mixed" / "not_defined".
-        4. dispute_method_details — порядок/способ разрешения споров.
-        5. jurisdiction_status — "defined" или "not_defined".
-        6. jurisdiction_details — договорная подсудность (конкретный суд) или арбитражный орган.
-        7. pretrial_status — "defined" или "not_defined".
-        8. pretrial_details — условия претензионного порядка и срок ответа на претензию.
-        9. injunctive_relief_status — "defined" или "not_defined".
-        10. injunctive_relief_details — право на обеспечительные меры / судебный запрет (injunctive relief).
+        Заполни строго следующие поля:
 
-        Если условие отсутствует в тексте и нет отсылки к документу:
-        - статус = "not_defined"
-        - текст = "Данные не определены"
+        0. dispute_resolution_check_presence:
+          Агрегатное signal-поле — наличие регулирования по теме.
+          - "missing" — если фрагментов по теме в тексте нет вообще
+            (следствие: все содержательные поля = "not_defined");
+          - "present" — если фрагменты по теме есть: либо хотя бы одно
+            содержательное поле ≠ "not_defined", либо тема упомянута,
+            но прямо исключена / отложена на будущее / раскрыта только общей фразой;
+          - "unclear" — если фрагменты по теме есть, но из-за противоречий
+            вывод невозможен.
 
-        Если параметр определяется через отсылку к другому документу:
-        - статус = "defined"
-        - в details укажи точную ссылку.
+          Если presence = "missing":
+          - governing_law_status = "not_defined";
+          - dispute_method_code = "not_defined";
+          - jurisdiction_status = "not_defined";
+          - pretrial_status = "not_defined";
+          - injunctive_relief_status = "not_defined";
+          - все *_details = "Данные не определены";
+          - не выполняй остальные шаги.
+
+        1. governing_law_status:
+          - "defined" — если в тексте прямо указано применимое материальное право;
+          - "not_defined" — если применимое право не указано.
+
+        2. governing_law_details:
+          Применимое материальное право на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
+
+        3. dispute_method_code:
+          - "court" — государственный арбитражный суд или суд общей юрисдикции;
+          - "arbitration" — коммерческий арбитраж / третейский суд (МКАС, РСПП, LCIA, ICC и др.);
+          - "negotiation" — только переговоры;
+          - "mixed" — комбинация (например, переговоры + суд/арбитраж);
+          - "not_defined" — способ не определён.
+
+        4. dispute_method_details:
+          Описание согласованного порядка и способа разрешения споров на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
+
+        5. jurisdiction_status:
+          - "defined" — если в тексте прямо указана договорная подсудность или арбитражный орган;
+          - "not_defined" — если подсудность не указана.
+
+        6. jurisdiction_details:
+          Договорная подсудность или конкретное арбитражное учреждение на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
+
+        7. pretrial_status:
+          - "defined" — если в тексте прямо указан претензионный порядок и срок ответа;
+          - "not_defined" — если претензионный порядок не указан.
+
+        8. pretrial_details:
+          Условия претензионного порядка и срок ответа на претензию на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
+
+        9. injunctive_relief_status:
+          - "defined" — если в тексте прямо указано право на обеспечительные меры / судебный запрет;
+          - "not_defined" — если право на обеспечительные меры не указано.
+
+        10. injunctive_relief_details:
+            Право стороны на получение экстренных обеспечительных мер и судебного запрета
+            на русском языке.
+            Если данных нет — "Данные не определены".
+            Если данные противоречивы — "Не удалось определить".
         </task>
 
-        <rules>
-        - Используй только текст договора.
+        <context_rules>
+        - Перед остальными полями заполни dispute_resolution_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все содержательные поля = "not_defined", все *_details = "Данные не определены".
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона, обычную практику или предположения вместо текста договора.
+        - Не делай выводов по типовой структуре договора.
         - dispute_method_code:
           * "court" — государственный арбитражный суд или суд общей юрисдикции;
           * "arbitration" — коммерческий арбитраж / третейский суд (МКАС, РСПП, LCIA, ICC и др.);
           * "negotiation" — только переговоры;
           * "mixed" — комбинация (например, переговоры + суд/арбитраж);
           * "not_defined" — способ не определён.
-        - injunctive_relief: ищи условия о праве стороны обратиться в суд за обеспечительными мерами, наложением ареста или судебного запрета без ожидания истечения срока на ответ по претензии.
-        - Верни РОВНО один валидный JSON-объект со всеми 11 ключами, без markdown, без комментариев, без текста до или после.
-        </rules>
+        - injunctive_relief: ищи условия о праве стороны обратиться в суд за обеспечительными мерами,
+          наложением ареста или судебного запрета без ожидания истечения срока на ответ по претензии.
+        - Если параметр определяется через отсылку к другому документу,
+          это не отсутствие регулирования; отрази это в user-facing поле.
+        - Если в разных фрагментах указаны разные данные и конфликт нельзя разрешить по тексту,
+          не выбирай один из вариантов: верни "Не удалось определить", а в status используй "not_defined".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+          В тексте нет ни применимого права, ни порядка разрешения споров, ни подсудности.
+          → presence = "missing";
+            все *_status = "not_defined";
+            все *_details = "Данные не определены".
+
+        2. Только общая ссылка на закон.
+          "Споры разрешаются в соответствии с законодательством РФ".
+          → presence = "missing";
+            все *_status = "not_defined";
+            все *_details = "Данные не определены".
+
+        3. Противоречие между фрагментами.
+          В разных частях договора указаны разные подсудности.
+          → presence = "unclear";
+            соответствующий *_status = "not_defined";
+            *_details = "Не удалось определить".
+
+        4. Полный блок с injunctive relief.
+          Указаны применимое право, подсудность, претензионный порядок и право на обеспечительные меры.
+          → presence = "present";
+            все *_status = "defined".
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для dispute_resolution_check_presence используй только: "present", "missing", "unclear".
+        - Для status-полей используй только: "defined", "not_defined".
+        - Для dispute_method_code используй только: "court", "arbitration", "negotiation", "mixed", "not_defined".
+        - Fallback при отсутствии данных:
+          * все *_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
       fields:
+        - name: "dispute_resolution_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по разрешению споров. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "governing_law_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания применимого права."
+          display_in_grid: false
+          description: "Статус указания применимого права. Внутреннее enum-поле."
           required: true
+
         - name: "governing_law_details"
           type: "string"
           presentation: "fact"
-          label: "Применимое право"
-          description: "Применимое материальное право к соглашению о неразглашении."
-          required: true
           display_in_grid: true
           display_priority: 1
+          label: "Применимое право"
+          description: >
+            Применимое материальное право к соглашению о неразглашении.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+
         - name: "dispute_method_code"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["court", "arbitration", "negotiation", "mixed", "not_defined"]
-          description: "Способ разрешения споров (государственный суд / арбитраж / переговоры)."
+          display_in_grid: false
+          description: "Способ разрешения споров (государственный суд / арбитраж / переговоры). Внутреннее enum-поле."
           required: true
+
         - name: "dispute_method_details"
           type: "string"
           presentation: "fact"
-          label: "Разрешение споров"
-          description: "Описание согласованного порядка и способа разрешения споров."
-          required: true
           display_in_grid: true
           display_priority: 2
+          label: "Разрешение споров"
+          description: >
+            Описание согласованного порядка и способа разрешения споров.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+
         - name: "jurisdiction_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания подсудности / места арбитража."
+          display_in_grid: false
+          description: "Статус указания подсудности / места арбитража. Внутреннее enum-поле."
           required: true
+
         - name: "jurisdiction_details"
           type: "string"
           presentation: "fact"
-          label: "Подсудность"
-          description: "Договорная подсудность или конкретное арбитражное учреждение."
-          required: true
           display_in_grid: true
           display_priority: 3
+          label: "Подсудность"
+          description: >
+            Договорная подсудность или конкретное арбитражное учреждение.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+
         - name: "pretrial_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия обязательного претензионного порядка."
+          display_in_grid: false
+          description: "Статус наличия обязательного претензионного порядка. Внутреннее enum-поле."
           required: true
+
         - name: "pretrial_details"
           type: "string"
           presentation: "fact"
           label: "Претензионный порядок"
-          description: "Условия обязательного досудебного (претензионного) порядка и срок рассмотрения претензии."
+          description: >
+            Условия обязательного досудебного (претензионного) порядка и срок рассмотрения претензии.
+            Fallback: "Данные не определены" / "Не удалось определить".
           required: false
           display_in_grid: false
+
         - name: "injunctive_relief_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус специальной оговорки об обеспечительных мерах (injunctive relief)."
+          display_in_grid: false
+          description: "Статус специальной оговорки об обеспечительных мерах (injunctive relief). Внутреннее enum-поле."
           required: true
+
         - name: "injunctive_relief_details"
           type: "string"
           presentation: "fact"
-          label: "Обеспечительные меры"
-          description: "Право стороны на получение экстренных обеспечительных мер и судебного запрета (injunctive relief)."
-          required: true
           display_in_grid: true
           display_priority: 4
+          label: "Обеспечительные меры"
+          description: >
+            Право стороны на получение экстренных обеспечительных мер и судебного запрета (injunctive relief).
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+
+      store_payload: true
 
   - id: ip_rights_preservation_check
     name: "Сохранение IP-прав и отсутствие передачи лицензии через NDA"
@@ -5531,81 +5679,209 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1000
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "ip_rights_preservation_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
-        Ты — российский юрист. Извлеки из NDA оговорки о сохранении интеллектуальных прав раскрывающей стороны, отсутствии передачи лицензии и запрете регистрации IP на основе раскрытой информации.
+        <role>
+        Ты — российский юрист. Извлеки из NDA оговорки о сохранении интеллектуальных прав
+        раскрывающей стороны, отсутствии передачи лицензии и запрете регистрации IP
+        на основе раскрытой информации.
         Не анализируй определение конфиденциальной информации, исключения, меры защиты, срок или ответственность за нарушение.
+        Не оценивай риски.
+        Анализируй только текст договора.
+        </role>
 
         <context>
         {context}
         </context>
 
         <task>
-        Заполни строго следующие 6 полей + evidence (всего 7 ключей):
-        1. ip_retention_status — "defined" или "not_defined".
-        2. ip_retention_details — оговорка о сохранении всех IP-прав за раскрывающей стороной.
-        3. no_license_status — "defined" или "not_defined".
-        4. no_license_details — явное указание, что NDA не является лицензией и не передаёт прав.
-        5. ip_registration_prohibition_status — "defined" или "not_defined".
-        6. ip_registration_prohibition_details — запрет регистрации объектов IP на основе раскрытой информации.
+        Заполни строго следующие поля:
 
-        Если условие отсутствует в тексте и нет отсылки к документу:
-        - статус = "not_defined"
-        - текст = "Данные не определены"
+        0. ip_rights_preservation_check_presence:
+          Агрегатное signal-поле — наличие регулирования по теме.
+          - "missing" — если фрагментов по теме в тексте нет вообще
+            (следствие: все содержательные поля = "not_defined");
+          - "present" — если фрагменты по теме есть: либо хотя бы одно
+            содержательное поле ≠ "not_defined", либо тема упомянута,
+            но прямо исключена / отложена на будущее / раскрыта только общей фразой;
+          - "unclear" — если фрагменты по теме есть, но из-за противоречий
+            вывод невозможен.
+
+          Если presence = "missing":
+          - ip_retention_status = "not_defined";
+          - no_license_status = "not_defined";
+          - ip_registration_prohibition_status = "not_defined";
+          - все *_details = "Данные не определены";
+          - не выполняй остальные шаги.
+
+        1. ip_retention_status:
+          - "defined" — если в тексте прямо указано, что все IP-права остаются за раскрывающей стороной;
+          - "not_defined" — если оговорка не указана.
+
+        2. ip_retention_details:
+          Оговорка о сохранении всех исключительных прав на информацию и объекты IP
+          за раскрывающей стороной на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
+
+        3. no_license_status:
+          - "defined" — если в тексте прямо указано, что NDA не является лицензией и не передаёт прав;
+          - "not_defined" — если оговорка не указана.
+
+        4. no_license_details:
+          Явное указание, что NDA не является лицензией и не передаёт прав на использование IP
+          на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
+
+        5. ip_registration_prohibition_status:
+          - "defined" — если в тексте прямо указан запрет регистрации объектов IP на основе раскрытой информации;
+          - "not_defined" — если запрет не указан.
+
+        6. ip_registration_prohibition_details:
+          Запрет получателю регистрировать товарные знаки, патенты, доменные имена
+          на основе раскрытой информации на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
         </task>
 
-        <rules>
-        - Используй только текст договора.
-        - ip_retention: ищи «исключительные права остаются за», «все права собственности сохраняются», «proprietary rights remain with».
-        - no_license: ищи «не является лицензией», «не передаёт прав», «no license granted», «не предоставляет права использования».
-        - ip_registration_prohibition: ищи «не вправе регистрировать», «запрет на подачу заявок», «не подавать заявки на патент/товарный знак».
-        - Верни РОВНО один валидный JSON-объект со всеми 7 ключами, без markdown, без комментариев, без текста до или после.
-        </rules>
+        <context_rules>
+        - Перед остальными полями заполни ip_rights_preservation_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все содержательные поля = "not_defined", все *_details = "Данные не определены".
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона, обычную практику или предположения вместо текста договора.
+        - Не делай выводов по типовой структуре договора.
+        - ip_retention: ищи «исключительные права остаются за», «все права собственности сохраняются»,
+          «proprietary rights remain with».
+        - no_license: ищи «не является лицензией», «не передаёт прав», «no license granted»,
+          «не предоставляет права использования».
+        - ip_registration_prohibition: ищи «не вправе регистрировать», «запрет на подачу заявок»,
+          «не подавать заявки на патент/товарный знак».
+        - Если параметр определяется через отсылку к другому документу,
+          это не отсутствие регулирования; отрази это в user-facing поле.
+        - Если в разных фрагментах указаны разные данные и конфликт нельзя разрешить по тексту,
+          не выбирай один из вариантов: верни "Не удалось определить", а в status используй "not_defined".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+          В тексте нет ни оговорки о сохранении IP-прав, ни указания об отсутствии лицензии, ни запрета регистрации.
+          → presence = "missing";
+            все *_status = "not_defined";
+            все *_details = "Данные не определены".
+
+        2. Только общая фраза о конфиденциальности без IP-оговорок.
+          "Получающая сторона обязуется хранить Конфиденциальную информацию в тайне".
+          → presence = "missing";
+            все *_status = "not_defined";
+            все *_details = "Данные не определены".
+
+        3. Противоречие между фрагментами.
+          В разных частях договора указаны разные условия о IP-правах.
+          → presence = "unclear";
+            соответствующий *_status = "not_defined";
+            *_details = "Не удалось определить".
+
+        4. Полный IP-блок.
+          Указаны сохранение прав, отсутствие лицензии и запрет регистрации.
+          → presence = "present";
+            все *_status = "defined".
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для ip_rights_preservation_check_presence используй только: "present", "missing", "unclear".
+        - Для status-полей используй только: "defined", "not_defined".
+        - Fallback при отсутствии данных:
+          * все *_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
       fields:
+        - name: "ip_rights_preservation_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по сохранению IP-прав. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "ip_retention_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус оговорки о сохранении IP-прав за раскрывающей стороной."
+          display_in_grid: false
+          description: "Статус оговорки о сохранении IP-прав за раскрывающей стороной. Внутреннее enum-поле."
           required: true
+
         - name: "ip_retention_details"
           type: "string"
           presentation: "fact"
-          label: "Сохранение IP-прав"
-          description: "Оговорка о сохранении всех исключительных прав на информацию и объекты IP за раскрывающей стороной."
-          required: true
           display_in_grid: true
           display_priority: 1
+          label: "Сохранение IP-прав"
+          description: >
+            Оговорка о сохранении всех исключительных прав на информацию и объекты IP за раскрывающей стороной.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+
         - name: "no_license_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус оговорки об отсутствии передачи лицензии через NDA."
+          display_in_grid: false
+          description: "Статус оговорки об отсутствии передачи лицензии через NDA. Внутреннее enum-поле."
           required: true
+
         - name: "no_license_details"
           type: "string"
           presentation: "fact"
-          label: "Отсутствие лицензии"
-          description: "Явное указание, что NDA не является лицензией и не передаёт прав на использование IP."
-          required: true
           display_in_grid: true
           display_priority: 2
+          label: "Отсутствие лицензии"
+          description: >
+            Явное указание, что NDA не является лицензией и не передаёт прав на использование IP.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+
         - name: "ip_registration_prohibition_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус запрета на регистрацию объектов IP на основе раскрытой информации."
+          display_in_grid: false
+          description: "Статус запрета на регистрацию объектов IP на основе раскрытой информации. Внутреннее enum-поле."
           required: true
+
         - name: "ip_registration_prohibition_details"
           type: "string"
           presentation: "fact"
-          label: "Запрет регистрации IP"
-          description: "Запрет получателю регистрировать товарные знаки, патенты, доменные имена на основе раскрытой информации."
-          required: true
           display_in_grid: true
           display_priority: 3
+          label: "Запрет регистрации IP"
+          description: >
+            Запрет получателю регистрировать товарные знаки, патенты, доменные имена на основе раскрытой информации.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+
+      store_payload: true
 
   - id: audit_compliance_check
     name: "Право на аудит соблюдения конфиденциальности"
@@ -5816,96 +6092,232 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1000
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "audit_compliance_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
-        Ты — российский юрист. Извлеки из NDA сведения о праве раскрывающей стороны на аудит соблюдения режима конфиденциальности: наличие права, объём, частота, расходы.
+        <role>
+        Ты — российский юрист. Извлеки из NDA сведения о праве раскрывающей стороны
+        на аудит соблюдения режима конфиденциальности: наличие права, объём, частота, расходы.
         Не анализируй определение конфиденциальной информации, исключения, меры защиты, срок или ответственность за нарушение.
+        Не оценивай риски.
+        Анализируй только текст договора.
+        </role>
 
         <context>
         {context}
         </context>
 
         <task>
-        Заполни строго следующие 8 полей + evidence (всего 9 ключей):
-        1. audit_right_status — "defined" или "not_defined".
-        2. audit_right_details — наличие и общая характеристика права на аудит.
-        3. audit_scope_status — "defined" или "not_defined".
-        4. audit_scope_details — объём и предмет аудита (документы, ИТ, помещения).
-        5. audit_frequency_status — "defined" или "not_defined".
-        6. audit_frequency_details — частота, плановость, порядок уведомления.
-        7. audit_costs_status — "defined" или "not_defined".
-        8. audit_costs_details — распределение расходов на аудит.
+        Заполни строго следующие поля:
 
-        Если условие отсутствует в тексте и нет отсылки к документу:
-        - статус = "not_defined"
-        - текст = "Данные не определены"
+        0. audit_compliance_check_presence:
+          Агрегатное signal-поле — наличие регулирования по теме.
+          - "missing" — если фрагментов по теме в тексте нет вообще
+            (следствие: все содержательные поля = "not_defined");
+          - "present" — если фрагменты по теме есть: либо хотя бы одно
+            содержательное поле ≠ "not_defined", либо тема упомянута,
+            но прямо исключена / отложена на будущее / раскрыта только общей фразой;
+          - "unclear" — если фрагменты по теме есть, но из-за противоречий
+            вывод невозможен.
+
+          Если presence = "missing":
+          - audit_right_status = "not_defined";
+          - audit_scope_status = "not_defined";
+          - audit_frequency_status = "not_defined";
+          - audit_costs_status = "not_defined";
+          - все *_details = "Данные не определены";
+          - не выполняй остальные шаги.
+
+        1. audit_right_status:
+          - "defined" — если в тексте прямо указано право раскрывающей стороны на аудит;
+          - "not_defined" — если право на аудит не указано.
+
+        2. audit_right_details:
+          Общая характеристика права раскрывающей стороны на аудит соблюдения режима конфиденциальности
+          на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
+
+        3. audit_scope_status:
+          - "defined" — если в тексте прямо указан объём и предмет аудита;
+          - "not_defined" — если объём не указан.
+
+        4. audit_scope_details:
+          Объём и предмет аудита (документы, ИТ-системы, помещения, журналы доступа) на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
+
+        5. audit_frequency_status:
+          - "defined" — если в тексте прямо указана частота и порядок проведения аудита;
+          - "not_defined" — если частота не указана.
+
+        6. audit_frequency_details:
+          Частота, плановость и порядок уведомления о проведении аудита на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
+
+        7. audit_costs_status:
+          - "defined" — если в тексте прямо указано распределение расходов на аудит;
+          - "not_defined" — если распределение не указано.
+
+        8. audit_costs_details:
+          Распределение расходов на проведение аудита между сторонами на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
         </task>
 
-        <rules>
-        - Используй только текст договора.
+        <context_rules>
+        - Перед остальными полями заполни audit_compliance_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все содержательные поля = "not_defined", все *_details = "Данные не определены".
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона, обычную практику или предположения вместо текста договора.
+        - Не делай выводов по типовой структуре договора.
         - audit_right: ищи «право на аудит», «право на проверку», «audit right», «inspection right».
         - audit_scope: ищи перечень проверяемых объектов (документы, серверы, журналы, помещения, сотрудники).
         - audit_frequency: ищи периодичность («не чаще раза в год», «по запросу», «внепланово»).
         - audit_costs: ищи распределение расходов («за счёт Раскрывающей», «за счёт Получающей при нарушениях»).
-        - Верни РОВНО один валидный JSON-объект со всеми 9 ключами, без markdown, без комментариев, без текста до или после.
-        </rules>
+        - Если параметр определяется через отсылку к другому документу,
+          это не отсутствие регулирования; отрази это в user-facing поле.
+        - Если в разных фрагментах указаны разные данные и конфликт нельзя разрешить по тексту,
+          не выбирай один из вариантов: верни "Не удалось определить", а в status используй "not_defined".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+          В тексте нет ни права на аудит, ни объёма, ни частоты, ни расходов.
+          → presence = "missing";
+            все *_status = "not_defined";
+            все *_details = "Данные не определены".
+
+        2. Только общая фраза о соблюдении конфиденциальности.
+          "Получающая сторона обязуется соблюдать конфиденциальность".
+          → presence = "missing";
+            все *_status = "not_defined";
+            все *_details = "Данные не определены".
+
+        3. Противоречие между фрагментами.
+          В разных частях договора указаны разные условия аудита.
+          → presence = "unclear";
+            соответствующий *_status = "not_defined";
+            *_details = "Не удалось определить".
+
+        4. Полное право на аудит.
+          Указаны право, объём, частота и распределение расходов.
+          → presence = "present";
+            все *_status = "defined".
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для audit_compliance_check_presence используй только: "present", "missing", "unclear".
+        - Для status-полей используй только: "defined", "not_defined".
+        - Fallback при отсутствии данных:
+          * все *_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
       fields:
+        - name: "audit_compliance_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по праву на аудит. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "audit_right_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус наличия права на аудит соблюдения конфиденциальности."
+          display_in_grid: false
+          description: "Статус наличия права на аудит соблюдения конфиденциальности. Внутреннее enum-поле."
           required: true
+
         - name: "audit_right_details"
           type: "string"
           presentation: "fact"
-          label: "Право на аудит"
-          description: "Общая характеристика права раскрывающей стороны на аудит соблюдения режима конфиденциальности."
-          required: true
           display_in_grid: true
           display_priority: 1
+          label: "Право на аудит"
+          description: >
+            Общая характеристика права раскрывающей стороны на аудит соблюдения режима конфиденциальности.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+
         - name: "audit_scope_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения объёма и предмета аудита."
+          display_in_grid: false
+          description: "Статус определения объёма и предмета аудита. Внутреннее enum-поле."
           required: true
+
         - name: "audit_scope_details"
           type: "string"
           presentation: "fact"
-          label: "Объём аудита"
-          description: "Объём и предмет аудита (документы, ИТ-системы, помещения, журналы доступа)."
-          required: true
           display_in_grid: true
           display_priority: 2
+          label: "Объём аудита"
+          description: >
+            Объём и предмет аудита (документы, ИТ-системы, помещения, журналы доступа).
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+
         - name: "audit_frequency_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания частоты и порядка проведения аудита."
+          display_in_grid: false
+          description: "Статус указания частоты и порядка проведения аудита. Внутреннее enum-поле."
           required: true
+
         - name: "audit_frequency_details"
           type: "string"
           presentation: "fact"
           label: "Частота аудита"
-          description: "Частота, плановость и порядок уведомления о проведении аудита."
+          description: >
+            Частота, плановость и порядок уведомления о проведении аудита.
+            Fallback: "Данные не определены" / "Не удалось определить".
           required: false
           display_in_grid: false
+
         - name: "audit_costs_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус распределения расходов на аудит."
+          display_in_grid: false
+          description: "Статус распределения расходов на аудит. Внутреннее enum-поле."
           required: true
+
         - name: "audit_costs_details"
           type: "string"
           presentation: "fact"
           label: "Расходы на аудит"
-          description: "Распределение расходов на проведение аудита между сторонами."
+          description: >
+            Распределение расходов на проведение аудита между сторонами.
+            Fallback: "Данные не определены" / "Не удалось определить".
           required: false
           display_in_grid: false
+
+      store_payload: true
 
   - id: amendment_termination_check
     name: "Порядок изменения и расторжения NDA"
@@ -6138,97 +6550,237 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1000
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "amendment_termination_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
-        Ты — российский юрист. Извлеки из NDA порядок изменения и расторжения соглашения: процедура изменений, одностороннее расторжение, автоматическое прекращение, последствия для обязательств.
+        <role>
+        Ты — российский юрист. Извлеки из NDA порядок изменения и расторжения соглашения:
+        процедура изменений, одностороннее расторжение, автоматическое прекращение, последствия для обязательств.
         Не анализируй определение конфиденциальной информации, исключения, меры защиты, срок действия или ответственность за нарушение.
+        Не оценивай риски.
+        Анализируй только текст договора.
+        </role>
 
         <context>
         {context}
         </context>
 
         <task>
-        Заполни строго следующие 8 полей + evidence (всего 9 ключей):
-        1. amendment_procedure_status — "defined" или "not_defined".
-        2. amendment_procedure_details — порядок внесения изменений (письменная форма, доп. соглашение).
-        3. unilateral_termination_status — "defined" или "not_defined".
-        4. unilateral_termination_details — право на одностороннее расторжение / отказ от исполнения.
-        5. auto_termination_status — "defined" или "not_defined".
-        6. auto_termination_details — основания автоматического прекращения (банкротство, ликвидация).
-        7. termination_consequences_status — "defined" или "not_defined".
-        8. termination_consequences_details — судьба обязательств конфиденциальности при расторжении.
+        Заполни строго следующие поля:
 
-        Если условие отсутствует в тексте и нет отсылки к документу:
-        - статус = "not_defined"
-        - текст = "Данные не определены"
+        0. amendment_termination_check_presence:
+          Агрегатное signal-поле — наличие регулирования по теме.
+          - "missing" — если фрагментов по теме в тексте нет вообще
+            (следствие: все содержательные поля = "not_defined");
+          - "present" — если фрагменты по теме есть: либо хотя бы одно
+            содержательное поле ≠ "not_defined", либо тема упомянута,
+            но прямо исключена / отложена на будущее / раскрыта только общей фразой;
+          - "unclear" — если фрагменты по теме есть, но из-за противоречий
+            вывод невозможен.
+
+          Если presence = "missing":
+          - amendment_procedure_status = "not_defined";
+          - unilateral_termination_status = "not_defined";
+          - auto_termination_status = "not_defined";
+          - termination_consequences_status = "not_defined";
+          - все *_details = "Данные не определены";
+          - не выполняй остальные шаги.
+
+        1. amendment_procedure_status:
+          - "defined" — если в тексте прямо указан порядок внесения изменений (письменная форма, доп. соглашение);
+          - "not_defined" — если порядок не указан.
+
+        2. amendment_procedure_details:
+          Процедура внесения изменений (письменная форма, дополнительное соглашение) на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
+
+        3. unilateral_termination_status:
+          - "defined" — если в тексте прямо указано право на одностороннее расторжение / отказ от исполнения;
+          - "not_defined" — если право не указано.
+
+        4. unilateral_termination_details:
+          Условия и сроки одностороннего расторжения / отказа от исполнения на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
+
+        5. auto_termination_status:
+          - "defined" — если в тексте прямо указаны основания автоматического прекращения (банкротство, ликвидация);
+          - "not_defined" — если основания не указаны.
+
+        6. auto_termination_details:
+          Основания автоматического прекращения (банкротство, ликвидация, реорганизация) на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
+
+        7. termination_consequences_status:
+          - "defined" — если в тексте прямо указаны указания на судьбу обязательств при расторжении;
+          - "not_defined" — если указания не указаны.
+
+        8. termination_consequences_details:
+          Судьба обязательств конфиденциальности при расторжении NDA на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
         </task>
 
-        <rules>
-        - Используй только текст договора.
-        - amendment_procedure: ищи «изменения в письменной форме», «дополнительное соглашение», «подписывается обеими сторонами», «amendment in writing».
-        - unilateral_termination: ищи «одностороннее расторжение», «отказ от исполнения», «расторгнуть по уведомлению», «early termination», «terminate for convenience».
-        - auto_termination: ищи «автоматически прекращается», «в случае ликвидации», «при банкротстве», «реорганизация», «change of control».
-        - termination_consequences: ищи прямые указания на судьбу обязательств при расторжении («обязательства сохраняют силу», «прекращаются полностью»). Не дублируй survival clause — фиксируй только если явно в контексте расторжения.
-        - Верни РОВНО один валидный JSON-объект со всеми 9 ключами, без markdown, без комментариев, без текста до или после.
-        </rules>
+        <context_rules>
+        - Перед остальными полями заполни amendment_termination_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все содержательные поля = "not_defined", все *_details = "Данные не определены".
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона, обычную практику или предположения вместо текста договора.
+        - Не делай выводов по типовой структуре договора.
+        - amendment_procedure: ищи «изменения в письменной форме», «дополнительное соглашение»,
+          «подписывается обеими сторонами», «amendment in writing».
+        - unilateral_termination: ищи «одностороннее расторжение», «отказ от исполнения»,
+          «расторгнуть по уведомлению», «early termination», «terminate for convenience».
+        - auto_termination: ищи «автоматически прекращается», «в случае ликвидации», «при банкротстве»,
+          «реорганизация», «change of control».
+        - termination_consequences: ищи прямые указания на судьбу обязательств при расторжении
+          («обязательства сохраняют силу», «прекращаются полностью»).
+          Не дублируй survival clause — фиксируй только если явно в контексте расторжения.
+        - Если параметр определяется через отсылку к другому документу,
+          это не отсутствие регулирования; отрази это в user-facing поле.
+        - Если в разных фрагментах указаны разные данные и конфликт нельзя разрешить по тексту,
+          не выбирай один из вариантов: верни "Не удалось определить", а в status используй "not_defined".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+          В тексте нет ни порядка изменений, ни расторжения, ни последствий.
+          → presence = "missing";
+            все *_status = "not_defined";
+            все *_details = "Данные не определены".
+
+        2. Только расторжение по соглашению сторон.
+          "Соглашение может быть расторгнуто по взаимному согласию Сторон".
+          → presence = "present";
+            termination_consequences_status = "not_defined";
+            termination_consequences_details = "Данные не определены".
+
+        3. Противоречие между фрагментами.
+          В разных частях договора указаны разные условия расторжения.
+          → presence = "unclear";
+            соответствующий *_status = "not_defined";
+            *_details = "Не удалось определить".
+
+        4. Полный блок изменения и расторжения.
+          Указаны порядок изменений, одностороннее расторжение, автопрекращение и последствия.
+          → presence = "present";
+            все *_status = "defined".
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для amendment_termination_check_presence используй только: "present", "missing", "unclear".
+        - Для status-полей используй только: "defined", "not_defined".
+        - Fallback при отсутствии данных:
+          * все *_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
       fields:
+        - name: "amendment_termination_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по изменению и расторжению. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "amendment_procedure_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус порядка внесения изменений в NDA."
+          display_in_grid: false
+          description: "Статус порядка внесения изменений в NDA. Внутреннее enum-поле."
           required: true
+
         - name: "amendment_procedure_details"
           type: "string"
           presentation: "fact"
-          label: "Порядок изменений"
-          description: "Процедура внесения изменений (письменная форма, дополнительное соглашение, ст. 452 ГК РФ)."
-          required: true
           display_in_grid: true
           display_priority: 1
+          label: "Порядок изменений"
+          description: >
+            Процедура внесения изменений (письменная форма, дополнительное соглашение, ст. 452 ГК РФ).
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+
         - name: "unilateral_termination_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус права на одностороннее расторжение NDA."
+          display_in_grid: false
+          description: "Статус права на одностороннее расторжение NDA. Внутреннее enum-поле."
           required: true
+
         - name: "unilateral_termination_details"
           type: "string"
           presentation: "fact"
-          label: "Одностороннее расторжение"
-          description: "Условия и сроки одностороннего расторжения / отказа от исполнения (ст. 450.1 ГК РФ)."
-          required: true
           display_in_grid: true
           display_priority: 2
+          label: "Одностороннее расторжение"
+          description: >
+            Условия и сроки одностороннего расторжения / отказа от исполнения (ст. 450.1 ГК РФ).
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+
         - name: "auto_termination_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус оснований автоматического прекращения NDA."
+          display_in_grid: false
+          description: "Статус оснований автоматического прекращения NDA. Внутреннее enum-поле."
           required: true
+
         - name: "auto_termination_details"
           type: "string"
           presentation: "fact"
-          label: "Автопрекращение"
-          description: "Основания автоматического прекращения (банкротство, ликвидация, реорганизация)."
-          required: true
           display_in_grid: true
           display_priority: 3
+          label: "Автопрекращение"
+          description: >
+            Основания автоматического прекращения (банкротство, ликвидация, реорганизация).
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+
         - name: "termination_consequences_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указаний на судьбу обязательств при расторжении."
+          display_in_grid: false
+          description: "Статус указаний на судьбу обязательств при расторжении. Внутреннее enum-поле."
           required: true
+
         - name: "termination_consequences_details"
           type: "string"
           presentation: "fact"
           label: "Последствия расторжения"
-          description: "Судьба обязательств конфиденциальности при расторжении NDA (отдельно от survival clause)."
+          description: >
+            Судьба обязательств конфиденциальности при расторжении NDA (отдельно от survival clause).
+            Fallback: "Данные не определены" / "Не удалось определить".
           required: false
           display_in_grid: false
+
+      store_payload: true
 
   - id: notices_check
     name: "Порядок уведомлений (notices) и юридически значимых сообщений"
@@ -6448,97 +7000,235 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 2200
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "notices_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
-        Ты — российский юрист. Извлеки из NDA порядок направления уведомлений (notices): процедура, адреса, способы доставки, момент получения.
+        <role>
+        Ты — российский юрист. Извлеки из NDA порядок направления уведомлений (notices):
+        процедура, адреса, способы доставки, момент получения.
         Не анализируй определение конфиденциальной информации, исключения, меры защиты, срок или ответственность за нарушение.
+        Не оценивай риски.
+        Анализируй только текст договора.
+        </role>
 
         <context>
         {context}
         </context>
 
         <task>
-        Заполни строго следующие 8 полей + evidence (всего 9 ключей):
-        1. notice_procedure_status — "defined" или "not_defined".
-        2. notice_procedure_details — общий порядок направления уведомлений.
-        3. notice_addresses_status — "defined" или "not_defined".
-        4. notice_addresses_details — адреса и реквизиты для уведомлений.
-        5. notice_delivery_methods_status — "defined" или "not_defined".
-        6. notice_delivery_methods_details — допустимые способы доставки.
-        7. notice_deemed_received_status — "defined" или "not_defined".
-        8. notice_deemed_received_details — момент получения и обязанность уведомления о смене реквизитов.
+        Заполни строго следующие поля:
 
-        Если условие отсутствует в тексте и нет отсылки к документу:
-        - статус = "not_defined"
-        - текст = "Данные не определены"
+        0. notices_check_presence:
+          Агрегатное signal-поле — наличие регулирования по теме.
+          - "missing" — если фрагментов по теме в тексте нет вообще
+            (следствие: все содержательные поля = "not_defined");
+          - "present" — если фрагменты по теме есть: либо хотя бы одно
+            содержательное поле ≠ "not_defined", либо тема упомянута,
+            но прямо исключена / отложена на будущее / раскрыта только общей фразой;
+          - "unclear" — если фрагменты по теме есть, но из-за противоречий
+            вывод невозможен.
+
+          Если presence = "missing":
+          - notice_procedure_status = "not_defined";
+          - notice_addresses_status = "not_defined";
+          - notice_delivery_methods_status = "not_defined";
+          - notice_deemed_received_status = "not_defined";
+          - все *_details = "Данные не определены";
+          - не выполняй остальные шаги.
+
+        1. notice_procedure_status:
+          - "defined" — если в тексте прямо указан общий порядок направления уведомлений;
+          - "not_defined" — если порядок не указан.
+
+        2. notice_procedure_details:
+          Общий порядок направления юридически значимых сообщений на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
+
+        3. notice_addresses_status:
+          - "defined" — если в тексте прямо указаны адреса и реквизиты для уведомлений;
+          - "not_defined" — если адреса не указаны.
+
+        4. notice_addresses_details:
+          Адреса, email и контактные лица для направления уведомлений на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
+
+        5. notice_delivery_methods_status:
+          - "defined" — если в тексте прямо указаны допустимые способы доставки;
+          - "not_defined" — если способы не указаны.
+
+        6. notice_delivery_methods_details:
+          Допустимые способы доставки уведомлений (почта, курьер, email) на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
+
+        7. notice_deemed_received_status:
+          - "defined" — если в тексте прямо указаны правила определения момента получения;
+          - "not_defined" — если правила не указаны.
+
+        8. notice_deemed_received_details:
+          Правила определения момента получения (deemed received) и обязанность уведомления
+          о смене реквизитов на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
         </task>
 
-        <rules>
-        - Используй только текст договора.
+        <context_rules>
+        - Перед остальными полями заполни notices_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все содержательные поля = "not_defined", все *_details = "Данные не определены".
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона, обычную практику или предположения вместо текста договора.
+        - Не делай выводов по типовой структуре договора.
         - notice_procedure: ищи «уведомления направляются», «в письменной форме», «all notices shall be in writing».
         - notice_addresses: ищи конкретные адреса, email, ФИО контактных лиц, «по адресам в преамбуле».
-        - notice_delivery_methods: ищи «заказное письмо», «курьер», «электронная почта», «факс», «registered mail», «courier».
-        - notice_deemed_received: ищи «считается полученным», «deemed received», «в день вручения», «на N-й день после отправки», «смена реквизитов».
-        - Верни РОВНО один валидный JSON-объект со всеми 9 ключами, без markdown, без комментариев, без текста до или после.
-        </rules>
+        - notice_delivery_methods: ищи «заказное письмо», «курьер», «электронная почта», «факс»,
+          «registered mail», «courier».
+        - notice_deemed_received: ищи «считается полученным», «deemed received», «в день вручения»,
+          «на N-й день после отправки», «смена реквизитов».
+        - Если параметр определяется через отсылку к другому документу,
+          это не отсутствие регулирования; отрази это в user-facing поле.
+        - Если в разных фрагментах указаны разные данные и конфликт нельзя разрешить по тексту,
+          не выбирай один из вариантов: верни "Не удалось определить", а в status используй "not_defined".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+          В тексте нет ни порядка уведомлений, ни адресов, ни способов доставки.
+          → presence = "missing";
+            все *_status = "not_defined";
+            все *_details = "Данные не определены".
+
+        2. Только общая фраза о рабочем порядке.
+          "Стороны обмениваются информацией в рабочем порядке".
+          → presence = "missing";
+            все *_status = "not_defined";
+            все *_details = "Данные не определены".
+
+        3. Противоречие между фрагментами.
+          В разных частях договора указаны разные способы доставки.
+          → presence = "unclear";
+            соответствующий *_status = "not_defined";
+            *_details = "Не удалось определить".
+
+        4. Полный блок уведомлений.
+          Указаны порядок, адреса, способы доставки и момент получения.
+          → presence = "present";
+            все *_status = "defined".
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для notices_check_presence используй только: "present", "missing", "unclear".
+        - Для status-полей используй только: "defined", "not_defined".
+        - Fallback при отсутствии данных:
+          * все *_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
       fields:
+        - name: "notices_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по уведомлениям. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "notice_procedure_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус порядка направления уведомлений."
+          display_in_grid: false
+          description: "Статус порядка направления уведомлений. Внутреннее enum-поле."
           required: true
+
         - name: "notice_procedure_details"
           type: "string"
           presentation: "fact"
-          label: "Порядок уведомлений"
-          description: "Общий порядок направления юридически значимых сообщений (ст. 165.1 ГК РФ)."
-          required: true
           display_in_grid: true
           display_priority: 1
+          label: "Порядок уведомлений"
+          description: >
+            Общий порядок направления юридически значимых сообщений (ст. 165.1 ГК РФ).
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+
         - name: "notice_addresses_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус указания адресов для уведомлений."
+          display_in_grid: false
+          description: "Статус указания адресов для уведомлений. Внутреннее enum-поле."
           required: true
+
         - name: "notice_addresses_details"
           type: "string"
           presentation: "fact"
-          label: "Адреса уведомлений"
-          description: "Адреса, email и контактные лица для направления уведомлений."
-          required: true
           display_in_grid: true
           display_priority: 2
+          label: "Адреса уведомлений"
+          description: >
+            Адреса, email и контактные лица для направления уведомлений.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+
         - name: "notice_delivery_methods_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус перечня допустимых способов доставки."
+          display_in_grid: false
+          description: "Статус перечня допустимых способов доставки. Внутреннее enum-поле."
           required: true
+
         - name: "notice_delivery_methods_details"
           type: "string"
           presentation: "fact"
-          label: "Способы доставки"
-          description: "Допустимые способы доставки уведомлений (почта, курьер, email)."
-          required: true
           display_in_grid: true
           display_priority: 3
+          label: "Способы доставки"
+          description: >
+            Допустимые способы доставки уведомлений (почта, курьер, email).
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+
         - name: "notice_deemed_received_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения момента получения уведомления."
+          display_in_grid: false
+          description: "Статус определения момента получения уведомления. Внутреннее enum-поле."
           required: true
+
         - name: "notice_deemed_received_details"
           type: "string"
           presentation: "fact"
           label: "Момент получения"
-          description: "Правила определения момента получения (deemed received) и обязанность уведомления о смене реквизитов."
+          description: >
+            Правила определения момента получения (deemed received) и обязанность уведомления о смене реквизитов.
+            Fallback: "Данные не определены" / "Не удалось определить".
           required: false
           display_in_grid: false
+
+      store_payload: true
 
   - id: entire_agreement_check
     name: "Полнота соглашения, приоритет и конфликт договоров"
@@ -6759,97 +7449,241 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1000
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "entire_agreement_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
-        Ты — российский юрист. Извлеки из NDA оговорки о полноте соглашения, приоритете над основным договором, статусе устных договорённостей и интеграции приложений.
+        <role>
+        Ты — российский юрист. Извлеки из NDA оговорки о полноте соглашения, приоритете над основным договором,
+        статусе устных договорённостей и интеграции приложений.
         Не анализируй определение конфиденциальной информации, исключения, меры защиты, срок или ответственность за нарушение.
+        Не оценивай риски.
+        Анализируй только текст договора.
+        </role>
 
         <context>
         {context}
         </context>
 
         <task>
-        Заполни строго следующие 8 полей + evidence (всего 9 ключей):
-        1. entire_agreement_status — "defined" или "not_defined".
-        2. entire_agreement_details — оговорка о полноте соглашения (merger clause).
-        3. priority_over_main_status — "defined" или "not_defined".
-        4. priority_over_main_details — приоритет NDA vs основного договора при коллизии.
-        5. oral_amendments_status — "defined" или "not_defined".
-        6. oral_amendments_details — статус устных договорённостей и преддоговорных переговоров.
-        7. annexes_integration_status — "defined" или "not_defined".
-        8. annexes_integration_details — интеграция приложений и спецификаций в NDA.
+        Заполни строго следующие поля:
 
-        Если условие отсутствует в тексте и нет отсылки к документу:
-        - статус = "not_defined"
-        - текст = "Данные не определены"
+        0. entire_agreement_check_presence:
+          Агрегатное signal-поле — наличие регулирования по теме.
+          - "missing" — если фрагментов по теме в тексте нет вообще
+            (следствие: все содержательные поля = "not_defined");
+          - "present" — если фрагменты по теме есть: либо хотя бы одно
+            содержательное поле ≠ "not_defined", либо тема упомянута,
+            но прямо исключена / отложена на будущее / раскрыта только общей фразой;
+          - "unclear" — если фрагменты по теме есть, но из-за противоречий
+            вывод невозможен.
+
+          Если presence = "missing":
+          - entire_agreement_status = "not_defined";
+          - priority_over_main_status = "not_defined";
+          - oral_amendments_status = "not_defined";
+          - annexes_integration_status = "not_defined";
+          - все *_details = "Данные не определены";
+          - не выполняй остальные шаги.
+
+        1. entire_agreement_status:
+          - "defined" — если в тексте прямо указана оговорка о полноте соглашения (merger clause);
+          - "not_defined" — если оговорка не указана.
+
+        2. entire_agreement_details:
+          Оговорка о том, что NDA составляет полное соглашение и заменяет все предыдущие договорённости
+          на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
+
+        3. priority_over_main_status:
+          - "defined" — если в тексте прямо указан приоритет NDA над основным договором;
+          - "not_defined" — если приоритет не указан.
+
+        4. priority_over_main_details:
+          Правило приоритета NDA над основным договором при коллизии условий на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
+
+        5. oral_amendments_status:
+          - "defined" — если в тексте прямо указан статус устных договорённостей и преддоговорных переговоров;
+          - "not_defined" — если статус не указан.
+
+        6. oral_amendments_details:
+          Статус устных договорённостей и преддоговорных переговоров (имеют / не имеют юридическую силу)
+          на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
+
+        7. annexes_integration_status:
+          - "defined" — если в тексте прямо указана интеграция приложений и спецификаций в NDA;
+          - "not_defined" — если интеграция не указана.
+
+        8. annexes_integration_details:
+          Интеграция приложений, спецификаций и дополнительных соглашений в состав NDA на русском языке.
+          Если данных нет — "Данные не определены".
+          Если данные противоречивы — "Не удалось определить".
         </task>
 
-        <rules>
-        - Используй только текст договора.
-        - entire_agreement: ищи «полное соглашение», «заменяет все предыдущие», «entire agreement», «supersedes all prior».
-        - priority_over_main: ищи «в случае противоречия», «приоритет имеет», «prevail over», «in case of conflict».
-        - oral_amendments: ищи «устные договорённости не имеют силы», «преддоговорные переговоры не учитываются», «no oral modification».
+        <context_rules>
+        - Перед остальными полями заполни entire_agreement_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все содержательные поля = "not_defined", все *_details = "Данные не определены".
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона, обычную практику или предположения вместо текста договора.
+        - Не делай выводов по типовой структуре договора.
+        - entire_agreement: ищи «полное соглашение», «заменяет все предыдущие», «entire agreement»,
+          «supersedes all prior».
+        - priority_over_main: ищи «в случае противоречия», «приоритет имеет», «prevail over»,
+          «in case of conflict».
+        - oral_amendments: ищи «устные договорённости не имеют силы», «преддоговорные переговоры не учитываются»,
+          «no oral modification».
         - annexes_integration: ищи «приложения являются неотъемлемой частью», «annexes form an integral part».
-        - Верни РОВНО один валидный JSON-объект со всеми 9 ключами, без markdown, без комментариев, без текста до или после.
-        </rules>
+        - Если параметр определяется через отсылку к другому документу,
+          это не отсутствие регулирования; отрази это в user-facing поле.
+        - Если в разных фрагментах указаны разные данные и конфликт нельзя разрешить по тексту,
+          не выбирай один из вариантов: верни "Не удалось определить", а в status используй "not_defined".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+          В тексте нет ни оговорки о полноте, ни приоритета, ни устных договорённостей, ни интеграции приложений.
+          → presence = "missing";
+            все *_status = "not_defined";
+            все *_details = "Данные не определены".
+
+        2. Только общая фраза о подписании в двух экземплярах.
+          "Стороны подписали настоящее Соглашение в двух экземплярах".
+          → presence = "missing";
+            все *_status = "not_defined";
+            все *_details = "Данные не определены".
+
+        3. Противоречие между фрагментами.
+          В разных частях договора указаны разные условия о приоритете.
+          → presence = "unclear";
+            соответствующий *_status = "not_defined";
+            *_details = "Не удалось определить".
+
+        4. Полный блок полноты и приоритета.
+          Указаны полнота соглашения, приоритет NDA, статус устных договорённостей и интеграция приложений.
+          → presence = "present";
+            все *_status = "defined".
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для entire_agreement_check_presence используй только: "present", "missing", "unclear".
+        - Для status-полей используй только: "defined", "not_defined".
+        - Fallback при отсутствии данных:
+          * все *_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
       fields:
+        - name: "entire_agreement_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по полноте соглашения. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "entire_agreement_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус оговорки о полноте соглашения (entire agreement / merger clause)."
+          display_in_grid: false
+          description: "Статус оговорки о полноте соглашения (entire agreement / merger clause). Внутреннее enum-поле."
           required: true
+
         - name: "entire_agreement_details"
           type: "string"
           presentation: "fact"
-          label: "Полнота соглашения"
-          description: "Оговорка о том, что NDA составляет полное соглашение и заменяет все предыдущие договорённости."
-          required: true
           display_in_grid: true
           display_priority: 1
+          label: "Полнота соглашения"
+          description: >
+            Оговорка о том, что NDA составляет полное соглашение и заменяет все предыдущие договорённости.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+
         - name: "priority_over_main_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус определения приоритета NDA по отношению к основному договору."
+          display_in_grid: false
+          description: "Статус определения приоритета NDA по отношению к основному договору. Внутреннее enum-поле."
           required: true
+
         - name: "priority_over_main_details"
           type: "string"
           presentation: "fact"
-          label: "Приоритет NDA"
-          description: "Правило приоритета NDA над основным договором при коллизии условий."
-          required: true
           display_in_grid: true
           display_priority: 2
+          label: "Приоритет NDA"
+          description: >
+            Правило приоритета NDA над основным договором при коллизии условий.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+
         - name: "oral_amendments_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус устных договорённостей и преддоговорных переговоров."
+          display_in_grid: false
+          description: "Статус устных договорённостей и преддоговорных переговоров. Внутреннее enum-поле."
           required: true
+
         - name: "oral_amendments_details"
           type: "string"
           presentation: "fact"
-          label: "Устные договорённости"
-          description: "Статус устных договорённостей и преддоговорных переговоров (имеют / не имеют юридическую силу)."
-          required: true
           display_in_grid: true
           display_priority: 3
+          label: "Устные договорённости"
+          description: >
+            Статус устных договорённостей и преддоговорных переговоров (имеют / не имеют юридическую силу).
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+
         - name: "annexes_integration_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
-          description: "Статус интеграции приложений и спецификаций в NDA."
+          display_in_grid: false
+          description: "Статус интеграции приложений и спецификаций в NDA. Внутреннее enum-поле."
           required: true
+
         - name: "annexes_integration_details"
           type: "string"
           presentation: "fact"
           label: "Приложения"
-          description: "Интеграция приложений, спецификаций и дополнительных соглашений в состав NDA."
+          description: >
+            Интеграция приложений, спецификаций и дополнительных соглашений в состав NDA.
+            Fallback: "Данные не определены" / "Не удалось определить".
           required: false
           display_in_grid: false
+
+      store_payload: true
+
+
+
+
 
   - id: nda_self_confidentiality_check
     name: "Конфиденциальность самого NDA (условия и факт заключения)"
