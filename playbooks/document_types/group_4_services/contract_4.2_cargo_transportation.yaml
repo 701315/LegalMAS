@@ -2180,7 +2180,10 @@ checks_v8:
           display_in_grid: true
           display_priority: 6
           label: "Специальные категории грузов"
-          description: "User-friendly summary: агрегированное описание всех упомянутых специальных категорий грузов"
+          description: >
+            User-friendly summary: агрегированное описание всех упомянутых
+            специальных категорий грузов.
+            Fallback: "Не указаны" / "Не удалось определить".
           required: true
       store_payload: true
 
@@ -4227,7 +4230,10 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Ответственность за недостоверные данные"
-          description: "User-friendly отображение: установлена ли ответственность за недостоверные данные о грузе"
+          description: >
+            User-friendly отображение: установлена ли ответственность
+            за недостоверные данные о грузе.
+            Fallback: "Не установлена" / "Не удалось определить".
           required: true
       store_payload: true
 
@@ -8627,7 +8633,10 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Вина грузоотправителя"
-          description: "User-friendly отображение: упомянута ли вина грузоотправителя как основание освобождения"
+          description: >
+            User-friendly отображение: упомянута ли вина грузоотправителя
+            как основание освобождения.
+            Fallback: "Не указано" / "Не удалось определить".
           required: true
         - name: "cargo_properties_included_display"
           type: "string"
@@ -8635,7 +8644,10 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Свойства груза"
-          description: "User-friendly отображение: упомянуты ли свойства груза как основание освобождения"
+          description: >
+            User-friendly отображение: упомянуты ли свойства груза
+            как основание освобождения.
+            Fallback: "Не указано" / "Не удалось определить".
           required: true
         - name: "packaging_defects_included_display"
           type: "string"
@@ -8643,7 +8655,10 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Дефекты упаковки"
-          description: "User-friendly отображение: упомянуты ли дефекты упаковки/тары как основание освобождения"
+          description: >
+            User-friendly отображение: упомянуты ли дефекты упаковки/тары
+            как основание освобождения.
+            Fallback: "Не указано" / "Не удалось определить".
           required: true
         - name: "exhaustive_list_display"
           type: "string"
@@ -9031,7 +9046,10 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Общий срок претензии"
-          description: "Общий срок предъявления претензии (если специально выделен для транспортных споров)"
+          description: >
+            Общий срок предъявления претензии (если специально выделен
+            для транспортных споров).
+            Fallback: "not_defined" / "Не удалось определить".
           required: true
         - name: "response_deadline"
           type: "string"
@@ -9429,7 +9447,10 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Срок исковой давности"
-          description: "Значение срока исковой давности (транспортная специфика — 1 год по ст. 797 ГК РФ)"
+          description: >
+            Значение срока исковой давности (транспортная специфика —
+            1 год по ст. 797 ГК РФ).
+            Fallback: "not_defined" / "Не удалось определить".
           required: true
         - name: "statutory_reference"
           type: "string"
@@ -11851,7 +11872,10 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Доступ грузоотправителя"
-          description: "User-friendly отображение: есть ли у грузоотправителя доступ к данным мониторинга"
+          description: >
+            User-friendly отображение: предусмотрено ли заверение
+            о достоверности сведений о грузе.
+            Fallback: "Не указано" / "Не удалось определить".
           required: true
       store_payload: true
 
@@ -12243,7 +12267,10 @@ checks_v8:
           display_in_grid: true
           display_priority: 1
           label: "Заверение о достоверности"
-          description: "User-friendly отображение: предусмотрено ли заверение о достоверности сведений о грузе"
+          description: >
+            User-friendly отображение: предусмотрено ли заверение
+            о достоверности сведений о грузе.
+            Fallback: "Не указано" / "Не удалось определить".
           required: true
         - name: "liability_for_false_data_display"
           type: "string"
@@ -12251,7 +12278,10 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Ответственность за ложные данные"
-          description: "User-friendly отображение: предусмотрена ли ответственность за ложные или неполные данные"
+          description: >
+            User-friendly отображение: предусмотрена ли ответственность
+            за ложные или неполные данные.
+            Fallback: "Не указано" / "Не удалось определить".
           required: true
         - name: "liable_party_display"
           type: "string"
@@ -12259,7 +12289,10 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Ответственная сторона"
-          description: "User-friendly отображение стороны, несущей ответственность за недостоверные данные"
+          description: >
+            User-friendly отображение стороны, несущей ответственность
+            за недостоверные данные.
+            Fallback: "Не указана" / "Не удалось определить".
           required: true
         - name: "covered_data_scope_display"
           type: "string"
@@ -12267,7 +12300,10 @@ checks_v8:
           display_in_grid: true
           display_priority: 4
           label: "Охват сведений"
-          description: "User-friendly отображение охвата сведений, к которым применяются заверения и ответственность"
+          description: >
+            User-friendly отображение охвата сведений, к которым применяются
+            заверения и ответственность.
+            Fallback: "Не указан" / "Не удалось определить".
           required: true
       store_payload: true
 
@@ -12719,7 +12755,10 @@ checks_v8:
           display_in_grid: true
           display_priority: 3
           label: "Ответственность за субперевозчика"
-          description: "User-friendly отображение: полная или ограниченная ответственность перевозчика за субперевозчика"
+          description: >
+            User-friendly отображение: полная или ограниченная
+            ответственность перевозчика за субперевозчика.
+            Fallback: "Не указана" / "Не удалось определить".
           required: true
         - name: "substitution_restrictions_display"
           type: "string"
@@ -12735,7 +12774,10 @@ checks_v8:
           display_in_grid: true
           display_priority: 5
           label: "Замена ТС"
-          description: "User-friendly отображение: предусмотрено ли условие о замене транспортного средства"
+          description: >
+            User-friendly отображение: предусмотрено ли условие
+            о замене транспортного средства.
+            Fallback: "Не указано" / "Не удалось определить".
           required: true
         - name: "driver_substitution_clause_display"
           type: "string"
@@ -13115,10 +13157,11 @@ checks_v8:
         - name: "cost_allocation"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["shipper", "carrier", "not_defined"]
-          description: "Кто несёт дополнительные расходы"
-          required: true
           display_in_grid: false
+          description: "Кто несёт дополнительные расходы. Внутреннее enum-поле."
+          required: true
         - name: "procedural_limitations"
           type: "string"
           presentation: "signal"
@@ -13976,7 +14019,10 @@ checks_v8:
           display_in_grid: true
           display_priority: 4
           label: "Специальные случаи"
-          description: "User-friendly отображение: есть ли специальные случаи обязательного сопровождения"
+          description: >
+            User-friendly отображение: есть ли специальные случаи
+            обязательного сопровождения.
+            Fallback: "Не указано" / "Не удалось определить".
           required: true
       store_payload: true
 
@@ -14377,7 +14423,10 @@ checks_v8:
           display_in_grid: true
           display_priority: 4
           label: "Распределение расходов"
-          description: "User-friendly отображение: определено ли распределение расходов из-за ограничений"
+          description: >
+            User-friendly отображение: определено ли распределение
+            расходов из-за ограничений.
+            Fallback: "Не указано" / "Не удалось определить".
           required: true
       store_payload: true
 
@@ -17976,7 +18025,10 @@ checks_v8:
           display_in_grid: true
           display_priority: 2
           label: "Срок для отказа/расторжения"
-          description: "Предельная длительность форс-мажора для расторжения договора перевозки. Fallback: 'Не установлен'."
+          description: >
+            Предельная длительность форс-мажора для расторжения
+            договора перевозки.
+            Fallback: "Не установлен" / "Не удалось определить".
           required: true
 
         - name: "transport_fm_snippet"
