@@ -2003,7 +2003,7 @@ checks_v8:
             или отдельный договор купли-продажи с уплатой отдельной выкупной цены).
           required: false
           display_in_grid: true
-          display_priority: 5
+          display_priority: 4
         - name: "lease_term_status"
           type: "string"
           presentation: "signal"
@@ -2019,7 +2019,7 @@ checks_v8:
           description: "Срок лизинга (срок временного владения и пользования)."
           required: false
           display_in_grid: true
-          display_priority: 4
+          display_priority: 5
       store_payload: true
 
   - id: leasing_risk_and_insurance
@@ -2413,7 +2413,7 @@ checks_v8:
           description: "Выгодоприобретатель по полису КАСКО/страхования имущества."
           required: false
           display_in_grid: true
-          display_priority: 4
+          display_priority: 3
         - name: "total_loss_payment_obligation_status"
           type: "string"
           presentation: "signal"
@@ -2429,7 +2429,7 @@ checks_v8:
           description: "Формулировка о сохранении обязанности по платежам при гибели предмета лизинга."
           required: false
           display_in_grid: true
-          display_priority: 3
+          display_priority: 4
         - name: "minimum_coverage_status"
           type: "string"
           presentation: "signal"
@@ -2820,7 +2820,7 @@ checks_v8:
           description: "Кто принимает предмет лизинга от продавца (Лизингополучатель, Лизингодатель, совместно)."
           required: false
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
         - name: "defect_protocol_status"
           type: "string"
           presentation: "signal"
@@ -2866,7 +2866,7 @@ checks_v8:
           description: "Срок поставки предмета лизинга."
           required: false
           display_in_grid: true
-          display_priority: 2
+          display_priority: 3
         - name: "delivery_delay_consequences_status"
           type: "string"
           presentation: "signal"
@@ -3661,7 +3661,7 @@ checks_v8:
           description: "Взыскание задолженности на основании исполнительной надписи нотариуса."
           required: false
           display_in_grid: true
-          display_priority: 4
+          display_priority: 1
         - name: "repossession_status"
           type: "string"
           presentation: "signal"
@@ -3677,7 +3677,7 @@ checks_v8:
           description: "Формулировка о праве и порядке изъятия предмета лизинга."
           required: false
           display_in_grid: true
-          display_priority: 1
+          display_priority: 2
         - name: "default_termination_status"
           type: "string"
           presentation: "signal"
@@ -3693,7 +3693,7 @@ checks_v8:
           description: "Основания и порядок одностороннего расторжения при нарушении обязательств."
           required: false
           display_in_grid: true
-          display_priority: 2
+          display_priority: 3
         - name: "saldo_methodology_status"
           type: "string"
           presentation: "signal"
@@ -3709,7 +3709,7 @@ checks_v8:
           description: "Методика расчёта сальдо встречных обязательств (Пленум ВАС РФ № 17)."
           required: false
           display_in_grid: true
-          display_priority: 3
+          display_priority: 4
         - name: "returned_asset_valuation_status"
           type: "string"
           presentation: "signal"
@@ -4565,7 +4565,7 @@ checks_v8:
             наличие такого залога является ключевым DD-риском.
           required: false
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
         - name: "no_arrest_status"
           type: "string"
           presentation: "signal"
@@ -4596,7 +4596,7 @@ checks_v8:
           description: "Формулировка об отсутствии прав третьих лиц на предмет лизинга."
           required: false
           display_in_grid: true
-          display_priority: 2
+          display_priority: 3
         - name: "title_documentation_status"
           type: "string"
           presentation: "signal"
@@ -5023,7 +5023,7 @@ checks_v8:
             («не худшем, чем при передаче») фактически исключают нормальный износ.
           required: false
           display_in_grid: true
-          display_priority: 4
+          display_priority: 2
         - name: "normal_wear_excluded_status"
           type: "string"
           presentation: "signal"
@@ -5039,7 +5039,7 @@ checks_v8:
           description: "Формулировка об исключении нормального / естественного износа из ответственности."
           required: false
           display_in_grid: true
-          display_priority: 2
+          display_priority: 3
         - name: "transport_costs_status"
           type: "string"
           presentation: "signal"
@@ -5085,7 +5085,7 @@ checks_v8:
           description: "Формулировка и размер штрафа / пени за просрочку возврата предмета лизинга."
           required: false
           display_in_grid: true
-          display_priority: 3
+          display_priority: 4
       store_payload: true
 
   - id: leasing_balance_and_tax
@@ -5484,7 +5484,7 @@ checks_v8:
             Ключевой налоговый параметр лизинговой сделки.
           required: false
           display_in_grid: true
-          display_priority: 4
+          display_priority: 3
         - name: "vat_clause_status"
           type: "string"
           presentation: "signal"
@@ -5500,7 +5500,7 @@ checks_v8:
           description: "Формулировка о НДС в лизинговых платежах (ставка, порядок включения или освобождение)."
           required: false
           display_in_grid: true
-          display_priority: 3
+          display_priority: 4
         - name: "tax_regime_status"
           type: "string"
           presentation: "signal"
@@ -6316,7 +6316,7 @@ checks_v8:
           description: "Формулировка о запрете перемещения или вывоза предмета лизинга без предварительного письменного согласия."
           required: false
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
         - name: "target_use_status"
           type: "string"
           presentation: "signal"
@@ -6355,7 +6355,7 @@ checks_v8:
           description: "Формулировка об условиях сублизинга и передаче предмета лизинга во временное пользование третьим лицам (ст. 8 ФЗ-164)."
           required: false
           display_in_grid: true
-          display_priority: 2
+          display_priority: 3
       store_payload: true
 
   - id: leasing_liability_and_penalties
@@ -9620,4 +9620,3 @@ dd_request_templates:
       Просим предоставить дополнительную информацию по вопросу «{check_name}»
       применительно к {doc_names}.
     addressee: "Юридический советник"
-    

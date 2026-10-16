@@ -1538,7 +1538,7 @@ checks_v8:
           description: "Тип хранения: обычное или иррегулярное."
           required: true
           display_in_grid: true
-          display_priority: 5
+          display_priority: 4
 
         - name: "identification_marks_status"
           type: "string"
@@ -1555,7 +1555,7 @@ checks_v8:
           description: "Серийный номер, маркировка, пломба и т.п."
           required: true
           display_in_grid: true
-          display_priority: 4
+          display_priority: 5
 
   - id: acceptance_documentation_check
     name: "Документальное подтверждение приёма вещи (ст. 887 ГК РФ, форма МХ-1)"
@@ -2794,7 +2794,7 @@ checks_v8:
           description: "Срок уведомления о досрочном возврате."
           required: true
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
 
         - name: "early_return_penalty_status"
           type: "string"
@@ -2811,7 +2811,7 @@ checks_v8:
           description: "Наличие и размер штрафа за досрочный возврат."
           required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 3
 
   - id: irregular_storage_terms
     name: "Иррегулярное хранение: условия смешения вещей (ст. 890 ГК РФ)"
@@ -3226,7 +3226,7 @@ checks_v8:
           label: "Смешение вещей"
           required: true
           display_in_grid: true
-          display_priority: 4
+          display_priority: 1
 
         - name: "quality_grade_status"
           type: "string"
@@ -3243,7 +3243,7 @@ checks_v8:
           description: "Сорт, класс или качество вещи при иррегулярном хранении."
           required: true
           display_in_grid: true
-          display_priority: 1
+          display_priority: 2
 
         - name: "return_same_grade_status"
           type: "string"
@@ -3260,7 +3260,7 @@ checks_v8:
           description: "Порядок возврата вещи того же рода и качества."
           required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 3
 
         - name: "share_basis_status"
           type: "string"
@@ -3277,7 +3277,7 @@ checks_v8:
           description: "Порядок определения доли поклажедателя."
           required: true
           display_in_grid: true
-          display_priority: 3
+          display_priority: 4
 
   - id: uncollected_goods_disposal
     name: "Реализация невостребованной вещи (ст. 899 ГК РФ)"

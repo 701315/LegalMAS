@@ -1052,7 +1052,7 @@ checks_v8:
           description: "Номер и реквизиты лицензии банка."
           required: true
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
 
         - name: "client_details_status"
           type: "string"
@@ -1070,7 +1070,7 @@ checks_v8:
           description: "Наименование / ФИО и реквизиты клиента или вкладчика."
           required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 3
 
         - name: "client_type"
           type: "string"
@@ -2724,7 +2724,7 @@ checks_v8:
           description: "Формулировка об ограничениях (срок, периодичность, условия, запрет)."
           required: true
           display_in_grid: true
-          display_priority: 4
+          display_priority: 3
 
         - name: "return_procedure_status"
           type: "string"
@@ -2742,7 +2742,7 @@ checks_v8:
           description: "Формулировка о порядке и сроке возврата средств."
           required: true
           display_in_grid: true
-          display_priority: 3
+          display_priority: 4
 
       store_payload: true
 
@@ -3751,7 +3751,7 @@ checks_v8:
           description: "Формулировка о праве банка запрашивать документы (для идентификации, подтверждения операций)."
           required: true
           display_in_grid: true
-          display_priority: 4
+          display_priority: 1
 
         - name: "blocking_grounds_status"
           type: "string"
@@ -3783,7 +3783,7 @@ checks_v8:
           description: "Читаемый вывод о раскрытии механики блокировки; сигнал риска при отсутствии конкретики в договоре."
           required: true
           display_in_grid: true
-          display_priority: 1
+          display_priority: 3
 
         - name: "unblocking_status"
           type: "string"
@@ -3801,7 +3801,7 @@ checks_v8:
           description: "Формулировка о порядке и сроке разблокировки."
           required: true
           display_in_grid: true
-          display_priority: 3
+          display_priority: 4
 
       store_payload: true
 
@@ -4279,7 +4279,7 @@ checks_v8:
           description: "Конкретный перечень случаев списания без распоряжения клиента."
           required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
 
         - name: "debit_mode_display"
           type: "string"
@@ -4293,7 +4293,7 @@ checks_v8:
           description: "Читаемый вывод о раскрытии механики списания без распоряжения."
           required: true
           display_in_grid: true
-          display_priority: 1
+          display_priority: 2
 
         - name: "client_notice_status"
           type: "string"
@@ -5306,7 +5306,7 @@ checks_v8:
           description: "Размер лимита овердрафта."
           required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
 
         - name: "overdraft_interest_status"
           type: "string"
@@ -5324,7 +5324,7 @@ checks_v8:
           description: "Размер процентов за пользование овердрафтом."
           required: true
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
 
         - name: "repayment_status"
           type: "string"
@@ -5342,7 +5342,7 @@ checks_v8:
           description: "Срок и порядок погашения овердрафта."
           required: true
           display_in_grid: true
-          display_priority: 4
+          display_priority: 3
 
         - name: "termination_grounds_status"
           type: "string"
@@ -5360,7 +5360,7 @@ checks_v8:
           description: "Основания прекращения лимита овердрафта банком."
           required: true
           display_in_grid: true
-          display_priority: 5
+          display_priority: 4
 
         - name: "overdraft_mode_display"
           type: "string"
@@ -5374,7 +5374,7 @@ checks_v8:
           description: "Читаемый вывод о раскрытии условий овердрафта."
           required: true
           display_in_grid: true
-          display_priority: 1
+          display_priority: 5
 
       store_payload: true
 
@@ -5861,7 +5861,7 @@ checks_v8:
           description: "Читаемая категория вклада для DD Grid."
           required: true
           display_in_grid: true
-          display_priority: 3
+          display_priority: 1
 
         - name: "insurance_coverage_limit_status"
           type: "string"
@@ -5895,7 +5895,7 @@ checks_v8:
           description: "Читаемый вывод о покрытии вклада; ключевой сигнал риска для физлиц и юрлиц."
           required: true
           display_in_grid: true
-          display_priority: 1
+          display_priority: 3
 
       store_payload: true
 
@@ -7414,7 +7414,7 @@ checks_v8:
           description: "Перечень обязательств, в счет которых банк может произвести зачет/списание."
           required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
 
         - name: "notice_of_setoff_status"
           type: "string"
@@ -7432,7 +7432,7 @@ checks_v8:
           description: "Порядок уведомления клиента о произведенном зачете или безакцептном списании."
           required: true
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
 
         - name: "setoff_mode_display"
           type: "string"
@@ -7446,7 +7446,7 @@ checks_v8:
           description: "Читаемый вывод о широте полномочий банка по зачету/списанию в счет иных обязательств."
           required: true
           display_in_grid: true
-          display_priority: 1
+          display_priority: 3
 
       store_payload: true
 
@@ -7923,7 +7923,7 @@ checks_v8:
           description: "Перечень согласованных каналов связи (SMS, e-mail, push, сайт, почта, личный кабинет)."
           required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
 
         - name: "delivery_presumption_status"
           type: "string"
@@ -7941,7 +7941,7 @@ checks_v8:
           description: "Условие, при котором сообщение считается юридически доставленным (презумпция доставки)."
           required: true
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
 
         - name: "client_risk_of_undelivered_status"
           type: "string"
@@ -7959,7 +7959,7 @@ checks_v8:
           description: "Условия, при которых клиент несет риск неполучения юридически значимой информации."
           required: true
           display_in_grid: true
-          display_priority: 4
+          display_priority: 3
 
         - name: "notification_mode_display"
           type: "string"
@@ -7973,7 +7973,7 @@ checks_v8:
           description: "Читаемый вывод о распределении рисков ненадлежащего уведомления между банком и клиентом."
           required: true
           display_in_grid: true
-          display_priority: 1
+          display_priority: 4
 
       store_payload: true
 

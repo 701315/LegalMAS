@@ -3568,7 +3568,7 @@ checks_v8:
           description: "Текст о сохранении за получателем ренты права проживания в переданном жилом помещении."
           required: false
           display_in_grid: true
-          display_priority: 3
+          display_priority: 1
         - name: "residence_term_status"
           type: "string"
           presentation: "signal"
@@ -3626,7 +3626,7 @@ checks_v8:
           description: "Стоимость пожизненного содержания в денежном выражении."
           required: false
           display_in_grid: true
-          display_priority: 1
+          display_priority: 3
         - name: "cash_substitution_status"
           type: "string"
           presentation: "signal"

@@ -6199,6 +6199,7 @@ checks_v8:
           label: "Льготный период"
           display_in_grid: true
 
+          display_priority: 4
   - id: purpose_and_control_check
     name: "Целевое использование кредита и механизм контроля"
     description: >

@@ -402,63 +402,6 @@ classification_runtime_v1:
         weight: -1.0
         description: "ДДУ — отдельный тип contract_3.6_off_plan_contract"
 
-    exclusions:
-      - pattern: "(?i)транспортн[а-яё]+\\s+экспедици[яи]"
-        severity: soft
-        weight: -0.6
-        description: "Универсальное правило: наличие предмета экспедиции снижает вероятность подряда, даже если есть слово 'подрядчик'"
-      - pattern: "(?i)организова[тьт]ь\\s+(?:выполнени[ея]|осуществлени[ея])\\s+перевозок"
-        severity: soft
-        weight: -0.5
-        description: "Организация перевозок - ключевой признак экспедиции (ст. 801 ГК РФ), сильно снижает уверенность в подряде"
-
-      - pattern: "(?i)\\bНИОКР\\b"
-        severity: hard
-        weight: -1.0
-        description: "НИОКР — специальный договор на выполнение исследовательских и опытно-конструкторских работ"
-
-      - pattern: "(?i)научно-исследовательск[иие]+\\s+работ[ыа]"
-        severity: hard
-        weight: -1.0
-        description: "НИР/НИОКР относятся к contract_3.5_research_development"
-
-      - pattern: "(?i)проектн[ыо]е\\s+и\\s+изыскательск[иие]+\\s+работ[ыа]"
-        severity: hard
-        weight: -1.0
-        description: "Проектные и изыскательские работы — специальный тип contract_3.4_design_survey"
-
-      - pattern: "(?i)\\bПИР\\b"
-        severity: hard
-        weight: -1.0
-        description: "ПИР — устойчивый маркер проектно-изыскательских работ"
-
-      # ── Soft exclusions
-
-      - pattern: "(?i)\\bконсультаци[ияй]\\b"
-        severity: soft
-        weight: -0.3
-        description: "Консультации тянут договор в сторону услуг"
-
-      - pattern: "(?i)правил[аа]\\s+внутренн[ео]го\\s+распорядк[аа]"
-        severity: soft
-        weight: -0.35
-        description: "Правила внутреннего распорядка указывают на трудовые отношения"
-
-      - pattern: "(?i)авторск[иоя]+\\s+заказ"
-        severity: soft
-        weight: -0.3
-        description: "Авторский заказ может пересекаться с IP/творческими договорами, а не с generic подрядом"
-
-      - pattern: "(?i)для\\s+личн[ыо]х\\s+бытов[ыо]х\\s+нужд"
-        severity: soft
-        weight: -0.3
-        description: "Потребительская цель тянет конструкцию к бытовому подряду"
-
-# ════════════════════════════════════════════════════════════════════════════
-#  БЛОК 2: ТРИГГЕРЫ
-#  Читается: TriggerDetector → doc.applicable_triggers
-# ════════════════════════════════════════════════════════════════════════════
-
 trigger_definitions:
 
   consumer_contractor:
@@ -1065,7 +1008,7 @@ checks_v8:
           description: "Описание содержания работ по договору подряда."
           required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
 
         - name: "material_result_status"
           type: "string"
@@ -1083,7 +1026,7 @@ checks_v8:
           description: "Описание конкретного результата работ."
           required: true
           display_in_grid: true
-          display_priority: 1
+          display_priority: 2
 
         - name: "technical_task_referenced"
           type: "string"
@@ -4859,7 +4802,7 @@ checks_v8:
           description: "Понятное для юриста описание способа расчётов."
           required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
 
         - name: "advance_present"
           type: "string"
@@ -4877,7 +4820,7 @@ checks_v8:
           description: "Понятное для юриста описание наличия аванса."
           required: true
           display_in_grid: true
-          display_priority: 1
+          display_priority: 2
 
       store_payload: true
 
@@ -12072,11 +12015,10 @@ dd_request_templates:
       требуется ли согласие другой стороны. Особенно важно: запрет на уступку
       подрядчиком права на оплату без согласия заказчика.
     addressee: "Юридический советник"
-    
+
    # Generic fallback
   _default:
     text: >
       Просим предоставить дополнительную информацию по вопросу «{check_name}»
       применительно к {doc_names}.
     addressee: "Юридический советник"
-    

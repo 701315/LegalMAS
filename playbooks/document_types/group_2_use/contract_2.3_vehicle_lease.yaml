@@ -1196,7 +1196,7 @@ checks_v8:
           description: "Читаемое отображение подписанта Арендодателя и основания полномочий."
           required: false
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
         - name: "tenant_details_status"
           type: "string"
           presentation: "signal"
@@ -1212,7 +1212,7 @@ checks_v8:
           description: "Наименование/ФИО и реквизиты Арендатора."
           required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 3
         - name: "tenant_type"
           type: "string"
           presentation: "signal"
@@ -3688,7 +3688,7 @@ checks_v8:
           description: "Условия ОСАГО: кто оформляет, плательщик, круг допущенных водителей."
           required: false
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
         - name: "casco_status"
           type: "string"
           presentation: "signal"
@@ -3704,7 +3704,7 @@ checks_v8:
           description: "Условия КАСКО: риски, плательщик, франшиза, выгодоприобретатель."
           required: false
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
         - name: "insurance_cost_allocation_status"
           type: "string"
           presentation: "signal"
@@ -3742,7 +3742,7 @@ checks_v8:
           description: "Сводная информация о страховании (ОСАГО, КАСКО, плательщик, франшиза, выгодоприобретатель)."
           required: false
           display_in_grid: true
-          display_priority: 1
+          display_priority: 3
       store_payload: true
 
   - id: vehicle_accident_procedure_check
@@ -4148,7 +4148,7 @@ checks_v8:
           description: "Общий порядок действий при ДТП и оформление документов."
           required: false
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
         - name: "landlord_notification_status"
           type: "string"
           presentation: "signal"
@@ -4194,7 +4194,7 @@ checks_v8:
           description: "Запрет самостоятельного восстановительного ремонта ТС без согласия арендодателя."
           required: false
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
         - name: "accident_summary_display"
           type: "string"
           presentation: "fact"
@@ -4202,7 +4202,7 @@ checks_v8:
           description: "Сводная информация о действиях при аварии (уведомление арендодателя, вызов ГИБДД, документы, запрет ремонта)."
           required: false
           display_in_grid: true
-          display_priority: 1
+          display_priority: 3
       store_payload: true
 
   - id: vehicle_liability_allocation_check
@@ -4640,7 +4640,7 @@ checks_v8:
           description: "Распределение ответственности за вред третьим лицам и правила регресса."
           required: false
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
         - name: "hazardous_source_reference_status"
           type: "string"
           presentation: "signal"
@@ -4686,7 +4686,7 @@ checks_v8:
           description: "Распределение обязанностей по текущему, капитальному ремонту и ТО ТС."
           required: false
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
         - name: "liability_allocation_summary_display"
           type: "string"
           presentation: "fact"
@@ -4694,7 +4694,7 @@ checks_v8:
           description: "Сводная информация об ответственности перед третьими лицами и распределении ремонта/ТО."
           required: false
           display_in_grid: true
-          display_priority: 1
+          display_priority: 3
       store_payload: true
 
   - id: vehicle_return_and_termination_check
@@ -5172,7 +5172,7 @@ checks_v8:
           description: "Требования к техническому состоянию, чистоте (мойке) ТС и уровню топлива при возврате."
           required: false
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
         - name: "fuel_level_status"
           type: "string"
           presentation: "signal"
@@ -5203,7 +5203,7 @@ checks_v8:
           description: "Неустойка, пени или штрафные санкции за несвоевременный возврат транспортного средства."
           required: false
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
         - name: "termination_grounds_status"
           type: "string"
           presentation: "signal"
@@ -5241,7 +5241,7 @@ checks_v8:
           description: "Сводная информация о процедуре возврата автомобиля (акт, место, топливо, чистота ТС, штрафы за просрочку)."
           required: false
           display_in_grid: true
-          display_priority: 1
+          display_priority: 3
       store_payload: true
 
   - id: vehicle_fines_and_regress_check
@@ -5712,7 +5712,7 @@ checks_v8:
           description: "Срок компенсации сумм штрафов Арендатором с момента получения уведомления."
           required: false
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
         - name: "regress_mechanism_status"
           type: "string"
           presentation: "signal"
@@ -5743,7 +5743,7 @@ checks_v8:
           description: "Право Арендодателя удержать сумму неоплаченных штрафов из обеспечительного платежа (депозита)."
           required: false
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
         - name: "fines_summary_display"
           type: "string"
           presentation: "fact"
@@ -5751,7 +5751,7 @@ checks_v8:
           description: "Сводная информация о механизме возмещения штрафов (ГИБДД, МАДИ, Платон, весогабарит, сроки, удержание из депозита)."
           required: false
           display_in_grid: true
-          display_priority: 1
+          display_priority: 3
       store_payload: true
 
   - id: vehicle_usage_restrictions_check
@@ -6203,7 +6203,7 @@ checks_v8:
           description: "Требования к возрасту, стажу вождения и категории водительского удостоверения."
           required: false
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
         - name: "allowed_drivers_list_status"
           type: "string"
           presentation: "signal"
@@ -6249,7 +6249,7 @@ checks_v8:
           description: "Географические пределы и регионы разрешенной эксплуатации ТС."
           required: false
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
         - name: "cross_border_restriction_status"
           type: "string"
           presentation: "signal"
@@ -6287,7 +6287,7 @@ checks_v8:
           description: "Сводная информация об ограничениях (стаж водителей, территория, выезд за рубеж, запрет передачи, субаренды и такси)."
           required: false
           display_in_grid: true
-          display_priority: 1
+          display_priority: 3
       store_payload: true
 
   - id: vehicle_deposit_and_mileage_check
@@ -6768,7 +6768,7 @@ checks_v8:
           description: "Установленное ограничение пробега (км/сутки, км/месяц) или лимит моточасов работы спецтехники."
           required: false
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
         - name: "excess_mileage_fee_status"
           type: "string"
           presentation: "signal"
@@ -6784,7 +6784,7 @@ checks_v8:
           description: "Тариф за каждый километр перепробега или дополнительный моточас работы сверх лимита."
           required: false
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
         - name: "deposit_display"
           type: "string"
           presentation: "fact"
@@ -6792,7 +6792,7 @@ checks_v8:
           description: "Сводная информация об обеспечительном платеже (размер, порядок возврата и основания удержания)."
           required: false
           display_in_grid: true
-          display_priority: 1
+          display_priority: 3
       store_payload: true
 
   - id: vehicle_downtime_and_replacement_check
@@ -7147,7 +7147,7 @@ checks_v8:
           description: "Распределение расходов и оплаты аренды в период простоя ТС."
           required: false
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
         - name: "replacement_vehicle_status"
           type: "string"
           presentation: "signal"
@@ -7163,7 +7163,7 @@ checks_v8:
           description: "Обязанность, сроки и класс подменного транспортного средства."
           required: false
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
         - name: "payment_suspension_status"
           type: "string"
           presentation: "signal"
@@ -7186,7 +7186,7 @@ checks_v8:
           description: "Сводка условий простоя ТС, подменного автомобиля и приостановки оплаты."
           required: false
           display_in_grid: true
-          display_priority: 1
+          display_priority: 3
       store_payload: true
 
   - id: vehicle_theft_and_hijacking_check
@@ -7562,7 +7562,7 @@ checks_v8:
           description: "Уведомление полиции, Арендодателя и страховой при угоне / хищении ТС."
           required: false
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
         - name: "theft_liability_status"
           type: "string"
           presentation: "signal"
@@ -7578,7 +7578,7 @@ checks_v8:
           description: "Распределение убытков, не покрытых КАСКО (франшиза, стоимость ТС)."
           required: false
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
         - name: "rent_suspension_on_theft_status"
           type: "string"
           presentation: "signal"
@@ -7616,7 +7616,7 @@ checks_v8:
           description: "Сводка условий при угоне (порядок действий, убытки, оплата, халатность)."
           required: false
           display_in_grid: true
-          display_priority: 1
+          display_priority: 3
       store_payload: true
 
   - id: vehicle_warranty_and_hidden_defects_check
@@ -7987,7 +7987,7 @@ checks_v8:
           description: "Заверение Арендодателя об отсутствии скрытых недостатков."
           required: false
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
         - name: "defect_notification_status"
           type: "string"
           presentation: "signal"
@@ -8018,7 +8018,7 @@ checks_v8:
           description: "Порядок и сроки устранения недостатков Арендодателем."
           required: false
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
         - name: "remediation_consequences_status"
           type: "string"
           presentation: "signal"
@@ -8041,7 +8041,7 @@ checks_v8:
           description: "Сводка гарантийных обязательств и условий по скрытым дефектам ТС."
           required: false
           display_in_grid: true
-          display_priority: 1
+          display_priority: 3
       store_payload: true
 
   - id: vehicle_evacuation_and_impound_check
@@ -8367,7 +8367,7 @@ checks_v8:
           description: "Распределение расходов на эвакуацию и хранение ТС на штрафстоянке."
           required: false
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
         - name: "impound_return_status"
           type: "string"
           presentation: "signal"
@@ -8390,7 +8390,7 @@ checks_v8:
           description: "Сводка условий эвакуации ТС (расходы, хранение, возврат)."
           required: false
           display_in_grid: true
-          display_priority: 1
+          display_priority: 2
       store_payload: true
 
   - id: vehicle_maintenance_and_seasonal_check
@@ -8716,7 +8716,7 @@ checks_v8:
           description: "Распределение обязанностей по плановому ТО и расходным материалам."
           required: false
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
         - name: "seasonal_tires_status"
           type: "string"
           presentation: "signal"
@@ -8732,7 +8732,7 @@ checks_v8:
           description: "Сезонная замена шин и хранение резины."
           required: false
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
         - name: "maintenance_summary_display"
           type: "string"
           presentation: "fact"
@@ -8740,7 +8740,7 @@ checks_v8:
           description: "Сводка обязанностей по ТО, расходникам и сезонным шинам."
           required: false
           display_in_grid: true
-          display_priority: 1
+          display_priority: 3
       store_payload: true
 
   - id: vehicle_driver_medical_check
@@ -9110,7 +9110,7 @@ checks_v8:
           description: "Обязанность по организации предрейсовых/послерейсовых медосмотров (кто, за чей счёт)."
           required: false
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
         - name: "medical_check_responsibility_status"
           type: "string"
           presentation: "signal"
@@ -9126,7 +9126,7 @@ checks_v8:
           description: "Запрет допуска водителя без медосмотра или в состоянии опьянения и распределение штрафов."
           required: false
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
         - name: "medical_check_summary_display"
           type: "string"
           presentation: "fact"
@@ -9134,7 +9134,7 @@ checks_v8:
           description: "Сводка условий по медосмотрам водителей и ответственности за допуск без осмотра."
           required: false
           display_in_grid: true
-          display_priority: 1
+          display_priority: 3
       store_payload: true
 
   - id: vehicle_usage_restrictions_check
@@ -9623,7 +9623,7 @@ checks_v8:
           description: "Требования к возрасту, стажу вождения и категории водительского удостоверения."
           required: false
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
         - name: "allowed_drivers_list_status"
           type: "string"
           presentation: "signal"
@@ -9669,7 +9669,7 @@ checks_v8:
           description: "Географические пределы и регионы разрешенной эксплуатации ТС."
           required: false
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
         - name: "cross_border_restriction_status"
           type: "string"
           presentation: "signal"
@@ -9722,7 +9722,7 @@ checks_v8:
           description: "Сводная информация об ограничениях (стаж водителей, территория, выезд за рубеж, запрет передачи, субаренды, такси и модификации)."
           required: false
           display_in_grid: true
-          display_priority: 1
+          display_priority: 3
       store_payload: true
 
   - id: vehicle_payment_terms_check
@@ -10130,7 +10130,7 @@ checks_v8:
           description: "Периодичность, модель (аванс/постоплата), конкретные сроки оплаты, отсылка к графику платежей."
           required: false
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
         - name: "late_payment_penalty_status"
           type: "string"
           presentation: "signal"
@@ -10146,7 +10146,7 @@ checks_v8:
           description: "Размер и порядок начисления неустойки (пени, проценты по ст. 395 ГК РФ)."
           required: false
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
         - name: "indexation_status"
           type: "string"
           presentation: "signal"
@@ -10162,7 +10162,7 @@ checks_v8:
           description: "Порядок и периодичность индексации (ИПЦ, уведомление, ограничения)."
           required: false
           display_in_grid: true
-          display_priority: 4
+          display_priority: 3
         - name: "payment_summary_display"
           type: "string"
           presentation: "fact"
@@ -10170,7 +10170,7 @@ checks_v8:
           description: "Сводка условий оплаты (сроки, модель, неустойка за просрочку, индексация)."
           required: false
           display_in_grid: true
-          display_priority: 1
+          display_priority: 4
       store_payload: true
 
 # ════════════════════════════════════════════════════════════════════════════

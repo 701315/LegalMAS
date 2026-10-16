@@ -3642,6 +3642,7 @@ checks_v8:
           без предварительной обработки.
         - Технический формат JSON (value / confidence / location) задан отдельным
           контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
       fields:
@@ -4046,6 +4047,7 @@ checks_v8:
           без предварительной обработки.
         - Технический формат JSON (value / confidence / location) задан отдельным
           контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
       fields:
@@ -4423,6 +4425,7 @@ checks_v8:
           json.loads без предварительной обработки.
         - Технический формат JSON (value / confidence / location) задан
           отдельным контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
       fields:
@@ -4809,6 +4812,7 @@ checks_v8:
           json.loads без предварительной обработки.
         - Технический формат JSON (value / confidence / location) задан
           отдельным контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
       fields:
@@ -5201,6 +5205,7 @@ checks_v8:
           json.loads без предварительной обработки.
         - Технический формат JSON (value / confidence / location) задан
           отдельным контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
       fields:
@@ -5587,6 +5592,7 @@ checks_v8:
           json.loads без предварительной обработки.
         - Технический формат JSON (value / confidence / location) задан
           отдельным контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
       fields:
@@ -5986,6 +5992,7 @@ checks_v8:
           json.loads без предварительной обработки.
         - Технический формат JSON (value / confidence / location) задан
           отдельным контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
       fields:
@@ -6363,6 +6370,7 @@ checks_v8:
           json.loads без предварительной обработки.
         - Технический формат JSON (value / confidence / location) задан
           отдельным контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
       fields:
@@ -6761,6 +6769,7 @@ checks_v8:
           json.loads без предварительной обработки.
         - Технический формат JSON (value / confidence / location) задан
           отдельным контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
       fields:
@@ -7173,6 +7182,7 @@ checks_v8:
           json.loads без предварительной обработки.
         - Технический формат JSON (value / confidence / location) задан
           отдельным контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
       fields:
@@ -7583,6 +7593,7 @@ checks_v8:
           json.loads без предварительной обработки.
         - Технический формат JSON (value / confidence / location) задан
           отдельным контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
       fields:
@@ -7991,6 +8002,7 @@ checks_v8:
           json.loads без предварительной обработки.
         - Технический формат JSON (value / confidence / location) задан
           отдельным контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
       fields:

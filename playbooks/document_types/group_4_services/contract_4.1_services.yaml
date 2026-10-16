@@ -35,7 +35,7 @@ metadata:
     - "договор обслуживания"
     - "договор аутстаффинга"
     - "договор консультационных услуг"
-    - "договор юридических услуг" 
+    - "договор юридических услуг"
     - "договор маркетинговых услуг"
     - "договор IT-услуг"
     - "договор образовательных услуг"
@@ -887,7 +887,7 @@ checks_v8:
       Фактографическая проверка наличия в договоре идентификации заказчика и
       исполнителя, подписантов, оснований полномочий и корпоративного одобрения.
       Результат предназначен для табличного сравнения и формирования payload.
-    triggers: ~
+    triggers:
     ui_mode: "field_extraction"
     severity: "critical"
     severity_if_pass: "pass"
@@ -1409,7 +1409,7 @@ checks_v8:
       уровня детализации, объёма, ссылки на ТЗ или спецификацию, а также
       указания на конкретные результаты услуг. Результат предназначен для
       табличного сравнения нескольких договоров.
-    triggers: ~
+    triggers:
     ui_mode: "field_extraction"
     severity: "critical"
     severity_if_pass: "pass"
@@ -1823,7 +1823,7 @@ checks_v8:
           description: "User-friendly отображение уровня детализации предмета услуг."
           required: true
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
 
         - name: "tz_reference"
           type: "string"
@@ -1832,7 +1832,7 @@ checks_v8:
           description: "Ссылка на ТЗ, приложение, спецификацию, график или реестр."
           required: false
           display_in_grid: true
-          display_priority: 2
+          display_priority: 3
 
         - name: "volume_defined"
           type: "string"
@@ -1898,7 +1898,7 @@ checks_v8:
       Фактографическая проверка наличия в договоре цены услуг, модели
       ценообразования, НДС, аванса и порядка оплаты. Результат предназначен
       для табличного сравнения нескольких договоров.
-    triggers: ~
+    triggers:
     ui_mode: "field_extraction"
     severity: "critical"
     severity_if_pass: "pass"
@@ -2491,7 +2491,7 @@ checks_v8:
       Фактографическая проверка наличия в договоре срока оказания услуг,
       начального и конечного момента, этапности и определённости срока.
       Результат предназначен для табличного сравнения нескольких договоров.
-    triggers: ~
+    triggers:
     ui_mode: "field_extraction"
     severity: "high"
     severity_if_pass: "pass"
@@ -2920,7 +2920,7 @@ checks_v8:
       отчётности исполнителя, срока рассмотрения, мотивированного отказа и
       привязки оплаты к приемке. Результат предназначен для табличного
       сравнения нескольких договоров.
-    triggers: ~
+    triggers:
     ui_mode: "field_extraction"
     severity: "high"
     severity_if_pass: "pass"
@@ -3410,7 +3410,7 @@ checks_v8:
           description: "User-friendly описание привязки оплаты к приемке."
           required: true
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
 
         - name: "review_period_status"
           type: "string"
@@ -3430,7 +3430,7 @@ checks_v8:
           description: "Срок рассмотрения акта / отчета."
           required: false
           display_in_grid: true
-          display_priority: 2
+          display_priority: 3
 
         - name: "auto_acceptance_clause"
           type: "string"
@@ -3470,7 +3470,7 @@ checks_v8:
       Фактографическая проверка наличия в договоре неустоек для сторон,
       формулы санкций, ограничения ответственности и исключения косвенных
       убытков. Результат предназначен для табличного сравнения нескольких договоров.
-    triggers: ~
+    triggers:
     ui_mode: "field_extraction"
     severity: "high"
     severity_if_pass: "pass"
@@ -3958,7 +3958,7 @@ checks_v8:
       гарантийных обязательств, порядка предъявления претензий и сроков
       устранения недостатков. Результат предназначен для табличного сравнения
       нескольких договоров.
-    triggers: ~
+    triggers:
     ui_mode: "field_extraction"
     severity: "high"
     severity_if_pass: "pass"
@@ -4412,7 +4412,7 @@ checks_v8:
       отказа, его стоимости, расчетов при прекращении и возврата данных /
       материалов после расторжения. Результат предназначен для табличного
       сравнения нескольких договоров.
-    triggers: ~
+    triggers:
     ui_mode: "field_extraction"
     severity: "high"
     severity_if_pass: "pass"
@@ -4964,7 +4964,7 @@ checks_v8:
       допустимости привлечения третьих лиц, необходимости согласия заказчика
       и сохранения ответственности исполнителя. Результат предназначен для
       табличного сравнения нескольких договоров.
-    triggers: ~
+    triggers:
     ui_mode: "field_extraction"
     severity: "critical"
     severity_if_pass: "pass"
@@ -6485,7 +6485,7 @@ checks_v8:
       предоставлению информации, доступа, документов, контактных лиц и
       последствий задержки содействия. Результат предназначен для табличного
       сравнения нескольких договоров.
-    triggers: ~
+    triggers:
     ui_mode: "field_extraction"
     severity: "high"
     severity_if_pass: "pass"
@@ -6897,7 +6897,7 @@ checks_v8:
           description: "User-friendly описание наличия контактного лица / представителя заказчика."
           required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
 
         - name: "cooperation_deadlines_defined"
           type: "string"
@@ -6928,7 +6928,7 @@ checks_v8:
           description: "User-friendly описание последствий просрочки содействия заказчика."
           required: true
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
 
         - name: "cooperation_obligations_summary"
           type: "string"
@@ -6937,7 +6937,7 @@ checks_v8:
           description: "Краткое описание обязанностей заказчика по содействию."
           required: false
           display_in_grid: true
-          display_priority: 1
+          display_priority: 3
       store_payload: true
 
   - id: scope_change_management
@@ -6947,7 +6947,7 @@ checks_v8:
       объёма услуг, пересмотра цены и сроков, а также требования письменного
       согласования изменений. Результат предназначен для табличного сравнения
       нескольких договоров.
-    triggers: ~
+    triggers:
     ui_mode: "field_extraction"
     severity: "high"
     severity_if_pass: "pass"
@@ -8871,7 +8871,7 @@ checks_v8:
       Фактографическая проверка наличия в договоре условий о распределении
       рисков при невозможности оказания услуг и при простое по вине заказчика.
       Результат предназначен для табличного сравнения нескольких договоров.
-    triggers: ~
+    triggers:
     ui_mode: "field_extraction"
     severity: "high"
     severity_if_pass: "pass"
@@ -9902,7 +9902,7 @@ checks_v8:
       Фактографическая проверка наличия в договоре условия об автоматическом
       продлении, срока уведомления о непродлении и периода продления.
       Результат предназначен для табличного сравнения нескольких договоров.
-    triggers: ~
+    triggers:
     ui_mode: "field_extraction"
     severity: "medium"
     severity_if_pass: "pass"
@@ -12819,7 +12819,7 @@ checks_v8:
       исполнителя за сохранность материалов, оборудования и данных,
       предоставленных заказчиком. Результат предназначен для табличного
       сравнения нескольких договоров.
-    triggers: ~
+    triggers:
     ui_mode: "field_extraction"
     severity: "high"
     severity_if_pass: "pass"

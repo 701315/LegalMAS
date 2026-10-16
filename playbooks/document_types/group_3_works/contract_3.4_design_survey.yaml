@@ -1211,7 +1211,7 @@ checks_v8:
           description: "Подписант заказчика."
           required: false
           display_in_grid: true
-          display_priority: 4
+          display_priority: 2
         - name: "client_signatory_basis"
           type: "string"
           presentation: "signal"
@@ -1227,7 +1227,7 @@ checks_v8:
           description: "Человеко-читаемое основание полномочий подписанта заказчика."
           required: false
           display_in_grid: true
-          display_priority: 6
+          display_priority: 3
         - name: "contractor_details_status"
           type: "string"
           presentation: "signal"
@@ -1243,7 +1243,7 @@ checks_v8:
           description: "Реквизиты подрядчика."
           required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 4
         - name: "contractor_type"
           type: "string"
           presentation: "signal"
@@ -1275,7 +1275,7 @@ checks_v8:
           description: "Человеко-читаемое основание полномочий подписанта подрядчика."
           required: false
           display_in_grid: true
-          display_priority: 7
+          display_priority: 6
         - name: "corporate_approval_status"
           type: "string"
           presentation: "signal"
@@ -1291,7 +1291,7 @@ checks_v8:
           description: "Корпоративное одобрение сделки или указание, что оно не требуется."
           required: false
           display_in_grid: true
-          display_priority: 3
+          display_priority: 7
       store_payload: true
 
   - id: pir_subject_extraction
@@ -1654,7 +1654,7 @@ checks_v8:
           description: "Человеко-читаемое значение вида работ."
           required: true
           display_in_grid: true
-          display_priority: 4
+          display_priority: 1
         - name: "object_name"
           type: "string"
           presentation: "fact"
@@ -1662,7 +1662,7 @@ checks_v8:
           description: "Официальное наименование объекта проектирования."
           required: true
           display_in_grid: true
-          display_priority: 1
+          display_priority: 2
         - name: "object_location"
           type: "string"
           presentation: "fact"
@@ -1670,7 +1670,7 @@ checks_v8:
           description: "Адрес или местоположение объекта проектирования."
           required: false
           display_in_grid: true
-          display_priority: 2
+          display_priority: 3
         - name: "design_stage"
           type: "string"
           presentation: "signal"
@@ -1686,7 +1686,7 @@ checks_v8:
           description: "Человеко-читаемое значение стадии проектирования."
           required: true
           display_in_grid: true
-          display_priority: 5
+          display_priority: 4
         - name: "tz_reference"
           type: "string"
           presentation: "fact"
@@ -1694,7 +1694,7 @@ checks_v8:
           description: "Ссылка на техническое задание (номер приложения)."
           required: false
           display_in_grid: true
-          display_priority: 3
+          display_priority: 5
         - name: "design_sections_listed"
           type: "string"
           presentation: "signal"
@@ -3948,7 +3948,7 @@ checks_v8:
           description: "Человеко-читаемое значение типа цены работ."
           required: false
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
         - name: "price_includes_vat"
           type: "string"
           presentation: "signal"
@@ -3964,7 +3964,7 @@ checks_v8:
           description: "Человеко-читаемое значение: включает ли цена НДС."
           required: false
           display_in_grid: true
-          display_priority: 4
+          display_priority: 3
         - name: "calculation_basis"
           type: "string"
           presentation: "fact"
@@ -3972,7 +3972,7 @@ checks_v8:
           description: "Основание расчёта цены: СБЦ, смета, процент, фиксированная сумма, приложение."
           required: false
           display_in_grid: true
-          display_priority: 2
+          display_priority: 4
       store_payload: true
 
   - id: stage_payment_schedule
@@ -5945,7 +5945,7 @@ checks_v8:
           description: "Человеко-читаемое значение: предусмотрено ли поэтапное согласование промежуточных результатов."
           required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
         - name: "review_period_days"
           type: "string"
           presentation: "fact"
@@ -5953,7 +5953,7 @@ checks_v8:
           description: "Срок рассмотрения промежуточных результатов заказчиком."
           required: false
           display_in_grid: true
-          display_priority: 1
+          display_priority: 2
         - name: "right_to_remarks"
           type: "string"
           presentation: "signal"
@@ -6487,7 +6487,7 @@ checks_v8:
           description: "Человеко-читаемое значение: предусмотрен ли акт итоговой сдачи-приёмки."
           required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
         - name: "review_period_days"
           type: "string"
           presentation: "fact"
@@ -6495,7 +6495,7 @@ checks_v8:
           description: "Срок рассмотрения документации заказчиком при итоговой приёмке."
           required: false
           display_in_grid: true
-          display_priority: 1
+          display_priority: 2
         - name: "auto_acceptance"
           type: "string"
           presentation: "signal"
@@ -9823,7 +9823,7 @@ checks_v8:
           description: "Человеко-читаемое значение: предусмотрена ли гарантия соответствия ПД нормативным требованиям."
           required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
         - name: "tz_compliance_guaranteed"
           type: "string"
           presentation: "signal"
@@ -9839,7 +9839,7 @@ checks_v8:
           description: "Человеко-читаемое значение: предусмотрена ли гарантия соответствия ПД техническому заданию."
           required: false
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
         - name: "norms_referenced"
           type: "string"
           presentation: "signal"
@@ -9855,7 +9855,7 @@ checks_v8:
           description: "Человеко-читаемое значение: есть ли ссылки на нормативные документы."
           required: false
           display_in_grid: true
-          display_priority: 4
+          display_priority: 3
         - name: "specific_norms_listed"
           type: "string"
           presentation: "fact"
@@ -9863,7 +9863,7 @@ checks_v8:
           description: "Перечень конкретных нормативных документов (СП, ГОСТ, СНиП) или ссылка на приложение."
           required: false
           display_in_grid: true
-          display_priority: 1
+          display_priority: 4
         - name: "norms_update_obligation"
           type: "string"
           presentation: "signal"
@@ -10315,7 +10315,7 @@ checks_v8:
           description: "Человеко-читаемое значение: установлен ли гарантийный срок на проектную документацию."
           required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
         - name: "warranty_period_duration"
           type: "string"
           presentation: "fact"
@@ -10323,7 +10323,7 @@ checks_v8:
           description: "Продолжительность гарантийного срока или ссылка на приложение."
           required: false
           display_in_grid: true
-          display_priority: 1
+          display_priority: 2
         - name: "warranty_start_event"
           type: "string"
           presentation: "signal"
@@ -10798,7 +10798,7 @@ checks_v8:
           description: "Человеко-читаемое значение: базис расчёта неустойки."
           required: false
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
         - name: "client_penalty_present"
           type: "string"
           presentation: "signal"
@@ -10814,7 +10814,7 @@ checks_v8:
           description: "Размер/ставка встречной неустойки заказчика за просрочку оплаты."
           required: false
           display_in_grid: true
-          display_priority: 2
+          display_priority: 3
         - name: "penalty_cap_present"
           type: "string"
           presentation: "signal"
@@ -11713,7 +11713,7 @@ checks_v8:
           description: "Человеко-читаемое значение: предусмотрена ли передача на бумажном носителе."
           required: true
           display_in_grid: true
-          display_priority: 3
+          display_priority: 1
         - name: "paper_copies_count"
           type: "string"
           presentation: "fact"
@@ -11721,7 +11721,7 @@ checks_v8:
           description: "Количество бумажных экземпляров документации."
           required: false
           display_in_grid: true
-          display_priority: 1
+          display_priority: 2
         - name: "electronic_delivery"
           type: "string"
           presentation: "signal"
@@ -11737,7 +11737,7 @@ checks_v8:
           description: "Человеко-читаемое значение: предусмотрена ли передача в электронном виде."
           required: false
           display_in_grid: true
-          display_priority: 4
+          display_priority: 3
         - name: "electronic_format"
           type: "string"
           presentation: "fact"
@@ -11745,7 +11745,7 @@ checks_v8:
           description: "Форматы электронных файлов (DWG, PDF, IFC и т.п.)."
           required: false
           display_in_grid: true
-          display_priority: 2
+          display_priority: 4
         - name: "physical_media"
           type: "string"
           presentation: "signal"
@@ -12159,7 +12159,7 @@ checks_v8:
           description: "Человеко-читаемое значение: предусмотрено ли страхование профессиональной ответственности."
           required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
         - name: "min_coverage_amount"
           type: "string"
           presentation: "fact"
@@ -12167,7 +12167,7 @@ checks_v8:
           description: "Минимальная сумма страхового покрытия профессиональной ответственности."
           required: false
           display_in_grid: true
-          display_priority: 1
+          display_priority: 2
         - name: "maintenance_obligation"
           type: "string"
           presentation: "signal"

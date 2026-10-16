@@ -444,7 +444,7 @@ classification_runtime_v1:
 
       - pattern: "(?i)финансов[а-яё]+\\s+аренд[аы]"
         severity: hard
-        weight: -1.0          
+        weight: -1.0
         description: "Финансовая аренда (лизинг) — отдельный тип (contract_2.4_leasing)"
 
       - pattern: "(?i)безвозмездн[оа]е\\s+пользовани[ея]"
@@ -1092,7 +1092,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 5
+          display_priority: 2
           label: "Тип арендодателя"
           description: "User-friendly формулировка типа Арендодателя."
           required: false
@@ -1162,7 +1162,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 2
+          display_priority: 4
           label: "Арендатор"
           description: "ФИО и реквизиты Арендатора."
           required: true
@@ -1180,7 +1180,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 4
+          display_priority: 5
           label: "Тип арендатора"
           description: "User-friendly формулировка типа Арендатора (определяет применимость ЗоЗПП и квалификацию сделки как проката)."
           required: false
@@ -1687,7 +1687,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 7
+          display_priority: 2
           label: "Тип предмета"
           description: "User-friendly формулировка типа предмета проката."
           required: false
@@ -1705,7 +1705,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 5
+          display_priority: 3
           label: "Идентификаторы предмета"
           description: "Серийный номер, IMEI, VIN, инвентарный номер и т.п."
           required: false
@@ -1723,7 +1723,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 2
+          display_priority: 4
           label: "Цель использования"
           description: "Формулировка о потребительской / бытовой цели использования (квалифицирующий признак проката по ст. 626 ГК РФ)."
           required: false
@@ -1741,7 +1741,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 3
+          display_priority: 5
           label: "Срок проката"
           description: "Срок проката (не более 1 года по ст. 627 ГК РФ)."
           required: false
@@ -1759,7 +1759,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 4
+          display_priority: 6
           label: "Плата за прокат"
           description: "Размер и периодичность платы за прокат (твёрдая сумма по ст. 630 ГК РФ)."
           required: false
@@ -1785,7 +1785,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 6
+          display_priority: 7
           label: "Обеспечительный платёж"
           description: "Краткое user-friendly значение обеспечительного платежа / залога / депозита."
           required: false
@@ -2740,7 +2740,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 5
+          display_priority: 4
           label: "Досрочный возврат"
           description: "Формулировка о досрочном возврате имущества Арендодателю."
           required: false
@@ -2766,7 +2766,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 4
+          display_priority: 5
           label: "Ограничения отказа"
           description: "Краткое user-friendly значение обнаруженных ограничений или удержаний при досрочном отказе (red flags по ст. 627 ГК РФ)."
           required: false
@@ -5679,7 +5679,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 5
+          display_priority: 3
           label: "Проверка комплектности"
           description: "Формулировка о проверке комплектности при возврате (частая причина удержаний из депозита)."
           required: false
@@ -5697,7 +5697,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 3
+          display_priority: 4
           label: "Место возврата"
           description: "Формулировка о месте возврата имущества (пункт проката, курьер, почта и т.п.)."
           required: false
@@ -5715,7 +5715,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 4
+          display_priority: 5
           label: "Штраф за просрочку"
           description: "Формулировка и размер штрафа / пени за просрочку возврата имущества."
           required: false
@@ -7132,7 +7132,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
           label: "Неустойка за просрочку"
           description: "Формулировка о неустойке (пени) за просрочку арендной платы."
           required: false
@@ -7209,7 +7209,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 1
+          display_priority: 2
           label: "Баланс ответственности"
           description: "Компактный вывод о балансе ответственности сторон в договоре проката."
           required: false
@@ -7676,7 +7676,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
           label: "Невозвратность платы"
           description: "Формулировка о невозвратности арендной платы (потенциально ущемляет права потребителя по ст. 16 ЗоЗПП)."
           required: false
@@ -7787,7 +7787,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 1
+          display_priority: 2
           label: "Недопустимые условия"
           description: "Компактный red flag статус о наличии формулировок, потенциально ущемляющих права арендатора-потребителя (ст. 16 ЗоЗПП)."
           required: false
@@ -10189,7 +10189,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
           label: "Право управления"
           description: "Формулировка о требовании водительского удостоверения (категория, стаж)."
           required: false
@@ -10207,7 +10207,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 4
+          display_priority: 3
           label: "Обязательное страхование"
           description: "Формулировка об обязательном страховании."
           required: false
@@ -10225,7 +10225,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 2
+          display_priority: 4
           label: "Возрастные ограничения"
           description: "Формулировка о возрастном ограничении для использования предмета."
           required: false

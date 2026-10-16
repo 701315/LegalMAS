@@ -2955,7 +2955,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
           label: "Условия удержания"
           description: "Условия удержания груза"
           required: true
@@ -2969,7 +2969,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 1
+          display_priority: 2
           label: "Право удержания"
           description: "User-friendly отображение: закреплено ли право удержания груза"
           required: true
@@ -6953,7 +6953,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 3
+          display_priority: 1
           label: "Размер штрафа"
           description: "Размер/формула штрафа за неподачу ТС или непредъявление груза"
           required: true
@@ -6961,7 +6961,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 4
+          display_priority: 2
           label: "Условия освобождения"
           description: "Условия освобождения от штрафа"
           required: true
@@ -6975,7 +6975,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 1
+          display_priority: 3
           label: "Штраф за неподачу ТС"
           description: "User-friendly отображение: предусмотрен ли штраф за неподачу ТС"
           required: true
@@ -6983,7 +6983,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 2
+          display_priority: 4
           label: "Штраф за непредъявление груза"
           description: "User-friendly отображение: предусмотрен ли штраф за непредъявление груза"
           required: true
@@ -7776,7 +7776,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
           label: "Срок подачи заявки"
           description: "Срок подачи заявки"
           required: true
@@ -7806,7 +7806,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 1
+          display_priority: 2
           label: "Порядок подачи заявок"
           description: "User-friendly отображение: установлен ли порядок подачи заявок"
           required: true
@@ -8224,7 +8224,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 4
+          display_priority: 2
           label: "Лимит ответственности"
           description: "User-friendly отображение: установлен ли лимит ответственности перевозчика"
           required: true
@@ -8232,7 +8232,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 2
+          display_priority: 3
           label: "Тип лимита"
           description: "User-friendly отображение типа ограничения ответственности"
           required: true
@@ -8240,7 +8240,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 3
+          display_priority: 4
           label: "Ссылка на устав"
           description: "User-friendly отображение ссылки на транспортный устав/режим"
           required: true
@@ -9879,7 +9879,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 6
+          display_priority: 1
           label: "Объявленная ценность"
           description: "Размер объявленной ценности груза"
           required: true
@@ -9893,7 +9893,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 1
+          display_priority: 2
           label: "Страхование груза"
           description: "User-friendly отображение: предусмотрено ли страхование груза"
           required: true
@@ -9901,7 +9901,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 2
+          display_priority: 3
           label: "Обязательность страхования"
           description: "User-friendly отображение обязательности страхования"
           required: true
@@ -9909,7 +9909,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 3
+          display_priority: 4
           label: "Кто страхует"
           description: "User-friendly отображение стороны, обязанной страховать груз"
           required: true
@@ -9917,7 +9917,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 4
+          display_priority: 5
           label: "Вид покрытия"
           description: "User-friendly отображение вида страхового покрытия"
           required: true
@@ -9925,7 +9925,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 5
+          display_priority: 6
           label: "Выгодоприобретатель"
           description: "User-friendly отображение: определён ли выгодоприобретатель"
           required: true
@@ -10271,7 +10271,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
           label: "Ставка НДС"
           description: "Конкретная ставка НДС (20%, 10%, 0% и т.д.)"
           required: true
@@ -10293,7 +10293,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 1
+          display_priority: 2
           label: "НДС в цене"
           description: "User-friendly отображение: включён ли НДС в цену и какая ставка применяется"
           required: true
@@ -10629,7 +10629,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
           label: "Период продления"
           description: "Период, на который автоматически продлевается договор"
           required: true
@@ -10645,7 +10645,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
           label: "Срок уведомления"
           description: "Срок предварительного уведомления об отказе от продления"
           required: true
@@ -10659,7 +10659,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 1
+          display_priority: 3
           label: "Автопролонгация"
           description: "User-friendly отображение: предусмотрена ли автопролонгация рамочного договора"
           required: true
@@ -11030,7 +11030,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 3
+          display_priority: 1
           label: "Номер документа"
           description: "Номер лицензии/разрешения/свидетельства"
           required: true
@@ -11052,7 +11052,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 1
+          display_priority: 2
           label: "Лицензия/разрешение"
           description: "User-friendly отображение: упомянута ли лицензия/разрешение перевозчика"
           required: true
@@ -11060,7 +11060,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 2
+          display_priority: 3
           label: "Тип документа"
           description: "User-friendly отображение типа регуляторного документа перевозчика"
           required: true
@@ -14723,6 +14723,7 @@ checks_v8:
           * storage_period → "Не удалось определить".
         - Технический формат JSON (value / confidence / location) задан
           отдельным контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
       fields:
@@ -14748,7 +14749,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
           label: "Срок хранения"
           description: >
             Предельный срок хранения невостребованного груза до момента
@@ -14793,7 +14794,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 1
+          display_priority: 2
           label: "Хранение"
           description: "User-friendly: предусмотрена ли процедура хранения невостребованного груза"
           required: true
@@ -14802,7 +14803,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 2
+          display_priority: 3
           label: "Срок хранения"
           description: "User-friendly: предельный срок хранения"
           required: true
@@ -14811,7 +14812,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 3
+          display_priority: 4
           label: "Расходы на хранение"
           description: "User-friendly: кто оплачивает хранение"
           required: true
@@ -14820,7 +14821,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 4
+          display_priority: 5
           label: "Реализация"
           description: "User-friendly: предусмотрено ли право реализации"
           required: true
@@ -14829,7 +14830,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 5
+          display_priority: 6
           label: "Уведомление"
           description: "User-friendly: предусмотрена ли обязанность уведомления"
           required: true
@@ -15137,6 +15138,7 @@ checks_v8:
           * все *_display → соответствующие fallback-строки.
         - Технический формат JSON (value / confidence / location) задан
           отдельным контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
       fields:
@@ -15171,7 +15173,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
           label: "Срок уведомления"
           description: >
             Срок предварительного уведомления об одностороннем отказе.
@@ -15198,7 +15200,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 1
+          display_priority: 2
           label: "Право на отказ"
           description: "User-friendly: предусмотрено ли право одностороннего отказа"
           required: true
@@ -15536,6 +15538,7 @@ checks_v8:
           * notification_deadline → "Не удалось определить".
         - Технический формат JSON (value / confidence / location) задан
           отдельным контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
       fields:
@@ -15561,7 +15564,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
           label: "Срок уведомления"
           description: >
             Срок уведомления грузоотправителя о происшествии.
@@ -15597,7 +15600,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 1
+          display_priority: 2
           label: "Уведомление"
           description: "User-friendly: предусмотрена ли обязанность уведомления"
           required: true
@@ -15606,7 +15609,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 2
+          display_priority: 3
           label: "Срок"
           description: "User-friendly: срок уведомления"
           required: true
@@ -15615,7 +15618,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 3
+          display_priority: 4
           label: "Форма"
           description: "User-friendly: форма уведомления"
           required: true
@@ -15624,7 +15627,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 4
+          display_priority: 5
           label: "Полиция"
           description: "User-friendly: требуется ли вызов полиции"
           required: true
@@ -17031,6 +17034,7 @@ checks_v8:
           * все *_display → соответствующие fallback-строки.
         - Технический формат JSON (value / confidence / location) задан
           отдельным контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
       fields:
@@ -17074,7 +17078,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 3
+          display_priority: 1
           label: "Срок решения"
           description: >
             Срок для принятия решения о возврате груза.
@@ -17092,7 +17096,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 1
+          display_priority: 2
           label: "Возврат груза"
           description: "User-friendly: предусмотрен ли возврат груза грузоотправителю"
           required: true
@@ -17101,7 +17105,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 2
+          display_priority: 3
           label: "Инициатор"
           description: "User-friendly: кто вправе инициировать возврат"
           required: true
@@ -17431,6 +17435,7 @@ checks_v8:
           * все *_display → соответствующие fallback-строки.
         - Технический формат JSON (value / confidence / location) задан
           отдельным контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
       fields:
@@ -17942,7 +17947,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 3
+          display_priority: 1
           label: "Срок уведомления"
           description: "Срок извещения контрагента о препятствиях на маршруте. Fallback: 'Не указан'."
           required: true
@@ -17969,7 +17974,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 5
+          display_priority: 2
           label: "Срок для отказа/расторжения"
           description: "Предельная длительность форс-мажора для расторжения договора перевозки. Fallback: 'Не установлен'."
           required: true
@@ -17985,7 +17990,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 1
+          display_priority: 3
           label: "Транспортный форс-мажор"
           description: "User-friendly: предусмотрены ли специальные оговорки о форс-мажоре на маршруте"
           required: true
@@ -17994,7 +17999,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 2
+          display_priority: 4
           label: "Охват событий"
           description: "User-friendly: перечень охваченных транспортных обстоятельств"
           required: true
@@ -18003,7 +18008,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 3
+          display_priority: 5
           label: "Срок уведомления"
           description: "User-friendly: срок направления извещения"
           required: true
@@ -18012,7 +18017,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 4
+          display_priority: 6
           label: "Подтверждение"
           description: "User-friendly: требуемый подтверждающий документ (ТПП/дорожные службы)"
           required: true
@@ -18021,7 +18026,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 5
+          display_priority: 7
           label: "Освобождение от демереджа"
           description: "User-friendly: освобождается ли сторона от платы за простой"
           required: true
@@ -18269,23 +18274,17 @@ dd_request_templates:
 
   shipper_obligations_and_warranties_check:
     text: >
-      Просим предоставить по {doc_names}: перечень обязанностей грузоотправителя 
-      по подготовке груза, предоставлению достоверных сведений (наименование, вес, 
-      свойства), упаковке, маркировке, а также ответственность за недостоверные данные.
+      Просим предоставить по {doc_names}: перечень обязанностей грузоотправителя  по подготовке груза, предоставлению достоверных сведений (наименование, вес,  свойства), упаковке, маркировке, а также ответственность за недостоверные данные.
     addressee: "Юридический советник"
 
   shipper_data_accuracy:
     text: >
-      Просим включить в {doc_names}: заверение грузоотправителя о достоверности 
-      сведений о грузе и ответственность за убытки перевозчика от недостоверных данных 
-      (ст. 10 УАТ, ст. 27 УЖТ).
+      Просим включить в {doc_names}: заверение грузоотправителя о достоверности  сведений о грузе и ответственность за убытки перевозчика от недостоверных данных  (ст. 10 УАТ, ст. 27 УЖТ).
     addressee: "Юридический советник"
 
   shipper_false_cargo_info:
     text: >
-      В {doc_names} не выявлена ответственность грузоотправителя за недостоверные 
-      сведения о грузе. Просим включить обязанность и санкции 
-      (ст. 10 УАТ, ст. 27 УЖТ, ст. 25 CMR).
+      В {doc_names} не выявлена ответственность грузоотправителя за недостоверные  сведения о грузе. Просим включить обязанность и санкции  (ст. 10 УАТ, ст. 27 УЖТ, ст. 25 CMR).
     addressee: "Юридический советник"
 
   subcontracting_and_substitution_check:
@@ -18304,35 +18303,28 @@ dd_request_templates:
   subcontracting_without_consent:
     text: >
       В {doc_names} выявлен риск привлечения субперевозчика без согласия.
-      Просим предусмотреть порядок согласования и ответственность 
-      перевозчика за субперевозчика.
+      Просим предусмотреть порядок согласования и ответственность  перевозчика за субперевозчика.
     addressee: "Юридический советник"
 
   redirection_in_transit_check:
     text: >
-      Просим уточнить в {doc_names}: условия переадресовки (изменение пункта 
-      назначения/грузополучателя в пути), кто вправе запросить, 
-      распределение расходов, сроки.
+      Просим уточнить в {doc_names}: условия переадресовки (изменение пункта  назначения/грузополучателя в пути), кто вправе запросить,  распределение расходов, сроки.
     addressee: "Обе стороны"
 
   redirection_clause:
     text: >
-      Просим включить в {doc_names}: условия переадресовки, порядок 
-      согласования, распределение дополнительных расходов.
+      Просим включить в {doc_names}: условия переадресовки, порядок  согласования, распределение дополнительных расходов.
     addressee: "Юридический советник"
 
   electronic_waybill_terms:
     text: >
-      Просим уточнить в {doc_names}: порядок использования электронной 
-      транспортной накладной (ЭТрН), подключение к ГИС ЭПД, 
-      юридическую силу электронного документа.
+      Просим уточнить в {doc_names}: порядок использования электронной  транспортной накладной (ЭТрН), подключение к ГИС ЭПД,  юридическую силу электронного документа.
     addressee: "Обе стороны"
 
   cargo_escort_terms:
     text: >
       Просим уточнить в {doc_names}: условия сопровождения груза,
-      кто обеспечивает, ответственность при повреждении во время 
-      сопровождения, требования к охране.
+      кто обеспечивает, ответственность при повреждении во время  сопровождения, требования к охране.
     addressee: "Обе стороны"
 
   no_cargo_acceptance_procedure:
@@ -18344,15 +18336,12 @@ dd_request_templates:
 
   force_majeure_clause:
     text: >
-      Просим согласовать в {doc_names}: перечень обстоятельств 
-      непреодолимой силы, порядок уведомления и подтверждения.
+      Просим согласовать в {doc_names}: перечень обстоятельств  непреодолимой силы, порядок уведомления и подтверждения.
     addressee: "Юридический советник"
 
   seasonal_road_restrictions:
     text: >
-      Просим уточнить в {doc_names}: порядок учёта сезонных дорожных 
-      ограничений, распределение расходов на пропуска, 
-      последствия задержки из-за ограничений.
+      Просим уточнить в {doc_names}: порядок учёта сезонных дорожных  ограничений, распределение расходов на пропуска,  последствия задержки из-за ограничений.
     addressee: "Обе стороны"
 
   # Generic fallback

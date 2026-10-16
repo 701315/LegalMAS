@@ -1306,7 +1306,7 @@ checks_v8:
           description: "User-facing тип требования: Существующее / Будущее / Смешанное / Не установлено."
           required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
 
         - name: "assigned_claim_basis"
           type: "string"
@@ -1315,7 +1315,7 @@ checks_v8:
           description: "Основание возникновения уступаемого требования."
           required: true
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
 
         - name: "financing_amount_status"
           type: "string"
@@ -1333,7 +1333,7 @@ checks_v8:
           description: "Размер финансирования клиента фактором."
           required: true
           display_in_grid: true
-          display_priority: 4
+          display_priority: 3
 
         - name: "factor_fee_status"
           type: "string"
@@ -1351,7 +1351,7 @@ checks_v8:
           description: "Размер и структура вознаграждения фактора."
           required: true
           display_in_grid: true
-          display_priority: 5
+          display_priority: 4
 
         - name: "factoring_type"
           type: "string"
@@ -1369,7 +1369,7 @@ checks_v8:
           description: "User-facing вид факторинга: С регрессом / Без регресса / Не установлено."
           required: true
           display_in_grid: true
-          display_priority: 1
+          display_priority: 5
 
         - name: "debtor_notification_status"
           type: "string"
@@ -10389,9 +10389,7 @@ checks_v8:
   - id: double_factoring_prohibition_check
     name: "Запрет двойного факторинга и множественной уступки клиентом"
     description: >
-      Проверка наличия прямого запрета для клиента уступать одно и то же 
-      денежное требование нескольким факторам или третьим лицам, а также 
-      механизмов ответственности за нарушение этого запрета.
+      Проверка наличия прямого запрета для клиента уступать одно и то же  денежное требование нескольким факторам или третьим лицам, а также  механизмов ответственности за нарушение этого запрета.
     triggers: {}
     ui_mode: "field_extraction"
     severity: "critical"
@@ -10486,7 +10484,7 @@ checks_v8:
       excluded_unit_types: ["definition", "structural_anchor", "technical_fragment"]
       preferred_clause_functions: ["representations", "limitations", "remedies"]
       negative_keywords: ["комиссия", "уведомление должника", "банкротство", "означает"]
-      position_bias: { preferred_range: [0.20, 0.60], boost: 0.15, scope: segment }
+      position_bias: {preferred_range: [0.20, 0.60], boost: 0.15, scope: segment}
       context_k: 6
       max_chunks: 8
       rerank: true
@@ -10606,9 +10604,7 @@ checks_v8:
   - id: underlying_contract_termination_goods_return_check
     name: "Расторжение основного договора и возврат товара (аннулирование требования)"
     description: >
-      Проверка механизма действий сторон в случае расторжения основного 
-      договора поставки/услуг или возврата товара должником, что влечет 
-      аннулирование уступленного денежного требования.
+      Проверка механизма действий сторон в случае расторжения основного  договора поставки/услуг или возврата товара должником, что влечет  аннулирование уступленного денежного требования.
     triggers: {}
     ui_mode: "field_extraction"
     severity: "critical"
@@ -10698,7 +10694,7 @@ checks_v8:
       excluded_unit_types: ["definition", "structural_anchor", "technical_fragment"]
       preferred_clause_functions: ["obligations", "remedies"]
       negative_keywords: ["комиссия", "уведомление должника", "банкротство", "означает"]
-      position_bias: { preferred_range: [0.30, 0.70], boost: 0.15, scope: segment }
+      position_bias: {preferred_range: [0.30, 0.70], boost: 0.15, scope: segment}
       context_k: 6
       max_chunks: 8
       rerank: true
@@ -10817,9 +10813,7 @@ checks_v8:
   - id: misdirected_funds_handling_check
     name: "Порядок действий при ошибочном получении средств клиентом"
     description: >
-      Проверка механизма действий клиента в случае, если должник ошибочно 
-      перечислил оплату по уступленному требению непосредственно клиенту 
-      (например, на старый расчетный счет), а не фактору.
+      Проверка механизма действий клиента в случае, если должник ошибочно  перечислил оплату по уступленному требению непосредственно клиенту  (например, на старый расчетный счет), а не фактору.
     triggers: {}
     ui_mode: "field_extraction"
     severity: "high"
@@ -10908,7 +10902,7 @@ checks_v8:
       excluded_unit_types: ["definition", "structural_anchor", "technical_fragment"]
       preferred_clause_functions: ["obligations", "procedures"]
       negative_keywords: ["комиссия", "уведомление должника", "банкротство", "означает"]
-      position_bias: { preferred_range: [0.30, 0.70], boost: 0.15, scope: segment }
+      position_bias: {preferred_range: [0.30, 0.70], boost: 0.15, scope: segment}
       context_k: 6
       max_chunks: 8
       rerank: true
@@ -11027,9 +11021,7 @@ checks_v8:
   - id: factor_audit_and_information_rights_check
     name: "Право фактора на аудит и истребование первичных документов"
     description: >
-      Проверка закрепления за фактором права требовать от клиента первичные 
-      документы, реестры, а также проводить аудит бухгалтерии клиента для 
-      проверки реальности уступаемых требований.
+      Проверка закрепления за фактором права требовать от клиента первичные  документы, реестры, а также проводить аудит бухгалтерии клиента для  проверки реальности уступаемых требований.
     triggers: {}
     ui_mode: "field_extraction"
     severity: "high"
@@ -11116,7 +11108,7 @@ checks_v8:
       excluded_unit_types: ["definition", "structural_anchor", "technical_fragment"]
       preferred_clause_functions: ["obligations", "procedures"]
       negative_keywords: ["комиссия", "уведомление должника", "банкротство", "означает"]
-      position_bias: { preferred_range: [0.40, 0.80], boost: 0.15, scope: segment }
+      position_bias: {preferred_range: [0.40, 0.80], boost: 0.15, scope: segment}
       context_k: 6
       max_chunks: 8
       rerank: true

@@ -839,6 +839,7 @@ checks_v8:
           * все *_value / *_signatory → "Не удалось определить".
         - Технический формат JSON (value / confidence / location) задан отдельным
           контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
       fields:
@@ -1233,6 +1234,7 @@ checks_v8:
           * все *_details → "Не удалось определить".
         - Технический формат JSON (value / confidence / location) задан отдельным
           контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
       fields:
@@ -1677,6 +1679,7 @@ checks_v8:
           * все *_details → "Не удалось определить".
         - Технический формат JSON (value / confidence / location) задан отдельным
           контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
       fields:
@@ -2154,6 +2157,7 @@ checks_v8:
           * все *_details → "Не удалось определить".
         - Технический формат JSON (value / confidence / location) задан отдельным
           контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
       fields:
@@ -2612,6 +2616,7 @@ checks_v8:
           * все *_details → "Не удалось определить".
         - Технический формат JSON (value / confidence / location) задан отдельным
           контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
       fields:
@@ -3090,6 +3095,7 @@ checks_v8:
           * все *_details → "Не удалось определить".
         - Технический формат JSON (value / confidence / location) задан отдельным
           контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
       fields:
@@ -3495,6 +3501,7 @@ checks_v8:
           * named_place_value → "Не удалось определить".
         - Технический формат JSON (value / confidence / location) задан отдельным
           контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
       fields:
@@ -3848,6 +3855,7 @@ checks_v8:
           * все *_details → "Не удалось определить".
         - Технический формат JSON (value / confidence / location) задан отдельным
           контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
       fields:
@@ -5695,6 +5703,7 @@ checks_v8:
           * все *_details → "Не удалось определить".
         - Технический формат JSON (value / confidence / location) задан отдельным
           контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
       fields:
@@ -6105,6 +6114,7 @@ checks_v8:
           * все *_details → "Не удалось определить".
         - Технический формат JSON (value / confidence / location) задан отдельным
           контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
       fields:
@@ -6509,6 +6519,7 @@ checks_v8:
           * все *_details → "Не удалось определить".
         - Технический формат JSON (value / confidence / location) задан отдельным
           контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
       fields:
@@ -6935,6 +6946,7 @@ checks_v8:
           * все *_details → "Не удалось определить".
         - Технический формат JSON (value / confidence / location) задан отдельным
           контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
       fields:
@@ -7344,6 +7356,7 @@ checks_v8:
           * все *_details → "Не удалось определить".
         - Технический формат JSON (value / confidence / location) задан отдельным
           контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
       fields:
@@ -7757,6 +7770,7 @@ checks_v8:
           * все *_details → "Не удалось определить".
         - Технический формат JSON (value / confidence / location) задан отдельным
           контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
       fields:

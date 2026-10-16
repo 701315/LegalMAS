@@ -1041,6 +1041,7 @@ checks_v8:
           а не строка.
         - Технический формат JSON (value / confidence / location) задан
           отдельным контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
       fields:
         - name: "insurance_subject_extraction_presence"
@@ -1543,6 +1544,7 @@ checks_v8:
           а не строка.
         - Технический формат JSON (value / confidence / location) задан
           отдельным контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
       fields:
         - name: "insured_event_and_exclusions_check_presence"
@@ -1979,6 +1981,7 @@ checks_v8:
           а не строка.
         - Технический формат JSON (value / confidence / location) задан
           отдельным контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
       fields:
         - name: "rules_of_insurance_attachment_check_presence"
@@ -2430,6 +2433,7 @@ checks_v8:
           а не строка.
         - Технический формат JSON (value / confidence / location) задан
           отдельным контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
       fields:
         - name: "claim_notification_check_presence"
@@ -2892,6 +2896,7 @@ checks_v8:
           а не строка.
         - Технический формат JSON (value / confidence / location) задан
           отдельным контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
       fields:
         - name: "claims_payment_procedure_check_presence"
@@ -3346,6 +3351,7 @@ checks_v8:
           а не строка.
         - Технический формат JSON (value / confidence / location) задан
           отдельным контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
       fields:
         - name: "insured_person_consent_check_presence"
@@ -3755,6 +3761,7 @@ checks_v8:
           а не строка.
         - Технический формат JSON (value / confidence / location) задан
           отдельным контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
       fields:
         - name: "early_termination_and_premium_refund_check_presence"
@@ -4187,6 +4194,7 @@ checks_v8:
           а не строка.
         - Технический формат JSON (value / confidence / location) задан
           отдельным контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
       fields:
         - name: "risk_increase_and_policyholder_duties_check_presence"
@@ -4640,6 +4648,7 @@ checks_v8:
         - evidence — массив объектов вида {"clause_ref": "...", "quote": "..."}.
         - Технический формат JSON (value / confidence / location) задан
           отдельным контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
       fields:
         - name: "policyholder_actions_on_event_check_presence"
@@ -5048,6 +5057,7 @@ checks_v8:
         - evidence — массив объектов вида {"clause_ref": "...", "quote": "..."}.
         - Технический формат JSON (value / confidence / location) задан
           отдельным контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
       fields:
         - name: "territory_and_jurisdiction_check_presence"
@@ -5479,6 +5489,7 @@ checks_v8:
         - evidence — массив объектов вида {"clause_ref": "...", "quote": "..."}.
         - Технический формат JSON (value / confidence / location) задан
           отдельным контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
       fields:
         - name: "claims_made_vs_occurrence_check_presence"
@@ -5882,6 +5893,7 @@ checks_v8:
         - evidence — массив объектов вида {"clause_ref": "...", "quote": "..."}.
         - Технический формат JSON (value / confidence / location) задан
           отдельным контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
       fields:
         - name: "insurer_identification_and_license_presence"
@@ -6296,6 +6308,7 @@ checks_v8:
         - evidence — массив объектов вида {"clause_ref": "...", "quote": "..."}.
         - Технический формат JSON (value / confidence / location) задан
           отдельным контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
       fields:
         - name: "premium_and_payment_order_presence"
@@ -6718,6 +6731,7 @@ checks_v8:
         - evidence — массив объектов вида {"clause_ref": "...", "quote": "..."}.
         - Технический формат JSON (value / confidence / location) задан
           отдельным контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
       fields:
         - name: "deductible_check_presence"
@@ -7161,6 +7175,7 @@ checks_v8:
         - evidence — массив объектов вида {"clause_ref": "...", "quote": "..."}.
         - Технический формат JSON (value / confidence / location) задан
           отдельным контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
       fields:
         - name: "subrogation_check_presence"
@@ -7601,6 +7616,7 @@ checks_v8:
         - evidence — массив объектов вида {"clause_ref": "...", "quote": "..."}.
         - Технический формат JSON (value / confidence / location) задан
           отдельным контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
       fields:
         - name: "aggregate_limit_check_presence"
@@ -8035,6 +8051,7 @@ checks_v8:
         - evidence — массив объектов вида {"clause_ref": "...", "quote": "..."}.
         - Технический формат JSON (value / confidence / location) задан
           отдельным контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
       fields:
         - name: "dispute_resolution_and_good_faith_check_presence"
@@ -8480,6 +8497,7 @@ checks_v8:
         - evidence — массив объектов вида {"clause_ref": "...", "quote": "..."}.
         - Технический формат JSON (value / confidence / location) задан
           отдельным контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
       fields:
         - name: "representations_and_warranties_check_presence"
@@ -8937,6 +8955,7 @@ checks_v8:
         - evidence — массив объектов вида {"clause_ref": "...", "quote": "..."}.
         - Технический формат JSON (value / confidence / location) задан
           отдельным контрактом — соблюдай его, но не описывай здесь.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
       fields:
         - name: "sanctions_and_force_majeure_check_presence"

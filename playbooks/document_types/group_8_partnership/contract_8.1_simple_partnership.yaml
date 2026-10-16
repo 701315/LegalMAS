@@ -2061,7 +2061,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 5
+          display_priority: 4
           label: "Вопросы единогласия"
           description: "Перечень вопросов, требующих единогласия."
           required: false
@@ -2078,7 +2078,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 4
+          display_priority: 5
           label: "Ограничения полномочий"
           description: "Ограничения полномочий ведущего дела."
           required: false

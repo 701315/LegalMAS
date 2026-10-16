@@ -6464,7 +6464,7 @@ checks_v8:
           description: "Конкретные условия, при которых комиссионер может купить товар (или текст запрета)."
           required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
 
         - name: "self_dealing_summary"
           type: "string"
@@ -6473,7 +6473,7 @@ checks_v8:
           description: "Краткое резюме права комиссионера на покупку вверенного товара для DD Grid."
           required: false
           display_in_grid: true
-          display_priority: 1
+          display_priority: 2
 
       store_payload: true
 

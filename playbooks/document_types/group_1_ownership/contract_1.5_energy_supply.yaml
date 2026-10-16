@@ -709,11 +709,11 @@ trigger_definitions:
 # ════════════════════════════════════════════════════════════════════════════
 
 shared_patterns:
-  money_amount:   "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд)"
-  date_pattern:   "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
-  percentage:     "(?i)\\d{1,3}(?:[.,]\\d{1,2})?\\s*%"
-  tariff_value:   "(?i)\\d+[.,]?\\d*\\s*(?:руб|₽)?\\s*(?:/кВт|/кВт·ч|/Гкал|/м³|/куб\\.м)"
-  meter_reading:  "(?i)\\d{1,6}(?:[.,]\\d{1,2})?\\s*(?:кВт·ч|Гкал|м³|куб\\.м)"
+  money_amount: "(?i)\\b\\d[\\d\\s]*(?:руб|рублей|₽|тыс|млн|млрд)"
+  date_pattern: "(?i)\\b\\d{1,2}[.]\\d{1,2}[.]\\d{4}\\b"
+  percentage: "(?i)\\d{1,3}(?:[.,]\\d{1,2})?\\s*%"
+  tariff_value: "(?i)\\d+[.,]?\\d*\\s*(?:руб|₽)?\\s*(?:/кВт|/кВт·ч|/Гкал|/м³|/куб\\.м)"
+  meter_reading: "(?i)\\d{1,6}(?:[.,]\\d{1,2})?\\s*(?:кВт·ч|Гкал|м³|куб\\.м)"
 
 compliance_rules: []
 
@@ -5574,7 +5574,7 @@ checks_v8:
           description: "Кто отвечает за внутридомовые сети."
           required: true
           display_in_grid: true
-          display_priority: 5
+          display_priority: 4
 
         - name: "maintenance_responsibility_details"
           type: "string"
@@ -5583,7 +5583,7 @@ checks_v8:
           description: "Текст условия об ответственности УК/ТСЖ или иной стороны за внутридомовые сети."
           required: false
           display_in_grid: true
-          display_priority: 4
+          display_priority: 5
 
       store_payload: true
 

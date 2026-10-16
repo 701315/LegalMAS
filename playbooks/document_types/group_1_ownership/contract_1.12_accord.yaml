@@ -1094,7 +1094,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
           label: "Подписант Должника"
           description: >
             Подписант от Должника вместе с основанием полномочий, если оно указано
@@ -1125,7 +1125,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 2
+          display_priority: 3
           label: "Кредитор"
           description: >
             Наименование/ФИО и реквизиты Кредитора.
@@ -7722,7 +7722,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
           label: "Отсутствие признаков неплатёжеспособности"
           description: >
             Формулировка об отсутствии признаков неплатёжеспособности.
@@ -7742,7 +7742,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 2
+          display_priority: 3
           label: "Обоснование соразмерности стоимости"
           description: >
             Текстовое обоснование соразмерности или рыночности стоимости

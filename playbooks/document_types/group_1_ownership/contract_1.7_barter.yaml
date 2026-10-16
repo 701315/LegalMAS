@@ -1837,7 +1837,7 @@ checks_v8:
           description: "Стоимость товара A."
           required: false
           display_in_grid: true
-          display_priority: 4
+          display_priority: 2
 
         - name: "good_A_identifying_features"
           type: "string"
@@ -1863,7 +1863,7 @@ checks_v8:
           description: "Наименование товара B."
           required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 3
 
         - name: "good_B_quantity"
           type: "string"
@@ -1889,7 +1889,7 @@ checks_v8:
           description: "Стоимость товара B."
           required: false
           display_in_grid: true
-          display_priority: 5
+          display_priority: 4
 
         - name: "good_B_identifying_features"
           type: "string"
@@ -1951,7 +1951,7 @@ checks_v8:
           description: "Сумма доплаты при неравноценном обмене."
           required: false
           display_in_grid: true
-          display_priority: 3
+          display_priority: 5
 
         - name: "surcharge_payer"
           type: "string"
@@ -2380,7 +2380,7 @@ checks_v8:
           description: "Место передачи товаров."
           required: false
           display_in_grid: true
-          display_priority: 4
+          display_priority: 3
 
         - name: "transfer_act_status"
           type: "string"
@@ -2398,7 +2398,7 @@ checks_v8:
           description: "Условие о передаточном акте."
           required: false
           display_in_grid: true
-          display_priority: 3
+          display_priority: 4
       store_payload: true
 
   - id: delivery_logistics_and_insurance
@@ -5714,7 +5714,7 @@ checks_v8:
           description: "Статус права расторжения."
           required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
 
         - name: "damages_recovery_status"
           type: "string"
@@ -5733,7 +5733,7 @@ checks_v8:
           description: "Статус условия о возврате переданного товара."
           required: true
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
 
         - name: "penalty_clause_status"
           type: "string"
@@ -5750,7 +5750,7 @@ checks_v8:
           description: "Размер и основание неустойки."
           required: false
           display_in_grid: true
-          display_priority: 1
+          display_priority: 3
       store_payload: true
 
   - id: termination_and_force_majeure

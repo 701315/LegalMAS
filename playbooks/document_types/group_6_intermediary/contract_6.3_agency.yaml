@@ -2195,7 +2195,7 @@ checks_v8:
             Или отсылка к приложению/регламенту.
           required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
 
         - name: "objection_period_details"
           type: "string"
@@ -2207,7 +2207,7 @@ checks_v8:
             молчание = принятие.
           required: true
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
 
         - name: "report_to_payment_linkage"
           type: "string"
@@ -2229,7 +2229,7 @@ checks_v8:
             связь с оплатой.
           required: true
           display_in_grid: true
-          display_priority: 1
+          display_priority: 3
 
       store_payload: true
 
@@ -2607,7 +2607,7 @@ checks_v8:
             выручки принципалу.
           required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
 
         - name: "segregated_funds_mechanism"
           type: "string"
@@ -2629,7 +2629,7 @@ checks_v8:
             раздельный учёт, эскроу, номинальный счёт.
           required: true
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
 
         - name: "agent_holds_principal_money"
           type: "string"
@@ -2651,7 +2651,7 @@ checks_v8:
             механизм обособления + факт получения средств от третьих лиц.
           required: true
           display_in_grid: true
-          display_priority: 1
+          display_priority: 3
 
       store_payload: true
 
@@ -3045,7 +3045,7 @@ checks_v8:
             Фактически определённая территория действия договора или ссылка на приложение.
           required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
 
         - name: "exclusivity_details"
           type: "string"
@@ -3057,7 +3057,7 @@ checks_v8:
             помечается знаком ⚠️.
           required: true
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
 
         - name: "exclusivity_summary"
           type: "string"
@@ -3067,7 +3067,7 @@ checks_v8:
             Сводный вывод одной фразой: ограничения сторон + территория + non-compete.
           required: true
           display_in_grid: true
-          display_priority: 1
+          display_priority: 3
 
       store_payload: true
 
@@ -3439,7 +3439,7 @@ checks_v8:
             Фактический текст условий привлечения субагентов и распределения ответственности.
           required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
 
         - name: "subagency_summary"
           type: "string"
@@ -3449,7 +3449,7 @@ checks_v8:
             Сводный вывод одной фразой: допустимость субагентства + согласие + ответственность.
           required: true
           display_in_grid: true
-          display_priority: 1
+          display_priority: 2
 
       store_payload: true
 
@@ -3865,7 +3865,7 @@ checks_v8:
             Фактические положения договора, подтверждающие гражданско-правовой статус агента.
           required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
 
         - name: "labor_risk_markers"
           type: "string"
@@ -3876,7 +3876,7 @@ checks_v8:
             При наличии помечается знаком ⚠️.
           required: true
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
 
         - name: "anti_requalification_summary"
           type: "string"
@@ -3886,7 +3886,7 @@ checks_v8:
             Сводная оценка риска переквалификации в трудовой договор (ст. 19.1 ТК РФ) и статус KPI.
           required: true
           display_in_grid: true
-          display_priority: 1
+          display_priority: 3
 
       store_payload: true
 
@@ -4272,7 +4272,7 @@ checks_v8:
             Фактическое условие договора о правах на клиентскую базу, лиды и контакты.
           required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
 
         - name: "post_termination_data_details"
           type: "string"
@@ -4282,7 +4282,7 @@ checks_v8:
             Фактический порядок передачи выгрузки из CRM, возврата или уничтожения копий базы.
           required: true
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
 
         - name: "client_database_summary"
           type: "string"
@@ -4292,7 +4292,7 @@ checks_v8:
             Сводный вывод одной фразой: принадлежность базы клиентов + судьба данных при расторжении.
           required: true
           display_in_grid: true
-          display_priority: 1
+          display_priority: 3
 
       store_payload: true
 
@@ -4673,7 +4673,7 @@ checks_v8:
             Фактическое условие договора о возмещении издержек, лимитах бюджета и предоставлении документов.
           required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
 
         - name: "expense_reimbursement_summary"
           type: "string"
@@ -4683,7 +4683,7 @@ checks_v8:
             Сводный вывод одной фразой: модель компенсации расходов агента + документальное подтверждение.
           required: true
           display_in_grid: true
-          display_priority: 1
+          display_priority: 2
 
       store_payload: true
 
@@ -5090,7 +5090,7 @@ checks_v8:
             Фактические условия расторжения договора, право на односторонний отказ и срок уведомления.
           required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
 
         - name: "post_termination_settlement_details"
           type: "string"
@@ -5100,7 +5100,7 @@ checks_v8:
             Фактический порядок завершения сделок, возврата доверенностей, финального отчёта и расчётов.
           required: true
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
 
         - name: "termination_summary"
           type: "string"
@@ -5110,7 +5110,7 @@ checks_v8:
             Сводный вывод одной фразой: срок уведомления при отказе + завершение сделок + финальные расчёты.
           required: true
           display_in_grid: true
-          display_priority: 1
+          display_priority: 3
 
       store_payload: true
 
@@ -5502,7 +5502,7 @@ checks_v8:
             Фактическое условие договора о ручательстве за третьих лиц (делькредере) и доплате за него.
           required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
 
         - name: "penalty_and_caps_details"
           type: "string"
@@ -5512,7 +5512,7 @@ checks_v8:
             Фактический размер и ставки договорных неустоек (пени/штрафы) и пределы ответственности.
           required: true
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
 
         - name: "liability_summary"
           type: "string"
@@ -5522,7 +5522,7 @@ checks_v8:
             Сводный вывод одной фразой: режим делькредере + договорные неустойки + лимиты ответственности.
           required: true
           display_in_grid: true
-          display_priority: 1
+          display_priority: 3
 
       store_payload: true
 
@@ -5934,7 +5934,7 @@ checks_v8:
             на товары и имущество принципала.
           required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
 
         - name: "bankruptcy_risk_details"
           type: "string"
@@ -5945,7 +5945,7 @@ checks_v8:
             При red flag — с пометкой ⚠️.
           required: true
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
 
         - name: "title_transfer_summary"
           type: "string"
@@ -5956,7 +5956,7 @@ checks_v8:
             защиты от банкротства агента.
           required: true
           display_in_grid: true
-          display_priority: 1
+          display_priority: 3
 
       store_payload: true
 
@@ -6362,7 +6362,7 @@ checks_v8:
             Фактический текст порядка передачи поручений: форма, канал, периодичность.
           required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
 
         - name: "authority_limits_details"
           type: "string"
@@ -6373,7 +6373,7 @@ checks_v8:
             крупных или нестандартных сделок.
           required: true
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
 
         - name: "instructions_summary"
           type: "string"
@@ -6383,7 +6383,7 @@ checks_v8:
             Сводный вывод одной фразой: механизм поручений + лимиты + порядок одобрения.
           required: true
           display_in_grid: true
-          display_priority: 1
+          display_priority: 3
 
       store_payload: true
 
@@ -6772,7 +6772,7 @@ checks_v8:
             и распределении расходов.
           required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
 
         - name: "returns_and_warranty_summary"
           type: "string"
@@ -6782,7 +6782,7 @@ checks_v8:
             Сводный вывод одной фразой: режим рекламаций + гарантия + возвраты.
           required: true
           display_in_grid: true
-          display_priority: 1
+          display_priority: 2
 
       store_payload: true
 
@@ -7173,7 +7173,7 @@ checks_v8:
             и бренда принципала.
           required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
 
         - name: "brand_usage_summary"
           type: "string"
@@ -7184,7 +7184,7 @@ checks_v8:
             постконтрактные обязательства.
           required: true
           display_in_grid: true
-          display_priority: 1
+          display_priority: 2
 
       store_payload: true
 
@@ -7579,7 +7579,7 @@ checks_v8:
             налогообложения, счета-фактуры.
           required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
 
         - name: "tax_summary"
           type: "string"
@@ -7590,7 +7590,7 @@ checks_v8:
             распределение налоговых расходов.
           required: true
           display_in_grid: true
-          display_priority: 1
+          display_priority: 2
 
       store_payload: true
 
@@ -8446,7 +8446,7 @@ checks_v8:
             структура дохода.
           required: true
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
 
         - name: "recharacterization_verdict"
           type: "string"
@@ -8457,7 +8457,7 @@ checks_v8:
             в комиссию, поставку или возмездные услуги.
           required: true
           display_in_grid: true
-          display_priority: 1
+          display_priority: 2
 
       store_payload: true
 
