@@ -7438,7 +7438,7 @@ checks_v8:
       Результат предназначен для табличного сравнения нескольких договоров.
     triggers:
       any: ["individual_party"]
-    ui_mode: "risk_detection"
+    ui_mode: "field_extraction"
     severity: "critical"
     severity_if_pass: "pass"
     severity_if_fail: "critical"
@@ -8400,7 +8400,7 @@ checks_v8:
       табличного сравнения нескольких договоров.
     triggers:
       any: ["success_fee"]
-    ui_mode: "risk_detection"
+    ui_mode: "field_extraction"
     severity: "high"
     severity_if_pass: "pass"
     severity_if_fail: "high"
@@ -10285,7 +10285,7 @@ checks_v8:
       табличного сравнения нескольких договоров.
     triggers:
       any: ["consumer_party"]
-    ui_mode: "risk_detection"
+    ui_mode: "field_extraction"
     severity: "high"
     severity_if_pass: "pass"
     severity_if_fail: "high"
@@ -10756,7 +10756,7 @@ checks_v8:
       Результат предназначен для табличного сравнения нескольких договоров.
     triggers:
       any: ["licensed_activity"]
-    ui_mode: "clause_presence"
+    ui_mode: "field_extraction"
     severity: "critical"
     severity_if_pass: "pass"
     severity_if_fail: "critical"
@@ -11156,11 +11156,14 @@ checks_v8:
         - name: "license_details"
           type: "string"
           presentation: "fact"
-          label: "Реквизиты лицензии"
-          description: "Реквизиты лицензии исполнителя (номер, дата, орган) или ссылка на приложение/реестр."
-          required: false
           display_in_grid: true
           display_priority: 2
+          label: "Реквизиты лицензии"
+          description: >
+            Реквизиты лицензии исполнителя (номер, дата, орган)
+            или ссылка на приложение / реестр.
+            Fallback: "Не установлено" / "Не удалось определить".
+          required: false
 
         - name: "accreditation_or_sro_present"
           type: "string"
@@ -11201,7 +11204,7 @@ checks_v8:
       сравнения нескольких договоров.
     triggers:
       any: ["outsourcing", "it_services", "consulting_services"]
-    ui_mode: "clause_presence"
+    ui_mode: "field_extraction"
     severity: "medium"
     severity_if_pass: "pass"
     severity_if_fail: "medium"
@@ -11576,11 +11579,14 @@ checks_v8:
         - name: "non_solicitation_period"
           type: "string"
           presentation: "fact"
-          label: "Срок запрета"
-          description: "Срок действия запрета переманивания (включая post-termination period, если есть)."
-          required: false
           display_in_grid: true
           display_priority: 2
+          label: "Срок запрета"
+          description: >
+            Срок действия запрета переманивания
+            (включая post-termination period, если есть).
+            Fallback: "Не установлено" / "Не удалось определить".
+          required: false
 
         - name: "non_solicitation_penalty_defined"
           type: "string"
