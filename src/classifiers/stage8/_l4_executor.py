@@ -113,7 +113,9 @@ class L4Executor:
             self._registry,
             candidates,
             base_top_k=5,
-            max_total=12,
+            max_total=int(
+                getattr(settings, "CLASSIFICATION_L4_MAX_ALLOWED_TYPES", 6)
+            ),
             details=details,
         )
         details["L4_allowed_types_source"] = allowed_types_source
@@ -277,7 +279,9 @@ class L4Executor:
             self._registry,
             candidates,
             base_top_k=5,
-            max_total=12,
+            max_total=int(
+                getattr(settings, "CLASSIFICATION_L4_MAX_ALLOWED_TYPES", 6)
+            ),
             details=details,
         )
         details["L4_allowed_types_source"] = allowed_types_source
@@ -524,9 +528,21 @@ class L4Executor:
             return None
 
         if llm_response is None:
+            # Прокидываем реальную причину из errordetails, если она есть.
+            # Молчаливая замена на "llm_returned_none" маскировала баги
+            # конфигурации (инцидент run_id=545411d1-...: реальный
+            # failure_reason=prompt_exceeds_token_budget превращался
+            # в llm_returned_none и уводил диагностику в сторону Ollama).
+            real_reason = (
+                (errordetails or {}).get("failure_reason")
+                if isinstance(errordetails, dict)
+                else None
+            ) or "llm_returned_none"
             if isinstance(details.get("L4_gate"), dict):
                 details["L4_gate"]["status"] = "no_result"
-                details["L4_gate"]["failure_reason"] = "llm_returned_none"
+                details["L4_gate"]["failure_reason"] = real_reason
+                if isinstance(errordetails, dict) and errordetails:
+                    details["L4_gate"]["error_details"] = errordetails
             return None
 
         parsed = self._llm.parse(llm_response, allowed_types=allowed_types)

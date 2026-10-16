@@ -124,10 +124,29 @@ class ContentFetcher:
     @staticmethod
     def _calculate_prompt_overhead_tokens() -> int:
         """
-        Динамически вычисляет overhead промпта L4 на основе реального шаблона.
-        Универсальное решение: устраняет необходимость в захардкоженном значении.
+        Динамически вычисляет overhead промпта L4 на основе реального
+        шаблона, реального system instruction и worst-case блока типов.
+
+        Инвариант: оценка должна быть НЕ МЕНЬШЕ реальной. ContentFetcher
+        обязан отдавать L4 фрагмент, который заведомо влезет. Любая
+        недооценка overhead приводит к overflow в L4.
+
+        Источник истины для system instruction и ChatML-формата —
+        модуль _l4_llm. Здесь мы используем те же константы, чтобы
+        бюджеты совпадали до токена.
         """
+        import json as _json
+        import math as _math
         from pathlib import Path
+
+        # Импорт внутри метода: избегаем циклической зависимости
+        # на уровне модуля (_l4_llm может импортировать этот модуль в
+        # будущем рефакторинге).
+        from ._l4_llm import (
+            _CHATML_IM_END,
+            _CHATML_IM_START,
+            _CHATML_SYSTEM_INSTRUCTION,
+        )
 
         prompt_path = Path(getattr(settings, "CLASSIFICATION_L4_PROMPT_PATH", ""))
         if not prompt_path.exists():
@@ -139,33 +158,53 @@ class ContentFetcher:
 
         try:
             template = prompt_path.read_text(encoding="utf-8").strip()
-            skeleton = template.replace("{available_types}", "[]")
+
+            # Worst-case: рендерим placeholder-типы в количестве,
+            # равном максимуму, который может дать L4. Это гарантирует,
+            # что оценка ContentFetcher'а не меньше реальной в L4.
+            max_types = int(
+                getattr(settings, "CLASSIFICATION_L4_MAX_ALLOWED_TYPES", 6)
+            )
+            placeholder_types = [
+                {
+                    "type_code": "contract_placeholder_xx",
+                    "name": "Название типа документа",
+                    "short_desc": "Краткое описание типа документа (до 150 символов).",
+                }
+                for _ in range(max_types)
+            ]
+            types_block = _json.dumps(
+                placeholder_types,
+                ensure_ascii=False,
+                separators=(",", ":"),
+            )
+            skeleton = template.replace("{available_types}", types_block)
             skeleton = skeleton.replace("{document_fragment}", "")
 
-            chatml_system_instruction = (
-                "Ты — юридический ассистент. Отвечай СТРОГО одним JSON-объектом "
-                "с полями type_code, confidence, reasoning. "
-                "Никаких пояснений, никакого markdown, никаких блоков ```json. "
-                "Только JSON."
-            )
             chatml_overhead = (
-                f"<|im_start|>system\n"
-                f"{chatml_system_instruction}\n"
-                f"<|im_end|>\n"
-                f"<|im_start|>user\n"
+                f"{_CHATML_IM_START}system\n"
+                f"{_CHATML_SYSTEM_INSTRUCTION}\n"
+                f"{_CHATML_IM_END}\n"
+                f"{_CHATML_IM_START}user\n"
                 f"{skeleton}\n"
-                f"<|im_end|>\n"
-                f"<|im_start|>assistant\n"
+                f"{_CHATML_IM_END}\n"
+                f"{_CHATML_IM_START}assistant\n"
             )
 
-            chars_per_token = float(getattr(settings, "LLM_TOKENIZER_CHARS_PER_TOKEN", 2.2))
-            tokens = max(1, int(len(chatml_overhead) / chars_per_token))
+            chars_per_token = float(
+                getattr(settings, "LLM_TOKENIZER_CHARS_PER_TOKEN", 2.2)
+            )
+            # ceil — safety-critical, никогда не занижаем.
+            tokens = max(1, _math.ceil(len(chatml_overhead) / chars_per_token))
 
             return tokens
         except Exception as e:
-            logger.warning("ContentFetcher: failed to calculate prompt overhead, using fallback", error=str(e))
+            logger.warning(
+                "ContentFetcher: failed to calculate prompt overhead, "
+                "using fallback",
+                error=str(e),
+            )
             return 1500
-
     @staticmethod
     def _calculate_max_body_chars() -> int:
         """
@@ -194,11 +233,6 @@ class ContentFetcher:
         # Динамический расчёт overhead промпта (без магических чисел)
         prompt_overhead_tokens = ContentFetcher._calculate_prompt_overhead_tokens()
 
-        # Минимальный доступный объём для текста документа (архитектурный инвариант)
-        min_available_tokens = int(
-            getattr(settings, "CLASSIFICATION_L4_MIN_AVAILABLE_TOKENS", 1000)
-        )
-
         # Универсальный коэффициент конверсии токенов в символы.
         # Зависит от токенизатора модели (BPE, SentencePiece и т.д.).
         # Настраивается через LLM_TOKENIZER_CHARS_PER_TOKEN в .env.
@@ -206,7 +240,7 @@ class ContentFetcher:
             getattr(settings, "LLM_TOKENIZER_CHARS_PER_TOKEN", 2.2)
         )
 
-        # Абсолютный защитный лимит на случай аномалий
+        # Абсолютный защитный лимит на случай аномалий.
         max_body_chars_cap = int(
             getattr(settings, "CLASSIFICATION_L4_MAX_BODY_CHARS", 35_000)
         )
@@ -217,7 +251,24 @@ class ContentFetcher:
             - safety_margin
             - prompt_overhead_tokens
         )
-        available_tokens = max(available_tokens, min_available_tokens)
+
+        # Если overhead уже не оставляет места — это ошибка конфигурации,
+        # а не повод выдать body сверх бюджета. Раньше min_available_tokens
+        # поднимал available_tokens до 1000, что давало больше body и
+        # создавало overflow в L4. Теперь явный clamp к 0 → body = 0.
+        if available_tokens < 0:
+            logger.warning(
+                "ContentFetcher: LLM overhead exceeds context window, "
+                "body will be empty. Проверь LLM_CONTEXT_LIMIT, "
+                "LLM_MAX_TOKENS, LLM_SAFETY_MARGIN_TOKENS, "
+                "CLASSIFICATION_L4_MAX_ALLOWED_TYPES и шаблон промпта.",
+                llm_context_limit=llm_context_limit,
+                max_output_tokens=max_output_tokens,
+                safety_margin=safety_margin,
+                prompt_overhead_tokens=prompt_overhead_tokens,
+                available_tokens=available_tokens,
+            )
+            available_tokens = 0
 
         max_body_chars = int(available_tokens * chars_per_token)
         max_body_chars = min(max_body_chars, max_body_chars_cap)
@@ -228,7 +279,6 @@ class ContentFetcher:
             max_output_tokens=max_output_tokens,
             safety_margin=safety_margin,
             prompt_overhead_tokens=prompt_overhead_tokens,
-            min_available_tokens=min_available_tokens,
             chars_per_token=chars_per_token,
             max_body_chars_cap=max_body_chars_cap,
             available_tokens=available_tokens,

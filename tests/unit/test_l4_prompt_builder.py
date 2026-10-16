@@ -119,7 +119,11 @@ class TestBuildDocumentFragment:
         fragment = clf._build_document_fragment(
             text=long_text, filename="f", folder_path="p", max_chars=500
         )
-        assert "[TRUNCATED]" in fragment
+        # Production-код использует русский маркер
+        # "[ТЕКСТ ОБРЕЗАН ПО ГРАНИЦЕ ПРЕДЛОЖЕНИЯ]".
+        # Старый тест ожидал "[TRUNCATED]" — тест был написан
+        # под другую реализацию и никогда не проходил.
+        assert "[ТЕКСТ ОБРЕЗАН ПО ГРАНИЦЕ ПРЕДЛОЖЕНИЯ]" in fragment
 
     def test_short_text_not_truncated(self):
         clf = _make_classifier()
@@ -147,7 +151,17 @@ class TestEstimateTokenCount:
 
     def test_basic_estimate(self):
         text = "А" * 300
-        assert L4LLMClassifier._estimate_token_count(text) == 100
+        # Коэффициент берётся из LLM_TOKENIZER_CHARS_PER_TOKEN
+        # (.env → 2.0). Старый тест ожидал 100 = 300/3.0, но
+        # production-код никогда не использовал 3.0 в
+        # _estimate_token_count — тест закреплял рассинхрон.
+        from core.config import settings as _settings
+        import math as _math
+        cpt = float(
+            getattr(_settings, "LLM_TOKENIZER_CHARS_PER_TOKEN", 2.2)
+        )
+        expected = max(1, _math.ceil(len(text) / cpt))
+        assert L4LLMClassifier._estimate_token_count(text) == expected
 
     def test_minimum_one(self):
         assert L4LLMClassifier._estimate_token_count("А") == 1
@@ -180,6 +194,11 @@ class TestBuildPromptIntegration:
             mock_settings.LLM_SAFETY_MARGIN_TOKENS = 512
             mock_settings.CLASSIFICATION_L4_MAX_INPUT_CHARS = 6000
             mock_settings.CLASSIFICATION_L4_REASONING_MAX_CHARS = 1000
+            # Коэффициент обязан совпадать с production default.
+            # Раньше тест хардкодил * 3 и маскировал баг в _build_prompt
+            # (fragment_budget_chars = tokens * 3), из-за чего реальный
+            # overflow LLM_CONTEXT_LIMIT не ловился.
+            mock_settings.LLM_TOKENIZER_CHARS_PER_TOKEN = 2.0
             long_text = "Текст договора. " * 3000  # ~48k символов
             prompt = clf._build_prompt(
                 text=long_text,
@@ -187,7 +206,45 @@ class TestBuildPromptIntegration:
                 folder_path="/docs",
                 allowed_types=["contract_1.6_real_estate"],
             )
-        max_budget = (8192 - 256 - 512) * 3  # символов
-        assert len(prompt) <= max_budget * 1.05  # 5% допуск на эвристику
+            max_prompt_tokens = 8192 - 256 - 512
+            max_budget_chars = max_prompt_tokens * 2.0
+            # Проверяем и по символам, и по токенам — токен-инвариант
+            # это то, что реально критично для Ollama.
+            assert len(prompt) <= int(max_budget_chars * 1.05)
+            est_tokens = clf._estimate_token_count(prompt)
+            assert est_tokens <= max_prompt_tokens
 
+class TestPromptBudgetInvariants:
 
+    @pytest.mark.parametrize("allowed_types_count", [1, 2, 4, 6, 12])
+    @pytest.mark.parametrize("body_chars", [500, 5000, 15000, 50000])
+    def test_prompt_never_exceeds_budget(self, allowed_types_count, body_chars):
+        """
+        Инвариант: при любом количестве типов и любой длине body
+        промпт укладывается в max_prompt_tokens. Это гарантия того,
+        что L4 никогда не abort'ится на бюджете.
+        """
+        clf = _make_classifier(prompt_template=MINIMAL_TEMPLATE)
+        with patch("src.classifiers.stage8._l4_llm.settings") as mock_settings:
+            mock_settings.LLM_CONTEXT_LIMIT = 12288
+            mock_settings.LLM_MAX_TOKENS = 256
+            mock_settings.LLM_SAFETY_MARGIN_TOKENS = 256
+            mock_settings.CLASSIFICATION_L4_MAX_INPUT_CHARS = 20000
+            mock_settings.CLASSIFICATION_L4_REASONING_MAX_CHARS = 1000
+            mock_settings.LLM_TOKENIZER_CHARS_PER_TOKEN = 2.0
+
+            prompt = clf._build_prompt(
+                text="А" * body_chars,
+                filename="regress.pdf",
+                folder_path="",
+                allowed_types=[f"type_{i}" for i in range(allowed_types_count)],
+            )
+            est_tokens = clf._estimate_token_count(prompt)
+            max_prompt_tokens = 12288 - 256 - 256
+            assert est_tokens <= max_prompt_tokens, (
+                f"overflow: types={allowed_types_count}, "
+                f"body={body_chars}, est={est_tokens}, "
+                f"max={max_prompt_tokens}"
+            )
+
+            

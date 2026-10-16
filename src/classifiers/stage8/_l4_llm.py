@@ -21,6 +21,7 @@ Production-ready версия:
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 from typing import Any
 
@@ -419,7 +420,21 @@ class L4LLMClassifier:
         fragment_budget_tokens = usable_prompt_tokens - skeleton_tokens
         # Минимум 300 токенов на текст документа — иначе L4 бессмысленен
         fragment_budget_tokens = max(300, fragment_budget_tokens)
-        fragment_budget_chars = fragment_budget_tokens * 3  # обратное от len // 3
+
+        # Единый коэффициент из settings — тот же, что использует
+        # _estimate_token_count. Рассинхрон между бюджетом в символах и
+        # обратным подсчётом токенов = silent overflow LLM_CONTEXT_LIMIT
+        # и abort L4 до вызова Ollama (инцидент run_id=545411d1-...).
+        _chars_per_token = float(
+            getattr(settings, "LLM_TOKENIZER_CHARS_PER_TOKEN", 2.2)
+        )
+        # Запас 10% компенсирует prefix ("Имя файла:…"), marker
+        # "[ТЕКСТ ОБРЕЗАН…]" в _build_document_fragment, которые
+        # добавляются сверх max_chars, и округления.
+        _FRAGMENT_OVERHEAD_RATIO = 1.10
+        fragment_budget_chars = int(
+            fragment_budget_tokens * _chars_per_token / _FRAGMENT_OVERHEAD_RATIO
+        )
 
         # --- Шаг 5: строим fragment с динамической триммацией ---
         document_fragment = self._build_document_fragment(
@@ -429,6 +444,31 @@ class L4LLMClassifier:
             max_chars=fragment_budget_chars,
         )
         fragment_tokens = self._estimate_token_count(document_fragment)
+
+        # Инвариант: фрагмент обязан укладываться в свой бюджет.
+        # Если нет — жёсткий пост-обрез, а не abort L4. Защита от
+        # регрессий в _build_document_fragment или в коэффициентах.
+        if fragment_tokens > fragment_budget_tokens:
+            logger.warning(
+                "L4 fragment exceeded budget, force-truncating",
+                extra={
+                    "fragment_budget_tokens": fragment_budget_tokens,
+                    "fragment_actual_tokens": fragment_tokens,
+                    "fragment_actual_chars": len(document_fragment),
+                },
+            )
+            overflow_tokens = fragment_tokens - fragment_budget_tokens
+            overflow_chars = int(overflow_tokens * _chars_per_token) + 1
+            cut = max(1, len(document_fragment) - overflow_chars)
+            document_fragment = document_fragment[:cut]
+            # Не рвать UTF-8.
+            while document_fragment and ord(document_fragment[-1]) & 0xC0 == 0x80:
+                document_fragment = document_fragment[:-1]
+            fragment_tokens = self._estimate_token_count(document_fragment)
+            assert fragment_tokens <= fragment_budget_tokens, (
+                f"post-truncate invariant broken: "
+                f"{fragment_tokens} > {fragment_budget_tokens}"
+            )
 
         # --- Расширенное логирование бюджета ---
         logger.debug(
@@ -696,4 +736,8 @@ class L4LLMClassifier:
             getattr(settings, "LLM_TOKENIZER_CHARS_PER_TOKEN", 2.2)
         )
         
-        return max(1, int(len(text) / chars_per_token))
+        # ceil — safety-critical: никогда не занижаем реальный размер.
+        # floor раньше давал системный underflow на округлении.
+        return max(1, math.ceil(len(text) / chars_per_token))
+
+        

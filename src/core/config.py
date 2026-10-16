@@ -298,6 +298,11 @@ class Settings(BaseSettings):
     )
     CLASSIFICATION_L4_MAX_INPUT_CHARS: int = 6000
     CLASSIFICATION_L4_MAX_BODY_CHARS: int = 15000
+    # Верхняя граница числа типов-кандидатов, передаваемых в L4.
+    # Ограничивает prompt budget и снижает вероятность, что модель
+    # «запутается» между похожими типами.
+    # Значение — продуктовая политика, настраивается через .env.
+    CLASSIFICATION_L4_MAX_ALLOWED_TYPES: int = 6
     CLASSIFICATION_L4_MIN_AVAILABLE_TOKENS: int = 1000
     CLASSIFIER_L4_ENABLED: bool = True
 
