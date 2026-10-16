@@ -1046,46 +1046,36 @@ checks_v8:
              receiver_rent_type_for_eligibility = "not_defined";
              все *_value / *_details = "Данные не определены".
 
-        2. Только роли без идентификации.
-           Стороны названы только как "Получатель ренты" / "Плательщик ренты"
-           без реквизитов, ФИО, ИНН, ОГРН.
+        2. Неполное раскрытие темы.
+           Стороны упомянуты только ролями без реквизитов, либо нет подтверждения
+           дееспособности, либо вид ренты прямо не назван — при наличии хотя бы
+           одного определённого содержательного поля.
            → presence = "present";
              соответствующий *_details_status = "not_defined";
-             *_details_value = "Данные не определены".
+             capacity_confirmed_status = "not_defined";
+             receiver_rent_type_for_eligibility = "not_defined";
+             receiver_eligibility_status = "not_defined";
+             соответствующие *_value / *_details = "Данные не определены".
 
         3. Противоречие между фрагментами.
            В разных частях договора указаны разные ФИО, паспорта или ИНН
-           для одной и той же стороны, либо разные виды ренты,
+           для одной и той же стороны, либо разные виды ренты;
            конфликт нельзя разрешить по тексту.
            → presence = "unclear";
              соответствующий *_details_status = "not_defined";
              receiver_eligibility_status = "not_defined";
              соответствующие *_value / *_details = "Не удалось определить".
 
-        4. Отсутствие подтверждения дееспособности (специфика ренты).
-           Получатель — гражданин, но в тексте нет ни фразы о разъяснении
-           нотариусом последствий, ни фразы о проверке дееспособности.
-           → presence = "present" (если хотя бы один другой содержательный статус = "defined");
-             capacity_confirmed_status = "not_defined";
-             capacity_confirmed_details = "Данные не определены".
-
-        5. Коммерческая организация как получатель пожизненной ренты или ДПСИ
-           (специфика ст. 596 п. 1, ст. 601 ГК РФ).
-           Получателем указана коммерческая организация, вид ренты —
-           пожизненная рента или ДПСИ.
+        4. Специфика темы — допустимость получателя.
+           Коммерческая организация или НКО указана получателем пожизненной
+           ренты или ДПСИ, что не соответствует императивным требованиям
+           ст. 596 п. 1 / ст. 601 ГК РФ.
            → presence = "present";
-             receiver_type = "commercial";
+             receiver_type = "commercial" или "nco";
              receiver_rent_type_for_eligibility = "life_annuity" / "lifetime_maintenance";
              receiver_eligibility_status = "ineligible";
              receiver_eligibility_details содержит обоснование со ссылкой
              на императивную норму ГК РФ.
-
-        6. Вид ренты не указан.
-           Получатель идентифицирован, но вид ренты прямо не назван.
-           → presence = "present";
-             receiver_rent_type_for_eligibility = "not_defined";
-             receiver_eligibility_status = "not_defined";
-             receiver_eligibility_details = "Вид ренты в тексте не указан".
         </edge_cases>
 
         <output_expectations>
@@ -1665,7 +1655,7 @@ checks_v8:
       Фактографическая проверка наличия нотариального удостоверения — обязательного
       требования под страхом ничтожности (ст. 584 ГК РФ).
     triggers: {}
-    ui_mode: "clause_presence"
+    ui_mode: "field_extraction"
     severity: "critical"
     severity_if_pass: "pass"
     severity_if_fail: "critical"
@@ -3460,43 +3450,36 @@ checks_v8:
              все *_details / *_value = "Данные не определены".
 
         2. Неполное раскрытие темы.
-           Объём содержания указан общей фразой ("обеспечивать всем необходимым")
-           без перечня конкретных видов и без права проживания.
+           Объём содержания указан общей фразой без перечня, либо замена
+           содержания деньгами упомянута без механизма, либо право проживания
+           получателя в переданном жилье не урегулировано — при наличии
+           хотя бы одного определённого содержательного поля.
            → presence = "present";
-             maintenance_scope_status = "defined"; maintenance_scope_level = "general";
+             maintenance_scope_status = "defined";
+             maintenance_scope_level = "general";
              housing_status / food_status / medical_care_status /
              clothing_status / utilities_status / residence_right_status /
              residence_term_status / residence_family_scope_status /
-             funeral_services_status = "not_defined".
+             funeral_services_status / cash_substitution_status = "not_defined";
+             соответствующие *_details / *_value = "Данные не определены".
 
         3. Противоречие между фрагментами.
            В разных частях договора указаны разные суммы стоимости содержания
-           или разные условия права проживания, конфликт нельзя разрешить по тексту.
+           или разные условия права проживания; конфликт нельзя разрешить
+           по тексту.
            → presence = "unclear";
              соответствующий *_status = "not_defined";
              соответствующий *_value / *_details = "Не удалось определить".
 
-        4. Замена содержания деньгами (специфика ст. 603 ГК РФ).
-           В тексте указано, что содержание может быть заменено денежными
-           выплатами, но механизм или условия замены не раскрыты.
-           → presence = "present";
-             cash_substitution_status = "defined";
-             cash_substitution_details = "Данные не определены".
-
-        5. Право проживания не урегулировано (специфика ст. 33 ЖК РФ).
-           Получатель ренты передаёт жилое помещение под ДПСИ, но право
-           проживания получателя в тексте не упомянуто.
-           → presence = "present" (если другие содержательные поля определены);
-             residence_right_status = "not_defined";
-             residence_right_details = "Данные не определены".
-
-        6. Право проживания распространено на членов семьи.
+        4. Специфика темы — право проживания и члены семьи.
            В тексте прямо указано, что право проживания сохраняется
-           не только за получателем ренты, но и за членами его семьи.
+           за получателем ренты в переданном жилом помещении, при этом
+           распространено и на членов его семьи.
            → presence = "present";
              residence_right_status = "defined";
              residence_family_scope_status = "defined";
-             residence_family_scope_details содержит формулировку
+             residence_right_details содержит формулировку о праве проживания
+             получателя; residence_family_scope_details содержит формулировку
              о распространении права проживания на членов семьи получателя.
         </edge_cases>
 
@@ -5263,46 +5246,36 @@ checks_v8:
 
         2. Неполное раскрытие темы.
            Есть общая фраза о добровольности, но без разъяснений нотариуса,
-           независимой оценки, механизмов защиты и заверений о дееспособности.
+           независимой оценки, механизмов защиты или без заверений
+           о специальной дееспособности получателя.
            → presence = "present";
              voluntariness_status = "defined";
              notary_explanation_status / independent_valuation_status /
              pressure_absence_status / abuse_protection_status /
              relatives_access_status / care_quality_control_status /
-             legal_capacity_status / legal_capacity_limitations_status = "not_defined".
+             legal_capacity_status / legal_capacity_limitations_status = "not_defined";
+             legal_capacity_age_code = "not_defined";
+             legal_capacity_details = "Данные не определены".
 
         3. Противоречие между фрагментами.
            В разных частях договора указаны разные заверения о добровольности,
-           дееспособности или разные механизмы защиты,
+           дееспособности или разные механизмы защиты получателя;
            конфликт нельзя разрешить по тексту.
            → presence = "unclear";
              соответствующий *_status = "not_defined";
              соответствующее *_details = "Не удалось определить".
 
-        4. Частичная защита получателя (специфика ДПСИ).
-           Указано право родственников навещать, но без контроля качества ухода
-           и без прямого заверения об отсутствии давления.
-           → presence = "present";
-             relatives_access_status = "defined";
-             abuse_protection_status = "defined";
-             care_quality_control_status / pressure_absence_status = "not_defined".
-
-        5. Несовершеннолетний получатель (специфика ст. 175 ГК РФ).
-           В тексте прямо указано, что получатель ренты несовершеннолетний.
+        4. Специфика темы — несовершеннолетний или ограниченно дееспособный
+           получатель ренты (ст. 175-177 ГК РФ).
+           В тексте прямо указано, что получатель ренты несовершеннолетний
+           либо имеются ограничения дееспособности.
            → presence = "present";
              legal_capacity_status = "not_defined";
              legal_capacity_age_code = "minor";
+             legal_capacity_limitations_status = "defined" (при прямом
+             указании на ограничение дееспособности);
              legal_capacity_details содержит указание на несовершеннолетие
-             получателя ренты.
-
-        6. Отсутствие заверений о специальной дееспособности.
-           Есть заверения о добровольности, но без отдельного подтверждения
-           полной дееспособности, совершеннолетия и отсутствия ограничений.
-           → presence = "present" (если другие содержательные поля определены);
-             legal_capacity_status = "not_defined";
-             legal_capacity_age_code = "not_defined";
-             legal_capacity_limitations_status = "not_defined";
-             legal_capacity_details = "Данные не определены".
+             или ограничения дееспособности получателя ренты.
         </edge_cases>
 
         <output_expectations>
@@ -6183,46 +6156,35 @@ checks_v8:
            но без цены, без перехода обязательств, без ответственности
            прежнего плательщика и без признаков притворности.
            → presence = "present";
-             transfer_type_status = "defined"; transfer_type_code = "paid";
+             transfer_type_status = "defined";
+             transfer_type_code = "paid";
              transfer_price_status / succession_clause_status /
              liability_type_status / notification_procedure_status /
-             price_adequacy_status / related_party_status = "not_defined".
+             price_adequacy_status / related_party_status = "not_defined";
+             transfer_price_value = "Данные не определены".
 
         3. Противоречие между фрагментами.
            В разных частях договора указаны разные виды передачи
-           (за плату и бесплатно) или разные типы ответственности,
-           конфликт нельзя разрешить по тексту.
+           (за плату и бесплатно) или разные типы ответственности
+           прежнего плательщика; конфликт нельзя разрешить по тексту.
            → presence = "unclear";
              соответствующий *_status = "not_defined";
              соответствующий *_code = "not_defined";
              соответствующие *_value / *_details = "Не удалось определить".
 
-        4. Передача за плату без цены (специфика ст. 585 ГК РФ).
-           Указано, что имущество передаётся за плату, но сумма платы
-           не раскрыта; правила купли-продажи при этом не упомянуты.
-           → presence = "present";
-             transfer_type_status = "defined"; transfer_type_code = "paid";
-             transfer_price_status = "not_defined";
-             transfer_price_value = "Данные не определены".
-
-        5. Символическая цена передачи (признак притворности, ст. 170 ГК РФ).
-           Имущество передаётся за плату по цене, явно не соответствующей
-           рыночной стоимости, без независимой оценки и без заверения
-           о её рыночности.
+        4. Специфика темы — признаки притворности.
+           Передача за плату по символической цене без независимой оценки,
+           и/или прямое раскрытие аффилированности / взаимозависимости сторон.
            → presence = "present";
              transfer_type_status = "defined"; transfer_type_code = "paid";
              transfer_price_status = "defined";
-             transfer_price_value содержит прямо указанную сумму;
+             transfer_price_value содержит указанную сумму;
              price_adequacy_status = "not_defined";
-             price_adequacy_details = "независимая оценка не проводилась, соответствие рыночной стоимости не подтверждено".
-
-        6. Раскрытие аффилированности сторон (признак притворности / банкротных рисков).
-           В тексте прямо указано, что стороны являются аффилированными,
-           взаимозависимыми или заинтересованными лицами.
-           → presence = "present";
+             price_adequacy_details = "независимая оценка не проводилась,
+             соответствие рыночной стоимости не подтверждено";
              related_party_status = "affiliated";
              related_party_details содержит формулировку о раскрытой
-             аффилированности.
+             аффилированности сторон.
         </edge_cases>
 
         <output_expectations>
