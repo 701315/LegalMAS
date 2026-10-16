@@ -8141,9 +8141,3758 @@ checks_v8:
 
       store_payload: true
 
+  - id: family_and_women_guarantees_check
+    name: "Гарантии женщинам и лицам с семейными обязанностями (ст. 253–264 ТК РФ)"
+    description: >
+      Фактографическая проверка повышенных гарантий беременным женщинам,
+      женщинам с детьми до 3 лет, лицам с семейными обязанностями:
+      перевод на другую работу, отпуска, перерывы для кормления,
+      защита от увольнения, дополнительный отпуск без сохранения зарплаты,
+      выплаты при рождении и усыновлении.
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    display_order: 210
 
+    rules:
+      keywords:
+        - "беременная"
+        - "беременность"
+        - "отпуск по беременности и родам"
+        - "отпуск по уходу за ребёнком"
+        - "декретный отпуск"
+        - "перерыв для кормления"
+        - "ребёнок до трёх лет"
+        - "ребёнок-инвалид"
+        - "многодетная"
+        - "усыновитель"
+        - "материальная помощь при рождении"
+        - "дополнительный выходной"
+        - "гарантии женщинам"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)беременн[а-яё]+"
+        - "(?i)отпуск[а-яё]*\\s+по\\s+(беременност|уход[ау]\\s+за\\s+реб)"
+        - "(?i)перерыв[а-яё]*\\s+для\\s+кормлени"
+        - "(?i)реб[ёе]н[а-яё]*\\s+(?:до\\s+)?тр[её]х\\s+лет"
+        - "(?i)(многодетн|усыновител|реб[ёе]н[а-яё]+[-\\s]инвалид)"
+        - "(?i)дополнительн[а-яё]+\\s+(?:оплачиваем[а-яё]+\\s+)?выходн"
 
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по трудовому праву.
+        Анализируется коллективный договор (ст. 253–264 ТК РФ).
+        Проверяется только один вопрос: гарантии женщинам и лицам
+        с семейными обязанностями.
+        Нормативные ориентиры:
+        - ст. 253 ТК РФ — ограничение применения труда женщин на тяжёлых
+          и подземных работах.
+        - ст. 254 ТК РФ — перевод беременных и женщин с детьми до 1,5 лет
+          на другую работу с сохранением среднего заработка.
+        - ст. 255, 256 ТК РФ — отпуска по беременности и родам, по уходу
+          за ребёнком до 3 лет.
+        - ст. 258 ТК РФ — дополнительные перерывы для кормления ребёнка.
+        - ст. 259 ТК РФ — гарантии при направлении в командировки,
+          сверхурочные, работу в ночное время (для беременных — запрет,
+          для лиц с семейными обязанностями — только с их согласия).
+        - ст. 261 ТК РФ — запрет расторжения трудового договора
+          по инициативе работодателя с беременной (кроме ликвидации)
+          и ограничения для женщин с детьми до 3 лет, одиноких матерей
+          с детьми до 14 лет / детьми-инвалидами до 18 лет.
+        - ст. 262 ТК РФ — 4 дополнительных оплачиваемых выходных дня
+          в месяц для родителей детей-инвалидов; преимущественное
+          право на ежегодный отпуск летом.
+        - ст. 263 ТК РФ — дополнительный отпуск без сохранения зарплаты
+          до 14 календарных дней для отдельных категорий.
+        - ст. 264 ТК РФ — гарантии лицам, воспитывающим детей без матери.
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+        - Различай: КД закрепляет гарантию, цитирует норму ТК РФ
+          или вообще не упоминает.
 
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Гарантии беременным женщинам (перевод на другую работу,
+           запрет на увольнение, снижение норм).
+        2. Отпуска по уходу за ребёнком (материальная поддержка
+           сверх ТК РФ).
+        3. Выплаты при рождении / усыновлении ребёнка (сверх
+           установленных законом).
+        4. Гибкий график / неполное рабочее время для беременных
+           и лиц с семейными обязанностями.
+        5. Защита от увольнения беременных, женщин с детьми до 3 лет,
+           одиноких матерей.
+        6. Дополнительные выходные дни, преимущественное право на отпуск,
+           дополнительный отпуск без сохранения зарплаты.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Не подставляй нормы закона вместо текста договора.
+        3. Для enum-полей (*_status) при отсутствии данных возвращай
+           "not_defined".
+        4. Для строковых *_details при отсутствии данных возвращай строго
+           "Данные не определены".
+        5. Не используй "None", "null", пустые строки или отсутствующие ключи.
+        6. В evidence включай только прямые цитаты из текста договора.
+        7. Различай:
+           - "defined" — КД прямо закрепляет гарантию с параметрами
+             (размер, срок, порядок);
+           - "declarative" — только упоминание без конкретики
+             (цитирование ТК РФ);
+           - "not_defined" — тема не раскрыта.
+        8. Если КД просто цитирует норму ТК РФ без улучшения — статус
+           "declarative".
+        9. Верни РОВНО один валидный JSON-объект со всеми 13 ключами
+           (12 полей + evidence), пригодный для парсинга через json.loads
+           без предварительной обработки. Без markdown, без ```json,
+           без комментариев, без текста до или после. Начни ответ сразу
+           с { и закончи }.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1 — полное покрытие:
+        Фрагмент:
+        "Беременным женщинам снижаются нормы выработки на 30% с сохранением
+        среднего заработка. Отпуск по уходу за ребёнком — до 3 лет; работодатель
+        выплачивает дополнительное пособие 10 000 рублей ежемесячно в течение
+        первых 1,5 лет. При рождении ребёнка — материальная помощь 50 000 рублей.
+        Беременным предоставляется гибкий график по их заявлению. Увольнение
+        беременных по инициативе работодателя не допускается. Родителям детей-
+        инвалидов — 4 дополнительных оплачиваемых выходных в месяц."
+        Ответ:
+        {
+          "pregnant_women_guarantees_status": "defined",
+          "pregnant_women_guarantees_details": "снижение норм выработки на 30% с сохранением среднего заработка",
+          "parental_leave_status": "defined",
+          "parental_leave_details": "отпуск до 3 лет, дополнительное пособие 10 000 руб./мес. в течение первых 1,5 лет",
+          "family_payments_status": "defined",
+          "family_payments_details": "материальная помощь при рождении ребёнка — 50 000 рублей",
+          "flexible_schedule_status": "defined",
+          "flexible_schedule_details": "гибкий график для беременных по их заявлению",
+          "dismissal_protection_status": "defined",
+          "dismissal_protection_details": "запрет увольнения беременных по инициативе работодателя",
+          "extra_days_and_benefits_status": "defined",
+          "extra_days_and_benefits_details": "4 дополнительных оплачиваемых выходных в месяц для родителей детей-инвалидов",
+          "evidence": [
+            {"clause_ref": "п. 4.1", "quote": "Беременным женщинам снижаются нормы выработки на 30% с сохранением среднего заработка."},
+            {"clause_ref": "п. 4.3", "quote": "При рождении ребёнка — материальная помощь 50 000 рублей."}
+          ]
+        }
+
+        Пример 2 — только цитирование ТК РФ:
+        Фрагмент:
+        "Работникам предоставляются отпуска по беременности и родам,
+        по уходу за ребёнком в соответствии с ТК РФ."
+        Ответ:
+        {
+          "pregnant_women_guarantees_status": "declarative",
+          "pregnant_women_guarantees_details": "отпуска по беременности и родам в соответствии с ТК РФ (без улучшений)",
+          "parental_leave_status": "declarative",
+          "parental_leave_details": "отпуск по уходу за ребёнком в соответствии с ТК РФ (без улучшений)",
+          "family_payments_status": "not_defined",
+          "family_payments_details": "Данные не определены",
+          "flexible_schedule_status": "not_defined",
+          "flexible_schedule_details": "Данные не определены",
+          "dismissal_protection_status": "not_defined",
+          "dismissal_protection_details": "Данные не определены",
+          "extra_days_and_benefits_status": "not_defined",
+          "extra_days_and_benefits_details": "Данные не определены",
+          "evidence": [
+            {"clause_ref": "п. 4.1", "quote": "Работникам предоставляются отпуска по беременности и родам, по уходу за ребёнком в соответствии с ТК РФ."}
+          ]
+        }
+
+        Пример 3 — тема не раскрыта:
+        Фрагмент:
+        "Стороны обязуются соблюдать трудовое законодательство."
+        Ответ:
+        {
+          "pregnant_women_guarantees_status": "not_defined",
+          "pregnant_women_guarantees_details": "Данные не определены",
+          "parental_leave_status": "not_defined",
+          "parental_leave_details": "Данные не определены",
+          "family_payments_status": "not_defined",
+          "family_payments_details": "Данные не определены",
+          "flexible_schedule_status": "not_defined",
+          "flexible_schedule_details": "Данные не определены",
+          "dismissal_protection_status": "not_defined",
+          "dismissal_protection_details": "Данные не определены",
+          "extra_days_and_benefits_status": "not_defined",
+          "extra_days_and_benefits_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямые цитаты по каждой из 6 тем.
+        2. Разграничь defined / declarative (улучшение vs цитирование ТК РФ).
+        3. Если прямой цитаты нет — верни "not_defined". Не додумывай.
+        4. Проверь, что все 13 ключей (12 полей + evidence) присутствуют
+           в JSON.
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "pregnant_women_guarantees_status": "<defined / declarative / not_defined>",
+          "pregnant_women_guarantees_details": "<текст или 'Данные не определены'>",
+          "parental_leave_status": "<defined / declarative / not_defined>",
+          "parental_leave_details": "<текст или 'Данные не определены'>",
+          "family_payments_status": "<defined / declarative / not_defined>",
+          "family_payments_details": "<текст или 'Данные не определены'>",
+          "flexible_schedule_status": "<defined / declarative / not_defined>",
+          "flexible_schedule_details": "<текст или 'Данные не определены'>",
+          "dismissal_protection_status": "<defined / declarative / not_defined>",
+          "dismissal_protection_details": "<текст или 'Данные не определены'>",
+          "extra_days_and_benefits_status": "<defined / declarative / not_defined>",
+          "extra_days_and_benefits_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 10
+      temperature: 0.0
+      max_tokens: 1000
+
+    retrieval:
+      retrieval_profile: "employment_benefits_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "беременная беременность отпуск по беременности и родам отпуск по уходу за ребёнком перерыв для кормления ребёнок до трёх лет ребёнок-инвалид многодетная усыновитель материальная помощь при рождении дополнительный выходной гарантии женщинам семейные обязанности гибкий график"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "профсоюзные взносы"
+        - "забастовка"
+        - "в целях настоящего"
+      context_k: 10
+      max_chunks: 14
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "procedures"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 700
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 1500
+
+      compact_output: false
+
+      presence_signal:
+        field: "family_and_women_guarantees_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист по трудовому праву. Извлеки из коллективного
+        договора сведения о гарантиях женщинам и лицам с семейными
+        обязанностями (ст. 253–264 ТК РФ).
+        Не анализируй охрану труда, индексацию, обучение или споры.
+        Не оценивай риски.
+        Анализируй только текст договора.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        0. family_and_women_guarantees_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (pregnant_women_guarantees_status, parental_leave_status,
+              family_payments_status, flexible_schedule_status,
+              dismissal_protection_status,
+              extra_days_and_benefits_status) ≠ "not_defined";
+           - "missing" — если все шесть содержательных полей = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - все шесть *_status = "not_defined";
+           - все *_details = "Данные не определены";
+           - не выполняй остальные шаги.
+
+        1. pregnant_women_guarantees_status:
+           Используй только одно из значений:
+           - "defined" — КД прямо закрепляет гарантии беременным
+             с параметрами (снижение норм, перевод на другую работу,
+             сохранение среднего заработка, освобождение от ночных /
+             сверхурочных с конкретикой);
+           - "declarative" — только упоминание без конкретики;
+           - "not_defined" — тема не раскрыта.
+
+        2. pregnant_women_guarantees_details:
+           Краткое user-facing описание гарантий беременным.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        3. parental_leave_status:
+           Используй только одно из значений:
+           - "defined" — КД устанавливает дополнительные выплаты /
+             гарантии при отпуске по уходу за ребёнком;
+           - "declarative" — только цитирование ТК РФ;
+           - "not_defined" — тема не раскрыта.
+
+        4. parental_leave_details:
+           Краткое user-facing описание гарантий при отпуске по уходу.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        5. family_payments_status:
+           Используй только одно из значений:
+           - "defined" — КД устанавливает выплаты при рождении /
+             усыновлении ребёнка;
+           - "declarative" — только упоминание без размера;
+           - "not_defined" — тема не раскрыта.
+
+        6. family_payments_details:
+           Краткое user-facing описание выплат (размер, порядок).
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        7. flexible_schedule_status:
+           Используй только одно из значений:
+           - "defined" — КД закрепляет право на гибкий график /
+             неполное рабочее время для беременных и лиц
+             с семейными обязанностями;
+           - "declarative" — только цитирование ТК РФ;
+           - "not_defined" — тема не раскрыта.
+
+        8. flexible_schedule_details:
+           Краткое user-facing описание гибкого графика.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        9. dismissal_protection_status:
+           Используй только одно из значений:
+           - "defined" — КД закрепляет дополнительные гарантии
+             от увольнения для беременных / женщин с детьми до 3 лет /
+             одиноких матерей;
+           - "declarative" — только цитирование ТК РФ;
+           - "not_defined" — тема не раскрыта.
+
+        10. dismissal_protection_details:
+            Краткое user-facing описание защиты от увольнения.
+            Если данных нет — "Данные не определены".
+            Если данные противоречивы — "Не удалось определить".
+
+        11. extra_days_and_benefits_status:
+            Используй только одно из значений:
+            - "defined" — КД закрепляет дополнительные выходные дни,
+              преимущественное право на отпуск, дополнительный отпуск
+              без сохранения зарплаты для лиц с семейными обязанностями;
+            - "declarative" — только цитирование ТК РФ;
+            - "not_defined" — тема не раскрыта.
+
+        12. extra_days_and_benefits_details:
+            Краткое user-facing описание дополнительных дней и льгот.
+            Если данных нет — "Данные не определены".
+            Если данные противоречивы — "Не удалось определить".
+        </task>
+
+        <context_rules>
+        - Перед остальными полями заполни family_and_women_guarantees_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details = "Данные не определены".
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона вместо текста договора.
+        - Не делай выводов по типовой структуре договора.
+        - Различай: "defined" — КД закрепляет гарантию сверх ТК РФ с параметрами; "declarative" — только цитирование нормы ТК РФ.
+        - В family_payments_details обязательно фиксируй размер выплаты, если он указан.
+        - В dismissal_protection_details фиксируй категории, на которые распространяется защита (беременные, женщины с детьми до 3 лет, одинокие матери и т.п.).
+        - Если в разных фрагментах указаны противоречивые сведения — статус → "not_defined", текстовое поле → "Не удалось определить".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни гарантий беременным, ни отпусков по уходу,
+           ни выплат при рождении, ни гибкого графика, ни защиты
+           от увольнения, ни дополнительных дней.
+           → presence = "missing";
+             все *_status = "not_defined";
+             все *_details = "Данные не определены".
+
+        2. Неполное раскрытие или только цитирование ТК РФ.
+           а) Общая фраза: "Работникам предоставляются гарантии,
+              предусмотренные ТК РФ" — только цитирование.
+              → presence = "present";
+                соответствующий *_status = "declarative".
+           б) Прямо указано, что конкретная гарантия не предоставляется.
+              → presence = "present";
+                соответствующий *_status = "defined";
+                соответствующий *_details содержит дословную
+                формулировку отказа.
+
+        3. Противоречие между фрагментами.
+           В разных разделах договора указаны противоречивые гарантии
+           (например, разные размеры выплат при рождении).
+           → presence = "unclear";
+             соответствующий *_status = "not_defined";
+             соответствующий *_details = "Не удалось определить".
+
+        4. Полное раскрытие гарантий с параметрами.
+           По всем ключевым темам КД закрепляет конкретные гарантии
+           сверх ТК РФ с размерами и порядком.
+           → presence = "present";
+             все *_status = "defined";
+             все *_details содержат конкретику.
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для family_and_women_guarantees_check_presence используй только: "present", "missing", "unclear".
+        - Для всех *_status используй только: "defined", "declarative", "not_defined".
+        - Fallback при отсутствии данных:
+          * все *_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
+      fields:
+        - name: "family_and_women_guarantees_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по гарантиям женщинам и лицам с семейными обязанностями. Внутреннее агрегатное signal-поле."
+          required: true
+
+        - name: "pregnant_women_guarantees_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус гарантий беременным женщинам."
+          required: true
+
+        - name: "pregnant_women_guarantees_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 1
+          label: "Гарантии беременным"
+          description: "Повышенные гарантии беременным женщинам (снижение норм, перевод, сохранение заработка)."
+          required: false
+
+        - name: "parental_leave_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус гарантий при отпуске по уходу за ребёнком."
+          required: true
+
+        - name: "parental_leave_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 2
+          label: "Отпуск по уходу"
+          description: "Дополнительные гарантии при отпуске по уходу за ребёнком."
+          required: false
+
+        - name: "family_payments_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "medium"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус выплат при рождении / усыновлении ребёнка."
+          required: true
+
+        - name: "family_payments_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 3
+          label: "Выплаты при рождении"
+          description: "Материальная помощь при рождении / усыновлении ребёнка с размером."
+          required: false
+
+        - name: "flexible_schedule_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "medium"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус гибкого графика для беременных и лиц с семейными обязанностями."
+          required: true
+
+        - name: "flexible_schedule_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: false
+          label: "Гибкий график"
+          description: "Право на гибкий график / неполное рабочее время."
+          required: false
+
+        - name: "dismissal_protection_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус защиты от увольнения беременных и лиц с семейными обязанностями."
+          required: true
+
+        - name: "dismissal_protection_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 4
+          label: "Защита от увольнения"
+          description: "Дополнительная защита от увольнения беременных, женщин с детьми, одиноких матерей."
+          required: false
+
+        - name: "extra_days_and_benefits_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "medium"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус дополнительных дней и льгот для лиц с семейными обязанностями."
+          required: true
+
+        - name: "extra_days_and_benefits_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 5
+          label: "Дополнительные дни и льготы"
+          description: "Дополнительные выходные, преимущественное право на отпуск, дополнительный отпуск без сохранения зарплаты."
+          required: false
+
+      store_payload: true
+
+  - id: special_categories_workers_check
+    name: "Гарантии отдельным категориям работников: инвалиды, молодёжь, предпенсионеры"
+    description: >
+      Фактографическая проверка гарантий и квот для отдельных категорий
+      работников: инвалидов (ФЗ №181-ФЗ, ст. 92, 94, 96, 99, 113, 128,
+      179, 224 ТК РФ), молодёжи (локальные гарантии), предпенсионеров
+      (ст. 144.1 УК РФ, ст. 179 ТК РФ). Обучение и защита от увольнения.
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    display_order: 220
+
+    rules:
+      keywords:
+        - "инвалид"
+        - "инвалидность"
+        - "квотирование"
+        - "квота рабочих мест"
+        - "ИПРА"
+        - "индивидуальная программа реабилитации"
+        - "сокращённая продолжительность"
+        - "молодой специалист"
+        - "выпускник"
+        - "стажировка"
+        - "наставничество"
+        - "предпенсионный возраст"
+        - "предпенсионер"
+        - "за 5 лет до пенсии"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)инвалид[а-яё]*"
+        - "(?i)квот[а-яё]*\\s+(рабоч|мест)"
+        - "(?i)ИПРА|индивидуальн[а-яё]+\\s+программ[а-яё]+\\s+реабилитаци"
+        - "(?i)(молод[а-яё]+\\s+специалист|выпускник|стажировк|наставничеств)"
+        - "(?i)предпенсионн[а-яё]+"
+        - "(?i)за\\s+пять\\s+лет\\s+до\\s+(наступления\\s+)?пенси"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по трудовому праву.
+        Анализируется коллективный договор.
+        Проверяется только один вопрос: гарантии отдельным категориям
+        работников — инвалидам, молодёжи, предпенсионерам.
+        Нормативные ориентиры:
+        - ст. 21, 22 ФЗ №181-ФЗ «О социальной защите инвалидов» —
+          квотирование рабочих мест (от 2 до 4% для организаций
+          с численностью свыше 100 человек).
+        - ст. 92, 94, 96, 99, 113, 128, 179, 224 ТК РФ — специальные
+          гарантии инвалидам (сокращённое рабочее время, ограничения
+          по ночным / сверхурочным / командировкам, преимущественное
+          право при сокращении, дополнительный отпуск).
+        - ст. 144.1 УК РФ — уголовная ответственность за необоснованный
+          отказ в приёме на работу и увольнение лиц предпенсионного
+          возраста.
+        - ст. 179 ТК РФ — преимущественное право при сокращении
+          (в т.ч. для лиц с более высокой производительностью;
+          коллективным договором могут устанавливаться иные категории).
+        - ст. 128 ТК РФ — дополнительный отпуск без сохранения
+          заработной платы для отдельных категорий.
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+        - Различай: КД закрепляет гарантию, цитирует норму ТК РФ
+          или вообще не упоминает.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Гарантии работникам-инвалидам (сокращённое время,
+           ограничения по ночным / командировкам, дополнительный отпуск).
+        2. Квотирование рабочих мест для инвалидов (размер квоты,
+           порядок).
+        3. Гарантии молодёжи (стажировки, наставничество, программы
+           для молодых специалистов).
+        4. Гарантии предпенсионерам (дополнительные гарантии,
+           защита от увольнения, обучение).
+        5. Обучение и переобучение специальных категорий.
+        6. Защита от увольнения специальных категорий.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Не подставляй нормы закона вместо текста договора.
+        3. Для enum-полей (*_status) при отсутствии данных возвращай
+           "not_defined".
+        4. Для строковых *_details при отсутствии данных возвращай строго
+           "Данные не определены".
+        5. Не используй "None", "null", пустые строки или отсутствующие ключи.
+        6. В evidence включай только прямые цитаты из текста договора.
+        7. Различай:
+           - "defined" — КД прямо закрепляет гарантию с параметрами;
+           - "declarative" — только упоминание без конкретики;
+           - "not_defined" — тема не раскрыта.
+        8. Если КД просто цитирует норму ТК РФ / 181-ФЗ без улучшения —
+           статус "declarative".
+        9. В disabled_quota_details фиксируй размер квоты (в процентах
+           или в единицах рабочих мест), если указан.
+        10. Верни РОВНО один валидный JSON-объект со всеми 13 ключами
+            (12 полей + evidence), пригодный для парсинга через json.loads
+            без предварительной обработки. Без markdown, без ```json,
+            без комментариев, без текста до или после. Начни ответ сразу
+            с { и закончи }.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1 — полное покрытие:
+        Фрагмент:
+        "Работникам-инвалидам устанавливается сокращённая продолжительность
+        рабочего времени не более 35 часов в неделю с сохранением полной оплаты.
+        Квота рабочих мест для инвалидов — 4% от среднесписочной численности.
+        Для молодых специалистов — программа наставничества и стажировка
+        на 3 месяца. Предпенсионерам — дополнительный отпуск 5 дней и защита
+        от увольнения без согласования с профсоюзом. Работодатель обеспечивает
+        переобучение специальных категорий за свой счёт."
+        Ответ:
+        {
+          "disabled_workers_guarantees_status": "defined",
+          "disabled_workers_guarantees_details": "сокращённая продолжительность рабочего времени не более 35 часов в неделю с сохранением полной оплаты",
+          "disabled_quota_status": "defined",
+          "disabled_quota_details": "квота 4% от среднесписочной численности",
+          "youth_guarantees_status": "defined",
+          "youth_guarantees_details": "программа наставничества, стажировка 3 месяца для молодых специалистов",
+          "pre_pensioners_guarantees_status": "defined",
+          "pre_pensioners_guarantees_details": "дополнительный отпуск 5 дней и защита от увольнения без согласования с профсоюзом",
+          "training_and_retraining_status": "defined",
+          "training_and_retraining_details": "переобучение специальных категорий за счёт работодателя",
+          "dismissal_protection_status": "defined",
+          "dismissal_protection_details": "защита предпенсионеров от увольнения без согласования с профсоюзом",
+          "evidence": [
+            {"clause_ref": "п. 5.1", "quote": "Работникам-инвалидам устанавливается сокращённая продолжительность рабочего времени не более 35 часов в неделю с сохранением полной оплаты."},
+            {"clause_ref": "п. 5.2", "quote": "Квота рабочих мест для инвалидов — 4% от среднесписочной численности."}
+          ]
+        }
+
+        Пример 2 — только цитирование ТК РФ / 181-ФЗ:
+        Фрагмент:
+        "Работникам-инвалидам предоставляются гарантии, предусмотренные
+        трудовым законодательством и ФЗ «О социальной защите инвалидов»."
+        Ответ:
+        {
+          "disabled_workers_guarantees_status": "declarative",
+          "disabled_workers_guarantees_details": "гарантии в соответствии с ТК РФ и ФЗ №181-ФЗ (без улучшений)",
+          "disabled_quota_status": "declarative",
+          "disabled_quota_details": "квотирование в соответствии с ФЗ №181-ФЗ (без указания размера квоты)",
+          "youth_guarantees_status": "not_defined",
+          "youth_guarantees_details": "Данные не определены",
+          "pre_pensioners_guarantees_status": "not_defined",
+          "pre_pensioners_guarantees_details": "Данные не определены",
+          "training_and_retraining_status": "not_defined",
+          "training_and_retraining_details": "Данные не определены",
+          "dismissal_protection_status": "not_defined",
+          "dismissal_protection_details": "Данные не определены",
+          "evidence": [
+            {"clause_ref": "п. 5.1", "quote": "Работникам-инвалидам предоставляются гарантии, предусмотренные трудовым законодательством и ФЗ «О социальной защите инвалидов»."}
+          ]
+        }
+
+        Пример 3 — тема не раскрыта:
+        Фрагмент:
+        "Стороны обязуются соблюдать трудовое законодательство."
+        Ответ:
+        {
+          "disabled_workers_guarantees_status": "not_defined",
+          "disabled_workers_guarantees_details": "Данные не определены",
+          "disabled_quota_status": "not_defined",
+          "disabled_quota_details": "Данные не определены",
+          "youth_guarantees_status": "not_defined",
+          "youth_guarantees_details": "Данные не определены",
+          "pre_pensioners_guarantees_status": "not_defined",
+          "pre_pensioners_guarantees_details": "Данные не определены",
+          "training_and_retraining_status": "not_defined",
+          "training_and_retraining_details": "Данные не определены",
+          "dismissal_protection_status": "not_defined",
+          "dismissal_protection_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямые цитаты по каждой из 6 тем.
+        2. Разграничь defined / declarative (улучшение vs цитирование нормы).
+        3. Если прямой цитаты нет — верни "not_defined". Не додумывай.
+        4. Проверь, что все 13 ключей (12 полей + evidence) присутствуют
+           в JSON.
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "disabled_workers_guarantees_status": "<defined / declarative / not_defined>",
+          "disabled_workers_guarantees_details": "<текст или 'Данные не определены'>",
+          "disabled_quota_status": "<defined / declarative / not_defined>",
+          "disabled_quota_details": "<текст или 'Данные не определены'>",
+          "youth_guarantees_status": "<defined / declarative / not_defined>",
+          "youth_guarantees_details": "<текст или 'Данные не определены'>",
+          "pre_pensioners_guarantees_status": "<defined / declarative / not_defined>",
+          "pre_pensioners_guarantees_details": "<текст или 'Данные не определены'>",
+          "training_and_retraining_status": "<defined / declarative / not_defined>",
+          "training_and_retraining_details": "<текст или 'Данные не определены'>",
+          "dismissal_protection_status": "<defined / declarative / not_defined>",
+          "dismissal_protection_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 10
+      temperature: 0.0
+      max_tokens: 1000
+
+    retrieval:
+      retrieval_profile: "employment_benefits_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "инвалид инвалидность квотирование квота рабочих мест ИПРА индивидуальная программа реабилитации сокращённая продолжительность молодой специалист выпускник стажировка наставничество предпенсионный возраст предпенсионер за пять лет до пенсии дополнительные гарантии переобучение"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "профсоюзные взносы"
+        - "забастовка"
+        - "в целях настоящего"
+      context_k: 10
+      max_chunks: 14
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "procedures"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 700
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 1500
+
+      compact_output: false
+
+      presence_signal:
+        field: "special_categories_workers_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист по трудовому праву. Извлеки из коллективного
+        договора сведения о гарантиях отдельным категориям работников —
+        инвалидам, молодёжи, предпенсионерам.
+        Не анализируй охрану труда, индексацию, обучение в общем виде
+        или споры.
+        Не оценивай риски.
+        Анализируй только текст договора.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        0. special_categories_workers_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (disabled_workers_guarantees_status, disabled_quota_status,
+              youth_guarantees_status,
+              pre_pensioners_guarantees_status,
+              training_and_retraining_status,
+              dismissal_protection_status) ≠ "not_defined";
+           - "missing" — если все шесть содержательных полей = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - все шесть *_status = "not_defined";
+           - все *_details = "Данные не определены";
+           - не выполняй остальные шаги.
+
+        1. disabled_workers_guarantees_status:
+           Используй только одно из значений:
+           - "defined" — КД закрепляет специальные гарантии инвалидам
+             с параметрами (сокращённое рабочее время, ограничения
+             по ночным / командировкам / сверхурочным, дополнительный
+             отпуск);
+           - "declarative" — только цитирование ТК РФ / ФЗ №181-ФЗ;
+           - "not_defined" — тема не раскрыта.
+
+        2. disabled_workers_guarantees_details:
+           Краткое user-facing описание гарантий инвалидам.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        3. disabled_quota_status:
+           Используй только одно из значений:
+           - "defined" — КД закрепляет квотирование рабочих мест
+             для инвалидов с указанием размера квоты или порядка;
+           - "declarative" — только упоминание квотирования
+             без размера / порядка;
+           - "not_defined" — тема не раскрыта.
+
+        4. disabled_quota_details:
+           Краткое user-facing описание квоты (размер в % или рабочих
+           местах, порядок).
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        5. youth_guarantees_status:
+           Используй только одно из значений:
+           - "defined" — КД закрепляет гарантии молодёжи
+             (стажировка, наставничество, программы для молодых
+             специалистов) с параметрами;
+           - "declarative" — только упоминание без конкретики;
+           - "not_defined" — тема не раскрыта.
+
+        6. youth_guarantees_details:
+           Краткое user-facing описание гарантий молодёжи.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        7. pre_pensioners_guarantees_status:
+           Используй только одно из значений:
+           - "defined" — КД закрепляет специальные гарантии
+             предпенсионерам с параметрами;
+           - "declarative" — только упоминание без конкретики;
+           - "not_defined" — тема не раскрыта.
+
+        8. pre_pensioners_guarantees_details:
+           Краткое user-facing описание гарантий предпенсионерам.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        9. training_and_retraining_status:
+           Используй только одно из значений:
+           - "defined" — КД закрепляет обучение / переобучение
+             специальных категорий с параметрами (порядок, оплата);
+           - "declarative" — только упоминание;
+           - "not_defined" — тема не раскрыта.
+
+        10. training_and_retraining_details:
+            Краткое user-facing описание обучения специальных категорий.
+            Если данных нет — "Данные не определены".
+            Если данные противоречивы — "Не удалось определить".
+
+        11. dismissal_protection_status:
+            Используй только одно из значений:
+            - "defined" — КД закрепляет дополнительные гарантии
+              от увольнения специальных категорий с параметрами
+              (согласование, дополнительные критерии);
+            - "declarative" — только цитирование норм;
+            - "not_defined" — тема не раскрыта.
+
+        12. dismissal_protection_details:
+            Краткое user-facing описание защиты от увольнения.
+            Если данных нет — "Данные не определены".
+            Если данные противоречивы — "Не удалось определить".
+        </task>
+
+        <context_rules>
+        - Перед остальными полями заполни special_categories_workers_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details = "Данные не определены".
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона вместо текста договора.
+        - Не делай выводов по типовой структуре договора.
+        - Различай: "defined" — КД закрепляет гарантию сверх норм с параметрами; "declarative" — только цитирование нормы.
+        - В disabled_quota_details обязательно фиксируй размер квоты (в % или в единицах рабочих мест), если он указан.
+        - В disabled_workers_guarantees_details фиксируй как гарантии по сокращённому рабочему времени, так и ограничения по ночным / сверхурочным / командировкам.
+        - Если в разных фрагментах указаны противоречивые сведения — статус → "not_defined", текстовое поле → "Не удалось определить".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни гарантий инвалидам, ни квотирования,
+           ни гарантий молодёжи, ни гарантий предпенсионерам,
+           ни обучения спецкатегорий, ни защиты от увольнения.
+           → presence = "missing";
+             все *_status = "not_defined";
+             все *_details = "Данные не определены".
+
+        2. Неполное раскрытие или только цитирование норм.
+           а) Общая фраза: "Инвалидам предоставляются гарантии
+              в соответствии с законодательством" — только цитирование.
+              → presence = "present";
+                соответствующий *_status = "declarative".
+           б) Прямо указано, что конкретная гарантия не предоставляется.
+              → presence = "present";
+                соответствующий *_status = "defined";
+                соответствующий *_details содержит дословную
+                формулировку отказа.
+
+        3. Противоречие между фрагментами.
+           В разных разделах договора указаны противоречивые гарантии
+           или разные размеры квот.
+           → presence = "unclear";
+             соответствующий *_status = "not_defined";
+             соответствующий *_details = "Не удалось определить".
+
+        4. Полное раскрытие гарантий с параметрами.
+           По всем ключевым темам КД закрепляет конкретные гарантии
+           и квоты с размерами.
+           → presence = "present";
+             все *_status = "defined";
+             все *_details содержат конкретику.
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для special_categories_workers_check_presence используй только: "present", "missing", "unclear".
+        - Для всех *_status используй только: "defined", "declarative", "not_defined".
+        - Fallback при отсутствии данных:
+          * все *_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
+      fields:
+        - name: "special_categories_workers_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по гарантиям отдельным категориям работников. Внутреннее агрегатное signal-поле."
+          required: true
+
+        - name: "disabled_workers_guarantees_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус гарантий работникам-инвалидам."
+          required: true
+
+        - name: "disabled_workers_guarantees_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 1
+          label: "Гарантии инвалидам"
+          description: "Специальные гарантии работникам-инвалидам (сокращённое время, ограничения, дополнительный отпуск)."
+          required: false
+
+        - name: "disabled_quota_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус квотирования рабочих мест для инвалидов."
+          required: true
+
+        - name: "disabled_quota_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 2
+          label: "Квота для инвалидов"
+          description: "Размер квоты рабочих мест для инвалидов и порядок её исполнения."
+          required: false
+
+        - name: "youth_guarantees_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "medium"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус гарантий молодёжи и молодым специалистам."
+          required: true
+
+        - name: "youth_guarantees_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 3
+          label: "Гарантии молодёжи"
+          description: "Гарантии молодым специалистам (стажировка, наставничество, программы)."
+          required: false
+
+        - name: "pre_pensioners_guarantees_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус гарантий предпенсионерам."
+          required: true
+
+        - name: "pre_pensioners_guarantees_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 4
+          label: "Гарантии предпенсионерам"
+          description: "Специальные гарантии лицам предпенсионного возраста."
+          required: false
+
+        - name: "training_and_retraining_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "medium"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус обучения и переобучения специальных категорий."
+          required: true
+
+        - name: "training_and_retraining_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: false
+          label: "Обучение спецкатегорий"
+          description: "Обучение и переобучение специальных категорий работников."
+          required: false
+
+        - name: "dismissal_protection_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус защиты от увольнения специальных категорий."
+          required: true
+
+        - name: "dismissal_protection_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 5
+          label: "Защита от увольнения"
+          description: "Дополнительная защита от увольнения специальных категорий работников."
+          required: false
+
+      store_payload: true
+
+  - id: corporate_pension_check
+    name: "Негосударственное пенсионное обеспечение и долгосрочные финансовые обязательства"
+    description: >
+      Фактографическая проверка условий о негосударственном пенсионном
+      обеспечении (НПО), корпоративной пенсии (НПФ), софинансировании
+      накопительной части, единовременных выплатах при выходе на пенсию
+      и гарантиях сохранения программы при реорганизации.
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    display_order: 230
+
+    rules:
+      keywords:
+        - "негосударственное пенсионное обеспечение"
+        - "НПО"
+        - "НПФ"
+        - "негосударственный пенсионный фонд"
+        - "корпоративная пенсия"
+        - "дополнительная пенсия"
+        - "софинансирование"
+        - "единовременная выплата при выходе на пенсию"
+        - "материальная помощь к пенсии"
+        - "пенсионная программа"
+        - "накопительная часть"
+        - "пенсионный план"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)негосударственн[а-яё]+\\s+пенсионн"
+        - "(?i)\\bНПО\\b|\\bНПФ\\b"
+        - "(?i)корпоративн[а-яё]+\\s+пенси"
+        - "(?i)(софинансирован|софинансиру)"
+        - "(?i)(единовременн[а-яё]+\\s+выплат[а-яё]*|материальн[а-яё]+\\s+помощ[а-яё]*).*\\s+пенси"
+        - "(?i)негосударственн[а-яё]+\\s+пенсионн[а-яё]+\\s+фонд"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по трудовому праву.
+        Анализируется коллективный договор.
+        Проверяется только один вопрос: негосударственное пенсионное
+        обеспечение (НПО) и долгосрочные финансовые обязательства
+        работодателя.
+        Нормативные ориентиры:
+        - ФЗ №75-ФЗ «О негосударственных пенсионных фондах» —
+          правовой режим НПО, права и обязанности вкладчиков.
+        - ФЗ №166-ФЗ «О государственном пенсионном обеспечении» —
+          общий контекст.
+        - ФЗ №167-ФЗ «Об обязательном пенсионном страховании» —
+          накопительная часть.
+        - ст. 41 ТК РФ — социальные гарантии и льготы в КД, включая
+          дополнительное пенсионное обеспечение.
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+        - Различай: КД закрепляет НПО с параметрами, только упоминает
+          программу без деталей или вообще не касается темы.
+        - Это долгосрочные финансовые обязательства работодателя —
+          в реальной практике фиксируются с порядком формирования,
+          размером взносов и гарантиями сохранения.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Наличие программы НПО / корпоративной пенсии.
+        2. Порядок формирования и размер взносов (софинансирование,
+           доля работодателя).
+        3. Условия участия работников в программе (стаж, категории).
+        4. Единовременные выплаты при выходе на пенсию.
+        5. Гарантии сохранения НПО при реорганизации / смене собственника.
+        6. Управляющую организацию (НПФ) или порядок её выбора.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Не подставляй нормы закона вместо текста договора.
+        3. Для enum-полей (*_status) при отсутствии данных возвращай
+           "not_defined".
+        4. Для строковых *_details при отсутствии данных возвращай строго
+           "Данные не определены".
+        5. Не используй "None", "null", пустые строки или отсутствующие ключи.
+        6. В evidence включай только прямые цитаты из текста договора.
+        7. Различай:
+           - "defined" — КД прямо закрепляет гарантию с параметрами
+             (размер, порядок, условия);
+           - "declarative" — только упоминание программы без деталей;
+           - "not_defined" — тема не раскрыта.
+        8. В pension_amount_details обязательно фиксируй размер взносов
+           (в % от зарплаты, фиксированная сумма, формула софинансирования),
+           если он указан.
+        9. В pension_preservation_details фиксируй прямое условие
+           о сохранении программы при реорганизации / смене собственника,
+           если оно указано.
+        10. Верни РОВНО один валидный JSON-объект со всеми 13 ключами
+            (12 полей + evidence), пригодный для парсинга через json.loads
+            без предварительной обработки. Без markdown, без ```json,
+            без комментариев, без текста до или после. Начни ответ сразу
+            с { и закончи }.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1 — полное покрытие:
+        Фрагмент:
+        "Работодатель участвует в программе негосударственного пенсионного
+        обеспечения через НПФ «Будущее». Взносы работодателя — 6% от заработной
+        платы работника, при этом работник вносит 2% (софинансирование).
+        Право участия возникает после 3 лет работы в организации. При выходе
+        на пенсию — единовременная выплата в размере трёх среднемесячных
+        заработков. При реорганизации работодателя программа НПО сохраняется
+        в полном объёме."
+        Ответ:
+        {
+          "pension_program_status": "defined",
+          "pension_program_details": "программа НПО через НПФ «Будущее»",
+          "pension_amount_status": "defined",
+          "pension_amount_details": "взносы работодателя — 6% от заработной платы, работника — 2% (софинансирование)",
+          "pension_conditions_status": "defined",
+          "pension_conditions_details": "право участия после 3 лет работы в организации",
+          "pension_lump_sum_status": "defined",
+          "pension_lump_sum_details": "единовременная выплата при выходе на пенсию — 3 среднемесячных заработка",
+          "pension_preservation_status": "defined",
+          "pension_preservation_details": "программа НПО сохраняется в полном объёме при реорганизации работодателя",
+          "pension_fund_status": "defined",
+          "pension_fund_details": "НПФ «Будущее»",
+          "evidence": [
+            {"clause_ref": "п. 6.1", "quote": "Работодатель участвует в программе негосударственного пенсионного обеспечения через НПФ «Будущее»."},
+            {"clause_ref": "п. 6.2", "quote": "Взносы работодателя — 6% от заработной платы работника, при этом работник вносит 2%."}
+          ]
+        }
+
+        Пример 2 — только упоминание без деталей:
+        Фрагмент:
+        "Работодатель содействует дополнительному пенсионному обеспечению
+        работников через негосударственные пенсионные фонды."
+        Ответ:
+        {
+          "pension_program_status": "declarative",
+          "pension_program_details": "содействие дополнительному пенсионному обеспечению (без указания программы и параметров)",
+          "pension_amount_status": "not_defined",
+          "pension_amount_details": "Данные не определены",
+          "pension_conditions_status": "not_defined",
+          "pension_conditions_details": "Данные не определены",
+          "pension_lump_sum_status": "not_defined",
+          "pension_lump_sum_details": "Данные не определены",
+          "pension_preservation_status": "not_defined",
+          "pension_preservation_details": "Данные не определены",
+          "pension_fund_status": "not_defined",
+          "pension_fund_details": "Данные не определены",
+          "evidence": [
+            {"clause_ref": "п. 6.1", "quote": "Работодатель содействует дополнительному пенсионному обеспечению работников через негосударственные пенсионные фонды."}
+          ]
+        }
+
+        Пример 3 — тема не раскрыта:
+        Фрагмент:
+        "Стороны обязуются соблюдать трудовое законодательство."
+        Ответ:
+        {
+          "pension_program_status": "not_defined",
+          "pension_program_details": "Данные не определены",
+          "pension_amount_status": "not_defined",
+          "pension_amount_details": "Данные не определены",
+          "pension_conditions_status": "not_defined",
+          "pension_conditions_details": "Данные не определены",
+          "pension_lump_sum_status": "not_defined",
+          "pension_lump_sum_details": "Данные не определены",
+          "pension_preservation_status": "not_defined",
+          "pension_preservation_details": "Данные не определены",
+          "pension_fund_status": "not_defined",
+          "pension_fund_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямые цитаты по каждой из 6 тем.
+        2. Разграничь defined / declarative.
+        3. Если прямой цитаты нет — верни "not_defined". Не додумывай.
+        4. Проверь, что все 13 ключей (12 полей + evidence) присутствуют
+           в JSON.
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "pension_program_status": "<defined / declarative / not_defined>",
+          "pension_program_details": "<текст или 'Данные не определены'>",
+          "pension_amount_status": "<defined / declarative / not_defined>",
+          "pension_amount_details": "<текст или 'Данные не определены'>",
+          "pension_conditions_status": "<defined / declarative / not_defined>",
+          "pension_conditions_details": "<текст или 'Данные не определены'>",
+          "pension_lump_sum_status": "<defined / declarative / not_defined>",
+          "pension_lump_sum_details": "<текст или 'Данные не определены'>",
+          "pension_preservation_status": "<defined / declarative / not_defined>",
+          "pension_preservation_details": "<текст или 'Данные не определены'>",
+          "pension_fund_status": "<defined / declarative / not_defined>",
+          "pension_fund_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 10
+      temperature: 0.0
+      max_tokens: 1000
+
+    retrieval:
+      retrieval_profile: "employment_benefits_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "негосударственное пенсионное обеспечение НПО НПФ негосударственный пенсионный фонд корпоративная пенсия дополнительная пенсия софинансирование единовременная выплата при выходе на пенсию материальная помощь к пенсии пенсионная программа накопительная часть пенсионный план"
+      preferred_unit_types:
+        - obligation
+        - payment_term
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "профсоюзные взносы"
+        - "забастовка"
+        - "в целях настоящего"
+      context_k: 10
+      max_chunks: 14
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "procedures"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 700
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 1500
+
+      compact_output: false
+
+      presence_signal:
+        field: "corporate_pension_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист по трудовому праву. Извлеки из коллективного
+        договора сведения о негосударственном пенсионном обеспечении
+        и долгосрочных финансовых обязательствах работодателя.
+        Не анализируй заработную плату, охрану труда, отпуска или споры.
+        Не оценивай риски.
+        Анализируй только текст договора.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        0. corporate_pension_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (pension_program_status, pension_amount_status,
+              pension_conditions_status, pension_lump_sum_status,
+              pension_preservation_status, pension_fund_status)
+             ≠ "not_defined";
+           - "missing" — если все шесть содержательных полей = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - все шесть *_status = "not_defined";
+           - все *_details = "Данные не определены";
+           - не выполняй остальные шаги.
+
+        1. pension_program_status:
+           Используй только одно из значений:
+           - "defined" — КД закрепляет программу НПО / корпоративной
+             пенсии с параметрами;
+           - "declarative" — только упоминание программы без деталей;
+           - "not_defined" — тема не раскрыта.
+
+        2. pension_program_details:
+           Краткое user-facing описание программы НПО.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        3. pension_amount_status:
+           Используй только одно из значений:
+           - "defined" — КД указывает размер взносов (доля
+             работодателя, софинансирование, фиксированная сумма);
+           - "declarative" — только упоминание взносов без размера;
+           - "not_defined" — тема не раскрыта.
+
+        4. pension_amount_details:
+           Краткое user-facing описание размера взносов
+           (в % от зарплаты, в рублях, формула софинансирования).
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        5. pension_conditions_status:
+           Используй только одно из значений:
+           - "defined" — КД закрепляет условия участия работников
+             (стаж, категории, добровольность);
+           - "declarative" — только упоминание условий без конкретики;
+           - "not_defined" — тема не раскрыта.
+
+        6. pension_conditions_details:
+           Краткое user-facing описание условий участия.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        7. pension_lump_sum_status:
+           Используй только одно из значений:
+           - "defined" — КД закрепляет единовременные выплаты при
+             выходе на пенсию с размером;
+           - "declarative" — только упоминание выплат без размера;
+           - "not_defined" — тема не раскрыта.
+
+        8. pension_lump_sum_details:
+           Краткое user-facing описание единовременной выплаты
+           (размер, порядок).
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        9. pension_preservation_status:
+           Используй только одно из значений:
+           - "defined" — КД закрепляет гарантию сохранения программы
+             НПО при реорганизации / смене собственника;
+           - "declarative" — только упоминание гарантии без деталей;
+           - "not_defined" — тема не раскрыта.
+
+        10. pension_preservation_details:
+            Краткое user-facing описание гарантии сохранения программы.
+            Если данных нет — "Данные не определены".
+            Если данные противоречивы — "Не удалось определить".
+
+        11. pension_fund_status:
+            Используй только одно из значений:
+            - "defined" — КД указывает конкретный НПФ или порядок
+              его выбора;
+            - "declarative" — только упоминание НПФ без деталей;
+            - "not_defined" — тема не раскрыта.
+
+        12. pension_fund_details:
+            Краткое user-facing описание управляющей организации
+            (НПФ) или порядка её выбора.
+            Если данных нет — "Данные не определены".
+            Если данные противоречивы — "Не удалось определить".
+        </task>
+
+        <context_rules>
+        - Перед остальными полями заполни corporate_pension_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details = "Данные не определены".
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона вместо текста договора.
+        - Не делай выводов по типовой структуре договора.
+        - Различай: "defined" — КД закрепляет гарантию с параметрами; "declarative" — только упоминание без деталей.
+        - В pension_amount_details обязательно фиксируй размер взносов (в % от зарплаты, фиксированная сумма, формула софинансирования), если он указан.
+        - В pension_preservation_details фиксируй прямое условие о сохранении программы при реорганизации / смене собственника, если оно указано.
+        - Если в разных фрагментах указаны противоречивые сведения — статус → "not_defined", текстовое поле → "Не удалось определить".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни программы НПО, ни упоминания взносов,
+           ни единовременных выплат, ни гарантии сохранения программы,
+           ни конкретного НПФ.
+           → presence = "missing";
+             все *_status = "not_defined";
+             все *_details = "Данные не определены".
+
+        2. Неполное раскрытие или только упоминание.
+           а) Общая фраза: "Работодатель содействует дополнительному
+              пенсионному обеспечению" — только упоминание.
+              → presence = "present";
+                соответствующий *_status = "declarative".
+           б) Прямо указано, что программа НПО не предусмотрена.
+              → presence = "present";
+                соответствующий *_status = "defined";
+                соответствующий *_details содержит дословную
+                формулировку отказа.
+
+        3. Противоречие между фрагментами.
+           В разных разделах договора указаны противоречивые размеры
+           взносов, разные условия или разные НПФ.
+           → presence = "unclear";
+             соответствующий *_status = "not_defined";
+             соответствующий *_details = "Не удалось определить".
+
+        4. Полное раскрытие программы с параметрами.
+           Указаны программа, размер взносов, условия участия,
+           единовременная выплата, гарантии сохранения и НПФ.
+           → presence = "present";
+             все *_status = "defined";
+             все *_details содержат конкретику.
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для corporate_pension_check_presence используй только: "present", "missing", "unclear".
+        - Для всех *_status используй только: "defined", "declarative", "not_defined".
+        - Fallback при отсутствии данных:
+          * все *_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
+      fields:
+        - name: "corporate_pension_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по корпоративному пенсионному обеспечению. Внутреннее агрегатное signal-поле."
+          required: true
+
+        - name: "pension_program_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус программы НПО / корпоративной пенсии."
+          required: true
+
+        - name: "pension_program_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 1
+          label: "Программа НПО"
+          description: "Описание программы негосударственного пенсионного обеспечения."
+          required: false
+
+        - name: "pension_amount_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус размера взносов работодателя."
+          required: true
+
+        - name: "pension_amount_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 2
+          label: "Размер взносов"
+          description: "Размер взносов работодателя (%, руб., формула софинансирования)."
+          required: false
+
+        - name: "pension_conditions_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "medium"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус условий участия работников в программе."
+          required: true
+
+        - name: "pension_conditions_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: false
+          label: "Условия участия"
+          description: "Условия участия работников в программе НПО."
+          required: false
+
+        - name: "pension_lump_sum_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус единовременной выплаты при выходе на пенсию."
+          required: true
+
+        - name: "pension_lump_sum_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 3
+          label: "Единовременная выплата"
+          description: "Единовременная выплата при выходе на пенсию с размером."
+          required: false
+
+        - name: "pension_preservation_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус гарантии сохранения программы при реорганизации."
+          required: true
+
+        - name: "pension_preservation_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 4
+          label: "Сохранение при реорганизации"
+          description: "Гарантия сохранения программы НПО при реорганизации / смене собственника."
+          required: false
+
+        - name: "pension_fund_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "medium"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус указания НПФ / управляющей организации."
+          required: true
+
+        - name: "pension_fund_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: false
+          label: "НПФ"
+          description: "Конкретный НПФ или порядок его выбора."
+          required: false
+
+      store_payload: true
+
+  - id: remote_work_check
+    name: "Дистанционная и гибридная работа (Глава 49.1 ТК РФ)"
+    description: >
+      Фактографическая проверка порядка перевода на дистанционную работу,
+      обеспечения оборудованием и компенсаций, права на отключение,
+      гарантий при возврате в офис, а также условий гибридного режима
+      (ст. 312.1–312.9 ТК РФ).
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    display_order: 240
+
+    rules:
+      keywords:
+        - "дистанционная работа"
+        - "удалённая работа"
+        - "удаленная работа"
+        - "надомная работа"
+        - "дистанционный работник"
+        - "гибридный режим"
+        - "гибридная работа"
+        - "комбинированный режим"
+        - "дистанционное взаимодействие"
+        - "право на отключение"
+        - "право не отвечать"
+        - "рабочее место дистанционного работника"
+        - "компенсация за использование личного оборудования"
+        - "оборудование для дистанционной работы"
+        - "электронная подпись"
+        - "усиленная квалифицированная электронная подпись"
+        - "УКЭП"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)дистанционн[а-яё]+\\s+работ"
+        - "(?i)(удалённ|удаленн)[а-яё]+\\s+работ"
+        - "(?i)(надомн|гибридн)[а-яё]+\\s+(работ|режим)"
+        - "(?i)прав[ао][а-яё]*\\s+на\\s+отключени"
+        - "(?i)не\\s+отвечать.*(?:нерабоч|внеурочн|вне\\s+рабочег)"
+        - "(?i)компенсаци[а-яё]*.*(?:личн|собственн)[а-яё]+\\s+оборудован"
+        - "(?i)(УКЭП|усиленн[а-яё]+\\s+квалифицированн[а-яё]+\\s+электронн[а-яё]+\\s+подпис)"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по трудовому праву.
+        Анализируется коллективный договор.
+        Проверяется только один вопрос: дистанционная и гибридная работа.
+        Нормативные ориентиры:
+        - Глава 49.1 ТК РФ (ст. 312.1–312.9) — регулирование
+          дистанционной работы, введена ФЗ №407-ФЗ от 08.12.2020.
+        - ст. 312.1 ТК РФ — понятие дистанционной работы, виды
+          (постоянная, временная, комбинированная).
+        - ст. 312.2 ТК РФ — особенности трудового договора
+          и дополнительные условия.
+        - ст. 312.3 ТК РФ — порядок взаимодействия, электронный
+          документооборот, УКЭП.
+        - ст. 312.4 ТК РФ — режим рабочего времени дистанционного
+          работника.
+        - ст. 312.5 ТК РФ — особенности расторжения.
+        - ст. 312.6 ТК РФ — обеспечение оборудованием, компенсация
+          расходов.
+        - ст. 312.7 ТК РФ — охрана труда дистанционных работников.
+        - ст. 312.8 ТК РФ — дополнительные основания расторжения.
+        - ст. 312.9 ТК РФ — временный перевод по инициативе
+          работодателя.
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+        - Различай: КД закрепляет гарантию с параметрами, только
+          упоминает дистанционку без деталей или вообще не касается темы.
+        - После 2020 года дистанционка стала массовой практикой;
+          в КД крупных организаций обычно есть отдельный раздел.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Порядок перевода на дистанционную работу (постоянно,
+           временно, комбинированно).
+        2. Обеспечение оборудованием (кто предоставляет, какое).
+        3. Компенсация расходов за использование личного оборудования
+           (размер, порядок).
+        4. Право на отключение / право не отвечать во внерабочее время.
+        5. Порядок возврата в офис / гарантии при возврате.
+        6. Электронный документооборот и подпись (УКЭП).
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Не подставляй нормы закона вместо текста договора.
+        3. Для enum-полей (*_status) при отсутствии данных возвращай
+           "not_defined".
+        4. Для строковых *_details при отсутствии данных возвращай строго
+           "Данные не определены".
+        5. Не используй "None", "null", пустые строки или отсутствующие ключи.
+        6. В evidence включай только прямые цитаты из текста договора.
+        7. Различай:
+           - "defined" — КД прямо закрепляет условие с параметрами
+             (порядок, размер, гарантии);
+           - "declarative" — только упоминание дистанционки без деталей;
+           - "not_defined" — тема не раскрыта.
+        8. В remote_compensation_details обязательно фиксируй размер
+           компенсации (в рублях, % или формула), если он указан.
+        9. В right_to_disconnect_details фиксируй формулировку права
+           не отвечать на звонки / сообщения во внерабочее время, если
+           она приведена.
+        10. Верни РОВНО один валидный JSON-объект со всеми 13 ключами
+            (12 полей + evidence), пригодный для парсинга через json.loads
+            без предварительной обработки. Без markdown, без ```json,
+            без комментариев, без текста до или после. Начни ответ сразу
+            с { и закончи }.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1 — полное покрытие:
+        Фрагмент:
+        "Работник вправе с согласия работодателя перейти на дистанционную
+        работу (постоянную, временную или комбинированную). Работодатель
+        предоставляет оборудование для дистанционной работы. При использовании
+        личного оборудования работнику выплачивается компенсация 2 000 рублей
+        в месяц. Работник имеет право на отключение: не обязан отвечать
+        на звонки и сообщения работодателя во внерабочее время. При возврате
+        в офис работодатель сохраняет прежние условия труда. Обмен документами
+        осуществляется через УКЭП."
+        Ответ:
+        {
+          "remote_transfer_status": "defined",
+          "remote_transfer_details": "переход на дистанционную работу по согласию сторон (постоянная, временная, комбинированная)",
+          "remote_equipment_status": "defined",
+          "remote_equipment_details": "работодатель предоставляет оборудование для дистанционной работы",
+          "remote_compensation_status": "defined",
+          "remote_compensation_details": "компенсация за использование личного оборудования — 2 000 руб./мес.",
+          "right_to_disconnect_status": "defined",
+          "right_to_disconnect_details": "работник не обязан отвечать на звонки и сообщения работодателя во внерабочее время",
+          "return_to_office_status": "defined",
+          "return_to_office_details": "при возврате в офис работодатель сохраняет прежние условия труда",
+          "electronic_signature_status": "defined",
+          "electronic_signature_details": "обмен документами через УКЭП",
+          "evidence": [
+            {"clause_ref": "п. 7.1", "quote": "Работник вправе с согласия работодателя перейти на дистанционную работу (постоянную, временную или комбинированную)."},
+            {"clause_ref": "п. 7.3", "quote": "При использовании личного оборудования работнику выплачивается компенсация 2 000 рублей в месяц."}
+          ]
+        }
+
+        Пример 2 — только упоминание без деталей:
+        Фрагмент:
+        "Работники могут работать дистанционно в порядке, установленном
+        ТК РФ."
+        Ответ:
+        {
+          "remote_transfer_status": "declarative",
+          "remote_transfer_details": "возможность дистанционной работы в порядке, установленном ТК РФ (без конкретики)",
+          "remote_equipment_status": "not_defined",
+          "remote_equipment_details": "Данные не определены",
+          "remote_compensation_status": "not_defined",
+          "remote_compensation_details": "Данные не определены",
+          "right_to_disconnect_status": "not_defined",
+          "right_to_disconnect_details": "Данные не определены",
+          "return_to_office_status": "not_defined",
+          "return_to_office_details": "Данные не определены",
+          "electronic_signature_status": "not_defined",
+          "electronic_signature_details": "Данные не определены",
+          "evidence": [
+            {"clause_ref": "п. 7.1", "quote": "Работники могут работать дистанционно в порядке, установленном ТК РФ."}
+          ]
+        }
+
+        Пример 3 — тема не раскрыта:
+        Фрагмент:
+        "Стороны обязуются соблюдать трудовое законодательство."
+        Ответ:
+        {
+          "remote_transfer_status": "not_defined",
+          "remote_transfer_details": "Данные не определены",
+          "remote_equipment_status": "not_defined",
+          "remote_equipment_details": "Данные не определены",
+          "remote_compensation_status": "not_defined",
+          "remote_compensation_details": "Данные не определены",
+          "right_to_disconnect_status": "not_defined",
+          "right_to_disconnect_details": "Данные не определены",
+          "return_to_office_status": "not_defined",
+          "return_to_office_details": "Данные не определены",
+          "electronic_signature_status": "not_defined",
+          "electronic_signature_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямые цитаты по каждой из 6 тем.
+        2. Разграничь defined / declarative.
+        3. Если прямой цитаты нет — верни "not_defined". Не додумывай.
+        4. Проверь, что все 13 ключей (12 полей + evidence) присутствуют
+           в JSON.
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "remote_transfer_status": "<defined / declarative / not_defined>",
+          "remote_transfer_details": "<текст или 'Данные не определены'>",
+          "remote_equipment_status": "<defined / declarative / not_defined>",
+          "remote_equipment_details": "<текст или 'Данные не определены'>",
+          "remote_compensation_status": "<defined / declarative / not_defined>",
+          "remote_compensation_details": "<текст или 'Данные не определены'>",
+          "right_to_disconnect_status": "<defined / declarative / not_defined>",
+          "right_to_disconnect_details": "<текст или 'Данные не определены'>",
+          "return_to_office_status": "<defined / declarative / not_defined>",
+          "return_to_office_details": "<текст или 'Данные не определены'>",
+          "electronic_signature_status": "<defined / declarative / not_defined>",
+          "electronic_signature_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 10
+      temperature: 0.0
+      max_tokens: 1000
+
+    retrieval:
+      retrieval_profile: "employment_schedule_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "дистанционная работа удалённая работа удаленная работа надомная работа дистанционный работник гибридный режим комбинированный режим право на отключение право не отвечать рабочее место дистанционного работника компенсация за использование личного оборудования электронная подпись УКЭП глава 49.1 ТК РФ"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "профсоюзные взносы"
+        - "забастовка"
+        - "в целях настоящего"
+      context_k: 10
+      max_chunks: 14
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "procedures"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 700
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 1500
+
+      compact_output: false
+
+      presence_signal:
+        field: "remote_work_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист по трудовому праву. Извлеки из коллективного
+        договора сведения о дистанционной и гибридной работе
+        (Глава 49.1 ТК РФ).
+        Не анализируй заработную плату, охрану труда, отпуска или споры.
+        Не оценивай риски.
+        Анализируй только текст договора.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        0. remote_work_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (remote_transfer_status, remote_equipment_status,
+              remote_compensation_status, right_to_disconnect_status,
+              return_to_office_status, electronic_signature_status)
+             ≠ "not_defined";
+           - "missing" — если все шесть содержательных полей = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - все шесть *_status = "not_defined";
+           - все *_details = "Данные не определены";
+           - не выполняй остальные шаги.
+
+        1. remote_transfer_status:
+           Используй только одно из значений:
+           - "defined" — КД закрепляет порядок перевода на дистанционную
+             работу с параметрами (постоянная, временная,
+             комбинированная);
+           - "declarative" — только упоминание дистанционки без
+             конкретики;
+           - "not_defined" — тема не раскрыта.
+
+        2. remote_transfer_details:
+           Краткое user-facing описание порядка перевода.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        3. remote_equipment_status:
+           Используй только одно из значений:
+           - "defined" — КД закрепляет порядок обеспечения
+             оборудованием с параметрами (кто предоставляет, какое);
+           - "declarative" — только упоминание без деталей;
+           - "not_defined" — тема не раскрыта.
+
+        4. remote_equipment_details:
+           Краткое user-facing описание обеспечения оборудованием.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        5. remote_compensation_status:
+           Используй только одно из значений:
+           - "defined" — КД закрепляет компенсацию расходов
+             за использование личного оборудования с размером;
+           - "declarative" — только упоминание компенсации без размера;
+           - "not_defined" — тема не раскрыта.
+
+        6. remote_compensation_details:
+           Краткое user-facing описание компенсации (размер, порядок).
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        7. right_to_disconnect_status:
+           Используй только одно из значений:
+           - "defined" — КД закрепляет право на отключение /
+             право не отвечать во внерабочее время;
+           - "declarative" — только упоминание без деталей;
+           - "not_defined" — тема не раскрыта.
+
+        8. right_to_disconnect_details:
+           Краткое user-facing описание права на отключение.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        9. return_to_office_status:
+           Используй только одно из значений:
+           - "defined" — КД закрепляет порядок возврата в офис
+             и/или гарантии при возврате;
+           - "declarative" — только упоминание без деталей;
+           - "not_defined" — тема не раскрыта.
+
+        10. return_to_office_details:
+            Краткое user-facing описание порядка возврата и гарантий.
+            Если данных нет — "Данные не определены".
+            Если данные противоречивы — "Не удалось определить".
+
+        11. electronic_signature_status:
+            Используй только одно из значений:
+            - "defined" — КД закрепляет порядок электронного
+              документооборота и подписи (УКЭП);
+            - "declarative" — только упоминание без деталей;
+            - "not_defined" — тема не раскрыта.
+
+        12. electronic_signature_details:
+            Краткое user-facing описание электронного документооборота
+            и подписи.
+            Если данных нет — "Данные не определены".
+            Если данные противоречивы — "Не удалось определить".
+        </task>
+
+        <context_rules>
+        - Перед остальными полями заполни remote_work_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details = "Данные не определены".
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона вместо текста договора.
+        - Не делай выводов по типовой структуре договора.
+        - Различай: "defined" — КД закрепляет условие с параметрами; "declarative" — только упоминание дистанционки без деталей.
+        - В remote_compensation_details обязательно фиксируй размер компенсации (в рублях, % или формула), если он указан.
+        - В right_to_disconnect_details фиксируй формулировку права не отвечать на звонки / сообщения во внерабочее время, если она приведена.
+        - Если в разных фрагментах указаны противоречивые сведения — статус → "not_defined", текстовое поле → "Не удалось определить".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни порядка перевода на дистанционку,
+           ни обеспечения оборудованием, ни компенсаций,
+           ни права на отключение, ни гарантий возврата,
+           ни электронного документооборота.
+           → presence = "missing";
+             все *_status = "not_defined";
+             все *_details = "Данные не определены".
+
+        2. Неполное раскрытие или только упоминание.
+           а) Общая фраза: "Работники могут работать дистанционно
+              в порядке, установленном ТК РФ" — только упоминание.
+              → presence = "present";
+                соответствующий *_status = "declarative".
+           б) Прямо указано, что дистанционка не применяется
+              в организации.
+              → presence = "present";
+                соответствующий *_status = "defined";
+                соответствующий *_details содержит дословную
+                формулировку отказа.
+
+        3. Противоречие между фрагментами.
+           В разных разделах договора указаны противоречивые условия
+           дистанционной работы (разные размеры компенсаций,
+           разные порядки перевода).
+           → presence = "unclear";
+             соответствующий *_status = "not_defined";
+             соответствующий *_details = "Не удалось определить".
+
+        4. Полное раскрытие условий.
+           Указаны порядок перевода, обеспечение оборудованием,
+           компенсации, право на отключение, гарантии возврата
+           и электронный документооборот.
+           → presence = "present";
+             все *_status = "defined";
+             все *_details содержат конкретику.
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для remote_work_check_presence используй только: "present", "missing", "unclear".
+        - Для всех *_status используй только: "defined", "declarative", "not_defined".
+        - Fallback при отсутствии данных:
+          * все *_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
+      fields:
+        - name: "remote_work_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по дистанционной и гибридной работе. Внутреннее агрегатное signal-поле."
+          required: true
+
+        - name: "remote_transfer_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус порядка перевода на дистанционную работу."
+          required: true
+
+        - name: "remote_transfer_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 1
+          label: "Перевод на дистанционку"
+          description: "Порядок перевода на дистанционную работу (постоянная, временная, комбинированная)."
+          required: false
+
+        - name: "remote_equipment_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус обеспечения оборудованием для дистанционной работы."
+          required: true
+
+        - name: "remote_equipment_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 2
+          label: "Оборудование"
+          description: "Обеспечение оборудованием для дистанционной работы."
+          required: false
+
+        - name: "remote_compensation_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус компенсации расходов за личное оборудование."
+          required: true
+
+        - name: "remote_compensation_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 3
+          label: "Компенсация расходов"
+          description: "Компенсация расходов за использование личного оборудования (размер, порядок)."
+          required: false
+
+        - name: "right_to_disconnect_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус права на отключение."
+          required: true
+
+        - name: "right_to_disconnect_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 4
+          label: "Право на отключение"
+          description: "Право не отвечать на звонки и сообщения во внерабочее время."
+          required: false
+
+        - name: "return_to_office_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "medium"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус порядка возврата в офис."
+          required: true
+
+        - name: "return_to_office_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: false
+          label: "Возврат в офис"
+          description: "Порядок возврата в офис и гарантии при возврате."
+          required: false
+
+        - name: "electronic_signature_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "medium"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус электронного документооборота и подписи."
+          required: true
+
+        - name: "electronic_signature_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: false
+          label: "Электронный документооборот"
+          description: "Порядок электронного документооборота и подписи (УКЭП)."
+          required: false
+
+      store_payload: true
+
+  - id: workers_participation_check
+    name: "Участие работников в управлении организацией (ст. 52–53 ТК РФ)"
+    description: >
+      Фактографическая проверка форм участия работников в управлении
+      организацией помимо профсоюза: советы трудовых коллективов,
+      участие в коллегиальных органах управления, производственные
+      советы, обязательные консультации, право на информацию
+      (ст. 52–53 ТК РФ).
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "medium"
+    severity_if_pass: "pass"
+    severity_if_fail: "medium"
+    severity_if_unclear: "low"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    display_order: 250
+
+    rules:
+      keywords:
+        - "участие в управлении"
+        - "совет трудового коллектива"
+        - "производственный совет"
+        - "совет работников"
+        - "участие в коллегиальном органе"
+        - "совет директоров"
+        - "наблюдательный совет"
+        - "право на информацию"
+        - "обязательные консультации"
+        - "обсуждение с работниками"
+        - "участие в принятии решений"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(совет[а-яё]*\\s+трудов[а-яё]+\\s+коллектив|производственн[а-яё]+\\s+совет)"
+        - "(?i)участи[ея][а-яё]*\\s+(работник[а-яё]+\\s+)?в\\s+управлени"
+        - "(?i)(наблюдательн[а-яё]+|коллегиальн[а-яё]+)\\s+(совет|орган)"
+        - "(?i)(право\\s+на\\s+информаци|обязательн[а-яё]+\\s+консультаци)"
+        - "(?i)совет[а-яё]*\\s+(работник|директор)"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по трудовому праву.
+        Анализируется коллективный договор (ст. 52–53 ТК РФ).
+        Проверяется только один вопрос: участие работников в управлении
+        организацией помимо профсоюза.
+        Нормативные ориентиры:
+        - ст. 52 ТК РФ — формы участия работников в управлении
+          организацией (учёт мнения представительного органа,
+          консультации, участие в коллегиальных органах, обсуждение
+          планов, доступ к информации).
+        - ст. 53 ТК РФ — основные формы участия (получение информации,
+          обсуждение, внесение предложений, участие в разработке
+          и принятии коллективных договоров).
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+        - Различай: КД закрепляет форму участия с параметрами
+          (состав органа, порядок, периодичность), только упоминает
+          без деталей или вообще не касается темы.
+        - Этот check — про НЕ-профсоюзные формы участия
+          (советы трудовых коллективов, производственные советы,
+          участие в коллегиальных органах управления).
+          Участие профсоюза в управлении — тема отдельного check'а.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Наличие форм участия работников в управлении организацией.
+        2. Состав представительного органа (совет трудового коллектива,
+           производственный совет и др.).
+        3. Участие представителей работников в коллегиальном органе
+           управления (совет директоров, наблюдательный совет).
+        4. Порядок обязательных консультаций с работниками.
+        5. Право работников на информацию (перечень сведений, порядок
+           предоставления).
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Не подставляй нормы закона вместо текста договора.
+        3. Для enum-полей (*_status) при отсутствии данных возвращай
+           "not_defined".
+        4. Для строковых *_details при отсутствии данных возвращай строго
+           "Данные не определены".
+        5. Не используй "None", "null", пустые строки или отсутствующие ключи.
+        6. В evidence включай только прямые цитаты из текста договора.
+        7. Различай:
+           - "defined" — КД прямо закрепляет форму участия с параметрами;
+           - "declarative" — только упоминание без конкретики;
+           - "not_defined" — тема не раскрыта.
+        8. В participation_bodies_details фиксируй состав и порядок
+           формирования органа, если указано.
+        9. В right_to_information_details фиксируй перечень сведений
+           и порядок их предоставления, если указано.
+        10. Верни РОВНО один валидный JSON-объект со всеми 11 ключами
+            (10 полей + evidence), пригодный для парсинга через json.loads
+            без предварительной обработки. Без markdown, без ```json,
+            без комментариев, без текста до или после. Начни ответ сразу
+            с { и закончи }.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1 — полное покрытие:
+        Фрагмент:
+        "В организации создаётся Совет трудового коллектива в составе
+        7 человек, избираемых на общем собрании работников на 2 года.
+        Представитель работников включается в Совет директоров
+        с правом совещательного голоса. Работодатель проводит обязательные
+        консультации с Советом по вопросам реорганизации, изменения
+        технологий и сокращения численности. Работники имеют право
+        на информацию о финансовых результатах организации (ежеквартально),
+        о планируемых изменениях условий труда."
+        Ответ:
+        {
+          "participation_forms_status": "defined",
+          "participation_forms_details": "Совет трудового коллектива, участие в Совете директоров, обязательные консультации",
+          "participation_bodies_status": "defined",
+          "participation_bodies_details": "Совет трудового коллектива из 7 человек, избираемых на общем собрании на 2 года",
+          "board_participation_status": "defined",
+          "board_participation_details": "представитель работников в Совете директоров с правом совещательного голоса",
+          "consultation_procedure_status": "defined",
+          "consultation_procedure_details": "обязательные консультации по реорганизации, изменениям технологий, сокращению численности",
+          "right_to_information_status": "defined",
+          "right_to_information_details": "информация о финансовых результатах (ежеквартально), о планируемых изменениях условий труда",
+          "evidence": [
+            {"clause_ref": "п. 3.1", "quote": "В организации создаётся Совет трудового коллектива в составе 7 человек, избираемых на общем собрании работников на 2 года."},
+            {"clause_ref": "п. 3.3", "quote": "Работодатель проводит обязательные консультации с Советом по вопросам реорганизации, изменения технологий и сокращения численности."}
+          ]
+        }
+
+        Пример 2 — только упоминание:
+        Фрагмент:
+        "Работники участвуют в управлении организацией в формах,
+        предусмотренных ТК РФ."
+        Ответ:
+        {
+          "participation_forms_status": "declarative",
+          "participation_forms_details": "участие в управлении в формах, предусмотренных ТК РФ (без конкретики)",
+          "participation_bodies_status": "not_defined",
+          "participation_bodies_details": "Данные не определены",
+          "board_participation_status": "not_defined",
+          "board_participation_details": "Данные не определены",
+          "consultation_procedure_status": "not_defined",
+          "consultation_procedure_details": "Данные не определены",
+          "right_to_information_status": "not_defined",
+          "right_to_information_details": "Данные не определены",
+          "evidence": [
+            {"clause_ref": "п. 3.1", "quote": "Работники участвуют в управлении организацией в формах, предусмотренных ТК РФ."}
+          ]
+        }
+
+        Пример 3 — тема не раскрыта:
+        Фрагмент:
+        "Стороны обязуются соблюдать трудовое законодательство."
+        Ответ:
+        {
+          "participation_forms_status": "not_defined",
+          "participation_forms_details": "Данные не определены",
+          "participation_bodies_status": "not_defined",
+          "participation_bodies_details": "Данные не определены",
+          "board_participation_status": "not_defined",
+          "board_participation_details": "Данные не определены",
+          "consultation_procedure_status": "not_defined",
+          "consultation_procedure_details": "Данные не определены",
+          "right_to_information_status": "not_defined",
+          "right_to_information_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямые цитаты по каждой из 5 тем.
+        2. Разграничь defined / declarative.
+        3. Если прямой цитаты нет — верни "not_defined". Не додумывай.
+        4. Проверь, что все 11 ключей (10 полей + evidence) присутствуют
+           в JSON.
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "participation_forms_status": "<defined / declarative / not_defined>",
+          "participation_forms_details": "<текст или 'Данные не определены'>",
+          "participation_bodies_status": "<defined / declarative / not_defined>",
+          "participation_bodies_details": "<текст или 'Данные не определены'>",
+          "board_participation_status": "<defined / declarative / not_defined>",
+          "board_participation_details": "<текст или 'Данные не определены'>",
+          "consultation_procedure_status": "<defined / declarative / not_defined>",
+          "consultation_procedure_details": "<текст или 'Данные не определены'>",
+          "right_to_information_status": "<defined / declarative / not_defined>",
+          "right_to_information_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 10
+      temperature: 0.0
+      max_tokens: 900
+
+    retrieval:
+      retrieval_profile: "control_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "участие в управлении совет трудового коллектива производственный совет совет работников участие в коллегиальном органе совет директоров наблюдательный совет право на информацию обязательные консультации обсуждение с работниками участие в принятии решений ст. 52-53 ТК РФ"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "профсоюзные взносы"
+        - "забастовка"
+        - "в целях настоящего"
+      context_k: 10
+      max_chunks: 14
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "procedures"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 700
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 1300
+
+      compact_output: false
+
+      presence_signal:
+        field: "workers_participation_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист по трудовому праву. Извлеки из коллективного
+        договора сведения об участии работников в управлении организацией
+        помимо профсоюза (ст. 52–53 ТК РФ).
+        Не анализируй участие профсоюза — это тема отдельного check'а.
+        Не оценивай риски.
+        Анализируй только текст договора.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        0. workers_participation_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (participation_forms_status, participation_bodies_status,
+              board_participation_status,
+              consultation_procedure_status,
+              right_to_information_status) ≠ "not_defined";
+           - "missing" — если все пять содержательных полей = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - все пять *_status = "not_defined";
+           - все *_details = "Данные не определены";
+           - не выполняй остальные шаги.
+
+        1. participation_forms_status:
+           Используй только одно из значений:
+           - "defined" — КД закрепляет конкретные формы участия
+             работников в управлении (совет трудового коллектива,
+             производственный совет, участие в принятии решений);
+           - "declarative" — только упоминание участия без конкретики;
+           - "not_defined" — тема не раскрыта.
+
+        2. participation_forms_details:
+           Краткое user-facing описание форм участия.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        3. participation_bodies_status:
+           Используй только одно из значений:
+           - "defined" — КД закрепляет состав и/или порядок
+             формирования представительного органа работников;
+           - "declarative" — только упоминание органа без деталей;
+           - "not_defined" — тема не раскрыта.
+
+        4. participation_bodies_details:
+           Краткое user-facing описание органа (состав, порядок
+           формирования, срок полномочий).
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        5. board_participation_status:
+           Используй только одно из значений:
+           - "defined" — КД закрепляет участие представителей
+             работников в коллегиальном органе управления
+             (совет директоров, наблюдательный совет);
+           - "declarative" — только упоминание без деталей;
+           - "not_defined" — тема не раскрыта.
+
+        6. board_participation_details:
+           Краткое user-facing описание участия в коллегиальном органе.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        7. consultation_procedure_status:
+           Используй только один из значений:
+           - "defined" — КД закрепляет порядок обязательных
+             консультаций с работниками / их представителями
+             по ключевым вопросам;
+           - "declarative" — только упоминание консультаций
+             без деталей;
+           - "not_defined" — тема не раскрыта.
+
+        8. consultation_procedure_details:
+           Краткое user-facing описание порядка консультаций
+           (круг вопросов, сроки, форма).
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        9. right_to_information_status:
+           Используй только один из значений:
+           - "defined" — КД закрепляет перечень сведений, которые
+             работодатель обязан предоставлять работникам
+             (финансовые результаты, планы, изменения условий труда);
+           - "declarative" — только общее право на информацию
+             без перечня;
+           - "not_defined" — тема не раскрыта.
+
+        10. right_to_information_details:
+            Краткое user-facing описание права на информацию
+            (перечень сведений, периодичность, порядок).
+            Если данных нет — "Данные не определены".
+            Если данные противоречивы — "Не удалось определить".
+        </task>
+
+        <context_rules>
+        - Перед остальными полями заполни workers_participation_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details = "Данные не определены".
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона вместо текста договора.
+        - Не делай выводов по типовой структуре договора.
+        - Различай: "defined" — КД закрепляет форму участия с параметрами; "declarative" — только упоминание без конкретики.
+        - В participation_bodies_details фиксируй состав и порядок формирования органа, если указано.
+        - В right_to_information_details фиксируй перечень сведений и порядок их предоставления, если указано.
+        - Если в разных фрагментах указаны противоречивые сведения — статус → "not_defined", текстовое поле → "Не удалось определить".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни форм участия работников, ни представительных
+           органов (кроме профсоюза), ни участия в коллегиальном органе,
+           ни консультаций, ни права на информацию.
+           → presence = "missing";
+             все *_status = "not_defined";
+             все *_details = "Данные не определены".
+
+        2. Неполное раскрытие или только упоминание.
+           а) Общая фраза: "Работники участвуют в управлении
+              в формах, предусмотренных ТК РФ" — только упоминание.
+              → presence = "present";
+                соответствующий *_status = "declarative".
+           б) Прямо указано, что иные формы участия (кроме профсоюза)
+              не предусмотрены.
+              → presence = "present";
+                соответствующий *_status = "defined";
+                соответствующий *_details содержит дословную
+                формулировку отказа.
+
+        3. Противоречие между фрагментами.
+           В разных разделах договора указаны противоречивые формы
+           участия или противоречивые перечни сведений.
+           → presence = "unclear";
+             соответствующий *_status = "not_defined";
+             соответствующий *_details = "Не удалось определить".
+
+        4. Полное раскрытие форм участия.
+           Указаны совет трудового коллектива, участие в коллегиальном
+           органе, порядок консультаций и право на информацию
+           с перечнем сведений.
+           → presence = "present";
+             все *_status = "defined";
+             все *_details содержат конкретику.
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для workers_participation_check_presence используй только: "present", "missing", "unclear".
+        - Для всех *_status используй только: "defined", "declarative", "not_defined".
+        - Fallback при отсутствии данных:
+          * все *_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
+      fields:
+        - name: "workers_participation_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по участию работников в управлении. Внутреннее агрегатное signal-поле."
+          required: true
+
+        - name: "participation_forms_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус форм участия работников в управлении."
+          required: true
+
+        - name: "participation_forms_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 1
+          label: "Формы участия"
+          description: "Формы участия работников в управлении организацией."
+          required: false
+
+        - name: "participation_bodies_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус представительного органа работников."
+          required: true
+
+        - name: "participation_bodies_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 2
+          label: "Совет трудового коллектива"
+          description: "Состав и порядок формирования представительного органа работников."
+          required: false
+
+        - name: "board_participation_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "medium"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус участия в коллегиальном органе управления."
+          required: true
+
+        - name: "board_participation_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 3
+          label: "Участие в совете директоров"
+          description: "Участие представителей работников в коллегиальном органе управления."
+          required: false
+
+        - name: "consultation_procedure_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "medium"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус порядка обязательных консультаций."
+          required: true
+
+        - name: "consultation_procedure_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: false
+          label: "Обязательные консультации"
+          description: "Порядок обязательных консультаций с работниками."
+          required: false
+
+        - name: "right_to_information_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "medium"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус права работников на информацию."
+          required: true
+
+        - name: "right_to_information_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 4
+          label: "Право на информацию"
+          description: "Перечень сведений, предоставляемых работникам, и порядок."
+          required: false
+
+      store_payload: true
+
+  - id: northern_and_rotational_check
+    name: "Гарантии при вахтовом методе и работе в районах Крайнего Севера (гл. 47, 50 ТК РФ)"
+    description: >
+      Фактографическая проверка гарантий при вахтовом методе работы
+      (гл. 47 ТК РФ) и в районах Крайнего Севера / приравненных
+      местностях (гл. 50 ТК РФ): надбавки, дополнительный отпуск,
+      компенсации проезда, режим вахты, суммированный учёт.
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    display_order: 260
+
+    rules:
+      keywords:
+        - "вахтовый метод"
+        - "вахта"
+        - "вахтовая надбавка"
+        - "Крайний Север"
+        - "районы Крайнего Севера"
+        - "приравненные местности"
+        - "районный коэффициент"
+        - "северная надбавка"
+        - "процентная надбавка за стаж"
+        - "дополнительный отпуск за работу на Севере"
+        - "компенсация проезда к месту отдыха"
+        - "суммированный учёт рабочего времени"
+        - "межвахтовый отдых"
+        - "дни отдыха за переработку"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)вахтов[а-яё]+\\s+метод"
+        - "(?i)\\bвахт[а-яё]*\\b"
+        - "(?i)(Крайн[а-яё]+\\s+Север|приравненн[а-яё]+\\s+местност)"
+        - "(?i)(северн[а-яё]+|районн[а-яё]+)\\s+(надбавк|коэффициент)"
+        - "(?i)процентн[а-яё]+\\s+надбавк[а-яё]*\\s+за\\s+стаж"
+        - "(?i)суммированн[а-яё]+\\s+учёт"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по трудовому праву.
+        Анализируется коллективный договор.
+        Проверяется только один вопрос: гарантии при вахтовом методе
+        работы и в районах Крайнего Севера / приравненных местностях.
+        Нормативные ориентиры:
+        - Глава 47 ТК РФ (ст. 297–302) — вахтовый метод:
+          вахтовая надбавка (ст. 302), суммированный учёт рабочего
+          времени, межвахтовый отдых, дни отдыха за переработку.
+        - Глава 50 ТК РФ (ст. 313–327) — гарантии для лиц,
+          работающих в районах Крайнего Севера и приравненных
+          местностях: районный коэффициент, процентная надбавка
+          за стаж, дополнительный отпуск (ст. 321), компенсация
+          проезда к месту отдыха (ст. 325), сокращённая рабочая
+          неделя (ст. 320).
+        - Закон РФ №4520-1 от 19.02.1993 «О государственных гарантиях
+          и компенсациях для лиц, работающих и проживающих в районах
+          Крайнего Севера».
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+        - Этот check применяется ТОЛЬКО если работодатель использует
+          вахтовый метод или находится в РКС / приравненных местностях.
+          Если тема неприменима — фиксируй отсутствие, НЕ выводи
+          гарантии из закона.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Указание на применение вахтового метода.
+        2. Размер вахтовой надбавки (за дни вахты, за переработку).
+        3. Режим вахты и суммированный учёт рабочего времени.
+        4. Наличие РКС / приравненных местностей, размер надбавок.
+        5. Дополнительный отпуск за работу в РКС / за вахту.
+        6. Компенсация проезда к месту отдыха и обратно.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Не подставляй нормы закона вместо текста договора.
+        3. Для enum-полей (*_status) при отсутствии данных возвращай
+           "not_defined".
+        4. Для строковых *_details при отсутствии данных возвращай строго
+           "Данные не определены".
+        5. Не используй "None", "null", пустые строки или отсутствующие ключи.
+        6. В evidence включай только прямые цитаты из текста договора.
+        7. Различай:
+           - "defined" — КД прямо закрепляет гарантию с параметрами;
+           - "declarative" — только упоминание без конкретики;
+           - "not_defined" — тема не раскрыта.
+        8. В rotational_allowance_details обязательно фиксируй размер
+           вахтовой надбавки (%, руб.), если указан.
+        9. В northern_allowances_details фиксируй размеры районного
+           коэффициента и процентной надбавки, если указаны.
+        10. Верни РОВНО один валидный JSON-объект со всеми 13 ключами
+            (12 полей + evidence), пригодный для парсинга через json.loads
+            без предварительной обработки. Без markdown, без ```json,
+            без комментариев, без текста до или после. Начни ответ сразу
+            с { и закончи }.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1 — полное покрытие вахты:
+        Фрагмент:
+        "Работодатель применяет вахтовый метод работы. Вахтовая надбавка —
+        30% от тарифной ставки за дни вахты, 100% за дни переработки.
+        Ведётся суммированный учёт рабочего времени с учётным периодом
+        1 год. Работникам предоставляется дополнительный отпуск за работу
+        в районах Крайнего Севера — 24 календарных дня. Районный коэффициент —
+        1,5; процентная надбавка — до 80%. Компенсация проезда к месту
+        отдыха — раз в два года."
+        Ответ:
+        {
+          "rotational_method_status": "defined",
+          "rotational_method_details": "применяется вахтовый метод работы",
+          "rotational_allowance_status": "defined",
+          "rotational_allowance_details": "30% от тарифной ставки за дни вахты, 100% за дни переработки",
+          "rotational_schedule_status": "defined",
+          "rotational_schedule_details": "суммированный учёт рабочего времени с учётным периодом 1 год",
+          "northern_allowances_status": "defined",
+          "northern_allowances_details": "районный коэффициент — 1,5; процентная надбавка — до 80%",
+          "northern_leave_status": "defined",
+          "northern_leave_details": "дополнительный отпуск за работу в РКС — 24 календарных дня",
+          "travel_compensation_status": "defined",
+          "travel_compensation_details": "компенсация проезда к месту отдыха и обратно — раз в два года",
+          "evidence": [
+            {"clause_ref": "п. 8.1", "quote": "Работодатель применяет вахтовый метод работы."},
+            {"clause_ref": "п. 8.2", "quote": "Вахтовая надбавка — 30% от тарифной ставки за дни вахты, 100% за дни переработки."}
+          ]
+        }
+
+        Пример 2 — только упоминание:
+        Фрагмент:
+        "Работникам, занятым на работах в районах Крайнего Севера,
+        предоставляются гарантии, предусмотренные ТК РФ."
+        Ответ:
+        {
+          "rotational_method_status": "not_defined",
+          "rotational_method_details": "Данные не определены",
+          "rotational_allowance_status": "not_defined",
+          "rotational_allowance_details": "Данные не определены",
+          "rotational_schedule_status": "not_defined",
+          "rotational_schedule_details": "Данные не определены",
+          "northern_allowances_status": "declarative",
+          "northern_allowances_details": "гарантии в соответствии с ТК РФ (без указания размеров)",
+          "northern_leave_status": "declarative",
+          "northern_leave_details": "гарантии в соответствии с ТК РФ (без конкретики)",
+          "travel_compensation_status": "not_defined",
+          "travel_compensation_details": "Данные не определены",
+          "evidence": [
+            {"clause_ref": "п. 8.1", "quote": "Работникам, занятым на работах в районах Крайнего Севера, предоставляются гарантии, предусмотренные ТК РФ."}
+          ]
+        }
+
+        Пример 3 — тема не раскрыта:
+        Фрагмент:
+        "Стороны обязуются соблюдать трудовое законодательство."
+        Ответ:
+        {
+          "rotational_method_status": "not_defined",
+          "rotational_method_details": "Данные не определены",
+          "rotational_allowance_status": "not_defined",
+          "rotational_allowance_details": "Данные не определены",
+          "rotational_schedule_status": "not_defined",
+          "rotational_schedule_details": "Данные не определены",
+          "northern_allowances_status": "not_defined",
+          "northern_allowances_details": "Данные не определены",
+          "northern_leave_status": "not_defined",
+          "northern_leave_details": "Данные не определены",
+          "travel_compensation_status": "not_defined",
+          "travel_compensation_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямые цитаты по каждой из 6 тем.
+        2. Разграничь defined / declarative.
+        3. Если прямой цитаты нет — верни "not_defined". Не додумывай.
+        4. Проверь, что все 13 ключей (12 полей + evidence) присутствуют
+           в JSON.
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "rotational_method_status": "<defined / declarative / not_defined>",
+          "rotational_method_details": "<текст или 'Данные не определены'>",
+          "rotational_allowance_status": "<defined / declarative / not_defined>",
+          "rotational_allowance_details": "<текст или 'Данные не определены'>",
+          "rotational_schedule_status": "<defined / declarative / not_defined>",
+          "rotational_schedule_details": "<текст или 'Данные не определены'>",
+          "northern_allowances_status": "<defined / declarative / not_defined>",
+          "northern_allowances_details": "<текст или 'Данные не определены'>",
+          "northern_leave_status": "<defined / declarative / not_defined>",
+          "northern_leave_details": "<текст или 'Данные не определены'>",
+          "travel_compensation_status": "<defined / declarative / not_defined>",
+          "travel_compensation_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 10
+      temperature: 0.0
+      max_tokens: 1000
+
+    retrieval:
+      retrieval_profile: "employment_schedule_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "вахтовый метод вахта вахтовая надбавка Крайний Север районы Крайнего Севера приравненные местности районный коэффициент северная надбавка процентная надбавка за стаж дополнительный отпуск за работу на Севере компенсация проезда к месту отдыха суммированный учёт рабочего времени межвахтовый отдых дни отдыха за переработку глава 47 ТК РФ глава 50 ТК РФ"
+      preferred_unit_types:
+        - obligation
+        - payment_term
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "профсоюзные взносы"
+        - "забастовка"
+        - "в целях настоящего"
+      context_k: 10
+      max_chunks: 14
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "procedures"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 700
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 1500
+
+      compact_output: false
+
+      presence_signal:
+        field: "northern_and_rotational_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист по трудовому праву. Извлеки из коллективного
+        договора сведения о гарантиях при вахтовом методе работы и работе
+        в районах Крайнего Севера / приравненных местностях
+        (гл. 47 и 50 ТК РФ).
+        Не анализируй заработную плату, охрану труда, отпуска общего
+        характера или споры.
+        Не оценивай риски.
+        Анализируй только текст договора.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        0. northern_and_rotational_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (rotational_method_status, rotational_allowance_status,
+              rotational_schedule_status, northern_allowances_status,
+              northern_leave_status, travel_compensation_status)
+             ≠ "not_defined";
+           - "missing" — если все шесть содержательных полей
+             = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за
+             противоречий вывод невозможен.
+
+           Если presence = "missing":
+           - все шесть *_status = "not_defined";
+           - все *_details = "Данные не определены";
+           - не выполняй остальные шаги.
+
+        1. rotational_method_status:
+           Используй только одно из значений:
+           - "defined" — КД закрепляет применение вахтового метода
+             работы с параметрами;
+           - "declarative" — только упоминание вахты без деталей;
+           - "not_defined" — тема не раскрыта.
+
+        2. rotational_method_details:
+           Краткое user-facing описание вахтового метода.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        3. rotational_allowance_status:
+           Используй только одно из значений:
+           - "defined" — КД закрепляет вахтовую надбавку с размером;
+           - "declarative" — только упоминание надбавки без размера;
+           - "not_defined" — тема не раскрыта.
+
+        4. rotational_allowance_details:
+           Краткое user-facing описание вахтовой надбавки (размер,
+           порядок начисления).
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        5. rotational_schedule_status:
+           Используй только одно из значений:
+           - "defined" — КД закрепляет режим вахты / суммированный
+             учёт рабочего времени с параметрами (учётный период,
+             длительность вахты);
+           - "declarative" — только упоминание без деталей;
+           - "not_defined" — тема не раскрыта.
+
+        6. rotational_schedule_details:
+           Краткое user-facing описание режима вахты и суммированного
+           учёта.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        7. northern_allowances_status:
+           Используй только одно из значений:
+           - "defined" — КД закрепляет районный коэффициент
+             и/или процентную надбавку за стаж с размерами;
+           - "declarative" — только упоминание без размеров;
+           - "not_defined" — тема не раскрыта.
+
+        8. northern_allowances_details:
+           Краткое user-facing описание районного коэффициента
+           и процентной надбавки (размеры).
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        9. northern_leave_status:
+           Используй только одно из значений:
+           - "defined" — КД закрепляет дополнительный отпуск
+             за работу в РКС / за вахту с указанием длительности;
+           - "declarative" — только упоминание без длительности;
+           - "not_defined" — тема не раскрыта.
+
+        10. northern_leave_details:
+            Краткое user-facing описание дополнительного отпуска
+            (длительность, порядок).
+            Если данных нет — "Данные не определены".
+            Если данные противоречивы — "Не удалось определить".
+
+        11. travel_compensation_status:
+            Используй только одно из значений:
+            - "defined" — КД закрепляет компенсацию проезда к месту
+              отдыха и обратно с параметрами (периодичность, порядок);
+            - "declarative" — только упоминание без деталей;
+            - "not_defined" — тема не раскрыта.
+
+        12. travel_compensation_details:
+            Краткое user-facing описание компенсации проезда.
+            Если данных нет — "Данные не определены".
+            Если данные противоречивы — "Не удалось определить".
+        </task>
+
+        <context_rules>
+        - Перед остальными полями заполни northern_and_rotational_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details = "Данные не определены".
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона вместо текста договора.
+        - Не делай выводов по типовой структуре договора.
+        - Различай: "defined" — КД закрепляет гарантию с параметрами; "declarative" — только упоминание без конкретики.
+        - В rotational_allowance_details обязательно фиксируй размер вахтовой надбавки (%, руб.), если указан.
+        - В northern_allowances_details фиксируй размеры районного коэффициента и процентной надбавки, если указаны.
+        - Если в разных фрагментах указаны противоречивые сведения — статус → "not_defined", текстовое поле → "Не удалось определить".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни вахтового метода, ни надбавок, ни гарантий
+           для РКС / приравненных местностей.
+           → presence = "missing";
+             все *_status = "not_defined";
+             все *_details = "Данные не определены".
+
+        2. Неполное раскрытие или только упоминание.
+           а) Общая фраза: "Работникам предоставляются гарантии,
+              предусмотренные ТК РФ для районов Крайнего Севера"
+              — только упоминание.
+              → presence = "present";
+                соответствующий *_status = "declarative".
+           б) Прямо указано, что вахтовый метод не применяется
+              (например, для офисных работников).
+              → presence = "present";
+                соответствующий *_status = "defined";
+                соответствующий *_details содержит дословную
+                формулировку.
+
+        3. Противоречие между фрагментами.
+           В разных разделах договора указаны противоречивые размеры
+           надбавок или разные условия компенсаций.
+           → presence = "unclear";
+             соответствующий *_status = "not_defined";
+             соответствующий *_details = "Не удалось определить".
+
+        4. Полное раскрытие гарантий.
+           Указаны вахтовый метод, надбавка, режим вахты, районный
+           коэффициент, процентная надбавка, дополнительный отпуск
+           и компенсация проезда.
+           → presence = "present";
+             все *_status = "defined";
+             все *_details содержат конкретику.
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для northern_and_rotational_check_presence используй только: "present", "missing", "unclear".
+        - Для всех *_status используй только: "defined", "declarative", "not_defined".
+        - Fallback при отсутствии данных:
+          * все *_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
+      fields:
+        - name: "northern_and_rotational_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по вахтовому методу и гарантиям РКС. Внутреннее агрегатное signal-поле."
+          required: true
+
+        - name: "rotational_method_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус указания вахтового метода."
+          required: true
+
+        - name: "rotational_method_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 1
+          label: "Вахтовый метод"
+          description: "Указание на применение вахтового метода работы."
+          required: false
+
+        - name: "rotational_allowance_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус вахтовой надбавки."
+          required: true
+
+        - name: "rotational_allowance_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 2
+          label: "Вахтовая надбавка"
+          description: "Размер вахтовой надбавки за дни вахты и переработки."
+          required: false
+
+        - name: "rotational_schedule_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "medium"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус режима вахты и суммированного учёта."
+          required: true
+
+        - name: "rotational_schedule_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 3
+          label: "Режим вахты"
+          description: "Режим вахты и суммированный учёт рабочего времени."
+          required: false
+
+        - name: "northern_allowances_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус северных надбавок (районный коэффициент, процентная надбавка)."
+          required: true
+
+        - name: "northern_allowances_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 4
+          label: "Северные надбавки"
+          description: "Районный коэффициент и процентная надбавка за стаж."
+          required: false
+
+        - name: "northern_leave_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус дополнительного отпуска за работу в РКС."
+          required: true
+
+        - name: "northern_leave_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 5
+          label: "Дополнительный отпуск"
+          description: "Дополнительный отпуск за работу в РКС / за вахту."
+          required: false
+
+        - name: "travel_compensation_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "medium"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус компенсации проезда к месту отдыха."
+          required: true
+
+        - name: "travel_compensation_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 6
+          label: "Компенсация проезда"
+          description: "Компенсация проезда к месту отдыха и обратно (периодичность, порядок)."
+          required: false
+
+      store_payload: true
+
+  - id: sectoral_agreement_check
+    name: "Присоединение к отраслевому соглашению (ст. 48 ТК РФ)"
+    description: >
+      Фактографическая проверка условий о применении отраслевого
+      (межотраслевого) соглашения: какое соглашение применяется,
+      порядок присоединения или отказа, соотношение условий
+      соглашения и коллективного договора, обязанности работодателя.
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "medium"
+    severity_if_pass: "pass"
+    severity_if_fail: "medium"
+    severity_if_unclear: "low"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    display_order: 270
+
+    rules:
+      keywords:
+        - "отраслевое соглашение"
+        - "межотраслевое соглашение"
+        - "региональное соглашение"
+        - "территориальное соглашение"
+        - "присоединение к соглашению"
+        - "отказ от присоединения"
+        - "условия соглашения"
+        - "соответствие соглашению"
+        - "превышение условий соглашения"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)(отраслев|межотраслев|региональн|территориальн)[а-яё]+\\s+соглашени"
+        - "(?i)присоединени[ея][а-яё]*\\s+к\\s+соглашени"
+        - "(?i)отказ[а-яё]*\\s+от\\s+присоединени"
+        - "(?i)соответстви[ея][а-яё]*\\s+.*соглашени"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по трудовому праву.
+        Анализируется коллективный договор (ст. 48 ТК РФ).
+        Проверяется только один вопрос: применение отраслевого
+        (межотраслевого, регионального, территориального) соглашения.
+        Нормативные ориентиры:
+        - ст. 48 ТК РФ — порядок действия соглашения; если работодатель
+          не направил мотивированный отказ в течение 30 дней после
+          официального опубликования предложения о присоединении,
+          соглашение считается распространённым на данного работодателя.
+        - ст. 133.1 ТК РФ — региональное соглашение о минимальной
+          заработной плате.
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+        - Различай: КД прямо указывает применяемое соглашение,
+          только упоминает о его существовании или вообще не касается
+          темы.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Указание на применяемое отраслевое / межотраслевое /
+           региональное / территориальное соглашение.
+        2. Порядок присоединения или отказа от присоединения
+           к соглашению.
+        3. Соотношение условий соглашения и коллективного договора
+           (превышение, соответствие).
+        4. Обязанность работодателя учитывать условия соглашения
+           при формировании КД.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Не подставляй нормы закона вместо текста договора.
+        3. Для enum-полей (*_status) при отсутствии данных возвращай
+           "not_defined".
+        4. Для строковых *_details при отсутствии данных возвращай строго
+           "Данные не определены".
+        5. Не используй "None", "null", пустые строки или отсутствующие
+           ключи.
+        6. В evidence включай только прямые цитаты из текста договора.
+        7. Различай:
+           - "defined" — КД прямо называет соглашение и/или порядок
+             присоединения с параметрами;
+           - "declarative" — только общее упоминание о соглашении
+             без конкретики;
+           - "not_defined" — тема не раскрыта.
+        8. В sectoral_agreement_details фиксируй название соглашения,
+           если оно указано.
+        9. В alignment_with_agreement_details фиксируй порядок
+           соотношения условий (превышение, соответствие),
+           если он указан.
+        10. Верни РОВНО один валидный JSON-объект со всеми 9 ключами
+            (8 полей + evidence), пригодный для парсинга через json.loads
+            без предварительной обработки. Без markdown, без ```json,
+            без комментариев, без текста до или после. Начни ответ сразу
+            с { и закончи }.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+        Пример 1 — полное покрытие:
+        Фрагмент:
+        "Коллективный договор разработан с учётом Отраслевого соглашения
+        по организациям нефтяной, газовой отраслей промышленности
+        и строительства объектов нефтегазового комплекса на 2025–2027 годы.
+        Работодатель присоединился к Соглашению в порядке ст. 48 ТК РФ
+        (уведомление от 15.01.2025). Условия коллективного договора
+        не могут быть ниже условий Отраслевого соглашения."
+        Ответ:
+        {
+          "sectoral_agreement_status": "defined",
+          "sectoral_agreement_details": "Отраслевое соглашение по организациям нефтяной, газовой отраслей промышленности и строительства объектов нефтегазового комплекса на 2025–2027 годы",
+          "joining_procedure_status": "defined",
+          "joining_procedure_details": "присоединение в порядке ст. 48 ТК РФ (уведомление от 15.01.2025)",
+          "alignment_with_agreement_status": "defined",
+          "alignment_with_agreement_details": "условия КД не могут быть ниже условий Отраслевого соглашения",
+          "application_obligation_status": "defined",
+          "application_obligation_details": "КД разработан с учётом Отраслевого соглашения",
+          "evidence": [
+            {"clause_ref": "преамбула", "quote": "Коллективный договор разработан с учётом Отраслевого соглашения по организациям нефтяной, газовой отраслей промышленности и строительства объектов нефтегазового комплекса на 2025–2027 годы."},
+            {"clause_ref": "п. 1.3", "quote": "Условия коллективного договора не могут быть ниже условий Отраслевого соглашения."}
+          ]
+        }
+
+        Пример 2 — только упоминание:
+        Фрагмент:
+        "Работодатель учитывает положения отраслевых соглашений
+        при разработке настоящего договора."
+        Ответ:
+        {
+          "sectoral_agreement_status": "declarative",
+          "sectoral_agreement_details": "учитывает положения отраслевых соглашений (без указания конкретного соглашения)",
+          "joining_procedure_status": "not_defined",
+          "joining_procedure_details": "Данные не определены",
+          "alignment_with_agreement_status": "declarative",
+          "alignment_with_agreement_details": "учитывает положения отраслевых соглашений (без указания порядка соотношения)",
+          "application_obligation_status": "declarative",
+          "application_obligation_details": "учитывает положения отраслевых соглашений при разработке договора",
+          "evidence": [
+            {"clause_ref": "п. 1.3", "quote": "Работодатель учитывает положения отраслевых соглашений при разработке настоящего договора."}
+          ]
+        }
+
+        Пример 3 — тема не раскрыта:
+        Фрагмент:
+        "Стороны обязуются соблюдать трудовое законодательство."
+        Ответ:
+        {
+          "sectoral_agreement_status": "not_defined",
+          "sectoral_agreement_details": "Данные не определены",
+          "joining_procedure_status": "not_defined",
+          "joining_procedure_details": "Данные не определены",
+          "alignment_with_agreement_status": "not_defined",
+          "alignment_with_agreement_details": "Данные не определены",
+          "application_obligation_status": "not_defined",
+          "application_obligation_details": "Данные не определены",
+          "evidence": []
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямые цитаты по каждой из 4 тем.
+        2. Разграничь defined / declarative.
+        3. Если прямой цитаты нет — верни "not_defined". Не додумывай.
+        4. Проверь, что все 9 ключей (8 полей + evidence) присутствуют
+           в JSON.
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь строго в JSON:
+        {
+          "sectoral_agreement_status": "<defined / declarative / not_defined>",
+          "sectoral_agreement_details": "<текст или 'Данные не определены'>",
+          "joining_procedure_status": "<defined / declarative / not_defined>",
+          "joining_procedure_details": "<текст или 'Данные не определены'>",
+          "alignment_with_agreement_status": "<defined / declarative / not_defined>",
+          "alignment_with_agreement_details": "<текст или 'Данные не определены'>",
+          "application_obligation_status": "<defined / declarative / not_defined>",
+          "application_obligation_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 10
+      temperature: 0.0
+      max_tokens: 900
+
+    retrieval:
+      retrieval_profile: "definitions_check"
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "отраслевое соглашение межотраслевое соглашение региональное соглашение территориальное соглашение присоединение к соглашению отказ от присоединения условия соглашения соответствие соглашению превышение условий соглашения ст. 48 ТК РФ"
+      preferred_unit_types:
+        - general_provision
+        - obligation
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - boilerplate
+        - definitions
+      negative_keywords:
+        - "профсоюзные взносы"
+        - "забастовка"
+        - "в целях настоящего"
+      context_k: 10
+      max_chunks: 14
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "boilerplate"
+        - "definitions"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 700
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 1200
+
+      compact_output: false
+
+      presence_signal:
+        field: "sectoral_agreement_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист по трудовому праву. Извлеки из коллективного
+        договора сведения о применении отраслевого (межотраслевого,
+        регионального, территориального) соглашения (ст. 48 ТК РФ).
+        Не анализируй заработную плату, охрану труда, отпуска
+        или споры.
+        Не оценивай риски.
+        Анализируй только текст договора.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        Заполни строго следующие поля:
+
+        0. sectoral_agreement_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (sectoral_agreement_status, joining_procedure_status,
+              alignment_with_agreement_status,
+              application_obligation_status) ≠ "not_defined";
+           - "missing" — если все четыре содержательных поля
+             = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за
+             противоречий вывод невозможен.
+
+           Если presence = "missing":
+           - все четыре *_status = "not_defined";
+           - все *_details = "Данные не определены";
+           - не выполняй остальные шаги.
+
+        1. sectoral_agreement_status:
+           Используй только одно из значений:
+           - "defined" — КД прямо называет применяемое
+             отраслевое / межотраслевое / региональное /
+             территориальное соглашение;
+           - "declarative" — только общее упоминание о соглашениях
+             без названия;
+           - "not_defined" — тема не раскрыта.
+
+        2. sectoral_agreement_details:
+           Краткое user-facing описание применяемого соглашения
+           (название, период действия).
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        3. joining_procedure_status:
+           Используй только одно из значений:
+           - "defined" — КД закрепляет порядок присоединения
+             к соглашению или отказа от него;
+           - "declarative" — только упоминание без порядка;
+           - "not_defined" — тема не раскрыта.
+
+        4. joining_procedure_details:
+           Краткое user-facing описание порядка присоединения
+           или отказа.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        5. alignment_with_agreement_status:
+           Используй только одно из значений:
+           - "defined" — КД закрепляет порядок соотношения условий
+             (превышение, соответствие, приоритет);
+           - "declarative" — только упоминание без порядка;
+           - "not_defined" — тема не раскрыта.
+
+        6. alignment_with_agreement_details:
+           Краткое user-facing описание соотношения условий.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        7. application_obligation_status:
+           Используй только одно из значений:
+           - "defined" — КД закрепляет обязанность работодателя
+             учитывать условия соглашения с параметрами;
+           - "declarative" — только упоминание обязанности;
+           - "not_defined" — тема не раскрыта.
+
+        8. application_obligation_details:
+           Краткое user-facing описание обязанности работодателя.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+        </task>
+
+        <context_rules>
+        - Перед остальными полями заполни sectoral_agreement_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details = "Данные не определены".
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона вместо текста договора.
+        - Не делай выводов по типовой структуре договора.
+        - Различай: "defined" — КД прямо называет соглашение и/или порядок присоединения; "declarative" — только общее упоминание.
+        - В sectoral_agreement_details фиксируй название соглашения, если оно указано.
+        - В alignment_with_agreement_details фиксируй порядок соотношения условий (превышение, соответствие), если он указан.
+        - Если в разных фрагментах указаны противоречивые сведения — статус → "not_defined", текстовое поле → "Не удалось определить".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни названия соглашения, ни порядка
+           присоединения, ни соотношения условий, ни обязанности
+           учитывать соглашение.
+           → presence = "missing";
+             все *_status = "not_defined";
+             все *_details = "Данные не определены".
+
+        2. Неполное раскрытие или только упоминание.
+           а) Общая фраза: "Работодатель учитывает положения
+              отраслевых соглашений" — только упоминание.
+              → presence = "present";
+                соответствующий *_status = "declarative".
+           б) Прямо указано, что работодатель отказался
+              от присоединения к соглашению.
+              → presence = "present";
+                соответствующий *_status = "defined";
+                соответствующий *_details содержит дословную
+                формулировку.
+
+        3. Противоречие между фрагментами.
+           В разных разделах договора названы разные соглашения
+           или противоречивые условия их применения.
+           → presence = "unclear";
+             соответствующий *_status = "not_defined";
+             соответствующий *_details = "Не удалось определить".
+
+        4. Полное раскрытие условий.
+           Указаны конкретное соглашение, порядок присоединения,
+           соотношение условий КД и соглашения, обязанность
+           работодателя.
+           → presence = "present";
+             все *_status = "defined";
+             все *_details содержат конкретику.
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для sectoral_agreement_check_presence используй только: "present", "missing", "unclear".
+        - Для всех *_status используй только: "defined", "declarative", "not_defined".
+        - Fallback при отсутствии данных:
+          * все *_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
+      fields:
+        - name: "sectoral_agreement_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по отраслевому соглашению. Внутреннее агрегатное signal-поле."
+          required: true
+
+        - name: "sectoral_agreement_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус указания применяемого соглашения."
+          required: true
+
+        - name: "sectoral_agreement_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 1
+          label: "Отраслевое соглашение"
+          description: "Название применяемого отраслевого / межотраслевого / регионального соглашения."
+          required: false
+
+        - name: "joining_procedure_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "medium"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус порядка присоединения к соглашению."
+          required: true
+
+        - name: "joining_procedure_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 2
+          label: "Присоединение"
+          description: "Порядок присоединения к соглашению или отказа от него."
+          required: false
+
+        - name: "alignment_with_agreement_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус соотношения условий КД и соглашения."
+          required: true
+
+        - name: "alignment_with_agreement_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 3
+          label: "Соотношение условий"
+          description: "Порядок соотношения условий КД и отраслевого соглашения."
+          required: false
+
+        - name: "application_obligation_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "medium"
+          allowed_values: ["defined", "declarative", "not_defined"]
+          description: "Статус обязанности учитывать соглашение."
+          required: true
+
+        - name: "application_obligation_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: false
+          label: "Обязанность учитывать"
+          description: "Обязанность работодателя учитывать условия соглашения."
+          required: false
+
+      store_payload: true
 
 # ════════════════════════════════════════════════════════════════════════════
 # БЛОК 5: DD_REQUEST_TEMPLATES

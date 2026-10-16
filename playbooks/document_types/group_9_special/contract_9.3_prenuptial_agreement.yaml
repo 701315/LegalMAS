@@ -747,7 +747,13 @@ checks_v8:
       mode: "hybrid"
       compact_output: false
       llm_max_tokens: 1800
-      store_payload: true
+
+      presence_signal:
+        field: "parties_notarial_effective_date_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист по семейному праву. Извлеки из брачного договора
@@ -756,11 +762,31 @@ checks_v8:
         Не анализируй режим собственности, алименты, раздел имущества или банкротство —
         это темы других проверок.
         </role>
+
         <context>
         {context}
         </context>
+
         <task>
-        Заполни строго следующие 18 полей + evidence (всего 19 ключей):
+        Заполни строго следующие 19 полей + evidence (всего 20 ключей):
+
+        0. parties_notarial_effective_date_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (spouse_1_name_status, spouse_2_name_status, notarial_status,
+              effective_date_status) ≠ "not_defined";
+           - "missing" — если все четыре содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - spouse_1_name_status = "not_defined";
+           - spouse_2_name_status = "not_defined";
+           - notarial_status = "not_defined";
+           - effective_date_status = "not_defined";
+           - все *_value/*_details/*_display = соответствующий fallback;
+           - не выполняй остальные шаги.
+
         1.  spouse_1_name_status — defined / partial / not_defined.
         2.  spouse_1_name_value — ФИО и паспорт первого супруга; при partial —
             опиши, что есть и что отсутствует.
@@ -787,12 +813,18 @@ checks_v8:
         16. registry_number_value — номер в реестре нотариальных действий.
         17. effective_date_status — defined / not_defined.
         18. effective_date_details — момент вступления договора в силу.
+        19. evidence — массив прямых цитат из договора.
+
         Если данные полностью отсутствуют в тексте:
         - статус = "not_defined";
         - текстовое поле = "Данные не определены";
         - notarial_form_display = "Не указано".
         </task>
-        <rules>
+
+        <context_rules>
+        - Перед остальными полями заполни parties_notarial_effective_date_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_value/*_details/*_display = соответствующий fallback.
         - Используй только текст договора.
         - marital_status:
             "before_marriage" — если прямо указано, что стороны вступают в брак
@@ -830,11 +862,71 @@ checks_v8:
             "not_defined" — вопрос не раскрыт.
         - Значение каждого enum-поля — строго из списка allowed_values.
         - Верни только один JSON-объект.
-        </rules>
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни идентификации сторон, ни нотариального удостоверения,
+           ни момента вступления в силу.
+           → presence = "missing";
+             все *_status = "not_defined";
+             все *_value/*_details/*_display = соответствующий fallback.
+
+        2. Только упоминание без реквизитов.
+           Стороны названы по ФИО, но без паспортных данных; нотариус упомянут,
+           но без ФИО и номера в реестре.
+           → presence = "present";
+             соответствующие *_status = "partial" или "not_defined";
+             *_value содержит описание пробелов.
+
+        3. Противоречие между фрагментами.
+           В разных частях договора указаны разные ФИО сторон или разные моменты
+           вступления в силу.
+           → presence = "unclear";
+             соответствующий *_status = "not_defined";
+             *_value = "Не удалось определить".
+
+        4. Иностранный элемент без полного раскрытия.
+           Упомянуто гражданство одного из супругов, но без указания страны
+           или без подтверждения дееспособности.
+           → presence = "present";
+             foreign_element_status = "foreign_element_present";
+             foreign_element_details содержит описание пробелов.
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для parties_notarial_effective_date_check_presence используй только: "present", "missing", "unclear".
+        - Для spouse_*_name_status используй только: "defined", "partial", "not_defined".
+        - Для foreign_element_status используй только: "no_foreign_element", "foreign_element_present", "not_defined".
+        - Для legal_capacity_status используй только: "confirmed", "limitations_mentioned", "not_defined".
+        - Для marital_status используй только: "before_marriage", "during_marriage", "not_defined".
+        - Для marriage_registration_status используй только: "defined_with_details", "defined_no_details", "not_applicable", "not_defined".
+        - Для notarial_status используй только: "certified", "mentioned", "not_defined".
+        - Для notarial_form_display используй только: "Удостоверено нотариально", "Указано, но без подтверждения удостоверения", "Не указано".
+        - Для notary_name_status, registry_number_status, effective_date_status используй только: "defined", "not_defined".
+        - Fallback при отсутствии данных:
+          * *_value/*_details → "Данные не определены";
+          * notarial_form_display → "Не указано".
+        - Fallback при противоречии или неоднозначности:
+          * все *_value/*_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
       fields:
+        - name: "parties_notarial_effective_date_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие идентификации сторон, нотариальной формы и момента вступления в силу. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "spouse_1_name_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
           description: "Статус идентификации первого супруга."
           required: true
@@ -849,6 +941,7 @@ checks_v8:
         - name: "spouse_2_name_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
           description: "Статус идентификации второго супруга."
           required: true
@@ -863,6 +956,7 @@ checks_v8:
         - name: "foreign_element_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["no_foreign_element", "foreign_element_present", "not_defined"]
           description: "Наличие иностранного элемента (гражданства) в составе сторон."
           required: true
@@ -876,18 +970,21 @@ checks_v8:
         - name: "legal_capacity_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["confirmed", "limitations_mentioned", "not_defined"]
           description: "Статус дееспособности сторон по тексту договора."
           required: true
         - name: "marital_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["before_marriage", "during_marriage", "not_defined"]
           description: "Статус отношений на момент заключения договора."
           required: true
         - name: "marriage_registration_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined_with_details", "defined_no_details", "not_applicable", "not_defined"]
           description: "Статус реквизитов свидетельства о браке."
           required: true
@@ -901,6 +998,7 @@ checks_v8:
         - name: "notarial_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["certified", "mentioned", "not_defined"]
           description: "Статус нотариального удостоверения договора."
           required: true
@@ -919,6 +1017,7 @@ checks_v8:
         - name: "notary_name_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания ФИО нотариуса."
           required: true
@@ -932,6 +1031,7 @@ checks_v8:
         - name: "registry_number_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус номера в реестре нотариальных действий."
           required: true
@@ -945,6 +1045,7 @@ checks_v8:
         - name: "effective_date_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус указания момента вступления договора в силу."
           required: true
@@ -956,6 +1057,7 @@ checks_v8:
           label: "Момент вступления в силу"
           description: "Момент вступления договора в силу (с момента регистрации брака / с момента нотариального удостоверения / иное)."
           required: true
+      store_payload: true
 
   - id: property_regime_check
     name: "Режим собственности: добрачное имущество, брачное имущество, наследство, перечень объектов"
@@ -1284,7 +1386,13 @@ checks_v8:
       mode: "hybrid"
       compact_output: false
       llm_max_tokens: 2000
-      store_payload: true
+
+      presence_signal:
+        field: "property_regime_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист по семейному праву. Извлеки из брачного договора
@@ -1294,11 +1402,31 @@ checks_v8:
         Не анализируй раздел имущества при расторжении, компенсации, алименты,
         ответственность по обязательствам, банкротство — это темы других проверок.
         </role>
+
         <context>
         {context}
         </context>
+
         <task>
-        Заполни строго следующие 18 полей + evidence (всего 19 ключей):
+        Заполни строго следующие 19 полей + evidence (всего 20 ключей):
+
+        0. property_regime_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (premarital_regime_status, marital_regime_status,
+              inherited_gifted_regime_status, temporal_scope_status)
+             ≠ "not_defined";
+           - "missing" — если все четыре содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - все *_status = "not_defined";
+           - все *_code = "not_defined";
+           - все *_details = "Данные не определены";
+           - regime_summary_display = "Режим не определён";
+           - не выполняй остальные шаги.
+
         1.  premarital_regime_status — defined / partial / not_defined.
         2.  premarital_regime_code — remains_personal / transferred_to_joint /
             transferred_to_shared / mixed / not_defined.
@@ -1323,13 +1451,18 @@ checks_v8:
         18. regime_summary_display — компактное человекочитаемое описание всех
             режимов в одну строку (для отображения в DD Grid).
         19. evidence — массив прямых цитат из договора.
+
         Если данные полностью отсутствуют в тексте:
         - статус = "not_defined";
         - код = "not_defined";
         - текстовое поле = "Данные не определены";
         - regime_summary_display = "Режим не определён".
         </task>
-        <rules>
+
+        <context_rules>
+        - Перед остальными полями заполни property_regime_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_code = "not_defined", все *_details = "Данные не определены", regime_summary_display = "Режим не определён".
         - Используй только текст договора.
         - premarital_regime_code (правовые состояния добрачного имущества):
             "remains_personal" — договор подтверждает, что добрачное остаётся
@@ -1374,17 +1507,78 @@ checks_v8:
             Охват: имеющееся + будущее".
         - Значение каждого enum-поля — строго из списка allowed_values.
         - Верни только один JSON-объект.
-        </rules>
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни одного упоминания режимов собственности.
+           → presence = "missing";
+             все *_status = "not_defined";
+             все *_code = "not_defined";
+             все *_details = "Данные не определены";
+             regime_summary_display = "Режим не определён".
+
+        2. Частичное раскрытие.
+           Упомянут режим, но без конкретизации объектов или без указания
+           временного охвата.
+           → presence = "present";
+             соответствующие *_status = "partial" или "defined";
+             *_details содержит описание пробелов.
+
+        3. Противоречие между фрагментами.
+           В разных частях договора указаны разные режимы для одной категории
+           имущества (например, в одном месте "раздельная", в другом "совместная").
+           → presence = "unclear";
+             соответствующий *_status = "not_defined";
+             *_details = "Не удалось определить".
+
+        4. Попытка сделать наследство/дар совместным.
+           Договор объявляет имущество, полученное в дар или по наследству,
+           совместной собственностью супругов.
+           → presence = "present";
+             inherited_gifted_regime_code = "made_joint";
+             inherited_gifted_regime_details содержит указание на потенциальный
+             риск ст. 36 СК РФ.
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для property_regime_check_presence используй только: "present", "missing", "unclear".
+        - Для *_regime_status используй только: "defined", "partial", "not_defined".
+        - Для premarital_regime_code используй только: "remains_personal", "transferred_to_joint", "transferred_to_shared", "mixed", "not_defined".
+        - Для marital_regime_code используй только: "joint", "separate", "shared", "mixed", "not_defined".
+        - Для inherited_gifted_regime_code используй только: "remains_personal", "made_joint", "case_by_case", "not_addressed", "not_defined".
+        - Для temporal_scope_code используй только: "existing_only", "future_only", "both", "not_defined".
+        - Fallback при отсутствии данных:
+          * *_details → "Данные не определены";
+          * regime_summary_display → "Режим не определён";
+          * inventory_appendix_reference → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
       fields:
+        - name: "property_regime_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования режима собственности. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "premarital_regime_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
           description: "Статус определения режима добрачного имущества."
           required: true
         - name: "premarital_regime_code"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["remains_personal", "transferred_to_joint", "transferred_to_shared", "mixed", "not_defined"]
           description: "Правовое состояние добрачного имущества по договору."
           required: true
@@ -1399,12 +1593,14 @@ checks_v8:
         - name: "marital_regime_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
           description: "Статус определения режима имущества, нажитого в браке."
           required: true
         - name: "marital_regime_code"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["joint", "separate", "shared", "mixed", "not_defined"]
           description: "Режим имущества, нажитого в браке."
           required: true
@@ -1419,12 +1615,14 @@ checks_v8:
         - name: "inherited_gifted_regime_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
           description: "Статус режима наследственного и подаренного имущества."
           required: true
         - name: "inherited_gifted_regime_code"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["remains_personal", "made_joint", "case_by_case", "not_addressed", "not_defined"]
           description: "Режим наследства и дара (ст. 36 СК РФ). made_joint — потенциальный риск ничтожности."
           required: true
@@ -1439,12 +1637,14 @@ checks_v8:
         - name: "temporal_scope_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "partial", "not_defined"]
           description: "Статус определения временного охвата договора."
           required: true
         - name: "temporal_scope_code"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["existing_only", "future_only", "both", "not_defined"]
           description: "Временной охват режима (ст. 42 п.2 СК РФ)."
           required: true
@@ -1458,6 +1658,7 @@ checks_v8:
         - name: "special_regimes_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "partial", "not_defined"]
           description: "Статус наличия специальных режимов для отдельных категорий имущества."
           required: true
@@ -1471,6 +1672,7 @@ checks_v8:
         - name: "assets_inventory_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "partial", "not_defined"]
           description: "Статус наличия перечня объектов имущества с идентификацией."
           required: true
@@ -1497,6 +1699,7 @@ checks_v8:
           label: "Сводка режимов"
           description: "Компактное описание всех режимов собственности для быстрого сканирования в DD Grid."
           required: true
+      store_payload: true
 
   - id: unfavorable_position_compensation_check
     name: "Баланс прав, жилищные права и компенсационные механизмы (ст. 42, 44 СК РФ)"
@@ -1809,9 +2012,16 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1800
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "unfavorable_position_compensation_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист по семейному праву. Извлеки из брачного договора
@@ -1823,11 +2033,36 @@ checks_v8:
         Не анализируй режим собственности как таковой, алименты на детей
         или банкротство — это темы других проверок.
         </role>
+
         <context>
         {context}
         </context>
+
         <task>
-        Заполни строго следующие 15 полей + evidence (всего 16 ключей):
+        Заполни строго следующие 16 полей + evidence (всего 17 ключей):
+
+        0. unfavorable_position_compensation_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (full_refusal_detected, unfavorable_position_clause_status,
+              proportionality_status, housing_rights_status,
+              compensation_type_code, homemaker_compensation_status)
+             ≠ "not_defined";
+           - "missing" — если все шесть содержательных полей = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - full_refusal_detected = "not_defined";
+           - unfavorable_position_clause_status = "not_defined";
+           - proportionality_status = "not_defined";
+           - housing_rights_status = "not_defined";
+           - compensation_type_code = "not_defined";
+           - homemaker_compensation_status = "not_defined";
+           - все *_details/*_display = соответствующий fallback;
+           - balance_summary_display = "Баланс прав не определён";
+           - не выполняй остальные шаги.
+
         1.  full_refusal_detected — full / substantial / partial_category /
             none / not_defined.
         2.  full_refusal_details — описание отказа от имущества.
@@ -1850,13 +2085,19 @@ checks_v8:
             хозяйства и уход за детьми.
         15. balance_summary_display — компактная человекочитаемая сводка
             баланса прав в одну строку.
+        16. evidence — массив прямых цитат из договора.
+
         Если данные полностью отсутствуют в тексте:
         - статус = "not_defined";
         - код = "not_defined";
         - текстовое поле = "Данные не определены";
         - balance_summary_display = "Баланс прав не определён".
         </task>
-        <rules>
+
+        <context_rules>
+        - Перед остальными полями заполни unfavorable_position_compensation_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status/*_code = "not_defined", все *_details = "Данные не определены", balance_summary_display = "Баланс прав не определён".
         - Используй только текст договора.
         - full_refusal_detected:
             "full" — один супруг полностью отказывается от ВСЕГО имущества
@@ -1901,11 +2142,72 @@ checks_v8:
             Отказ: нет / Соразмерность: да".
         - Значение каждого enum-поля — строго из списка allowed_values.
         - Верни только один JSON-объект.
-        </rules>
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни упоминаний о балансе прав, ни компенсаций,
+           ни жилищных гарантий.
+           → presence = "missing";
+             все *_status/*_code = "not_defined";
+             все *_details = "Данные не определены";
+             balance_summary_display = "Баланс прав не определён".
+
+        2. Только общие формулировки без конкретики.
+           Упомянут "баланс интересов" или "справедливое распределение",
+           но без конкретных сумм, сроков, адресов.
+           → presence = "present";
+             соответствующие *_status = "partial";
+             *_details содержит описание общих формулировок.
+
+        3. Противоречие между фрагментами.
+           В одном месте указано, что договор не ставит в неблагоприятное
+           положение, в другом — один супруг полностью отказывается от имущества
+           без компенсации.
+           → presence = "unclear";
+             proportionality_status = "not_defined";
+             proportionality_details = "Не удалось определить".
+
+        4. Прямое указание на крайне неблагоприятное положение.
+           Один супруг полностью отказывается от всего имущества без каких-либо
+           компенсационных механизмов.
+           → presence = "present";
+             full_refusal_detected = "full";
+             proportionality_status = "extreme_disparity";
+             compensation_type_code = "none";
+             balance_summary_display содержит маркер "КРАЙНЕ НЕБЛАГОПРИЯТНО".
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для unfavorable_position_compensation_check_presence используй только: "present", "missing", "unclear".
+        - Для full_refusal_detected используй только: "full", "substantial", "partial_category", "none", "not_defined".
+        - Для unfavorable_position_clause_status, housing_rights_status, homemaker_compensation_status используй только: "defined", "partial", "not_defined".
+        - Для proportionality_status используй только: "proportional", "disproportionate", "extreme_disparity", "not_defined".
+        - Для compensation_type_code используй только: "lump_sum", "periodic", "housing_right", "property_share", "combination", "none", "not_defined".
+        - Для compensation_trigger используй только: "on_divorce", "on_death", "during_marriage", "combined", "not_defined".
+        - Fallback при отсутствии данных:
+          * *_details → "Данные не определены";
+          * balance_summary_display → "Баланс прав не определён".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
       fields:
+        - name: "unfavorable_position_compensation_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования баланса прав и компенсационных механизмов. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "full_refusal_detected"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["full", "substantial", "partial_category", "none", "not_defined"]
           description: "Степень отказа одного из супругов от имущества (маркер риска ст. 44 п.2 СК РФ)."
           required: true
@@ -1919,6 +2221,7 @@ checks_v8:
         - name: "unfavorable_position_clause_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
           description: "Статус явного указания на недопустимость крайне неблагоприятного положения (ст. 42 п.3 СК РФ)."
           required: true
@@ -1933,6 +2236,7 @@ checks_v8:
         - name: "proportionality_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["proportional", "disproportionate", "extreme_disparity", "not_defined"]
           description: "Оценка соразмерности распределения имущества между супругами."
           required: true
@@ -1946,6 +2250,7 @@ checks_v8:
         - name: "housing_rights_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "partial", "not_defined"]
           description: "Статус гарантий жилищных прав более слабой стороны."
           required: true
@@ -1977,6 +2282,7 @@ checks_v8:
         - name: "compensation_trigger"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["on_divorce", "on_death", "during_marriage", "combined", "not_defined"]
           description: "Событие, при котором срабатывает компенсационный механизм."
           required: true
@@ -1990,6 +2296,7 @@ checks_v8:
         - name: "homemaker_compensation_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "partial", "not_defined"]
           description: "Статус компенсации за ведение домашнего хозяйства и уход за детьми (ст. 34 п.3 СК РФ)."
           required: true
@@ -2008,6 +2315,8 @@ checks_v8:
           label: "Баланс прав"
           description: "Компактная сводка баланса прав супругов для быстрого сканирования в DD Grid."
           required: true
+
+      store_payload: true
 
   - id: business_assets_check
     name: "Отделение бизнес-активов и корпоративных прав (ст. 34, 36, 42 СК РФ)"
@@ -2272,9 +2581,16 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1400
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "business_assets_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист по семейному и корпоративному праву. Извлеки из
@@ -2284,11 +2600,36 @@ checks_v8:
         Не анализируй общий режим собственности, алименты, жилищные права
         или банкротство — это темы других проверок.
         </role>
+
         <context>
         {context}
         </context>
+
         <task>
-        Заполни строго следующие 13 полей + evidence (всего 14 ключей):
+        Заполни строго следующие 14 полей + evidence (всего 15 ключей):
+
+        0. business_assets_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (business_assets_regime_code, business_income_regime_code,
+              ip_rights_regime_code, pre_existing_business_status,
+              specific_companies_status, voting_rights_status)
+             ≠ "not_defined";
+           - "missing" — если все шесть содержательных полей = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - business_assets_regime_code = "not_defined";
+           - business_income_regime_code = "not_defined";
+           - ip_rights_regime_code = "not_defined";
+           - pre_existing_business_status = "not_defined";
+           - specific_companies_status = "not_defined";
+           - voting_rights_status = "not_defined";
+           - все *_details = "Данные не определены";
+           - business_summary_display = "Бизнес-активы не урегулированы";
+           - не выполняй остальные шаги.
+
         1.  business_assets_regime_code — separate / joint / mixed / not_defined.
         2.  business_assets_regime_details — режим бизнес-активов (доли, акции).
         3.  business_income_regime_code — separate / joint / mixed / not_defined.
@@ -2304,12 +2645,18 @@ checks_v8:
         11. voting_rights_status — protected / shared / not_defined.
         12. divorce_scenario_details — сценарий при расторжении брака.
         13. business_summary_display — компактная сводка для DD Grid.
+        14. evidence — массив прямых цитат из договора.
+
         Если данные полностью отсутствуют в тексте:
         - код/статус = "not_defined";
         - текстовое поле = "Данные не определены";
         - business_summary_display = "Бизнес-активы не урегулированы".
         </task>
-        <rules>
+
+        <context_rules>
+        - Перед остальными полями заполни business_assets_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_code/*_status = "not_defined", все *_details = "Данные не определены", business_summary_display = "Бизнес-активы не урегулированы".
         - Используй только текст договора.
         - business_assets_regime_code:
             "separate" — бизнес-активы (доли, акции) — раздельная/личная
@@ -2347,11 +2694,69 @@ checks_v8:
             Компании: <число или 'не указаны'> / При разводе: <сценарий>".
         - Значение каждого enum-поля — строго из списка allowed_values.
         - Верни только один JSON-объект.
-        </rules>
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни упоминаний бизнес-активов, ни доходов от
+           предпринимательской деятельности, ни интеллектуальной собственности.
+           → presence = "missing";
+             все *_code/*_status = "not_defined";
+             все *_details = "Данные не определены";
+             business_summary_display = "Бизнес-активы не урегулированы".
+
+        2. Частичное раскрытие.
+           Упомянуты бизнес-активы, но без конкретики о доходах, IP или
+           сценарии при расторжении.
+           → presence = "present";
+             соответствующие *_status = "partial" или "defined";
+             *_details содержит описание пробелов.
+
+        3. Противоречие между фрагментами.
+           В одном месте указано, что доли — раздельная собственность,
+           в другом — что доходы от бизнеса — совместная собственность
+           без разграничения.
+           → presence = "unclear";
+             соответствующий *_code = "not_defined";
+             *_details = "Не удалось определить".
+
+        4. Защита корпоративных прав без компенсации.
+           Право голоса закреплено за одним супругом, но сценарий компенсации
+           при расторжении брака не указан.
+           → presence = "present";
+             voting_rights_status = "protected";
+             divorce_scenario_details = "Не урегулировано".
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для business_assets_check_presence используй только: "present", "missing", "unclear".
+        - Для business_assets_regime_code, business_income_regime_code используй только: "separate", "joint", "mixed", "not_defined".
+        - Для ip_rights_regime_code используй только: "personal_and_separate", "separate_exclusive_only", "joint", "mixed", "not_defined".
+        - Для pre_existing_business_status, specific_companies_status используй только: "defined", "partial", "not_defined".
+        - Для voting_rights_status используй только: "protected", "shared", "not_defined".
+        - Fallback при отсутствии данных:
+          * *_details → "Данные не определены";
+          * business_summary_display → "Бизнес-активы не урегулированы".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
       fields:
+        - name: "business_assets_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования бизнес-активов и корпоративных прав. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "business_assets_regime_code"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["separate", "joint", "mixed", "not_defined"]
           description: "Режим бизнес-активов (доли в ООО, акции, предприятия)."
           required: true
@@ -2366,6 +2771,7 @@ checks_v8:
         - name: "business_income_regime_code"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["separate", "joint", "mixed", "not_defined"]
           description: "Режим доходов от предпринимательской деятельности (ст. 34 п.2 СК РФ)."
           required: true
@@ -2380,6 +2786,7 @@ checks_v8:
         - name: "ip_rights_regime_code"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["personal_and_separate", "separate_exclusive_only", "joint", "mixed", "not_defined"]
           description: "Режим интеллектуальной собственности с учётом двойственной природы (ст. 1228 ГК РФ)."
           required: true
@@ -2394,6 +2801,7 @@ checks_v8:
         - name: "pre_existing_business_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "partial", "not_defined"]
           description: "Статус разграничения бизнеса, созданного до брака и в браке (ст. 36 vs 34 СК РФ)."
           required: true
@@ -2407,6 +2815,7 @@ checks_v8:
         - name: "specific_companies_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "partial", "not_defined"]
           description: "Статус перечня конкретных компаний/бизнесов с идентификацией."
           required: true
@@ -2421,6 +2830,7 @@ checks_v8:
         - name: "voting_rights_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["protected", "shared", "not_defined"]
           description: "Статус защиты корпоративных прав управления (право голоса) от раздела."
           required: true
@@ -2439,6 +2849,8 @@ checks_v8:
           label: "Сводка по бизнесу"
           description: "Компактная сводка режима бизнес-активов для быстрого сканирования в DD Grid."
           required: true
+
+      store_payload: true
 
   - id: alimony_maintenance_check
     name: "Алиментные права нетрудоспособного супруга и взаимное содержание (ст. 42, 89–92 СК РФ)"
@@ -2683,9 +3095,16 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1500
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "alimony_maintenance_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист по семейному праву. Извлеки из брачного договора
@@ -2694,11 +3113,34 @@ checks_v8:
         Не анализируй режим собственности, раздел имущества, жилищные права
         или банкротство — это темы других проверок.
         </role>
+
         <context>
         {context}
         </context>
+
         <task>
-        Заполни строго следующие 9 полей + evidence (всего 10 ключей):
+        Заполни строго следующие 10 полей + evidence (всего 11 ключей):
+
+        0. alimony_maintenance_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (alimony_clause_status, restriction_detected, waiver_risk_status,
+              alimony_amount_status, mutual_maintenance_status)
+             ≠ "not_defined";
+           - "missing" — если все пять содержательных полей = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - alimony_clause_status = "not_defined";
+           - restriction_detected = "not_defined";
+           - waiver_risk_status = "not_defined";
+           - alimony_amount_status = "not_defined";
+           - mutual_maintenance_status = "not_defined";
+           - все *_details = "Данные не определены";
+           - alimony_summary_display = "Алиментные обязательства не урегулированы";
+           - не выполняй остальные шаги.
+
         1.  alimony_clause_status — enhanced / preserved / restricted / not_defined.
         2.  restriction_detected — none / waiver_detected / partial_restriction / not_defined.
         3.  waiver_risk_status — void_clause_risk / low_risk / not_defined.
@@ -2710,12 +3152,18 @@ checks_v8:
         8.  mutual_maintenance_details — подробное описание порядка взаимного содержания.
         9.  alimony_summary_display — компактная человекочитаемая сводка алиментных
             обязательств для DD Grid.
+        10. evidence — массив прямых цитат из договора.
+
         Если данные полностью отсутствуют в тексте:
         - статус/код = "not_defined";
         - текстовое поле = "Данные не определены";
         - alimony_summary_display = "Алиментные обязательства не урегулированы".
         </task>
-        <rules>
+
+        <context_rules>
+        - Перед остальными полями заполни alimony_maintenance_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status/*_code = "not_defined", все *_details = "Данные не определены", alimony_summary_display = "Алиментные обязательства не урегулированы".
         - Используй только текст договора.
         - alimony_clause_status:
             "enhanced" — договор устанавливает алименты шире/выше закона
@@ -2740,23 +3188,84 @@ checks_v8:
             Риск ст. 42 п.3: <есть риск / нет / не определён> / Размер: <размер или 'нет'>".
         - Значение каждого enum-поля — строго из списка allowed_values.
         - Верни только один JSON-объект.
-        </rules>
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни упоминаний алиментов, ни взаимного содержания,
+           ни ограничений прав на содержание.
+           → presence = "missing";
+             все *_status/*_code = "not_defined";
+             все *_details = "Данные не определены";
+             alimony_summary_display = "Алиментные обязательства не урегулированы".
+
+        2. Расширение прав (enhanced).
+           Договор устанавливает алименты шире закона (например, выплата
+           здоровому супругу при расторжении брака).
+           → presence = "present";
+             alimony_clause_status = "enhanced";
+             waiver_risk_status = "low_risk".
+
+        3. Противоречие между фрагментами.
+           В одном месте указано, что супруги обязуются содержать друг друга,
+           в другом — полный отказ от алиментов.
+           → presence = "unclear";
+             alimony_clause_status = "not_defined";
+             waiver_risk_details = "Не удалось определить".
+
+        4. Незаконный отказ от алиментов нетрудоспособного.
+           Договор содержит полный отказ от права требовать содержание
+           в случае нетрудоспособности и нуждаемости.
+           → presence = "present";
+             restriction_detected = "waiver_detected";
+             waiver_risk_status = "void_clause_risk";
+             alimony_summary_display содержит маркер "Внимание: незаконный отказ".
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для alimony_maintenance_check_presence используй только: "present", "missing", "unclear".
+        - Для alimony_clause_status используй только: "enhanced", "preserved", "restricted", "not_defined".
+        - Для restriction_detected используй только: "none", "waiver_detected", "partial_restriction", "not_defined".
+        - Для waiver_risk_status используй только: "void_clause_risk", "low_risk", "not_defined".
+        - Для alimony_amount_status, mutual_maintenance_status используй только: "defined", "partial", "not_defined".
+        - Для mutual_maintenance_status дополнительно используй: "restricted".
+        - Fallback при отсутствии данных:
+          * *_details → "Данные не определены";
+          * alimony_summary_display → "Алиментные обязательства не урегулированы".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
       fields:
+        - name: "alimony_maintenance_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования алиментных прав и взаимного содержания. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "alimony_clause_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["enhanced", "preserved", "restricted", "not_defined"]
           description: "Статус алиментных условий супругов по договору."
           required: true
         - name: "restriction_detected"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["none", "waiver_detected", "partial_restriction", "not_defined"]
           description: "Наличие и характер ограничений алиментных прав супругов."
           required: true
         - name: "waiver_risk_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["void_clause_risk", "low_risk", "not_defined"]
           description: "Юридический риск ничтожности условий договора об отказе от содержания (ст. 42 п.3 СК РФ)."
           required: true
@@ -2770,6 +3279,7 @@ checks_v8:
         - name: "alimony_amount_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "partial", "not_defined"]
           description: "Статус указания размера алиментных выплат."
           required: true
@@ -2784,6 +3294,7 @@ checks_v8:
         - name: "mutual_maintenance_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "partial", "restricted", "not_defined"]
           description: "Статус условий о взаимном содержании супругов."
           required: true
@@ -2803,6 +3314,8 @@ checks_v8:
           label: "Алименты и содержание"
           description: "Компактная сводка алиментных обязательств супругов для отображения в DD Grid."
           required: true
+
+      store_payload: true
 
   - id: debt_mortgage_allocation_check
     name: "Распределение долговых и ипотечных обязательств (ст. 42, 45 СК РФ)"
@@ -3040,9 +3553,16 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1500
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "debt_mortgage_allocation_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист по семейному и банковскому праву. Извлеки из брачного договора
@@ -3050,11 +3570,35 @@ checks_v8:
         согласии банков-кредиторов и порядке действий при расторжении брака.
         Не анализируй общий режим собственности, алименты или банкротство — это темы других проверок.
         </role>
+
         <context>
         {context}
         </context>
+
         <task>
-        Заполни строго следующие 12 полей + evidence (всего 13 ключей):
+        Заполни строго следующие 13 полей + evidence (всего 14 ключей):
+
+        0. debt_mortgage_allocation_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (debt_allocation_status, mortgage_status, bank_consent_clause_status,
+              co_borrower_status, divorce_debt_procedure_status)
+             ≠ "not_defined";
+           - "missing" — если все пять содержательных полей = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - debt_allocation_status = "not_defined";
+           - debt_allocation_regime_code = "not_defined";
+           - mortgage_status = "not_defined";
+           - bank_consent_clause_status = "not_defined";
+           - co_borrower_status = "not_defined";
+           - divorce_debt_procedure_status = "not_defined";
+           - все *_details = "Данные не определены";
+           - debt_summary_display = "Долговые и ипотечные обязательства не урегулированы";
+           - не выполняй остальные шаги.
+
         1.  debt_allocation_status — defined / partial / not_defined.
         2.  debt_allocation_regime_code — separate_debts_only / joint_debts_exist / mixed / not_defined.
         3.  debt_allocation_details — распределение личных и общих долгов супругов.
@@ -3067,12 +3611,18 @@ checks_v8:
         10. divorce_debt_procedure_status — defined / partial / not_defined.
         11. divorce_debt_procedure_details — порядок переоформления/погашения долгов при расторжении брака.
         12. debt_summary_display — компактная человекочитаемая сводка по долгам и ипотеке для DD Grid.
+        13. evidence — массив прямых цитат из договора.
+
         Если данные полностью отсутствуют в тексте:
         - статус/код = "not_defined";
         - текстовое поле = "Данные не определены";
         - debt_summary_display = "Долговые и ипотечные обязательства не урегулированы".
         </task>
-        <rules>
+
+        <context_rules>
+        - Перед остальными полями заполни debt_mortgage_allocation_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status/*_code = "not_defined", все *_details = "Данные не определены", debt_summary_display = "Долговые и ипотечные обязательства не урегулированы".
         - Используй только текст договора.
         - debt_allocation_regime_code:
             "separate_debts_only" — каждый супруг отвечает только по своим личным долгам (долги раздельны);
@@ -3092,17 +3642,76 @@ checks_v8:
             Созаёмщик: <статус> / Согласие банка: <предусмотрено/нет>".
         - Значение каждого enum-поля — строго из списка allowed_values.
         - Верни только один JSON-объект.
-        </rules>
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни упоминаний долгов, ни ипотечных обязательств,
+           ни статуса созаёмщика.
+           → presence = "missing";
+             все *_status/*_code = "not_defined";
+             все *_details = "Данные не определены";
+             debt_summary_display = "Долговые и ипотечные обязательства не урегулированы".
+
+        2. Частичное раскрытие.
+           Упомянуты долги, но без конкретики об ипотеке или согласии банка.
+           → presence = "present";
+             соответствующие *_status = "partial" или "defined";
+             *_details содержит описание пробелов.
+
+        3. Противоречие между фрагментами.
+           В одном месте указано, что долги раздельные, в другом — что ипотека
+           погашается совместно.
+           → presence = "unclear";
+             debt_allocation_regime_code = "not_defined";
+             debt_allocation_details = "Не удалось определить".
+
+        4. Ипотека без согласия банка.
+           Договор предусматривает переоформление ипотеки при разводе,
+           но не упоминает необходимость согласия банка-кредитора.
+           → presence = "present";
+             mortgage_status = "defined";
+             bank_consent_clause_status = "not_defined";
+             debt_summary_display содержит "Согласие банка: не упомянуто".
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для debt_mortgage_allocation_check_presence используй только: "present", "missing", "unclear".
+        - Для debt_allocation_status, mortgage_status, divorce_debt_procedure_status используй только: "defined", "partial", "not_defined".
+        - Для mortgage_status дополнительно используй: "not_mentioned".
+        - Для debt_allocation_regime_code используй только: "separate_debts_only", "joint_debts_exist", "mixed", "not_defined".
+        - Для bank_consent_clause_status используй только: "defined", "not_defined".
+        - Для co_borrower_status используй только: "defined", "not_applicable", "not_defined".
+        - Fallback при отсутствии данных:
+          * *_details → "Данные не определены";
+          * debt_summary_display → "Долговые и ипотечные обязательства не урегулированы".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
       fields:
+        - name: "debt_mortgage_allocation_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования долговых и ипотечных обязательств. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "debt_allocation_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
           description: "Статус урегулированности распределения долгов супругов."
           required: true
         - name: "debt_allocation_regime_code"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["separate_debts_only", "joint_debts_exist", "mixed", "not_defined"]
           description: "Режим ответственности супругов по долгам и кредитам."
           required: true
@@ -3117,6 +3726,7 @@ checks_v8:
         - name: "mortgage_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "partial", "not_mentioned", "not_defined"]
           description: "Статус урегулирования ипотечных обязательств по договору."
           required: true
@@ -3131,6 +3741,7 @@ checks_v8:
         - name: "bank_consent_clause_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия условия о получении согласия банка на изменение кредита (ст. 391 ГК РФ)."
           required: true
@@ -3144,6 +3755,7 @@ checks_v8:
         - name: "co_borrower_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_applicable", "not_defined"]
           description: "Статус определения роли супруга как созаёмщика или поручителя."
           required: true
@@ -3157,6 +3769,7 @@ checks_v8:
         - name: "divorce_debt_procedure_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "partial", "not_defined"]
           description: "Статус порядка урегулирования долгов при расторжении брака."
           required: true
@@ -3176,6 +3789,8 @@ checks_v8:
           label: "Долги и ипотека"
           description: "Компактная сводка долговых и ипотечных условий для отображения в DD Grid."
           required: true
+
+      store_payload: true
 
   - id: creditor_notification_protection_check
     name: "Уведомление кредиторов (ст. 46 СК РФ) и защита от кредиторов супруга"
@@ -3236,7 +3851,7 @@ checks_v8:
           супруг отвечает по своим обязательствам независимо от содержания брачного договора
           (кредитор вправе требовать выдела доли в общем имуществе по правилам законного режима).
         - Ст. 46 п.2 СК РФ: кредитор супруга-должника вправе требовать изменения условий
-          или расторжения кредитного договора в связи с существенным изменением обстоятельств.
+          или расторжения кредитного договора в связи с существенным изменнением обстоятельств.
         - Ст. 45 СК РФ: по обязательствам одного из супругов взыскание обращается только на его имущество.
         Важно:
         - Твоя задача — только установить, что прямо зафиксировано в тексте договора.
@@ -3427,9 +4042,16 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1500
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "creditor_notification_protection_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист по семейному праву. Извлеки из брачного договора
@@ -3437,11 +4059,33 @@ checks_v8:
         последствиях неуведомления и положениях о защите имущества супругов от взыскания по долгам.
         Не анализируй режим собственности, алименты или жилищные права — это темы других проверок.
         </role>
+
         <context>
         {context}
         </context>
+
         <task>
-        Заполни строго следующие 10 полей + evidence (всего 11 ключей):
+        Заполни строго следующие 11 полей + evidence (всего 12 ключей):
+
+        0. creditor_notification_protection_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (creditor_notification_status, notification_obligor_status,
+              non_notification_consequences_status, protection_from_creditors_status)
+             ≠ "not_defined";
+           - "missing" — если все четыре содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - creditor_notification_status = "not_defined";
+           - notification_obligor_status = "not_defined";
+           - non_notification_consequences_status = "not_defined";
+           - protection_from_creditors_status = "not_defined";
+           - все *_details = "Данные не определены";
+           - creditor_summary_display = "Уведомление кредиторов и защита от долгов не урегулированы";
+           - не выполняй остальные шаги.
+
         1.  creditor_notification_status — defined / partial / not_defined.
         2.  creditor_notification_details — содержание положения об уведомлении кредиторов.
         3.  notification_timeline_details — срок и порядок направления уведомления кредиторам.
@@ -3452,12 +4096,18 @@ checks_v8:
         8.  protection_from_creditors_status — defined / partial / not_defined.
         9.  protection_from_creditors_details — механизмы защиты имущества от ответственности по долгам другого супруга.
         10. creditor_summary_display — компактная человекочитаемая сводка для DD Grid.
+        11. evidence — массив прямых цитат из договора.
+
         Если данные полностью отсутствуют в тексте:
         - статус/код = "not_defined";
         - текстовое поле = "Данные не определены";
         - creditor_summary_display = "Уведомление кредиторов и защита от долгов не урегулированы".
         </task>
-        <rules>
+
+        <context_rules>
+        - Перед остальными полями заполни creditor_notification_protection_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status/*_code = "not_defined", все *_details = "Данные не определены", creditor_summary_display = "Уведомление кредиторов и защита от долгов не урегулированы".
         - Используй только текст договора.
         - notification_obligor_status:
             "both_spouses" — обязанность возложена на обоих супругов (каждый уведомляет своих кредиторов);
@@ -3473,11 +4123,69 @@ checks_v8:
             Защита имущества: <предусмотрена / нет>".
         - Значение каждого enum-поля — строго из списка allowed_values.
         - Верни только один JSON-объект.
-        </rules>
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни упоминаний уведомления кредиторов, ни положений
+           о защите имущества от долгов другого супруга.
+           → presence = "missing";
+             все *_status/*_code = "not_defined";
+             все *_details = "Данные не определены";
+             creditor_summary_display = "Уведомление кредиторов и защита от долгов не урегулированы".
+
+        2. Частичное раскрытие.
+           Упомянута защита от долгов другого супруга, но не установлен
+           порядок уведомления кредиторов.
+           → presence = "present";
+             protection_from_creditors_status = "defined";
+             creditor_notification_status = "not_defined" или "partial";
+             creditor_summary_display содержит "срок не указан".
+
+        3. Противоречие между фрагментами.
+           В одном месте указано, что супруги уведомляют кредиторов,
+           в другом — что кредиторы отсутствуют и уведомление не требуется.
+           → presence = "unclear";
+             creditor_notification_status = "not_defined";
+             creditor_notification_details = "Не удалось определить".
+
+        4. Ссылка на закон без конкретизации процедуры.
+           Договор содержит общую формулировку "Стороны обязаны уведомлять
+           кредиторов в соответствии с законом", но без указания сроков
+           и порядка уведомления.
+           → presence = "present";
+             creditor_notification_status = "partial";
+             notification_timeline_details = "Данные не определены".
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для creditor_notification_protection_check_presence используй только: "present", "missing", "unclear".
+        - Для creditor_notification_status, protection_from_creditors_status используй только: "defined", "partial", "not_defined".
+        - Для notification_obligor_status используй только: "both_spouses", "debtor_spouse", "not_defined".
+        - Для non_notification_consequences_status используй только: "statutory_liability", "custom_terms", "not_defined".
+        - Fallback при отсутствии данных:
+          * *_details → "Данные не определены";
+          * creditor_summary_display → "Уведомление кредиторов и защита от долгов не урегулированы".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
       fields:
+        - name: "creditor_notification_protection_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования уведомления кредиторов и защиты от долгов. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "creditor_notification_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
           description: "Статус наличия положения об уведомлении кредиторов (ст. 46 СК РФ)."
           required: true
@@ -3499,6 +4207,7 @@ checks_v8:
         - name: "notification_obligor_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["both_spouses", "debtor_spouse", "not_defined"]
           description: "Субъект, на которого возложена обязанность уведомления кредиторов."
           required: true
@@ -3512,6 +4221,7 @@ checks_v8:
         - name: "non_notification_consequences_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["statutory_liability", "custom_terms", "not_defined"]
           description: "Статус оговорки о правовых последствиях неуведомления кредиторов."
           required: true
@@ -3525,6 +4235,7 @@ checks_v8:
         - name: "protection_from_creditors_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
           description: "Статус механизмов защиты личного имущества супруга от кредиторов другого супруга."
           required: true
@@ -3544,6 +4255,8 @@ checks_v8:
           label: "Уведомление и кредиторы"
           description: "Компактная сводка правил уведомления кредиторов и защиты активов для отображения в DD Grid."
           required: true
+
+      store_payload: true
 
   - id: bankruptcy_challenge_risk_check
     name: "Риск оспаривания брачного договора в банкротстве (ФЗ-127, ст. 61.2)"
@@ -3803,9 +4516,16 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1500
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "bankruptcy_challenge_risk_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист по семейному праву и банкротству физических лиц. Извлеки из брачного договора
@@ -3813,11 +4533,34 @@ checks_v8:
         (безвозмездный вывод активов, концентрация имущества без компенсации, оставление долгов на одном супруге).
         Не анализируй алименты на детей или процессуальные вопросы расторжения брака.
         </role>
+
         <context>
         {context}
         </context>
+
         <task>
-        Заполни строго следующие 10 полей + evidence (всего 11 ключей):
+        Заполни строго следующие 11 полей + evidence (всего 12 ключей):
+
+        0. bankruptcy_challenge_risk_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (asset_shift_status, gratuitous_transfer_status,
+              debt_asset_mismatch_status, bankruptcy_clauses_status,
+              bankruptcy_risk_level) ≠ "not_defined";
+           - "missing" — если все пять содержательных полей = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - asset_shift_status = "not_defined";
+           - gratuitous_transfer_status = "not_defined";
+           - debt_asset_mismatch_status = "not_defined";
+           - bankruptcy_clauses_status = "not_defined";
+           - bankruptcy_risk_level = "not_defined";
+           - все *_details = "Данные не определены";
+           - bankruptcy_summary_display = "Признаки банкротных рисков не урегулированы";
+           - не выполняй остальные шаги.
+
         1.  asset_shift_status — extreme_shift / partial_shift / balanced / not_defined.
         2.  asset_shift_details — фактографическое описание концентрации активов на одном супруге.
         3.  gratuitous_transfer_status — gratuitous_detected / with_compensation / not_defined.
@@ -3828,12 +4571,18 @@ checks_v8:
         8.  bankruptcy_clauses_details — прямые оговорки о банкротстве или конкурсной массе.
         9.  bankruptcy_risk_level — high_risk / moderate_risk / low_risk / not_defined.
         10. bankruptcy_summary_display — компактная человекочитаемая сводка банкротных рисков для DD Grid.
+        11. evidence — массив прямых цитат из договора.
+
         Если данные полностью отсутствуют в тексте:
         - статус/код = "not_defined";
         - текстовое поле = "Данные не определены";
         - bankruptcy_summary_display = "Признаки банкротных рисков не урегулированы".
         </task>
-        <rules>
+
+        <context_rules>
+        - Перед остальными полями заполни bankruptcy_challenge_risk_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status/*_code = "not_defined", все *_details = "Данные не определены", bankruptcy_summary_display = "Признаки банкротных рисков не урегулированы".
         - Используй только текст договора.
         - asset_shift_status:
             "extreme_shift" — подавляющее большинство или все ключевые активы (недвижимость, бизнес)
@@ -3858,11 +4607,73 @@ checks_v8:
             "<Уровень риска>: <краткое описание перекоса активов/долгов> / Компенсация: <есть/нет>".
         - Значение каждого enum-поля — строго из списка allowed_values.
         - Верни только один JSON-объект.
-        </rules>
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни упоминаний о распределении активов, ни оговорок
+           о компенсации, ни ссылок на банкротство.
+           → presence = "missing";
+             все *_status/*_code = "not_defined";
+             все *_details = "Данные не определены";
+             bankruptcy_summary_display = "Признаки банкротных рисков не урегулированы".
+
+        2. Сбалансированный договор (низкий риск).
+           Имущество раздельное по источнику оплаты, предусмотрена соразмерная
+           компенсация при отступлении от равенства.
+           → presence = "present";
+             asset_shift_status = "balanced";
+             gratuitous_transfer_status = "with_compensation";
+             bankruptcy_risk_level = "low_risk".
+
+        3. Противоречие между фрагментами.
+           В одном месте указано, что имущество переходит одному супругу,
+           в другом — что выплачивается соразмерная компенсация.
+           → presence = "unclear";
+             gratuitous_transfer_status = "not_defined";
+             gratuitous_transfer_details = "Не удалось определить".
+
+        4. Безвозмездная передача без компенсации (высокий риск).
+           Всё имущество переходит одному супругу, компенсация прямо исключена,
+           а долги возложены на другого супруга.
+           → presence = "present";
+             asset_shift_status = "extreme_shift";
+             gratuitous_transfer_status = "gratuitous_detected";
+             debt_asset_mismatch_status = "high_mismatch";
+             bankruptcy_risk_level = "high_risk";
+             bankruptcy_summary_display содержит маркер "ВЫСОКИЙ РИСК".
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для bankruptcy_challenge_risk_check_presence используй только: "present", "missing", "unclear".
+        - Для asset_shift_status используй только: "extreme_shift", "partial_shift", "balanced", "not_defined".
+        - Для gratuitous_transfer_status используй только: "gratuitous_detected", "with_compensation", "not_defined".
+        - Для debt_asset_mismatch_status используй только: "high_mismatch", "aligned", "not_defined".
+        - Для bankruptcy_clauses_status используй только: "explicit_clauses_present", "no_mention", "not_defined".
+        - Для bankruptcy_risk_level используй только: "high_risk", "moderate_risk", "low_risk", "not_defined".
+        - Fallback при отсутствии данных:
+          * *_details → "Данные не определены";
+          * bankruptcy_summary_display → "Признаки банкротных рисков не урегулированы".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
       fields:
+        - name: "bankruptcy_challenge_risk_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования рисков оспаривания в банкротстве. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "asset_shift_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["extreme_shift", "partial_shift", "balanced", "not_defined"]
           description: "Степень концентрации активов на одном из супругов."
           required: true
@@ -3877,6 +4688,7 @@ checks_v8:
         - name: "gratuitous_transfer_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["gratuitous_detected", "with_compensation", "not_defined"]
           description: "Наличие признаков безвозмездности и отсутствия встречного предоставления (п. 1 ст. 61.2 ФЗ-127)."
           required: true
@@ -3891,6 +4703,7 @@ checks_v8:
         - name: "debt_asset_mismatch_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["high_mismatch", "aligned", "not_defined"]
           description: "Признак вывода активов: перекос между получателем имущества и плательщиком долгов."
           required: true
@@ -3904,6 +4717,7 @@ checks_v8:
         - name: "bankruptcy_clauses_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["explicit_clauses_present", "no_mention", "not_defined"]
           description: "Наличие прямых положений о банкротстве, финансовом управляющем или защите от кредиторов."
           required: true
@@ -3917,6 +4731,7 @@ checks_v8:
         - name: "bankruptcy_risk_level"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["high_risk", "moderate_risk", "low_risk", "not_defined"]
           description: "Итоговый уровень риска признания брачного договора недействительным по ст. 61.2 ФЗ-127."
           required: true
@@ -3928,6 +4743,8 @@ checks_v8:
           label: "Риски банкротства (ФЗ-127)"
           description: "Компактная сводка риска оспаривания договора в банкротстве для отображения в DD Grid."
           required: true
+
+      store_payload: true
 
   - id: real_estate_division_check
     name: "Раздел недвижимости при расторжении брака (ст. 38, 42 СК РФ)"
@@ -4201,9 +5018,16 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1500
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "real_estate_division_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист по семейному праву и сделкам с недвижимостью. Извлеки из брачного договора
@@ -4211,11 +5035,33 @@ checks_v8:
         механизмах раздела, компенсационных выплатах, ипотечных обязательствах и сроках перерегистрации прав.
         Не анализируй алименты на детей или бизнес-активы (доли в ООО) — это темы других проверок.
         </role>
+
         <context>
         {context}
         </context>
+
         <task>
-        Заполни строго следующие 12 полей + evidence (всего 13 ключей):
+        Заполни строго следующие 13 полей + evidence (всего 14 ключей):
+
+        0. real_estate_division_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (real_estate_objects_status, division_mechanism_code,
+              compensation_amount_status, mortgage_encumbrance_status)
+             ≠ "not_defined";
+           - "missing" — если все четыре содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - real_estate_objects_status = "not_defined";
+           - division_mechanism_code = "not_defined";
+           - compensation_amount_status = "not_defined";
+           - mortgage_encumbrance_status = "not_defined";
+           - все *_details = "Данные не определены";
+           - real_estate_summary_display = "Раздел недвижимости при разводе не урегулирован";
+           - не выполняй остальные шаги.
+
         1.  real_estate_objects_status — defined / partial / not_defined.
         2.  real_estate_objects_details — перечень конкретных объектов недвижимости (адреса, кадастровые номера).
         3.  division_mechanism_code — to_specific_spouse / proportional_shares / sale_and_split / compensation_based / mixed / not_defined.
@@ -4228,12 +5074,18 @@ checks_v8:
         10. transfer_timeline_details — сроки фактической передачи объектов и государственной регистрации перехода права.
         11. state_registration_clause_status — defined / not_defined.
         12. real_estate_summary_display — компактная человекочитаемая сводка раздела недвижимости для DD Grid.
+        13. evidence — массив прямых цитат из договора.
+
         Если данные полностью отсутствуют в тексте:
         - статус/код = "not_defined";
         - текстовое поле = "Данные не определены";
         - real_estate_summary_display = "Раздел недвижимости при разводе не урегулирован".
         </task>
-        <rules>
+
+        <context_rules>
+        - Перед остальными полями заполни real_estate_division_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status/*_code = "not_defined", все *_details = "Данные не определены", real_estate_summary_display = "Раздел недвижимости при разводе не урегулирован".
         - Используй только текст договора.
         - division_mechanism_code:
             "to_specific_spouse" — объект переходит в единоличную личную/раздельную собственность одного супруга;
@@ -4258,11 +5110,68 @@ checks_v8:
             "<Объект(ы)> -> <кому переходит/продажа> / Компенсация: <сумма или 'нет'> / Ипотека: <статус>".
         - Значение каждого enum-поля — строго из списка allowed_values.
         - Верни только один JSON-объект.
-        </rules>
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни упоминаний объектов недвижимости, ни механизмов их раздела.
+           → presence = "missing";
+             все *_status/*_code = "not_defined";
+             все *_details = "Данные не определены";
+             real_estate_summary_display = "Раздел недвижимости при разводе не урегулирован".
+
+        2. Частичное раскрытие.
+           Объект недвижимости идентифицирован, но не указан механизм раздела или
+           не урегулированы ипотечные обязательства.
+           → presence = "present";
+             соответствующие *_status = "partial" или "not_defined";
+             *_details содержит описание пробелов.
+
+        3. Противоречие между фрагментами.
+           В одном месте указано, что квартира переходит одному супругу,
+           в другом — что она подлежит совместной продаже.
+           → presence = "unclear";
+             division_mechanism_code = "not_defined";
+             division_mechanism_details = "Не удалось определить".
+
+        4. Ипотека без урегулирования.
+           Объект находится в ипотеке, но договор не содержит условий о том,
+           кто и как будет погашать кредит или переоформлять залог.
+           → presence = "present";
+             mortgage_encumbrance_status = "not_addressed";
+             mortgage_encumbrance_details = "Данные не определены".
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для real_estate_division_check_presence используй только: "present", "missing", "unclear".
+        - Для real_estate_objects_status, transfer_timeline_status используй только: "defined", "partial", "not_defined".
+        - Для division_mechanism_code используй только: "to_specific_spouse", "proportional_shares", "sale_and_split", "compensation_based", "mixed", "not_defined".
+        - Для compensation_amount_status используй только: "defined", "not_applicable", "not_defined".
+        - Для mortgage_encumbrance_status используй только: "mortgaged_addressed", "free_of_encumbrance", "not_addressed", "not_defined".
+        - Для state_registration_clause_status используй только: "defined", "not_defined".
+        - Fallback при отсутствии данных:
+          * *_details → "Данные не определены";
+          * real_estate_summary_display → "Раздел недвижимости при разводе не урегулирован".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
       fields:
+        - name: "real_estate_division_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования раздела недвижимости. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "real_estate_objects_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
           description: "Статус идентификации объектов недвижимости по договору."
           required: true
@@ -4277,6 +5186,7 @@ checks_v8:
         - name: "division_mechanism_code"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["to_specific_spouse", "proportional_shares", "sale_and_split", "compensation_based", "mixed", "not_defined"]
           description: "Юридический механизм распределения недвижимости при расторжении брака."
           required: true
@@ -4291,6 +5201,7 @@ checks_v8:
         - name: "compensation_amount_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_applicable", "not_defined"]
           description: "Статус урегулированности компенсационных выплат за отказ от доли в недвижимости."
           required: true
@@ -4304,6 +5215,7 @@ checks_v8:
         - name: "mortgage_encumbrance_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["mortgaged_addressed", "free_of_encumbrance", "not_addressed", "not_defined"]
           description: "Статус распределения ипотечных обязательств и обременений по передаваемой недвижимости."
           required: true
@@ -4317,6 +5229,7 @@ checks_v8:
         - name: "transfer_timeline_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "partial", "not_defined"]
           description: "Статус определения сроков фактической передачи и перерегистрации прав."
           required: true
@@ -4331,6 +5244,7 @@ checks_v8:
         - name: "state_registration_clause_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус наличия оговорки об обязанности регистрации перехода прав в Росреестре (218-ФЗ)."
           required: true
@@ -4342,6 +5256,8 @@ checks_v8:
           label: "Раздел недвижимости"
           description: "Компактная сводка порядка раздела объектов недвижимости для отображения в DD Grid."
           required: true
+
+      store_payload: true
 
   - id: prohibited_conditions_check
     name: "Запрещённые условия: неимущественные отношения, дети, правоспособность (ст. 42 СК РФ)"
@@ -4614,9 +5530,16 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1500
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "prohibited_conditions_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист по семейному праву. Извлеки из брачного договора
@@ -4625,11 +5548,29 @@ checks_v8:
         ограничение правоспособности/дееспособности, отказ от права на суд и распоряжения на случай смерти.
         Не анализируй законный имущественный режим, алименты на супругов или ипотеку.
         </role>
+
         <context>
         {context}
         </context>
+
         <task>
-        Заполни строго следующие 12 полей + evidence (всего 13 ключей):
+        Заполни строго следующие 13 полей + evidence (всего 14 ключей):
+
+        0. prohibited_conditions_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если поле prohibited_conditions_detected ≠ "not_defined"
+             (т.е. договор проверен и статус "violation_found" или "clean" установлен);
+           - "missing" — если prohibited_conditions_detected = "not_defined"
+             (данных для проверки нет);
+           - "unclear" — если фрагменты есть, но из-за противоречий вывод невозможен.
+
+           Если presence = "missing":
+           - prohibited_conditions_detected = "not_defined";
+           - все *_status = "not_defined";
+           - все *_details = "Данные не определены";
+           - prohibited_conditions_summary_display = "Данные о наличии или отсутствии запрещённых условий не определены";
+           - не выполняй остальные шаги.
+
         1.  prohibited_conditions_detected — violation_found / clean / not_defined.
         2.  personal_nonproperty_status — prohibited_detected / none / not_defined.
         3.  personal_nonproperty_details — условия о личных неимущественных отношениях (верность, мораль, интимная жизнь).
@@ -4642,12 +5583,18 @@ checks_v8:
         10. mortis_causa_status — prohibited_detected / none / not_defined.
         11. mortis_causa_details — распоряжения имуществом на случай смерти (подмена завещания / наследственного договора).
         12. prohibited_conditions_summary_display — компактная человекочитаемая сводка о наличии ничтожных условий для DD Grid.
+        13. evidence — массив прямых цитат из договора.
+
         Если данные полностью отсутствуют в тексте:
         - статус/код = "not_defined";
         - текстовое поле = "Данные не определены";
         - prohibited_conditions_summary_display = "Данные о наличии или отсутствии запрещённых условий не определены".
         </task>
-        <rules>
+
+        <context_rules>
+        - Перед остальными полями заполни prohibited_conditions_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — prohibited_conditions_detected = "not_defined", все *_status = "not_defined", все *_details = "Данные не определены", prohibited_conditions_summary_display = "Данные о наличии или отсутствии запрещённых условий не определены".
         - Используй только текст договора.
         - prohibited_conditions_detected:
             "violation_found" — в договоре обнаружено хотя бы одно запрещённое законом условие;
@@ -4677,11 +5624,66 @@ checks_v8:
             "<Статус чистоты>: <перечень выявленных нарушений или 'Запрещённые ст. 42 СК РФ условия отсутствуют'>".
         - Значение каждого enum-поля — строго из списка allowed_values.
         - Верни только один JSON-объект.
-        </rules>
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие запрещённых условий (чистый договор).
+           В тексте нет ни упоминаний личных неимущественных отношений, ни штрафов,
+           ни условий о детях или ограничениях прав.
+           → presence = "present";
+             prohibited_conditions_detected = "clean";
+             все *_status = "none";
+             все *_details = "Запрещённых условий не выявлено".
+
+        2. Выявление запрещённого условия (ничтожная оговорка).
+           Договор содержит прямой штраф за супружескую измену или условия о детях.
+           → presence = "present";
+             prohibited_conditions_detected = "violation_found";
+             соответствующий *_status = "prohibited_detected";
+             prohibited_conditions_summary_display содержит маркер "НИЧТОЖНЫЕ УСЛОВИЯ".
+
+        3. Противоречие между фрагментами.
+           В одном месте указано, что супруги не имеют претензий друг к другу,
+           в другом — вводится штраф за нарушение условий договора.
+           → presence = "unclear";
+             prohibited_conditions_detected = "not_defined";
+             prohibited_conditions_summary_display = "Не удалось определить".
+
+        4. Неопределённость / отсутствие данных для проверки.
+           Текст договора крайне краток или не содержит проверяемых условий,
+           и невозможно сделать вывод о наличии или отсутствии запретов.
+           → presence = "missing";
+             prohibited_conditions_detected = "not_defined";
+             prohibited_conditions_summary_display = "Данные о наличии или отсутствии запрещённых условий не определены".
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для prohibited_conditions_check_presence используй только: "present", "missing", "unclear".
+        - Для prohibited_conditions_detected используй только: "violation_found", "clean", "not_defined".
+        - Для personal_nonproperty_status, infidelity_penalty_status, children_provisions_status, capacity_restriction_status, mortis_causa_status используй только: "prohibited_detected", "none", "not_defined".
+        - Fallback при отсутствии данных:
+          * *_details → "Данные не определены";
+          * prohibited_conditions_summary_display → "Данные о наличии или отсутствии запрещённых условий не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
       fields:
+        - name: "prohibited_conditions_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования проверки на запрещённые условия. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "prohibited_conditions_detected"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["violation_found", "clean", "not_defined"]
           description: "Общий статус чистоты брачного договора от ничтожных условий (ст. 42 п. 3 СК РФ)."
           required: true
@@ -4696,6 +5698,7 @@ checks_v8:
         - name: "personal_nonproperty_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["prohibited_detected", "none", "not_defined"]
           description: "Статус выявления условий о личных неимущественных отношениях супругов."
           required: true
@@ -4709,6 +5712,7 @@ checks_v8:
         - name: "infidelity_penalty_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["prohibited_detected", "none", "not_defined"]
           description: "Статус выявления штрафов и санкций за супружескую измену/неверность."
           required: true
@@ -4723,6 +5727,7 @@ checks_v8:
         - name: "children_provisions_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["prohibited_detected", "none", "not_defined"]
           description: "Статус выявления незаконных условий в отношении несовершеннолетних детей."
           required: true
@@ -4737,6 +5742,7 @@ checks_v8:
         - name: "capacity_restriction_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["prohibited_detected", "none", "not_defined"]
           description: "Статус выявления ограничений правоспособности, дееспособности, права на труд и судебную защиту."
           required: true
@@ -4751,6 +5757,7 @@ checks_v8:
         - name: "mortis_causa_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["prohibited_detected", "none", "not_defined"]
           description: "Статус выявления распоряжений имуществом на случай смерти (подмена завещания, ст. 1118 ГК РФ)."
           required: true
@@ -4761,6 +5768,8 @@ checks_v8:
           label: "Распоряжения на случай смерти"
           description: "Условия о наследовании и переходе прав при смерти супруга, включённые в брачный договор."
           required: false
+
+      store_payload: true
 
   - id: amendment_dispute_severability_check
     name: "Порядок изменения, расторжения, разрешение споров и делимость (ст. 43 СК РФ, ст. 180 ГК РФ)"
@@ -5027,9 +6036,16 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1500
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "amendment_dispute_severability_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист по семейному праву. Извлеки из брачного договора
@@ -5038,11 +6054,34 @@ checks_v8:
         порядок разрешения споров и оговорку о делимости (ст. 180 ГК РФ).
         Не анализируй режим собственности или перечни имущества.
         </role>
+
         <context>
         {context}
         </context>
+
         <task>
-        Заполни строго следующие 11 полей + evidence (всего 12 ключей):
+        Заполни строго следующие 12 полей + evidence (всего 13 ключей):
+
+        0. amendment_dispute_severability_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (amendment_procedure_status, unilateral_refusal_status,
+              post_divorce_survival_status, dispute_resolution_status,
+              severability_clause_status) ≠ "not_defined";
+           - "missing" — если все пять содержательных полей = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - amendment_procedure_status = "not_defined";
+           - unilateral_refusal_status = "not_defined";
+           - post_divorce_survival_status = "not_defined";
+           - dispute_resolution_status = "not_defined";
+           - severability_clause_status = "not_defined";
+           - все *_details = "Данные не определены";
+           - closing_provisions_summary_display = "Заключительные и процедурные положения не урегулированы";
+           - не выполняй остальные шаги.
+
         1.  amendment_procedure_status — notarial_required / simple_written_stated / not_defined.
         2.  amendment_procedure_details — порядок изменения и расторжения брачного договора.
         3.  unilateral_refusal_status — prohibited_stated / permitted_stated / not_defined.
@@ -5054,12 +6093,18 @@ checks_v8:
         9.  severability_clause_status — defined / not_defined.
         10. severability_clause_details — оговорка о делимости и сохранении силы договора при частичной недействительности.
         11. closing_provisions_summary_display — компактная человекочитаемая сводка заключительных положений для DD Grid.
+        12. evidence — массив прямых цитат из договора.
+
         Если данные полностью отсутствуют в тексте:
         - статус/код = "not_defined";
         - текстовое поле = "Данные не определены";
         - closing_provisions_summary_display = "Заключительные и процедурные положения не урегулированы".
         </task>
-        <rules>
+
+        <context_rules>
+        - Перед остальными полями заполни amendment_dispute_severability_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details = "Данные не определены", closing_provisions_summary_display = "Заключительные и процедурные положения не урегулированы".
         - Используй только текст договора.
         - amendment_procedure_status:
             "notarial_required" — прямо указано требование нотариального удостоверения соглашений об изменении/расторжении (ст. 43 п. 1 СК РФ);
@@ -5084,11 +6129,66 @@ checks_v8:
             "Изменение: <нотариальное/не указано> / Односторонний отказ: <запрещён/не указан> / Делимость: <есть/нет>".
         - Значение каждого enum-поля — строго из списка allowed_values.
         - Верни только один JSON-объект.
-        </rules>
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет положений об изменении, расторжении, спорах или делимости.
+           → presence = "missing";
+             все *_status = "not_defined";
+             все *_details = "Данные не определены";
+             closing_provisions_summary_display = "Заключительные и процедурные положения не урегулированы".
+
+        2. Минимальные стандартные оговорки.
+           Указано только, что изменения у нотариуса, остальное не раскрыто.
+           → presence = "present";
+             amendment_procedure_status = "notarial_required";
+             остальные *_status = "not_defined";
+             соответствующие *_details = "Данные не определены".
+
+        3. Противоречие между фрагментами.
+           В одном месте указано, что договор может быть расторгнут одной стороной,
+           в другом — что односторонний отказ не допускается.
+           → presence = "unclear";
+             unilateral_refusal_status = "not_defined";
+             unilateral_refusal_details = "Не удалось определить".
+
+        4. Оговорка о делимости отсутствует, но другие условия есть.
+           Договор содержит порядок изменения и разрешения споров, но молчит о делимости.
+           → presence = "present";
+             severability_clause_status = "not_defined";
+             severability_clause_details = "Данные не определены".
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для amendment_dispute_severability_check_presence используй только: "present", "missing", "unclear".
+        - Для amendment_procedure_status используй только: "notarial_required", "simple_written_stated", "not_defined".
+        - Для unilateral_refusal_status используй только: "prohibited_stated", "permitted_stated", "not_defined".
+        - Для post_divorce_survival_status, severability_clause_status используй только: "defined", "not_defined".
+        - Для dispute_resolution_status используй только: "negotiation_then_court", "court_general", "mediation", "not_defined".
+        - Fallback при отсутствии данных:
+          * *_details → "Данные не определены";
+          * closing_provisions_summary_display → "Заключительные и процедурные положения не урегулированы".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
       fields:
+        - name: "amendment_dispute_severability_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования заключительных и процедурных положений. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "amendment_procedure_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["notarial_required", "simple_written_stated", "not_defined"]
           description: "Статус порядка изменения и расторжения договора (ст. 43 п. 1 СК РФ)."
           required: true
@@ -5103,6 +6203,7 @@ checks_v8:
         - name: "unilateral_refusal_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["prohibited_stated", "permitted_stated", "not_defined"]
           description: "Статус оговорки о запрете одностороннего отказа от исполнения договора (ст. 43 п. 3 СК РФ)."
           required: true
@@ -5116,6 +6217,7 @@ checks_v8:
         - name: "post_divorce_survival_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус сохранения силы имущественных обязательств после прекращения брака (ст. 43 п. 3 СК РФ)."
           required: true
@@ -5129,6 +6231,7 @@ checks_v8:
         - name: "dispute_resolution_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["negotiation_then_court", "court_general", "mediation", "not_defined"]
           description: "Порядок урегулирования споров и договорная подсудность."
           required: true
@@ -5143,6 +6246,7 @@ checks_v8:
         - name: "severability_clause_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "low"
           allowed_values: ["defined", "not_defined"]
           description: "Наличие оговорки о делимости договора при частичной недействительности (ст. 180 ГК РФ)."
           required: true
@@ -5162,6 +6266,8 @@ checks_v8:
           label: "Заключительные положения"
           description: "Компактная сводка заключительных и процедурных положений для отображения в DD Grid."
           required: true
+
+      store_payload: true
 
   - id: foreign_digital_assets_check
     name: "Иностранный элемент, зарубежные активы и криптовалюта (ст. 161 СК РФ, 259-ФЗ)"
@@ -5436,9 +6542,16 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1500
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "foreign_digital_assets_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист по международному частному праву и цифровым активам. Извлеки из брачного договора
@@ -5446,11 +6559,33 @@ checks_v8:
         режиме счетов в иностранных банках, а также правовом режиме криптовалюты, цифровой валюты, ЦФА, токенов и криптокошельков.
         Не анализируй алименты на детей или бытовые вопросы.
         </role>
+
         <context>
         {context}
         </context>
+
         <task>
-        Заполни строго следующие 11 полей + evidence (всего 12 ключей):
+        Заполни строго следующие 12 полей + evidence (всего 13 ключей):
+
+        0. foreign_digital_assets_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (governing_law_status, foreign_element_status, foreign_assets_regime_code,
+              digital_assets_status, crypto_wallets_disclosure_status) ≠ "not_defined";
+           - "missing" — если все пять содержательных полей = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - governing_law_status = "not_defined";
+           - foreign_element_status = "not_defined";
+           - foreign_assets_regime_code = "not_defined";
+           - digital_assets_status = "not_defined";
+           - crypto_wallets_disclosure_status = "not_defined";
+           - все *_details = "Данные не определены";
+           - foreign_digital_summary_display = "Иностранный элемент и цифровые активы не урегулированы";
+           - не выполняй остальные шаги.
+
         1.  governing_law_status — rf_law_chosen / foreign_law_chosen / no_choice_stated / not_defined.
         2.  governing_law_details — прямое указание на применимое право к договору (ст. 161 СК РФ).
         3.  foreign_element_status — foreign_citizenship / foreign_assets_present / both_foreign_elements / none_detected / not_defined.
@@ -5462,12 +6597,18 @@ checks_v8:
         9.  crypto_wallets_disclosure_status — disclosure_required / as_is_no_disclosure / not_defined.
         10. crypto_wallets_disclosure_details — условия о раскрытии ключей, seed-фраз и кошельков.
         11. foreign_digital_summary_display — компактная человекочитаемая сводка для DD Grid.
+        12. evidence — массив прямых цитат из договора.
+
         Если данные полностью отсутствуют в тексте:
         - статус/код = "not_defined";
         - текстовое поле = "Данные не определены";
         - foreign_digital_summary_display = "Иностранный элемент и цифровые активы не урегулированы".
         </task>
-        <rules>
+
+        <context_rules>
+        - Перед остальными полями заполни foreign_digital_assets_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status/*_code = "not_defined", все *_details = "Данные не определены", foreign_digital_summary_display = "Иностранный элемент и цифровые активы не урегулированы".
         - Используй только текст договора.
         - governing_law_status:
             "rf_law_chosen" — прямо выбрано законодательство РФ;
@@ -5495,11 +6636,69 @@ checks_v8:
             "Право: <РФ/иностранное> / Зарубежные активы: <режим или 'нет'> / Крипта и ЦФА: <режим или 'не указаны'>".
         - Значение каждого enum-поля — строго из списка allowed_values.
         - Верни только один JSON-объект.
-        </rules>
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни упоминаний иностранного элемента, ни цифровых активов,
+           ни выбора применимого права.
+           → presence = "missing";
+             все *_status/*_code = "not_defined";
+             все *_details = "Данные не определены";
+             foreign_digital_summary_display = "Иностранный элемент и цифровые активы не урегулированы".
+
+        2. Только российские активы без иностранного элемента.
+           Прямо указано, что договор регулируется правом РФ, иностранные активы не упоминаются.
+           → presence = "present";
+             governing_law_status = "rf_law_chosen";
+             foreign_element_status = "none_detected";
+             foreign_assets_regime_code = "not_mentioned".
+
+        3. Противоречие между фрагментами.
+           В одном месте криптовалюта объявлена совместной собственностью,
+           в другом — раздельной собственностью владельца аккаунта.
+           → presence = "unclear";
+             digital_assets_status = "not_defined";
+             digital_assets_details = "Не удалось определить".
+
+        4. Цифровые активы упомянуты, но без правил раскрытия.
+           Договор регулирует режим криптовалюты, но не содержит условий
+           о раскрытии приватных ключей или seed-фраз.
+           → presence = "present";
+             digital_assets_status = "regulated_separate" (или иное);
+             crypto_wallets_disclosure_status = "not_defined".
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для foreign_digital_assets_check_presence используй только: "present", "missing", "unclear".
+        - Для governing_law_status используй только: "rf_law_chosen", "foreign_law_chosen", "no_choice_stated", "not_defined".
+        - Для foreign_element_status используй только: "foreign_citizenship", "foreign_assets_present", "both_foreign_elements", "none_detected", "not_defined".
+        - Для foreign_assets_regime_code используй только: "separate_property", "joint_property", "mixed", "not_mentioned", "not_defined".
+        - Для digital_assets_status используй только: "regulated_separate", "regulated_joint", "not_addressed", "not_defined".
+        - Для crypto_wallets_disclosure_status используй только: "disclosure_required", "as_is_no_disclosure", "not_defined".
+        - Fallback при отсутствии данных:
+          * *_details → "Данные не определены";
+          * foreign_digital_summary_display → "Иностранный элемент и цифровые активы не урегулированы".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
       fields:
+        - name: "foreign_digital_assets_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования иностранного элемента и цифровых активов. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "governing_law_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["rf_law_chosen", "foreign_law_chosen", "no_choice_stated", "not_defined"]
           description: "Статус выбора применимого права к брачному договору (ст. 161 СК РФ)."
           required: true
@@ -5514,6 +6713,7 @@ checks_v8:
         - name: "foreign_element_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["foreign_citizenship", "foreign_assets_present", "both_foreign_elements", "none_detected", "not_defined"]
           description: "Наличие и характер иностранного элемента (гражданство, зарубежное имущество, счета)."
           required: true
@@ -5527,6 +6727,7 @@ checks_v8:
         - name: "foreign_assets_regime_code"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["separate_property", "joint_property", "mixed", "not_mentioned", "not_defined"]
           description: "Режим собственности на зарубежные активы, счета в иностранных банках и КИК."
           required: true
@@ -5541,6 +6742,7 @@ checks_v8:
         - name: "digital_assets_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["regulated_separate", "regulated_joint", "not_addressed", "not_defined"]
           description: "Статус правового режима цифровой валюты (криптовалюты) и ЦФА (259-ФЗ)."
           required: true
@@ -5555,6 +6757,7 @@ checks_v8:
         - name: "crypto_wallets_disclosure_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["disclosure_required", "as_is_no_disclosure", "not_defined"]
           description: "Статус условий о раскрытии криптокошельков, приватных ключей и seed-фраз."
           required: true
@@ -5573,6 +6776,8 @@ checks_v8:
           label: "Иностранные и цифровые активы"
           description: "Компактная сводка применимого права, зарубежных активов и криптовалюты для DD Grid."
           required: true
+
+      store_payload: true
 
   - id: full_disclosure_check
     name: "Полнота раскрытия активов и добросовестность сторон (ст. 178, 179 ГК РФ)"
@@ -5827,9 +7032,16 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1500
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "full_disclosure_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист по семейному праву. Извлеки из брачного договора
@@ -5837,11 +7049,33 @@ checks_v8:
         подтверждении отсутствия скрытых активов и последствиях сокрытия (ст. 178, 179 ГК РФ).
         Не анализируй режимы собственности, алименты или банкротство.
         </role>
+
         <context>
         {context}
         </context>
+
         <task>
-        Заполни строго следующие 9 полей + evidence (всего 10 ключей):
+        Заполни строго следующие 10 полей + evidence (всего 11 ключей):
+
+        0. full_disclosure_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (full_disclosure_clause_status, asset_schedule_status,
+              hidden_assets_confirmation_status, concealment_consequences_status)
+             ≠ "not_defined";
+           - "missing" — если все четыре содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - full_disclosure_clause_status = "not_defined";
+           - asset_schedule_status = "not_defined";
+           - hidden_assets_confirmation_status = "not_defined";
+           - concealment_consequences_status = "not_defined";
+           - все *_details = "Данные не определены";
+           - disclosure_summary_display = "Полнота раскрытия активов не урегулирована";
+           - не выполняй остальные шаги.
+
         1.  full_disclosure_clause_status — defined / partial / not_defined.
         2.  full_disclosure_clause_details — оговорка о полном раскрытии активов.
         3.  asset_schedule_status — defined / partial / not_defined.
@@ -5851,12 +7085,18 @@ checks_v8:
         7.  concealment_consequences_status — defined / not_defined.
         8.  concealment_consequences_details — последствия сокрытия (основание для оспаривания).
         9.  disclosure_summary_display — компактная сводка для DD Grid.
+        10. evidence — массив прямых цитат из договора.
+
         Если данные полностью отсутствуют в тексте:
         - статус = "not_defined";
         - текстовое поле = "Данные не определены";
         - disclosure_summary_display = "Полнота раскрытия активов не урегулирована".
         </task>
-        <rules>
+
+        <context_rules>
+        - Перед остальными полями заполни full_disclosure_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details = "Данные не определены", disclosure_summary_display = "Полнота раскрытия активов не урегулирована".
         - Используй только текст договора.
         - full_disclosure_clause_status:
             "defined" — явная оговорка о полном и достоверном раскрытии всех активов;
@@ -5875,11 +7115,66 @@ checks_v8:
             Сокрытие: <основание для оспаривания/не урегулировано>".
         - Значение каждого enum-поля — строго из списка allowed_values.
         - Верни только один JSON-объект.
-        </rules>
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни упоминаний о раскрытии активов, ни перечней,
+           ни последствий сокрытия.
+           → presence = "missing";
+             все *_status = "not_defined";
+             все *_details = "Данные не определены";
+             disclosure_summary_display = "Полнота раскрытия активов не урегулирована".
+
+        2. Частичное раскрытие (общая формулировка).
+           Стороны подтверждают ознакомление с имущественным положением,
+           но без детального перечня или явного подтверждения отсутствия скрытых активов.
+           → presence = "present";
+             full_disclosure_clause_status = "partial";
+             asset_schedule_status = "not_defined".
+
+        3. Противоречие между фрагментами.
+           В одном месте указано полное раскрытие, в другом — что стороны
+           не несут ответственности за скрытые активы.
+           → presence = "unclear";
+             full_disclosure_clause_status = "not_defined";
+             full_disclosure_clause_details = "Не удалось определить".
+
+        4. Перечень есть, но последствий сокрытия нет.
+           Приложение с активами приложено, но договор молчит о последствиях
+           выявления сокрытого имущества.
+           → presence = "present";
+             asset_schedule_status = "defined";
+             concealment_consequences_status = "not_defined".
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для full_disclosure_check_presence используй только: "present", "missing", "unclear".
+        - Для full_disclosure_clause_status, asset_schedule_status, hidden_assets_confirmation_status используй только: "defined", "partial", "not_defined".
+        - Для concealment_consequences_status используй только: "defined", "not_defined".
+        - Fallback при отсутствии данных:
+          * *_details → "Данные не определены";
+          * disclosure_summary_display → "Полнота раскрытия активов не урегулирована".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
       fields:
+        - name: "full_disclosure_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования полноты раскрытия активов. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "full_disclosure_clause_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
           description: "Статус оговорки о полном раскрытии активов (full disclosure)."
           required: true
@@ -5894,6 +7189,7 @@ checks_v8:
         - name: "asset_schedule_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
           description: "Статус перечня имущества на дату заключения договора."
           required: true
@@ -5907,6 +7203,7 @@ checks_v8:
         - name: "hidden_assets_confirmation_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
           description: "Статус подтверждения сторон об отсутствии скрытых активов."
           required: true
@@ -5920,6 +7217,7 @@ checks_v8:
         - name: "concealment_consequences_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
           description: "Статус оговорки о последствиях сокрытия активов (ст. 178, 179 ГК РФ)."
           required: true
@@ -5939,6 +7237,8 @@ checks_v8:
           label: "Полнота раскрытия"
           description: "Компактная сводка полноты раскрытия активов для DD Grid."
           required: true
+
+      store_payload: true
 
   - id: maternity_capital_pension_check
     name: "Материнский капитал, пенсионные накопления и страховые выплаты (ФЗ-256, ст. 36 СК РФ)"
@@ -6186,9 +7486,16 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1500
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "maternity_capital_pension_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист по семейному праву. Извлеки из брачного договора
@@ -6196,11 +7503,33 @@ checks_v8:
         накоплениями и страховыми выплатами.
         Не анализируй общий режим собственности, алименты или бизнес-активы.
         </role>
+
         <context>
         {context}
         </context>
+
         <task>
-        Заполни строго следующие 9 полей + evidence (всего 10 ключей):
+        Заполни строго следующие 10 полей + evidence (всего 11 ключей):
+
+        0. maternity_capital_pension_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (maternity_capital_status, mk_conflict_detected,
+              pension_savings_status, insurance_payouts_status)
+             ≠ "not_defined";
+           - "missing" — если все четыре содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - maternity_capital_status = "not_defined";
+           - mk_conflict_detected = "not_defined";
+           - pension_savings_status = "not_defined";
+           - insurance_payouts_status = "not_defined";
+           - все *_details = "Данные не определены";
+           - social_assets_summary_display = "МК, пенсия и страхование не урегулированы";
+           - не выполняй остальные шаги.
+
         1.  maternity_capital_status — compliant / conflict_detected / not_mentioned / not_defined.
         2.  maternity_capital_details — условия о материнском капитале и долях детей.
         3.  mk_conflict_detected — no_conflict / void_clause / not_applicable / not_defined.
@@ -6210,12 +7539,18 @@ checks_v8:
         7.  insurance_payouts_status — defined / partial / not_defined.
         8.  insurance_payouts_details — режим страховых выплат и выгодоприобретателя.
         9.  social_assets_summary_display — компактная сводка для DD Grid.
+        10. evidence — массив прямых цитат из договора.
+
         Если данные полностью отсутствуют в тексте:
         - статус/код = "not_defined";
         - текстовое поле = "Данные не определены";
         - social_assets_summary_display = "МК, пенсия и страхование не урегулированы".
         </task>
-        <rules>
+
+        <context_rules>
+        - Перед остальными полями заполни maternity_capital_pension_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", все *_details = "Данные не определены", social_assets_summary_display = "МК, пенсия и страхование не урегулированы".
         - Используй только текст договора.
         - maternity_capital_status:
             "compliant" — договор учитывает императивную норму ФЗ-256 (доли детей защищены);
@@ -6237,11 +7572,69 @@ checks_v8:
             Страхование: <урегулировано/нет>".
         - Значение каждого enum-поля — строго из списка allowed_values.
         - Верни только один JSON-объект.
-        </rules>
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни упоминаний материнского капитала, ни пенсионных накоплений,
+           ни страховых выплат.
+           → presence = "missing";
+             все *_status = "not_defined";
+             все *_details = "Данные не определены";
+             social_assets_summary_display = "МК, пенсия и страхование не урегулированы".
+
+        2. МК упомянут, но без конфликта.
+           Стороны прямо указывают, что жильё с МК оформляется в долевую собственность
+           детей, что соответствует закону.
+           → presence = "present";
+             maternity_capital_status = "compliant";
+             mk_conflict_detected = "no_conflict".
+
+        3. Противоречие между фрагментами.
+           В одном месте указано, что квартира с МК — совместная, в другом —
+           что она раздельная собственность одного супруга.
+           → presence = "unclear";
+             maternity_capital_status = "not_defined";
+             maternity_capital_details = "Не удалось определить".
+
+        4. Конфликт с ФЗ-256 (ничтожное условие).
+           Договор прямо объявляет квартиру, купленную с использованием МК,
+           единоличной собственностью одного из супругов.
+           → presence = "present";
+             maternity_capital_status = "conflict_detected";
+             mk_conflict_detected = "void_clause";
+             social_assets_summary_display содержит маркер "ВНИМАНИЕ: конфликт".
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для maternity_capital_pension_check_presence используй только: "present", "missing", "unclear".
+        - Для maternity_capital_status используй только: "compliant", "conflict_detected", "not_mentioned", "not_defined".
+        - Для mk_conflict_detected используй только: "no_conflict", "void_clause", "not_applicable", "not_defined".
+        - Для pension_savings_status используй только: "separate", "joint", "not_defined".
+        - Для insurance_payouts_status используй только: "defined", "partial", "not_defined".
+        - Fallback при отсутствии данных:
+          * *_details → "Данные не определены";
+          * social_assets_summary_display → "МК, пенсия и страхование не урегулированы".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
       fields:
+        - name: "maternity_capital_pension_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования МК, пенсионных и страховых активов. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "maternity_capital_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["compliant", "conflict_detected", "not_mentioned", "not_defined"]
           description: "Статус соответствия условий договора императивной норме о МК (ст. 10 ФЗ-256)."
           required: true
@@ -6256,6 +7649,7 @@ checks_v8:
         - name: "mk_conflict_detected"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["no_conflict", "void_clause", "not_applicable", "not_defined"]
           description: "Наличие конфликта с императивной нормой ФЗ-256 (ничтожное условие)."
           required: true
@@ -6270,6 +7664,7 @@ checks_v8:
         - name: "pension_savings_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["separate", "joint", "not_defined"]
           description: "Режим пенсионных накоплений супругов (ст. 36 СК РФ)."
           required: true
@@ -6283,6 +7678,7 @@ checks_v8:
         - name: "insurance_payouts_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "partial", "not_defined"]
           description: "Статус урегулированности страховых выплат и выгодоприобретателей."
           required: true
@@ -6301,6 +7697,8 @@ checks_v8:
           label: "МК, пенсия, страхование"
           description: "Компактная сводка социальных активов для DD Grid."
           required: true
+
+      store_payload: true
 
   - id: valuation_exit_mechanics_check
     name: "Оценка имущества, порядок расчётов и exit-механика при разводе (ст. 38, 42 СК РФ)"
@@ -6567,9 +7965,16 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1500
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "valuation_exit_mechanics_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист по семейному праву. Извлеки из брачного договора
@@ -6577,11 +7982,34 @@ checks_v8:
         индексацию, рассрочку, обеспечение исполнения и преимущественное право выкупа доли.
         Не анализируй режим собственности, алименты или банкротство.
         </role>
+
         <context>
         {context}
         </context>
+
         <task>
-        Заполни строго следующие 12 полей + evidence (всего 13 ключей):
+        Заполни строго следующие 13 полей + evidence (всего 14 ключей):
+
+        0. valuation_exit_mechanics_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (valuation_method_status, payment_terms_status,
+              currency_and_indexation_status, security_for_performance_status,
+              preemptive_right_status) ≠ "not_defined";
+           - "missing" — если все пять содержательных полей = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - valuation_method_status = "not_defined";
+           - payment_terms_status = "not_defined";
+           - currency_and_indexation_status = "not_defined";
+           - security_for_performance_status = "not_defined";
+           - preemptive_right_status = "not_defined";
+           - все *_details = "Данные не определены";
+           - exit_mechanics_summary_display = "Exit-механика при разводе не урегулирована";
+           - не выполняй остальные шаги.
+
         1.  valuation_method_status — defined / partial / not_defined.
         2.  valuation_method_code — independent_appraiser / market_value / cadastral / not_defined.
         3.  valuation_method_details — метод оценки имущества при разделе.
@@ -6594,12 +8022,18 @@ checks_v8:
         10. preemptive_right_status — defined / not_defined.
         11. preemptive_right_details — преимущественное право выкупа доли.
         12. exit_mechanics_summary_display — компактная сводка для DD Grid.
+        13. evidence — массив прямых цитат из договора.
+
         Если данные полностью отсутствуют в тексте:
         - статус/код = "not_defined";
         - текстовое поле = "Данные не определены";
         - exit_mechanics_summary_display = "Exit-механика при разводе не урегулирована".
         </task>
-        <rules>
+
+        <context_rules>
+        - Перед остальными полями заполни valuation_exit_mechanics_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status/*_code = "not_defined", все *_details = "Данные не определены", exit_mechanics_summary_display = "Exit-механика при разводе не урегулирована".
         - Используй только текст договора.
         - valuation_method_code:
             "independent_appraiser" — оценка независимым оценщиком;
@@ -6615,17 +8049,74 @@ checks_v8:
             Обеспечение: <есть/нет> / Преим. право: <есть/нет>".
         - Значение каждого enum-поля — строго из списка allowed_values.
         - Верни только один JSON-объект.
-        </rules>
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни упоминаний об оценке, ни сроков выплат,
+           ни обеспечения исполнения или преимущественного права.
+           → presence = "missing";
+             все *_status/*_code = "not_defined";
+             все *_details = "Данные не определены";
+             exit_mechanics_summary_display = "Exit-механика при разводе не урегулирована".
+
+        2. Частичное раскрытие (только сроки).
+           Указан только срок выплаты компенсации, но не указан метод оценки,
+           валюта или обеспечение.
+           → presence = "present";
+             payment_terms_status = "partial";
+             valuation_method_status = "not_defined".
+
+        3. Противоречие между фрагментами.
+           В одном месте указана рыночная оценка, в другом — кадастровая,
+           без уточнения приоритета.
+           → presence = "unclear";
+             valuation_method_code = "not_defined";
+             valuation_method_details = "Не удалось определить".
+
+        4. Преимущественное право без механизма оценки.
+           Указано преимущественное право выкупа доли, но не определено,
+           как именно будет определяться цена выкупа.
+           → presence = "present";
+             preemptive_right_status = "defined";
+             valuation_method_status = "not_defined" (или partial).
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для valuation_exit_mechanics_check_presence используй только: "present", "missing", "unclear".
+        - Для valuation_method_status, payment_terms_status используй только: "defined", "partial", "not_defined".
+        - Для valuation_method_code используй только: "independent_appraiser", "market_value", "cadastral", "not_defined".
+        - Для currency_and_indexation_status, security_for_performance_status, preemptive_right_status используй только: "defined", "not_defined".
+        - Fallback при отсутствии данных:
+          * *_details → "Данные не определены";
+          * exit_mechanics_summary_display → "Exit-механика при разводе не урегулирована".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
       fields:
+        - name: "valuation_exit_mechanics_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования exit-механики при разводе. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "valuation_method_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
           description: "Статус определения метода оценки имущества при разделе."
           required: true
         - name: "valuation_method_code"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["independent_appraiser", "market_value", "cadastral", "not_defined"]
           description: "Метод оценки имущества (независимый оценщик, рыночная, кадастровая)."
           required: true
@@ -6640,6 +8131,7 @@ checks_v8:
         - name: "payment_terms_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "partial", "not_defined"]
           description: "Статус определения сроков и порядка выплаты компенсаций."
           required: true
@@ -6654,6 +8146,7 @@ checks_v8:
         - name: "currency_and_indexation_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус определения валюты и индексации денежных обязательств."
           required: true
@@ -6667,6 +8160,7 @@ checks_v8:
         - name: "security_for_performance_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус обеспечения исполнения обязательств (залог, поручительство)."
           required: true
@@ -6680,6 +8174,7 @@ checks_v8:
         - name: "preemptive_right_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
           description: "Статус преимущественного права выкупа доли в бизнесе или недвижимости."
           required: true
@@ -6698,6 +8193,656 @@ checks_v8:
           label: "Exit-механика при разводе"
           description: "Компактная сводка механизмов исполнения при разводе для DD Grid."
           required: true
+
+      store_payload: true
+
+  - id: source_of_funds_commingling_check
+    name: "Источники финансирования и предотвращение смешения активов"
+    description: >
+      Фактографическая проверка наличия механизмов, предотвращающих смешение (commingling) 
+      личного добрачного имущества и имущества, приобретённого в браке. Проверка условий 
+      о том, что имущество, купленное в браке на средства, вырученные от отчуждения 
+      личного добрачного имущества, сохраняет статус личной собственности.
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    display_order: 160
+
+    rules:
+      keywords:
+        - "источник финансирования"
+        - "личные средства"
+        - "добрачные средства"
+        - "средства от продажи"
+        - "смешение активов"
+        - "смешение имущества"
+        - "сохраняет статус личной"
+        - "не становится совместной"
+        - "трансформация имущества"
+        - "отчуждение личного имущества"
+      keyword_mode: "any"
+      negative_keywords:
+        - "алименты на детей"
+        - "в целях настоящего"
+      regex_patterns:
+        - "(?i)средств(а|ами|ам|ах)\\s+(от\\s+продажи|вырученн|личн|добрачн)"
+        - "(?i)(смешен|смешени|трансформаци)[^\\.]{0,40}(имуществ|актив)"
+        - "(?i)сохраня(ет|ют)\\s+статус\\s+(личной|раздельной)\\s+собственност"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по семейному праву. Анализируется брачный договор.
+        Проверяется наличие условий, предотвращающих смешение (commingling) личного и совместного имущества.
+        Ключевая проблема: если супруг продаёт добрачную квартиру и на эти деньги покупает новую в браке, 
+        без прямой оговорки новая квартира может быть признана совместной собственностью.
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Прямое указание, что имущество, приобретённое в браке на личные/добрачные средства, остаётся личным.
+        2. Механизм подтверждения источника средств (выписки, расписки, ссылки на договоры продажи).
+        3. Условие о недопустимости признания такого имущества совместным из-за смешения средств.
+        [ПРАВИЛА]
+        Верни валидный JSON. Используй только текст документа. Не додумывай.
+        [ФОРМАТ ОТВЕТА]
+        {
+          "commingling_prevention_status": "<defined / partial / not_defined>",
+          "commingling_prevention_details": "<текст или 'Данные не определены'>",
+          "source_of_funds_tracking_status": "<defined / not_defined>",
+          "source_of_funds_tracking_details": "<текст или 'Данные не определены'>",
+          "source_of_funds_summary_display": "<компактная сводка>"
+        }
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 800
+
+    retrieval:
+      retrieval_profile: "title_transfer_check"
+      corpus_scope: "primary_segment"
+      levels: ["legal_unit", "section"]
+      required_kind: "legal_unit"
+      retrieval_query: "источник финансирования личные средства добрачные средства смешение активов сохраняет статус личной отчуждение личного имущества"
+      boost_keywords: ["смешени", "личные средств", "добрачн", "сохраняет статус"]
+      preferred_unit_types: ["obligation", "general_provision", "representations"]
+      excluded_unit_types: ["structural_anchor", "technical_fragment"]
+      negative_keywords: ["алименты", "в целях настоящего"]
+      context_k: 6
+      max_chunks: 8
+      rerank: true
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 1200
+
+      compact_output: false
+
+      presence_signal:
+        field: "source_of_funds_commingling_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
+      llm_prompt_extraction: |
+        <role>Ты — российский юрист по семейному праву. Извлеки условия о предотвращении смешения активов и отслеживании источников финансирования.</role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        0. source_of_funds_commingling_check_presence:
+           - "present" — если commingling_prevention_status или source_of_funds_tracking_status ≠ "not_defined";
+           - "missing" — если оба = "not_defined";
+           - "unclear" — при противоречиях.
+           Если presence = "missing": все *_status = "not_defined", *_details = "Данные не определены", source_of_funds_summary_display = "Защита от смешения активов не урегулирована".
+        1. commingling_prevention_status — defined / partial / not_defined.
+        2. commingling_prevention_details — условие о сохранении статуса личного имущества при покупке в браке на личные средства.
+        3. source_of_funds_tracking_status — defined / not_defined.
+        4. source_of_funds_tracking_details — механизм подтверждения источника средств (документы, ссылки).
+        5. source_of_funds_summary_display — компактная сводка.
+        </task>
+
+        <context_rules>
+        - Перед остальными полями заполни source_of_funds_commingling_check_presence по правилу из пункта 0.
+        - Если фрагментов нет — presence = "missing".
+        - commingling_prevention_status: "defined" — есть прямая оговорка о сохранении статуса; "partial" — упомянута, но без деталей; "not_defined" — нет.
+        - source_of_funds_summary_display: "Смешение активов: <предотвращено/частично/не урегулировано> / Отслеживание источников: <есть/нет>".
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие. → presence = "missing", все not_defined.
+        2. Общая фраза без механизма. → presence = "present", commingling_prevention_status = "partial", tracking = "not_defined".
+        3. Противоречие. → presence = "unclear", details = "Не удалось определить".
+        4. Полная защита. → presence = "present", оба статуса "defined".
+        </edge_cases>
+
+        <output_expectations>
+        - Используй только разрешённые значения enum.
+        - Fallback: "Данные не определены" или "Защита от смешения активов не урегулирована".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
+      fields:
+        - name: "source_of_funds_commingling_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования предотвращения смешения активов."
+          required: true
+        - name: "commingling_prevention_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "partial", "not_defined"]
+          description: "Статус оговорки о недопустимости трансформации личного имущества в совместное."
+          required: true
+        - name: "commingling_prevention_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 1
+          label: "Защита от смешения"
+          description: "Условие о сохранении статуса личной собственности при приобретении имущества в браке на личные средства."
+          required: true
+        - name: "source_of_funds_tracking_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "medium"
+          allowed_values: ["defined", "not_defined"]
+          description: "Статус наличия механизма документального подтверждения источника средств."
+          required: true
+        - name: "source_of_funds_tracking_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 2
+          label: "Отслеживание источников"
+          description: "Требования к документам, подтверждающим происхождение средств (выписки, договоры)."
+          required: true
+        - name: "source_of_funds_summary_display"
+          type: "string"
+          presentation: "summary"
+          display_in_grid: true
+          display_priority: 3
+          label: "Смешение активов"
+          description: "Сводка условий о предотвращении смешения личного и совместного имущества."
+          required: true
+
+      store_payload: true
+
+  - id: tax_and_maintenance_expenses_check
+    name: "Налоговые обязательства и расходы на содержание имущества (ст. 34, 36 СК РФ)"
+    description: >
+      Фактографическая проверка распределения обязанности по уплате налогов (НДФЛ, налог на имущество), 
+      коммунальных и эксплуатационных расходов за имущество, переведённое в раздельную собственность, 
+      а также распределение налогового бремени при выплате компенсаций.
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "medium"
+    severity_if_pass: "pass"
+    severity_if_fail: "medium"
+    severity_if_unclear: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    display_order: 170
+
+    rules:
+      keywords:
+        - "налог на имущество"
+        - "НДФЛ"
+        - "налоговые обязательства"
+        - "налоговое бремя"
+        - "расходы на содержание"
+        - "коммунальные платежи"
+        - "эксплуатационные расходы"
+        - "уплата налогов"
+        - "налоговый агент"
+        - "возмещение налоговых потерь"
+      keyword_mode: "any"
+      negative_keywords: ["алименты на детей", "в целях настоящего"]
+      regex_patterns:
+        - "(?i)(налог|НДФЛ|налогов)[^\\.]{0,40}(обязанност|брем|плат)"
+        - "(?i)(расход|платеж)[^\\.]{0,40}(содержан|коммун|эксплуатац)"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ] Ты — российский юрист. Проверяется распределение налогов и расходов на содержание имущества в брачном договоре.
+        [ЗАДАЧА] Найди: 1) Кто платит налоги за раздельное имущество. 2) Кто платит коммуналку/содержание. 3) Кто несет НДФЛ при выплате компенсации.
+        [ФОРМАТ ОТВЕТА]
+        {
+          "tax_liability_status": "<defined / partial / not_defined>",
+          "tax_liability_details": "<текст или 'Данные не определены'>",
+          "maintenance_expenses_status": "<defined / partial / not_defined>",
+          "maintenance_expenses_details": "<текст или 'Данные не определены'>",
+          "tax_and_maintenance_summary_display": "<компактная сводка>"
+        }
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 800
+
+    retrieval:
+      retrieval_profile: "payment_terms_check"
+      corpus_scope: "primary_segment"
+      levels: ["legal_unit", "section"]
+      required_kind: "legal_unit"
+      retrieval_query: "налог НДФЛ налоговые обязательства расходы на содержание коммунальные платежи эксплуатационные расходы"
+      boost_keywords: ["налог", "НДФЛ", "содержан", "расход"]
+      context_k: 6
+      max_chunks: 8
+      rerank: true
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 1200
+
+      compact_output: false
+
+      presence_signal:
+        field: "tax_and_maintenance_expenses_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
+      llm_prompt_extraction: |
+        <role>Ты — российский юрист. Извлеки условия о налогах и расходах на содержание имущества.</role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        0. tax_and_maintenance_expenses_check_presence:
+           - "present" — если tax_liability_status или maintenance_expenses_status ≠ "not_defined";
+           - "missing" — если оба = "not_defined".
+           Если presence = "missing": все *_status = "not_defined", *_details = "Данные не определены", tax_and_maintenance_summary_display = "Налоги и расходы на содержание не урегулированы".
+        1. tax_liability_status — defined / partial / not_defined.
+        2. tax_liability_details — распределение обязанности по уплате налогов (НДФЛ, на имущество).
+        3. maintenance_expenses_status — defined / partial / not_defined.
+        4. maintenance_expenses_details — распределение коммунальных и эксплуатационных расходов.
+        5. tax_and_maintenance_summary_display — компактная сводка.
+        </task>
+
+        <context_rules>
+        - Заполни tax_and_maintenance_expenses_check_presence по правилу из пункта 0.
+        - Если фрагментов нет — presence = "missing".
+        - tax_and_maintenance_summary_display: "Налоги: <урегулировано/нет> / Расходы на содержание: <урегулировано/нет>".
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие. → presence = "missing", все not_defined.
+        2. Только налоги, без коммуналки. → presence = "present", tax = "defined", maintenance = "not_defined".
+        3. Противоречие. → presence = "unclear", details = "Не удалось определить".
+        4. Полное регулирование. → presence = "present", оба статуса "defined".
+        </edge_cases>
+
+        <output_expectations>
+        - Fallback: "Данные не определены" или "Налоги и расходы на содержание не урегулированы".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
+      fields:
+        - name: "tax_and_maintenance_expenses_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования налогов и расходов на содержание."
+          required: true
+        - name: "tax_liability_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "medium"
+          allowed_values: ["defined", "partial", "not_defined"]
+          description: "Статус распределения налоговых обязательств (НДФЛ, налог на имущество)."
+          required: true
+        - name: "tax_liability_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 1
+          label: "Налоговые обязательства"
+          description: "Кто и в каком порядке уплачивает налоги, связанные с имуществом и компенсациями."
+          required: true
+        - name: "maintenance_expenses_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "medium"
+          allowed_values: ["defined", "partial", "not_defined"]
+          description: "Статус распределения расходов на содержание имущества (коммунальные, эксплуатационные)."
+          required: true
+        - name: "maintenance_expenses_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 2
+          label: "Расходы на содержание"
+          description: "Порядок оплаты коммунальных услуг, ремонта и содержания раздельного имущества."
+          required: true
+        - name: "tax_and_maintenance_summary_display"
+          type: "string"
+          presentation: "summary"
+          display_in_grid: true
+          display_priority: 3
+          label: "Налоги и содержание"
+          description: "Сводка распределения налогового бремени и эксплуатационных расходов."
+          required: true
+
+      store_payload: true
+
+  - id: high_value_personal_property_pets_check
+    name: "Драгоценности, предметы искусства и домашние животные (ст. 36, 137 ГК РФ)"
+    description: >
+      Фактографическая проверка режима собственности на вещи индивидуального пользования, 
+      предметы роскоши (ювелирные изделия, искусство), а также на домашних животных (питомцев), 
+      которые по закону являются объектами права собственности, но часто становятся предметом 
+      острых споров при разделе имущества.
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "medium"
+    severity_if_pass: "pass"
+    severity_if_fail: "medium"
+    severity_if_unclear: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    display_order: 180
+
+    rules:
+      keywords:
+        - "ювелирные изделия"
+        - "драгоценности"
+        - "предметы искусства"
+        - "коллекции"
+        - "вещи индивидуального пользования"
+        - "домашние животные"
+        - "питомцы"
+        - "собака"
+        - "кошка"
+        - "право собственности на животное"
+        - "порядок общения с животным"
+      keyword_mode: "any"
+      negative_keywords: ["алименты на детей", "в целях настоящего"]
+      regex_patterns:
+        - "(?i)(ювелирн|драгоценн|искусств|коллекци)[^\\.]{0,40}(собственност|раздел)"
+        - "(?i)(домашн|животн|питомц|собак|кошк)[^\\.]{0,40}(собственност|раздел|содержан)"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ] Ты — российский юрист. Проверяется режим вещей индивидуального пользования, предметов роскоши и домашних животных.
+        [ЗАДАЧА] Найди условия о принадлежности ювелирных изделий, предметов искусства и домашних животных.
+        [ФОРМАТ ОТВЕТА]
+        {
+          "luxury_items_status": "<defined / partial / not_defined>",
+          "luxury_items_details": "<текст или 'Данные не определены'>",
+          "pets_status": "<defined / partial / not_defined>",
+          "pets_details": "<текст или 'Данные не определены'>",
+          "personal_property_summary_display": "<компактная сводка>"
+        }
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 800
+
+    retrieval:
+      retrieval_profile: "title_transfer_check"
+      corpus_scope: "primary_segment"
+      levels: ["legal_unit", "section"]
+      required_kind: "legal_unit"
+      retrieval_query: "ювелирные изделия драгоценности предметы искусства коллекции вещи индивидуального пользования домашние животные питомцы"
+      boost_keywords: ["ювелирн", "драгоценн", "искусств", "животн", "питомц"]
+      context_k: 6
+      max_chunks: 8
+      rerank: true
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 1200
+
+      compact_output: false
+
+      presence_signal:
+        field: "high_value_personal_property_pets_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
+      llm_prompt_extraction: |
+        <role>Ты — российский юрист. Извлеки условия о режиме драгоценностей, предметов искусства и домашних животных.</role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        0. high_value_personal_property_pets_check_presence:
+           - "present" — если luxury_items_status или pets_status ≠ "not_defined";
+           - "missing" — если оба = "not_defined".
+           Если presence = "missing": все *_status = "not_defined", *_details = "Данные не определены", personal_property_summary_display = "Вещи индивидуального пользования и питомцы не урегулированы".
+        1. luxury_items_status — defined / partial / not_defined.
+        2. luxury_items_details — режим ювелирных изделий, предметов искусства, коллекций.
+        3. pets_status — defined / partial / not_defined.
+        4. pets_details — право собственности и порядок содержания домашних животных.
+        5. personal_property_summary_display — компактная сводка.
+        </task>
+
+        <context_rules>
+        - Заполни high_value_personal_property_pets_check_presence по правилу из пункта 0.
+        - Если фрагментов нет — presence = "missing".
+        - personal_property_summary_display: "Драгоценности/искусство: <урегулировано/нет> / Питомцы: <урегулировано/нет>".
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие. → presence = "missing", все not_defined.
+        2. Только вещи, без питомцев. → presence = "present", luxury = "defined", pets = "not_defined".
+        3. Противоречие. → presence = "unclear", details = "Не удалось определить".
+        4. Полное регулирование. → presence = "present", оба статуса "defined".
+        </edge_cases>
+
+        <output_expectations>
+        - Fallback: "Данные не определены" или "Вещи индивидуального пользования и питомцы не урегулированы".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
+      fields:
+        - name: "high_value_personal_property_pets_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования режима вещей индивидуального пользования и питомцев."
+          required: true
+        - name: "luxury_items_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "medium"
+          allowed_values: ["defined", "partial", "not_defined"]
+          description: "Статус распределения прав на ювелирные изделия, предметы искусства и коллекции."
+          required: true
+        - name: "luxury_items_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 1
+          label: "Драгоценности и искусство"
+          description: "Условия о принадлежности и разделе предметов роскоши и вещей индивидуального пользования."
+          required: true
+        - name: "pets_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "medium"
+          allowed_values: ["defined", "partial", "not_defined"]
+          description: "Статус регулирования права собственности на домашних животных (ст. 137 ГК РФ)."
+          required: true
+        - name: "pets_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 2
+          label: "Домашние животные"
+          description: "Определение собственника питомца и порядка его содержания/общения с ним."
+          required: true
+        - name: "personal_property_summary_display"
+          type: "string"
+          presentation: "summary"
+          display_in_grid: true
+          display_priority: 3
+          label: "Вещи и питомцы"
+          description: "Сводка режима вещей индивидуального пользования и домашних животных."
+          required: true
+
+      store_payload: true
+
+  - id: change_of_circumstances_waiver_check
+    name: "Оговорка о недопустимости расторжения из-за изменения обстоятельств (ст. 451 ГК РФ)"
+    description: >
+      Фактографическая проверка наличия прямого отказа сторон от права требовать изменения 
+      или расторжения брачного договора в судебном порядке по основанию существенного изменения 
+      обстоятельств (ст. 451 ГК РФ). Это критически важно для предотвращения попыток оспорить 
+      договор при потере работы, изменении дохода или иных финансовых трудностях.
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+    display_order: 190
+
+    rules:
+      keywords:
+        - "существенное изменение обстоятельств"
+        - "статья 451"
+        - "ст. 451 ГК РФ"
+        - "отказ от права требовать расторжения"
+        - "не является основанием для расторжения"
+        - "финансовые трудности"
+        - "потеря работы"
+        - "изменение материального положения"
+        - "не может ссылаться на"
+      keyword_mode: "any"
+      negative_keywords: ["алименты на детей", "в целях настоящего"]
+      regex_patterns:
+        - "(?i)(существенн\\w*\\s+изменени|ст\\.?\\s*451)[^\\.]{0,50}(не\\s+является|отказ|не\\s+вправе)"
+        - "(?i)(материальн|финансов)\\w*\\s+(положен|трудност)[^\\.]{0,40}(не\\s+является\\s+основанием)"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ] Ты — российский юрист. Проверяется наличие оговорки, блокирующей применение ст. 451 ГК РФ (существенное изменение обстоятельств) для расторжения брачного договора.
+        [ЗАДАЧА] Найди прямой запрет или ограничение на использование ст. 451 ГК РФ для оспаривания договора.
+        [ФОРМАТ ОТВЕТА]
+        {
+          "art_451_waiver_status": "<defined / partial / not_defined>",
+          "art_451_waiver_details": "<текст или 'Данные не определены'>",
+          "change_of_circumstances_summary_display": "<компактная сводка>"
+        }
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 800
+
+    retrieval:
+      retrieval_profile: "termination_check"
+      corpus_scope: "primary_segment"
+      levels: ["legal_unit", "section"]
+      required_kind: "legal_unit"
+      retrieval_query: "существенное изменение обстоятельств ст. 451 ГК РФ отказ от права требовать расторжения финансовые трудности изменение материального положения"
+      boost_keywords: ["451", "существенн", "изменени", "отказ", "материальн"]
+      context_k: 6
+      max_chunks: 8
+      rerank: true
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 1200
+
+      compact_output: false
+
+      presence_signal:
+        field: "change_of_circumstances_waiver_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
+      llm_prompt_extraction: |
+        <role>Ты — российский юрист. Извлеки условия об отказе от ссылки на ст. 451 ГК РФ (изменение обстоятельств).</role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        0. change_of_circumstances_waiver_check_presence:
+           - "present" — если art_451_waiver_status ≠ "not_defined";
+           - "missing" — если art_451_waiver_status = "not_defined".
+           Если presence = "missing": art_451_waiver_status = "not_defined", art_451_waiver_details = "Данные не определены", change_of_circumstances_summary_display = "Ограничение ст. 451 ГК РФ не урегулировано".
+        1. art_451_waiver_status — defined / partial / not_defined.
+        2. art_451_waiver_details — текст оговорки о недопустимости расторжения по ст. 451 ГК РФ.
+        3. change_of_circumstances_summary_display — компактная сводка.
+        </task>
+
+        <context_rules>
+        - Заполни change_of_circumstances_waiver_check_presence по правилу из пункта 0.
+        - Если фрагментов нет — presence = "missing".
+        - art_451_waiver_status: "defined" — есть прямой запрет ссылаться на ст. 451 ГК РФ; "partial" — есть упоминание, но без прямого отказа; "not_defined" — нет.
+        - change_of_circumstances_summary_display: "Ограничение ст. 451 ГК РФ: <присутствует/частично/отсутствует>".
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие. → presence = "missing", все not_defined.
+        2. Косвенное упоминание. → presence = "present", status = "partial".
+        3. Противоречие. → presence = "unclear", details = "Не удалось определить".
+        4. Прямой и полный отказ. → presence = "present", status = "defined".
+        </edge_cases>
+
+        <output_expectations>
+        - Fallback: "Данные не определены" или "Ограничение ст. 451 ГК РФ не урегулировано".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
+      fields:
+        - name: "change_of_circumstances_waiver_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие оговорки об ограничении применения ст. 451 ГК РФ."
+          required: true
+        - name: "art_451_waiver_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "partial", "not_defined"]
+          description: "Статус прямого отказа сторон от права требовать расторжения договора по ст. 451 ГК РФ."
+          required: true
+        - name: "art_451_waiver_details"
+          type: "string"
+          presentation: "fact"
+          display_in_grid: true
+          display_priority: 1
+          label: "Отказ от ст. 451 ГК РФ"
+          description: "Условие о том, что изменение финансового положения не является основанием для расторжения договора."
+          required: true
+        - name: "change_of_circumstances_summary_display"
+          type: "string"
+          presentation: "summary"
+          display_in_grid: true
+          display_priority: 2
+          label: "Изменение обстоятельств"
+          description: "Сводка наличия защиты договора от оспаривания по ст. 451 ГК РФ."
+          required: true
+
+      store_payload: true
 
 # ════════════════════════════════════════════════════════════════════════════
 # БЛОК 5: DD_REQUEST_TEMPLATES

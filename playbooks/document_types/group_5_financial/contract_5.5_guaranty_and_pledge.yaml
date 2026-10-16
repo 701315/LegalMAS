@@ -792,6 +792,12 @@ checks_v8:
       llm_max_tokens: 1350
       compact_output: false
 
+      presence_signal:
+        field: "security_subject_extraction_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Твоя задача — извлечь из текста обеспечительного
@@ -805,7 +811,29 @@ checks_v8:
         </context>
 
         <task>
-        Заполни строго следующие 8 полей:
+        Заполни строго следующие поля:
+
+        0. security_subject_extraction_presence:
+           Агрегатное signal-поле — наличие регулирования по теме обеспечения.
+           - "present" — если хотя бы одно из содержательных полей
+             (security_type, creditor, principal_debtor, guarantor_or_pledgor,
+              secured_obligation_reference, secured_amount,
+              liability_or_collateral_scope) ≠ "not_defined"
+             и security_type ≠ "unclear";
+           - "missing" — если все семь содержательных полей = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен, или security_type = "unclear".
+
+           Если presence = "missing":
+           - security_type = "not_defined";
+           - security_type_display = "Не установлено";
+           - creditor = "not_defined";
+           - principal_debtor = "not_defined";
+           - guarantor_or_pledgor = "not_defined";
+           - secured_obligation_reference = "not_defined";
+           - secured_amount = "not_defined";
+           - liability_or_collateral_scope = "not_defined";
+           - не выполняй остальные шаги.
 
         1. security_type — "guaranty" / "pledge" / "mortgage" / "mixed" / "unclear" / "not_defined".
         2. security_type_display — русскоязычное отображение типа:
@@ -825,6 +853,9 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни security_subject_extraction_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все содержательные поля = "not_defined", security_type_display = "Не установлено".
         - Используй только текст договора из <context>. Не подставляй нормы закона.
         - Не делай предположений и не достраивай отсутствующие реквизиты.
         - Если в <context> попали нерелевантные фрагменты — игнорируй их.
@@ -838,18 +869,63 @@ checks_v8:
         - Соблюдай точное соответствие имён ключей схеме полей.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни упоминания типа обеспечения, ни сторон, ни основного обязательства.
+           → presence = "missing";
+             security_type = "not_defined";
+             security_type_display = "Не установлено";
+             все факт-поля = "not_defined".
+
+        2. Неполное раскрытие — только тип без деталей.
+           Указан тип обеспечения (например, "договор поручительства"), но стороны,
+           основное обязательство и сумма не конкретизированы.
+           → presence = "present";
+             security_type = "guaranty";
+             остальные поля = "not_defined" по факту наличия/отсутствия.
+
+        3. Противоречие между фрагментами.
+           В разных частях договора указаны разные типы обеспечения или разные суммы.
+           → presence = "unclear";
+             security_type = "unclear";
+             security_type_display = "Не удалось определить тип";
+             противоречивые факт-поля = "Не удалось определить".
+
+        4. Отсылка на внешний документ.
+           Все параметры обеспечения определяются основным договором или отдельным соглашением.
+           → presence = "present";
+             security_type определяется по тексту (если назван);
+             факт-поля содержат формулировки вида "Определяется Основным договором №...".
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект со всеми 8 ключами без какого-либо
-          дополнительного текста до или после.
-        - Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей.
-        - НЕ пиши Markdown, списки, код-фенсы.
-        - Ответ должен быть валидным JSON, пригодным для парсинга через json.loads
-          без предварительной обработки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для security_subject_extraction_presence используй только: "present", "missing", "unclear".
+        - Для security_type используй только: "guaranty", "pledge", "mortgage", "mixed", "unclear", "not_defined".
+        - Fallback при отсутствии данных:
+          * все факт-поля → "not_defined";
+          * security_type_display → "Не установлено".
+        - Fallback при противоречии или неоднозначности:
+          * security_type → "unclear";
+          * security_type_display → "Не удалось определить тип";
+          * факт-поля → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "security_subject_extraction_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по теме обеспечения. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "security_type"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["guaranty", "pledge", "mortgage", "mixed", "unclear", "not_defined"]
           description: "Тип обеспечительного договора (внутренний enum)."
           required: true
@@ -1131,6 +1207,12 @@ checks_v8:
       llm_max_tokens: 900
       compact_output: false
 
+      presence_signal:
+        field: "guaranty_liability_scope_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора поручительства
@@ -1143,7 +1225,25 @@ checks_v8:
         </context>
 
         <task>
-        Заполни строго следующие 7 полей:
+        Заполни строго следующие поля:
+
+        0. guaranty_liability_scope_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме ответственности поручителя.
+           - "present" — если хотя бы одно из содержательных полей
+             (liability_type, liability_cap_status, coverage_scope) ≠ "not_defined";
+           - "missing" — если все три содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - liability_type = "not_defined";
+           - liability_type_display = "Не установлено";
+           - liability_cap_status = "not_defined";
+           - liability_cap_display = "Лимит не установлен";
+           - coverage_scope = "not_defined";
+           - coverage_scope_display = "Не установлено";
+           - liability_clause_clarity = "not_defined";
+           - не выполняй остальные шаги.
 
         1. liability_type — "solidary" / "subsidiary" / "unclear" / "not_defined".
           Внутренний enum. Указывай значение только если вид ответственности
@@ -1173,6 +1273,9 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни guaranty_liability_scope_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status / *_type / *_scope = "not_defined", все *_display = соответствующий fallback, liability_clause_clarity = "not_defined".
         - Используй только текст договора из <context>. Не подставляй нормы закона.
         - Не делай предположений и не достраивай отсутствующие реквизиты.
         - Если в <context> попали нерелевантные фрагменты — игнорируй их.
@@ -1192,18 +1295,70 @@ checks_v8:
         - Соблюдай точное соответствие имён ключей схеме полей.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни вида ответственности, ни лимита, ни состава покрытия.
+           → presence = "missing";
+             liability_type = "not_defined";
+             liability_cap_status = "not_defined";
+             coverage_scope = "not_defined";
+             все *_display = соответствующий fallback;
+             liability_clause_clarity = "not_defined".
+
+        2. Неполное раскрытие — только вид без лимита.
+           Указан вид ответственности (например, "солидарная"), но лимит
+           и состав покрытия не конкретизированы.
+           → presence = "present";
+             liability_type = "solidary";
+             liability_cap_status = "not_defined";
+             coverage_scope = "not_defined".
+
+        3. Противоречие между фрагментами.
+           В разных частях договора указаны разные виды ответственности
+           или противоречивые формулировки о лимите.
+           → presence = "unclear";
+             liability_type = "unclear";
+             coverage_scope = "unclear";
+             liability_clause_clarity = "unclear".
+
+        4. Отсылка на законодательство без конкретики.
+           "Ответственность определяется в соответствии с действующим
+           законодательством РФ" — без прямого указания вида или лимита.
+           → presence = "present";
+             liability_type = "not_defined" (не подставлять "solidary" по ст. 363);
+             liability_clause_clarity = "unclear".
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект со всеми 7 ключами без какого-либо
-          дополнительного текста до или после.
-        - Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей.
-        - НЕ пиши Markdown, списки, код-фенсы.
-        - Ответ должен быть валидным JSON, пригодным для парсинга через json.loads
-          без предварительной обработки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для guaranty_liability_scope_check_presence используй только: "present", "missing", "unclear".
+        - Для liability_type используй только: "solidary", "subsidiary", "unclear", "not_defined".
+        - Для liability_cap_status используй только: "present", "not_defined".
+        - Для coverage_scope используй только: "principal_only", "principal_plus_accessories", "unclear", "not_defined".
+        - Для liability_clause_clarity используй только: "clear", "unclear", "not_defined".
+        - Fallback при отсутствии данных:
+          * liability_type_display → "Не установлено";
+          * liability_cap_display → "Лимит не установлен";
+          * coverage_scope_display → "Не установлено".
+        - Fallback при противоречии или неоднозначности:
+          * все *_display → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "guaranty_liability_scope_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по теме ответственности поручителя. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "liability_type"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["solidary", "subsidiary", "unclear", "not_defined"]
           description: "Вид ответственности поручителя (внутренний enum)."
           required: true
@@ -1219,6 +1374,7 @@ checks_v8:
         - name: "liability_cap_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["present", "not_defined"]
           description: "Есть ли лимит ответственности (внутренний признак)."
           required: true
@@ -1234,6 +1390,7 @@ checks_v8:
         - name: "coverage_scope"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["principal_only", "principal_plus_accessories", "unclear", "not_defined"]
           description: "Объем ответственности по составу требований (внутренний enum)."
           required: true
@@ -1477,6 +1634,12 @@ checks_v8:
       llm_max_tokens: 900
       compact_output: false
 
+      presence_signal:
+        field: "guaranty_change_and_termination_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора поручительства
@@ -1489,7 +1652,27 @@ checks_v8:
         </context>
 
         <task>
-        Заполни строго следующие 7 полей:
+        Заполни строго следующие поля:
+
+        0. guaranty_change_and_termination_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме изменений
+           и прекращения поручительства.
+           - "present" — если хотя бы одно из содержательных полей
+             (guarantor_consent_model, guaranty_term_status,
+              termination_clause_status) ≠ "not_defined";
+           - "missing" — если все три содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - guarantor_consent_model = "not_defined";
+           - guarantor_consent_model_display = "Не установлено";
+           - guaranty_term_status = "not_defined";
+           - guaranty_term_display = "Не установлен";
+           - termination_clause_status = "not_defined";
+           - termination_clause_display = "Не установлено";
+           - risk_of_overbroad_consent = "not_defined";
+           - не выполняй остальные шаги.
 
         1. guarantor_consent_model — "specific_consent" / "blanket_consent" /
           "unclear" / "not_defined".
@@ -1526,6 +1709,9 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни guaranty_change_and_termination_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все содержательные поля = "not_defined", все *_display = соответствующий fallback, risk_of_overbroad_consent = "not_defined".
         - Используй только текст договора из <context>. Не подставляй нормы закона.
         - Не делай предположений и не достраивай отсутствующие реквизиты.
         - Если в <context> попали нерелевантные фрагменты — игнорируй их.
@@ -1537,7 +1723,7 @@ checks_v8:
           обязательства или иным названным документом — это валидный исход:
           guaranty_term_status = "present", guaranty_term_display = текстовая
           ссылка на документ.
-        - Если срок поручительства прямо не установлен — гарантия_term_status =
+        - Если срок поручительства прямо не установлен — guaranty_term_status =
           "not_defined", guaranty_term_display = "Не установлен". Не подставляй
           "годичный срок по ст. 367 п. 6 ГК РФ" — это интерпретация, её делает
           отдельный слой анализа.
@@ -1545,18 +1731,73 @@ checks_v8:
         - Соблюдай точное соответствие имён ключей схеме полей.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни условий об изменении обязательства, ни срока
+           поручительства, ни оснований прекращения.
+           → presence = "missing";
+             guarantor_consent_model = "not_defined";
+             guaranty_term_status = "not_defined";
+             termination_clause_status = "not_defined";
+             все *_display = соответствующий fallback;
+             risk_of_overbroad_consent = "not_defined".
+
+        2. Неполное раскрытие — только срок без модели согласия.
+           Указан срок поручительства, но модель согласия на изменения
+           и условия прекращения не конкретизированы.
+           → presence = "present";
+             guaranty_term_status = "present";
+             guarantor_consent_model = "not_defined";
+             termination_clause_status = "not_defined".
+
+        3. Противоречие между фрагментами.
+           В разных частях договора указаны разные сроки поручительства
+           или противоречивые условия прекращения.
+           → presence = "unclear";
+             guarantor_consent_model = "unclear";
+             termination_clause_status = "unclear";
+             соответствующие *_display = "Не удалось определить".
+
+        4. Отсылка на законодательство без конкретики.
+           "Поручительство прекращается по основаниям, предусмотренным
+           действующим законодательством РФ" — без перечисления конкретных
+           оснований и без модели согласия.
+           → presence = "present";
+             termination_clause_status = "present" (отсылка на закон —
+             это регулирование, хотя и не конкретизированное);
+             termination_clause_display = "По основаниям, предусмотренным законом";
+             guarantor_consent_model = "not_defined".
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект со всеми 7 ключами без какого-либо
-          дополнительного текста до или после.
-        - Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей.
-        - НЕ пиши Markdown, списки, код-фенсы.
-        - Ответ должен быть валидным JSON, пригодным для парсинга через json.loads
-          без предварительной обработки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для guaranty_change_and_termination_check_presence используй только: "present", "missing", "unclear".
+        - Для guarantor_consent_model используй только: "specific_consent", "blanket_consent", "unclear", "not_defined".
+        - Для guaranty_term_status и termination_clause_status используй только: "present", "not_defined".
+        - Для risk_of_overbroad_consent используй только: "high", "medium", "low", "not_defined".
+        - Fallback при отсутствии данных:
+          * guarantor_consent_model_display → "Не установлено";
+          * guaranty_term_display → "Не установлен";
+          * termination_clause_display → "Не установлено".
+        - Fallback при противоречии или неоднозначности:
+          * все *_display → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "guaranty_change_and_termination_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по теме изменений и прекращения поручительства. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "guarantor_consent_model"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["specific_consent", "blanket_consent", "unclear", "not_defined"]
           description: "Модель согласия поручителя на изменения (внутренний enum)."
           required: true
@@ -1572,6 +1813,7 @@ checks_v8:
         - name: "guaranty_term_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["present", "not_defined"]
           description: "Есть ли срок поручительства (внутренний признак)."
           required: true
@@ -1587,6 +1829,7 @@ checks_v8:
         - name: "termination_clause_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["present", "not_defined"]
           description: "Есть ли условия о прекращении поручительства (внутренний признак)."
           required: true
@@ -1834,6 +2077,12 @@ checks_v8:
       llm_max_tokens: 1050
       compact_output: false
 
+      presence_signal:
+        field: "pledge_subject_and_valuation_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора залога сведения
@@ -1846,7 +2095,28 @@ checks_v8:
         </context>
 
         <task>
-        Заполни строго следующие 8 полей:
+        Заполни строго следующие поля:
+
+        0. pledge_subject_and_valuation_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме предмета
+           залога, его оценки и владения.
+           - "present" — если хотя бы одно из содержательных полей
+             (collateral_identification_status, valuation_status,
+              possession_status, independent_valuation_reference) ≠ "not_defined";
+           - "missing" — если все четыре содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - collateral_identification_status = "not_defined";
+           - collateral_subject_display = "Не установлено";
+           - valuation_status = "not_defined";
+           - valuation_display = "Не установлено";
+           - possession_status = "not_defined";
+           - possession_display = "Не установлено";
+           - independent_valuation_reference = "not_defined";
+           - independent_valuation_display = "Не установлено";
+           - не выполняй остальные шаги.
 
         1. collateral_identification_status — "clear" / "partial" / "not_defined".
           Внутренняя диагностика (не для отображения):
@@ -1892,6 +2162,9 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни pledge_subject_and_valuation_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все содержательные поля = "not_defined", все *_display = "Не установлено".
         - Используй только текст договора из <context>. Не подставляй нормы закона.
         - Не делай предположений и не достраивай отсутствующие реквизиты.
         - Если в <context> попали нерелевантные фрагменты — игнорируй их.
@@ -1916,15 +2189,71 @@ checks_v8:
         - Соблюдай точное соответствие имён ключей схеме полей.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни описания предмета залога, ни оценки, ни указания
+           на владение, ни ссылки на независимую оценку.
+           → presence = "missing";
+             collateral_identification_status = "not_defined";
+             valuation_status = "not_defined";
+             possession_status = "not_defined";
+             independent_valuation_reference = "not_defined";
+             все *_display = "Не установлено".
+
+        2. Неполное раскрытие — предмет идентифицирован, но оценки нет.
+           Предмет залога описан (частично или полностью), но стоимость
+           не указана и владение не определено.
+           → presence = "present";
+             collateral_identification_status = "clear" или "partial";
+             valuation_status = "not_defined";
+             possession_status = "not_defined".
+
+        3. Противоречие между фрагментами.
+           В разных частях договора указаны разные оценки предмета залога
+           или противоречивые сведения о владении.
+           → presence = "unclear";
+             valuation_status = "unclear";
+             possession_status = "unclear";
+             valuation_display = "Не удалось определить";
+             possession_display = "Не удалось определить".
+
+        4. Отсылка на внешний документ.
+           Предмет залога и/или оценка определяются через приложение, опись,
+           отчёт оценщика или основной договор.
+           → presence = "present";
+             collateral_identification_status = "partial";
+             collateral_subject_display = "Определяется <документ>";
+             valuation_status = "present" (если оценка определена документом)
+             или "not_defined" (если только отсылка без суммы).
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект со всеми 8 ключами без какого-либо
-          дополнительного текста до или после.
-        - Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей.
-        - НЕ пиши Markdown, списки, код-фенсы.
-        - Ответ должен быть валидным JSON, пригодным для парсинга через json.loads
-          без предварительной обработки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для pledge_subject_and_valuation_check_presence используй только: "present", "missing", "unclear".
+        - Для collateral_identification_status используй только: "clear", "partial", "not_defined".
+        - Для valuation_status используй только: "present", "unclear", "not_defined".
+        - Для possession_status используй только: "pledgor", "pledgee", "unclear", "not_defined".
+        - Для independent_valuation_reference используй только: "present", "not_defined".
+        - Fallback при отсутствии данных:
+          * collateral_subject_display → "Не установлено";
+          * valuation_display → "Не установлено";
+          * possession_display → "Не установлено";
+          * independent_valuation_display → "Не установлено".
+        - Fallback при противоречии или неоднозначности:
+          * все *_display → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "pledge_subject_and_valuation_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по теме предмета залога, оценки и владения. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "collateral_identification_status"
           type: "string"
           presentation: "diagnostic"
@@ -1943,6 +2272,7 @@ checks_v8:
         - name: "valuation_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["present", "unclear", "not_defined"]
           description: "Есть ли оценка предмета залога (внутренний признак)."
           required: true
@@ -1958,6 +2288,7 @@ checks_v8:
         - name: "possession_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["pledgor", "pledgee", "unclear", "not_defined"]
           description: "У кого находится предмет залога (внутренний enum)."
           required: true
@@ -1973,6 +2304,7 @@ checks_v8:
         - name: "independent_valuation_reference"
           type: "string"
           presentation: "signal"
+          risk_weight: "low"
           allowed_values: ["present", "not_defined"]
           description: "Есть ли ссылка на независимую оценку (внутренний признак)."
           required: true
@@ -2219,6 +2551,12 @@ checks_v8:
       llm_max_tokens: 900
       compact_output: false
 
+      presence_signal:
+        field: "pledge_enforcement_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора залога сведения
@@ -2232,7 +2570,27 @@ checks_v8:
         </context>
 
         <task>
-        Заполни строго следующие 7 полей:
+        Заполни строго следующие поля:
+
+        0. pledge_enforcement_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме обращения
+           взыскания и реализации предмета залога.
+           - "present" — если хотя бы одно из содержательных полей
+             (enforcement_mode, sale_method_status, notice_to_pledgor_status)
+             ≠ "not_defined";
+           - "missing" — если все три содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - enforcement_mode = "not_defined";
+           - enforcement_mode_display = "Не установлено";
+           - sale_method_status = "not_defined";
+           - sale_method_display = "Не установлено";
+           - notice_to_pledgor_status = "not_defined";
+           - notice_display = "Не установлено";
+           - enforcement_clause_risk = "not_defined";
+           - не выполняй остальные шаги.
 
         1. enforcement_mode — "judicial_only" / "out_of_court" / "mixed" /
           "unclear" / "not_defined".
@@ -2281,6 +2639,9 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни pledge_enforcement_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все содержательные поля = "not_defined", все *_display = "Не установлено", enforcement_clause_risk = "not_defined".
         - Используй только текст договора из <context>. Не подставляй нормы закона.
         - Не делай предположений и не достраивай отсутствующие реквизиты.
         - Если в <context> попали нерелевантные фрагменты — игнорируй их.
@@ -2300,18 +2661,73 @@ checks_v8:
         - Соблюдай точное соответствие имён ключей схеме полей.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни порядка взыскания, ни способа реализации,
+           ни уведомления залогодателя.
+           → presence = "missing";
+             enforcement_mode = "not_defined";
+             sale_method_status = "not_defined";
+             notice_to_pledgor_status = "not_defined";
+             все *_display = "Не установлено";
+             enforcement_clause_risk = "not_defined".
+
+        2. Неполное раскрытие — только режим без деталей.
+           Указан режим взыскания (например, "только в судебном порядке"),
+           но способ реализации и уведомление не конкретизированы.
+           → presence = "present";
+             enforcement_mode = "judicial_only";
+             sale_method_status = "not_defined";
+             notice_to_pledgor_status = "not_defined".
+
+        3. Противоречие между фрагментами.
+           В разных частях договора указаны разные режимы взыскания
+           (например, в одном пункте — судебный, в другом — внесудебный).
+           → presence = "unclear";
+             enforcement_mode = "unclear";
+             enforcement_mode_display = "Не удалось определить";
+             enforcement_clause_risk = "not_defined".
+
+        4. Отсылка на законодательство без конкретики.
+           "Обращение взыскания и реализация осуществляются в порядке,
+           установленном действующим законодательством РФ" — без прямого
+           указания режима и способа.
+           → presence = "present";
+             enforcement_mode = "unclear" (отсылка на закон — регулирование
+             есть, но режим из текста договора не определяется);
+             sale_method_status = "not_defined";
+             notice_to_pledgor_status = "not_defined".
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект со всеми 7 ключами без какого-либо
-          дополнительного текста до или после.
-        - Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей.
-        - НЕ пиши Markdown, списки, код-фенсы.
-        - Ответ должен быть валидным JSON, пригодным для парсинга через json.loads
-          без предварительной обработки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для pledge_enforcement_check_presence используй только: "present", "missing", "unclear".
+        - Для enforcement_mode используй только: "judicial_only", "out_of_court", "mixed", "unclear", "not_defined".
+        - Для sale_method_status и notice_to_pledgor_status используй только: "present", "not_defined".
+        - Для enforcement_clause_risk используй только: "high", "medium", "low", "not_defined".
+        - Fallback при отсутствии данных:
+          * enforcement_mode_display → "Не установлено";
+          * sale_method_display → "Не установлено";
+          * notice_display → "Не установлено".
+        - Fallback при противоречии или неоднозначности:
+          * все *_display → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "pledge_enforcement_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по теме обращения взыскания и реализации. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "enforcement_mode"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["judicial_only", "out_of_court", "mixed", "unclear", "not_defined"]
           description: "Режим обращения взыскания (внутренний enum)."
           required: true
@@ -2327,6 +2743,7 @@ checks_v8:
         - name: "sale_method_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["present", "not_defined"]
           description: "Есть ли способ реализации предмета залога (внутренний признак)."
           required: true
@@ -2342,6 +2759,7 @@ checks_v8:
         - name: "notice_to_pledgor_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["present", "not_defined"]
           description: "Есть ли уведомление залогодателя (внутренний признак)."
           required: true
@@ -2599,6 +3017,12 @@ checks_v8:
       llm_max_tokens: 950
       compact_output: false
 
+      presence_signal:
+        field: "mortgage_registration_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора ипотеки сведения
@@ -2612,7 +3036,28 @@ checks_v8:
         </context>
 
         <task>
-        Заполни строго следующие 8 полей:
+        Заполни строго следующие поля:
+
+        0. mortgage_registration_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме государственной
+           регистрации ипотеки.
+           - "present" — если хотя бы одно из содержательных полей
+             (registration_clause_status, registration_body, filing_party,
+              registration_costs_allocated) ≠ "not_defined";
+           - "missing" — если все четыре содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - registration_clause_status = "not_defined";
+           - registration_clause_display = "Не установлено";
+           - registration_body = "not_defined";
+           - registration_body_display = "Не установлено";
+           - filing_party = "not_defined";
+           - filing_party_display = "Не установлено";
+           - registration_costs_allocated = "not_defined";
+           - registration_costs_display = "Не установлено";
+           - не выполняй остальные шаги.
 
         1. registration_clause_status — "present" / "not_defined".
           Внутренний признак наличия регистрационной оговорки.
@@ -2665,6 +3110,9 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни mortgage_registration_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все содержательные поля = "not_defined", все *_display = "Не установлено".
         - Используй только текст договора из <context>. Не подставляй нормы закона.
         - Не делай предположений и не достраивай отсутствующие реквизиты.
         - Если в <context> попали нерелевантные фрагменты — игнорируй их.
@@ -2687,18 +3135,77 @@ checks_v8:
         - Соблюдай точное соответствие имён ключей схеме полей.
         </context_rules>
 
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни регистрационной оговорки, ни упоминания ЕГРН,
+           ни подающей стороны, ни расходов на регистрацию.
+           → presence = "missing";
+             registration_clause_status = "not_defined";
+             registration_body = "not_defined";
+             filing_party = "not_defined";
+             registration_costs_allocated = "not_defined";
+             все *_display = "Не установлено".
+
+        2. Неполное раскрытие — только оговорка без деталей.
+           Указано, что ипотека подлежит государственной регистрации,
+           но орган, подающая сторона и расходы не конкретизированы.
+           → presence = "present";
+             registration_clause_status = "present";
+             registration_body = "not_defined";
+             filing_party = "not_defined";
+             registration_costs_allocated = "not_defined".
+
+        3. Противоречие между фрагментами.
+           В разных частях договора указаны разные подающие стороны
+           или противоречивые условия о расходах.
+           → presence = "unclear";
+             filing_party = "unclear";
+             registration_costs_allocated = "unclear";
+             filing_party_display = "Не удалось определить";
+             registration_costs_display = "Не удалось определить".
+
+        4. Ипотека в силу закона.
+           В договоре указано, что ипотека возникает в силу закона
+           (ст. 64.1 или 77 ФЗ-102) и регистрируется одновременно
+           с переходом права собственности.
+           → presence = "present";
+             registration_clause_status = "present";
+             registration_clause_display = "Ипотека в силу закона;
+             регистрируется одновременно с переходом права собственности";
+             остальные поля — по факту наличия/отсутствия в тексте.
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект со всеми 8 ключами без какого-либо
-          дополнительного текста до или после.
-        - Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей.
-        - НЕ пиши Markdown, списки, код-фенсы.
-        - Ответ должен быть валидным JSON, пригодным для парсинга через json.loads
-          без предварительной обработки.
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для mortgage_registration_check_presence используй только: "present", "missing", "unclear".
+        - Для registration_clause_status используй только: "present", "not_defined".
+        - Для registration_body используй только: "rosreestr", "other", "unclear", "not_defined".
+        - Для filing_party используй только: "pledgor", "pledgee", "both", "unclear", "not_defined".
+        - Для registration_costs_allocated используй только: "yes", "no", "unclear", "not_defined".
+        - Fallback при отсутствии данных:
+          * registration_clause_display → "Не установлено";
+          * registration_body_display → "Не установлено";
+          * filing_party_display → "Не установлено";
+          * registration_costs_display → "Не установлено".
+        - Fallback при противоречии или неоднозначности:
+          * все *_display → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "mortgage_registration_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по теме государственной регистрации ипотеки. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "registration_clause_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["present", "not_defined"]
           description: "Есть ли регистрационная оговорка (внутренний признак)."
           required: true
@@ -2714,6 +3221,7 @@ checks_v8:
         - name: "registration_body"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["rosreestr", "other", "unclear", "not_defined"]
           description: "Орган регистрации (внутренний enum)."
           required: true
@@ -2729,6 +3237,7 @@ checks_v8:
         - name: "filing_party"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["pledgor", "pledgee", "both", "unclear", "not_defined"]
           description: "Кто подаёт документы на регистрацию (внутренний enum)."
           required: true
@@ -2744,6 +3253,7 @@ checks_v8:
         - name: "registration_costs_allocated"
           type: "string"
           presentation: "signal"
+          risk_weight: "low"
           allowed_values: ["yes", "no", "unclear", "not_defined"]
           description: "Распределены ли расходы на регистрацию (внутренний признак)."
           required: true
@@ -2993,7 +3503,13 @@ checks_v8:
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 900
-      compact_output: false
+      compact_output: false  # [CONSIDER]
+
+      presence_signal:
+        field: "guarantor_notice_subrogation_presence"
+        present: "present"
+        missing: "missing"
+        unclear: "unclear"
 
       llm_prompt_extraction: |
         <role>
@@ -3009,63 +3525,73 @@ checks_v8:
         </context>
 
         <task>
-        Заполни строго следующие 7 полей:
+        0. Сначала определи guarantor_notice_subrogation_presence:
+           - "present" — в тексте есть хотя бы одно из условий: уведомление
+             поручителя о дефолте, суброгация/переход прав, передача
+             документов поручителю;
+           - "missing" — ни одно из этих условий в тексте не упоминается;
+           - "unclear" — упоминания есть, но они слишком фрагментарны или
+             противоречивы для надёжного вывода.
 
         1. default_notice_status — "present" / "unclear" / "not_defined".
-          Внутренний признак наличия условия об уведомлении поручителя
-          кредитором о дефолте должника.
-          - "present" — условие прямо установлено в договоре;
-          - "unclear" — упоминание уведомления есть, но форма/срок
-            не конкретизированы настолько, что надёжный вывод невозможен;
-          - "not_defined" — условие в договоре не установлено.
+           Внутренний признак наличия условия об уведомлении поручителя
+           кредитором о дефолте должника.
+           - "present" — условие прямо установлено в договоре;
+           - "unclear" — упоминание уведомления есть, но форма/срок
+             не конкретизированы настолько, что надёжный вывод невозможен;
+           - "not_defined" — условие в договоре не установлено.
 
         2. default_notice_display — человекочитаемое описание:
-          "Предусмотрено: письменно, в течение 5 рабочих дней с момента,
-          когда Кредитор узнал о неисполнении";
-          "Не удалось определить (форма и срок уведомления
-          не конкретизированы)";
-          "Не установлено".
+           "Предусмотрено: письменно, в течение 5 рабочих дней с момента,
+           когда Кредитор узнал о неисполнении";
+           "Не удалось определить (форма и срок уведомления
+           не конкретизированы)";
+           "Не установлено".
 
         3. subrogation_status — "present" / "unclear" / "not_defined".
-          Внутренний признак наличия условия о переходе прав кредитора
-          к поручителю.
-          - "present" — условие прямо установлено (включая случаи
-            ограничения суброгации);
-          - "unclear" — упоминание есть, но объём/условия не конкретизированы;
-          - "not_defined" — условие прямо не установлено.
+           Внутренний признак наличия условия о переходе прав кредитора
+           к поручителю.
+           - "present" — условие прямо установлено (включая случаи
+             ограничения суброгации);
+           - "unclear" — упоминание есть, но объём/условия не конкретизированы;
+           - "not_defined" — условие прямо не установлено.
 
         4. subrogation_display — человекочитаемое описание:
-          "Права Кредитора переходят к Поручителю в объёме исполненного
-          (суброгация)";
-          "Суброгация ограничена: <краткое описание ограничения>";
-          "Прямо не установлено (действует в силу ст. 365 ГК РФ)"
-          (при subrogation_status = "not_defined" — важно не путать
-          с «поручитель лишён права»);
-          "Не удалось определить";
-          "Не установлено".
+           "Права Кредитора переходят к Поручителю в объёме исполненного
+           (суброгация)";
+           "Суброгация ограничена: <краткое описание ограничения>";
+           "Прямо не установлено (действует в силу ст. 365 ГК РФ)"
+           (при subrogation_status = "not_defined" — важно не путать
+           с «поручитель лишён права»);
+           "Не удалось определить";
+           "Не установлено".
 
         5. document_transfer_to_guarantor — "present" / "unclear" / "not_defined".
-          Внутренний признак наличия условия о передаче документов.
+           Внутренний признак наличия условия о передаче документов.
 
         6. document_transfer_display — человекочитаемое описание:
-          "Кредитор передаёт оригиналы документов <срок>";
-          "Не удалось определить";
-          "Не установлено".
+           "Кредитор передаёт оригиналы документов <срок>";
+           "Не удалось определить";
+           "Не установлено".
 
         7. guarantor_post_payment_protection — "strong" / "partial" /
-          "weak" / "not_defined".
-          Внутренняя диагностика (не для отображения в Grid):
-          - "strong" — есть уведомление о дефолте + суброгация без
-            ограничений + передача документов;
-          - "partial" — покрыты 1–2 из 3 элементов защиты;
-          - "weak" — суброгация ограничена/исключена и/или уведомление
-            отсутствует;
-          - "not_defined" — надёжно классифицировать нельзя.
+           "weak" / "not_defined".
+           Внутренняя диагностика (не для отображения в Grid):
+           - "strong" — есть уведомление о дефолте + суброгация без
+             ограничений + передача документов;
+           - "partial" — покрыты 1–2 из 3 элементов защиты;
+           - "weak" — суброгация ограничена/исключена и/или уведомление
+             отсутствует;
+           - "not_defined" — надёжно классифицировать нельзя.
 
-        Все 7 ключей должны присутствовать в JSON-ответе.
+        Все 8 ключей должны присутствовать в JSON-ответе.
         </task>
 
         <context_rules>
+        - Агрегируй guarantor_notice_subrogation_presence по значению хотя бы
+          одного из полей: default_notice_status, subrogation_status,
+          document_transfer_to_guarantor. Если хотя бы одно = "present" →
+          "present"; все три = "not_defined" → "missing"; иначе → "unclear".
         - Используй только текст договора из <context>. Не подставляй нормы закона.
         - Не делай предположений и не достраивай отсутствующие реквизиты.
         - Если в <context> попали нерелевантные фрагменты — игнорируй их.
@@ -3091,15 +3617,42 @@ checks_v8:
         - Соблюдай точное соответствие имён ключей схеме полей.
         </context_rules>
 
+        <edge_cases>
+        1. В договоре есть только уведомление должником поручителя об исполнении
+           (ст. 366 п. 1 ГК РФ), но нет уведомления кредитором о дефолте →
+           default_notice_status = "not_defined", не путай два вида уведомлений.
+        2. Суброгация прямо не прописана, но и не ограничена →
+           subrogation_status = "not_defined",
+           subrogation_display = "Прямо не установлено (действует в силу
+           ст. 365 ГК РФ)". НЕ пиши просто "Не установлено".
+        3. Формулировка «права переходят в порядке, установленном действующим
+           законодательством» без конкретизации объёма →
+           subrogation_status = "unclear" (отсылка есть, но объём не ясен).
+        4. Договор содержит только общую фразу о «защите прав поручителя после
+           исполнения» без какой-либо конкретики → все status-поля = "not_defined",
+           guarantor_notice_subrogation_presence = "missing".
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект со всеми 7 ключами без какого-либо
+        - Верни РОВНО один JSON-объект со всеми 8 ключами без какого-либо
           дополнительного текста до или после.
         - Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей.
         - НЕ пиши Markdown, списки, код-фенсы.
         - Ответ должен быть валидным JSON, пригодным для парсинга через json.loads
           без предварительной обработки.
+        - Технический формат JSON (value / confidence / location) задан отдельным
+          контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "guarantor_notice_subrogation_presence"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["present", "missing", "unclear"]
+          description: "Сводный признак наличия в договоре условий об уведомлении поручителя и/или суброгации."
+          required: true
+          display_in_grid: false
+          risk_weight: "info"
         - name: "default_notice_status"
           type: "string"
           presentation: "signal"
@@ -3107,6 +3660,7 @@ checks_v8:
           description: "Есть ли условие об уведомлении поручителя о дефолте (внутренний признак)."
           required: true
           display_in_grid: false
+          risk_weight: "high"
         - name: "default_notice_display"
           type: "string"
           presentation: "fact"
@@ -3122,6 +3676,7 @@ checks_v8:
           description: "Есть ли условие о переходе прав кредитора к поручителю (внутренний признак)."
           required: true
           display_in_grid: false
+          risk_weight: "high"
         - name: "subrogation_display"
           type: "string"
           presentation: "fact"
@@ -3137,6 +3692,7 @@ checks_v8:
           description: "Есть ли условие о передаче документов поручителю (внутренний признак)."
           required: true
           display_in_grid: false
+          risk_weight: "medium"
         - name: "document_transfer_display"
           type: "string"
           presentation: "fact"
@@ -3368,7 +3924,13 @@ checks_v8:
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 850
-      compact_output: false
+      compact_output: false  # [CONSIDER]
+
+      presence_signal:
+        field: "pledge_insurance_presence"
+        present: "present"
+        missing: "missing"
+        unclear: "unclear"
 
       llm_prompt_extraction: |
         <role>
@@ -3384,73 +3946,117 @@ checks_v8:
         </context>
 
         <task>
-        Заполни строго следующие 6 полей:
+        0. Сначала определи pledge_insurance_presence:
+           - "present" — в тексте есть хотя бы одно условие о страховании
+             предмета залога (обязанность, выгодоприобретатель или
+             параметры страхования);
+           - "missing" — страхование предмета залога в тексте не упоминается;
+           - "unclear" — упоминания есть, но они фрагментарны или
+             противоречивы.
 
         1. insurance_obligation_status — "present" / "unclear" / "not_defined".
-          Внутренний признак наличия обязанности страхования.
+           Внутренний признак наличия обязанности страхования.
+           - "present" — обязанность прямо установлена в договоре;
+           - "unclear" — упоминание страхования есть, но формулировка
+             не создаёт прямой обязанности;
+           - "not_defined" — обязанность в договоре не установлена.
 
         2. insurance_obligation_display — человекочитаемое описание:
-          "Предусмотрено: страхование Залогодателем за свой счёт";
-          "Предусмотрено: страхование по требованиям ФЗ-102";
-          "Не удалось определить (формулировка не обязывает прямо)";
-          "Не установлено".
+           "Предусмотрено: страхование Залогодателем за свой счёт";
+           "Предусмотрено: страхование по требованиям ФЗ-102";
+           "Не удалось определить (формулировка не обязывает прямо)";
+           "Не установлено".
 
         3. pledgee_as_beneficiary — "present" / "unclear" / "not_defined".
-          Внутренний признак указания Залогодержателя выгодоприобретателем.
+           Внутренний признак указания Залогодержателя выгодоприобретателем.
 
         4. pledgee_as_beneficiary_display — человекочитаемое описание:
-          "Залогодержатель (выгодоприобретатель)";
-          "Иное лицо" (если выгодоприобретатель прямо указан и это не
-          Залогодержатель);
-          "Не удалось определить";
-          "Не установлено".
+           "Залогодержатель (выгодоприобретатель)";
+           "Иное лицо: <кто>" (если выгодоприобретатель прямо указан
+           и это не Залогодержатель);
+           "Не удалось определить";
+           "Не установлено".
 
         5. insurance_details_status — "present" / "partial" / "unclear" /
-          "not_defined".
-          Внутренний признак наличия параметров страхования.
-          - "present" — прямо указаны страховая сумма, срок, страховая
-            компания (или большинство из них);
-          - "partial" — указана только часть параметров или отсылка
-            к отдельному договору;
-          - "unclear" — упоминание параметров есть, но они неясны;
-          - "not_defined" — параметры прямо не указаны.
+           "not_defined".
+           Внутренний признак наличия параметров страхования.
+           - "present" — прямо указаны страховая сумма, срок, страховая
+             компания (или большинство из них);
+           - "partial" — указана только часть параметров или отсылка
+             к отдельному договору;
+           - "unclear" — упоминание параметров есть, но они неясны;
+           - "not_defined" — параметры прямо не указаны.
 
         6. insurance_details_display — человекочитаемое описание:
-          "Страховая сумма: <значение>; страховая компания: <...>;
-          срок: <...>";
-          "Определяется отдельным договором страхования";
-          "Не удалось определить";
-          "Не установлено".
+           "Страховая сумма: <значение>; страховая компания: <...>;
+           срок: <...>";
+           "Определяется отдельным договором страхования";
+           "Не удалось определить";
+           "Не установлено".
 
-        Все 6 ключей должны присутствовать в JSON-ответе.
+        Все 7 ключей должны присутствовать в JSON-ответе.
         </task>
 
         <context_rules>
+        - Агрегируй pledge_insurance_presence по значению хотя бы одного из:
+          insurance_obligation_status, pledgee_as_beneficiary,
+          insurance_details_status. Если хотя бы одно = "present" →
+          "present"; все три = "not_defined" → "missing"; иначе → "unclear".
         - Используй только текст договора из <context>. Не подставляй нормы закона.
         - Не делай предположений и не достраивай отсутствующие реквизиты.
         - Если в <context> попали нерелевантные фрагменты — игнорируй их.
         - Если фрагменты противоречат друг другу и надёжный вывод сделать нельзя —
           верни "unclear" для соответствующих internal-полей,
           "Не удалось определить" для display-полей.
-        - Если в договоре прямо не указана обязанность страхования — 
+        - Если в договоре прямо не указана обязанность страхования —
           insurance_obligation_status = "not_defined",
           insurance_obligation_display = "Не установлено". Не подставляй
           «обязанность по ст. 343 ГК РФ» — фиксируй только текст договора.
         - Различай три факта: обязанность страхования, выгодоприобретателя
           и параметры страхования. Это разные поля, не смешивай.
+        - Страхование жизни заёмщика или титульное страхование ≠ страхование
+          предмета залога. Если в тексте только они — pledge_insurance_presence
+          = "missing".
         - Не используй "None", "null" и пустые строки.
         - Соблюдай точное соответствие имён ключей схеме полей.
         </context_rules>
 
+        <edge_cases>
+        1. Страхование упомянуто только отсылкой к ФЗ-102 без конкретизации →
+           insurance_obligation_status = "present" (отсылка к закону = условие),
+           insurance_details_status = "partial" (детали в отдельном договоре).
+        2. Формулировка «Стороны принимают меры к сохранности предмета залога,
+           включая при необходимости его страхование» →
+           insurance_obligation_status = "unclear" (нет прямой обязанности).
+        3. Выгодоприобретатель указан как «страхователь» или третье лицо,
+           а не залогодержатель → pledgee_as_beneficiary = "present",
+           pledgee_as_beneficiary_display = "Иное лицо: <кто>".
+        4. В договоре ипотеки есть страхование жизни заёмщика и титула,
+           но страхование предмета залога не упомянуто →
+           pledge_insurance_presence = "missing" (страхование жизни ≠
+           страхование предмета залога).
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект со всеми 6 ключами без какого-либо
+        - Верни РОВНО один JSON-объект со всеми 7 ключами без какого-либо
           дополнительного текста до или после.
         - Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей.
         - НЕ пиши Markdown, списки, код-фенсы.
         - Ответ должен быть валидным JSON, пригодным для парсинга через json.loads
           без предварительной обработки.
+        - Технический формат JSON (value / confidence / location) задан отдельным
+          контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "pledge_insurance_presence"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["present", "missing", "unclear"]
+          description: "Сводный признак наличия в договоре условий о страховании предмета залога."
+          required: true
+          display_in_grid: false
+          risk_weight: "info"
         - name: "insurance_obligation_status"
           type: "string"
           presentation: "signal"
@@ -3458,6 +4064,7 @@ checks_v8:
           description: "Есть ли обязанность страхования (внутренний признак)."
           required: true
           display_in_grid: false
+          risk_weight: "high"
         - name: "insurance_obligation_display"
           type: "string"
           presentation: "fact"
@@ -3473,6 +4080,7 @@ checks_v8:
           description: "Назначен ли залогодержатель выгодоприобретателем (внутренний признак)."
           required: true
           display_in_grid: false
+          risk_weight: "medium"
         - name: "pledgee_as_beneficiary_display"
           type: "string"
           presentation: "fact"
@@ -3488,6 +4096,7 @@ checks_v8:
           description: "Есть ли параметры страхования (внутренний признак)."
           required: true
           display_in_grid: false
+          risk_weight: "low"
         - name: "insurance_details_display"
           type: "string"
           presentation: "fact"
@@ -3703,7 +4312,13 @@ checks_v8:
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 800
-      compact_output: false
+      compact_output: false  # [CONSIDER]
+
+      presence_signal:
+        field: "bankruptcy_rep_presence"
+        present: "present"
+        missing: "missing"
+        unclear: "unclear"
 
       llm_prompt_extraction: |
         <role>
@@ -3718,66 +4333,107 @@ checks_v8:
         </context>
 
         <task>
-        Заполни строго следующие 4 поля:
+        0. Сначала определи bankruptcy_rep_presence:
+           - "present" — в тексте есть заверения об отсутствии признаков
+             банкротства, процедур банкротства или оспоримых сделок;
+           - "missing" — банкротные заверения в тексте отсутствуют;
+           - "unclear" — есть общие формулировки о действительности
+             договора, но банкротство прямо не упомянуто.
 
         1. bankruptcy_representation_status — "present" / "unclear" /
-          "not_defined".
-          Внутренний признак наличия банкротных заверений:
-          - "present" — в договоре прямо есть заверения об отсутствии
-            признаков банкротства или процедур банкротства;
-          - "unclear" — есть общая отсылка к действительности договора
-            или обстоятельствам, но банкротство прямо не упомянуто;
-          - "not_defined" — заверений нет.
+           "not_defined".
+           Внутренний признак наличия банкротных заверений:
+           - "present" — в договоре прямо есть заверения об отсутствии
+             признаков банкротства или процедур банкротства;
+           - "unclear" — есть общая отсылка к действительности договора
+             или обстоятельствам, но банкротство прямо не упомянуто;
+           - "not_defined" — заверений нет.
 
         2. bankruptcy_representation_display — человекочитаемое описание:
-          "Предусмотрены заверения об отсутствии признаков банкротства";
-          "Предусмотрены заверения об отсутствии процедуры банкротства";
-          "Не удалось определить (формулировка не упоминает банкротство прямо)";
-          "Не установлено".
+           "Предусмотрены заверения об отсутствии признаков банкротства";
+           "Предусмотрены заверения об отсутствии процедуры банкротства";
+           "Не удалось определить (формулировка не упоминает банкротство
+           прямо)";
+           "Не установлено".
 
-        3. bankruptcy_rep_details_status — "present" / "partial" / "unclear" /
-          "not_defined".
-          Внутренний признак полноты банкротных заверений:
-          - "present" — покрыты и процедуры банкротства, и оспоримость
-            сделок (с предпочтением / подозрительные);
-          - "partial" — покрыта только одна из тем;
-          - "unclear" — покрытие есть, но сформулировано обобщённо;
-          - "not_defined" — конкретика отсутствует.
+        3. bankruptcy_rep_details_status — "present" / "partial" /
+           "unclear" / "not_defined".
+           Внутренний признак полноты банкротных заверений:
+           - "present" — покрыты и процедуры банкротства, и оспоримость
+             сделок (с предпочтением / подозрительные);
+           - "partial" — покрыта только одна из тем;
+           - "unclear" — покрытие есть, но сформулировано обобщённо;
+           - "not_defined" — конкретика отсутствует.
 
         4. bankruptcy_rep_details_display — человекочитаемый перечень:
-          "<перечень заверений, как указаны в договоре>";
-          "Не удалось определить";
-          "Не установлено".
+           "<перечень заверений, как указаны в договоре>";
+           "Не удалось определить";
+           "Не установлено".
 
-        Все 4 ключа должны присутствовать в JSON-ответе.
+        Все 5 ключей должны присутствовать в JSON-ответе.
         </task>
 
         <context_rules>
-        - Используй только текст договора из <context>. Не подставляй нормы закона.
+        - Агрегируй bankruptcy_rep_presence по значению
+          bankruptcy_representation_status: если = "present" → "present";
+          если = "not_defined" и bankruptcy_rep_details_status = "not_defined"
+          → "missing"; иначе → "unclear".
+        - Используй только текст договора из <context>. Не подставляй нормы
+          закона.
         - Не делай предположений и не достраивай отсутствующие реквизиты.
         - Если в <context> попали нерелевантные фрагменты — игнорируй их.
-        - Если фрагменты противоречат друг другу и надёжный вывод сделать нельзя —
-          верни "unclear" для соответствующих internal-полей,
-          "Не удалось определить" для display-полей.
+        - Если фрагменты противоречат друг другу и надёжный вывод сделать
+          нельзя — верни "unclear" для internal-полей, "Не удалось
+          определить" для display-полей.
         - Различай «сделку с предпочтением» (ст. 61.3 ФЗ-127) и
-          «подозрительную сделку» (ст. 61.2 ФЗ-127). Если договор перечисляет
-          оба понятия — отражай оба в details.
-        - Если в договоре прямо нет банкротных заверений — 
+          «подозрительную сделку» (ст. 61.2 ФЗ-127). Если договор
+          перечисляет оба понятия — отражай оба в details.
+        - Если в договоре прямо нет банкротных заверений —
           bankruptcy_representation_status = "not_defined". Не дотягивай
           до present из-за общих R&W-оговорок, не упоминающих банкротство.
         - Не используй "None", "null" и пустые строки.
         - Соблюдай точное соответствие имён ключей схеме полей.
         </context_rules>
 
+        <edge_cases>
+        1. Общая R&W-оговорка «Стороны заверяют о соблюдении требований
+           законодательства» без упоминания банкротства →
+           bankruptcy_representation_status = "not_defined" (не дотягивай
+           до present).
+        2. Заверение только об «отсутствии процедуры банкротства», без
+           упоминания оспоримых сделок →
+           bankruptcy_representation_status = "present",
+           bankruptcy_rep_details_status = "partial".
+        3. Формулировка «отсутствие обстоятельств, способных повлиять
+           на действительность договора» без прямой ссылки на банкротство →
+           bankruptcy_representation_status = "unclear".
+        4. Банкротные заверения даны основным должником, а не залогодателем
+           (например, в трёхстороннем договоре) →
+           bankruptcy_representation_status = "present", в display укажи,
+           кем именно даны заверения.
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект со всеми 4 ключами без какого-либо
+        - Верни РОВНО один JSON-объект со всеми 5 ключами без какого-либо
           дополнительного текста до или после.
-        - Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей.
+        - Начни ответ сразу с открывающей фигурной скобки и закончи
+          закрывающей.
         - НЕ пиши Markdown, списки, код-фенсы.
-        - Ответ должен быть валидным JSON, пригодным для парсинга через json.loads
-          без предварительной обработки.
+        - Ответ должен быть валидным JSON, пригодным для парсинга через
+          json.loads без предварительной обработки.
+        - Технический формат JSON (value / confidence / location) задан
+          отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "bankruptcy_rep_presence"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["present", "missing", "unclear"]
+          description: "Сводный признак наличия в договоре банкротных заверений."
+          required: true
+          display_in_grid: false
+          risk_weight: "info"
         - name: "bankruptcy_representation_status"
           type: "string"
           presentation: "signal"
@@ -3785,6 +4441,7 @@ checks_v8:
           description: "Есть ли банкротные заверения (внутренний признак)."
           required: true
           display_in_grid: false
+          risk_weight: "high"
         - name: "bankruptcy_representation_display"
           type: "string"
           presentation: "fact"
@@ -3800,6 +4457,7 @@ checks_v8:
           description: "Полнота банкротных заверений (внутренний признак)."
           required: true
           display_in_grid: false
+          risk_weight: "medium"
         - name: "bankruptcy_rep_details_display"
           type: "string"
           presentation: "fact"
@@ -4023,7 +4681,13 @@ checks_v8:
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 900
-      compact_output: false
+      compact_output: false  # [CONSIDER]
+
+      presence_signal:
+        field: "subsequent_pledge_presence"
+        present: "present"
+        missing: "missing"
+        unclear: "unclear"
 
       llm_prompt_extraction: |
         <role>
@@ -4038,78 +4702,124 @@ checks_v8:
         </context>
 
         <task>
-        Заполни строго следующие 6 полей:
+        0. Сначала определи subsequent_pledge_presence:
+           - "present" — в тексте прямо указан характер залога (первый
+             или последующий), упомянут предыдущий залогодержатель
+             или согласие на последующий залог;
+           - "missing" — характер залога и связанные вопросы в тексте
+             не упоминаются;
+           - "unclear" — есть общие формулировки об обременениях,
+             но характер залога прямо не определён.
 
-        1. subsequent_pledge_status — "first_pledge" / "present" / "unclear" /
-          "not_defined".
-          - "first_pledge" — прямо указано, что залог первый / предмет
-            не обременён залогом третьих лиц;
-          - "present" — прямо указано, что залог последующий;
-          - "unclear" — есть формулировка о характере залога, но она
-            не позволяет надёжно классифицировать;
-          - "not_defined" — характер залога прямо не указан.
+        1. subsequent_pledge_status — "first_pledge" / "present" /
+           "unclear" / "not_defined".
+           - "first_pledge" — прямо указано, что залог первый / предмет
+             не обременён залогом третьих лиц;
+           - "present" — прямо указано, что залог последующий;
+           - "unclear" — есть формулировка о характере залога, но она
+             не позволяет надёжно классифицировать;
+           - "not_defined" — характер залога прямо не указан.
 
         2. subsequent_pledge_display — человекочитаемое:
-          "Первый залог (предмет залога не обременён залогом третьих лиц)";
-          "Последующий залог";
-          "Не удалось определить (формулировка не различает первый
-          и последующий залог)";
-          "Не установлено".
+           "Первый залог (предмет залога не обременён залогом третьих лиц)";
+           "Последующий залог";
+           "Не удалось определить (формулировка не различает первый
+           и последующий залог)";
+           "Не установлено".
 
         3. prior_pledgee_consent_status — "present" / "not_required" /
-          "unclear" / "not_defined".
-          - "present" — прямо указано наличие согласия предыдущего
-            залогодержателя;
-          - "not_required" — прямо указано, что залог первый, поэтому
-            согласие не требуется;
-          - "unclear" — упоминание согласия есть, но надёжно
-            классифицировать нельзя;
-          - "not_defined" — согласие прямо не упомянуто.
+           "unclear" / "not_defined".
+           - "present" — прямо указано наличие согласия предыдущего
+             залогодержателя;
+           - "not_required" — прямо указано, что залог первый, поэтому
+             согласие не требуется;
+           - "unclear" — упоминание согласия есть, но надёжно
+             классифицировать нельзя;
+           - "not_defined" — согласие прямо не упомянуто.
 
         4. prior_pledgee_consent_display — человекочитаемое:
-          "Согласие предыдущего залогодержателя получено (письменно)";
-          "Согласие предыдущего залогодержателя получено (иная форма)";
-          "Не требуется (залог первый)";
-          "Не удалось определить";
-          "Не установлено".
+           "Согласие предыдущего залогодержателя получено (письменно)";
+           "Согласие предыдущего залогодержателя получено (иная форма)";
+           "Не требуется (залог первый)";
+           "Не удалось определить";
+           "Не установлено".
 
-        5. prior_pledgee_info_status — "present" / "unclear" / "not_defined".
+        5. prior_pledgee_info_status — "present" / "unclear" /
+           "not_defined".
 
         6. prior_pledgee_info_display — человекочитаемое:
-          "<наименование залогодержателя>; <реквизиты договора>;
-          <регистрационная запись>";
-          "Не удалось определить";
-          "Не установлено".
+           "<наименование залогодержателя>; <реквизиты договора>;
+           <регистрационная запись>";
+           "Не удалось определить";
+           "Не установлено".
 
-        Все 6 ключей должны присутствовать в JSON-ответе.
+        Все 7 ключей должны присутствовать в JSON-ответе.
         </task>
 
         <context_rules>
-        - Используй только текст договора из <context>. Не подставляй нормы закона.
+        - Агрегируй subsequent_pledge_presence по значению хотя бы одного
+          из: subsequent_pledge_status, prior_pledgee_consent_status,
+          prior_pledgee_info_status. Если subsequent_pledge_status ∈
+          {"first_pledge", "present"} → "present"; все три = "not_defined"
+          → "missing"; иначе → "unclear".
+        - Используй только текст договора из <context>. Не подставляй нормы
+          закона.
         - Не делай предположений и не достраивай отсутствующие реквизиты.
         - Если в <context> попали нерелевантные фрагменты — игнорируй их.
         - Если фрагменты противоречат друг другу и надёжный вывод сделать
-          нельзя — верни "unclear" для соответствующих internal-полей,
-          "Не удалось определить" для display-полей.
+          нельзя — верни "unclear" для internal-полей, "Не удалось
+          определить" для display-полей.
         - Отсутствие указания на последующий характер залога ≠ отсутствие
           последующего залога: он мог быть установлен вне текста. Фиксируй
           только текст.
         - Различай: «характер залога» / «согласие предыдущего
           залогодержателя» / «сведения о предыдущем залогодержателе».
           Это три разных факта, не смешивай.
+        - Ссылка на приложение или спецификацию с данными предыдущего
+          залогодержателя = "present" для prior_pledgee_info_status
+          (внешний документ учитывается).
         - Не используй "None", "null" и пустые строки.
         - Соблюдай точное соответствие имён ключей схеме полей.
         </context_rules>
 
+        <edge_cases>
+        1. Договор прямо указывает «настоящий залог является первым» →
+           subsequent_pledge_status = "first_pledge",
+           prior_pledgee_consent_status = "not_required".
+        2. Указан последующий залог, но согласие предыдущего залогодержателя
+           не упомянуто → subsequent_pledge_status = "present",
+           prior_pledgee_consent_status = "not_defined" (риск оспоримости).
+        3. Общая фраза «предмет залога не обременён правами третьих лиц»
+           без различения первый/последующий →
+           subsequent_pledge_status = "unclear" (не позволяет надёжно
+           классифицировать).
+        4. Сведения о предыдущем залогодержателе вынесены в приложение,
+           на которое есть ссылка в тексте договора →
+           prior_pledgee_info_status = "present", в display укажи
+           ссылку на приложение.
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект со всеми 6 ключами без какого-либо
+        - Верни РОВНО один JSON-объект со всеми 7 ключами без какого-либо
           дополнительного текста до или после.
-        - Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей.
+        - Начни ответ сразу с открывающей фигурной скобки и закончи
+          закрывающей.
         - НЕ пиши Markdown, списки, код-фенсы.
-        - Ответ должен быть валидным JSON, пригодным для парсинга через json.loads
-          без предварительной обработки.
+        - Ответ должен быть валидным JSON, пригодным для парсинга через
+          json.loads без предварительной обработки.
+        - Технический формат JSON (value / confidence / location) задан
+          отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "subsequent_pledge_presence"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["present", "missing", "unclear"]
+          description: "Сводный признак наличия в договоре условий о характере залога и старшинстве."
+          required: true
+          display_in_grid: false
+          risk_weight: "info"
         - name: "subsequent_pledge_status"
           type: "string"
           presentation: "signal"
@@ -4117,6 +4827,7 @@ checks_v8:
           description: "Характер залога (внутренний enum)."
           required: true
           display_in_grid: false
+          risk_weight: "high"
         - name: "subsequent_pledge_display"
           type: "string"
           presentation: "fact"
@@ -4132,6 +4843,7 @@ checks_v8:
           description: "Согласие предыдущего залогодержателя (внутренний признак)."
           required: true
           display_in_grid: false
+          risk_weight: "high"
         - name: "prior_pledgee_consent_display"
           type: "string"
           presentation: "fact"
@@ -4147,6 +4859,7 @@ checks_v8:
           description: "Сведения о предыдущем залогодержателе (внутренний признак)."
           required: true
           display_in_grid: false
+          risk_weight: "medium"
         - name: "prior_pledgee_info_display"
           type: "string"
           presentation: "fact"
@@ -4370,7 +5083,13 @@ checks_v8:
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 850
-      compact_output: false
+      compact_output: false  # [CONSIDER]
+
+      presence_signal:
+        field: "disposal_restrictions_presence"
+        present: "present"
+        missing: "missing"
+        unclear: "unclear"
 
       llm_prompt_extraction: |
         <role>
@@ -4385,61 +5104,114 @@ checks_v8:
         </context>
 
         <task>
-        Заполни строго следующие 6 полей:
+        0. Сначала определи disposal_restrictions_presence:
+           - "present" — в тексте есть хотя бы одно прямое ограничение
+             на распоряжение предметом залога (отчуждение, аренда,
+             замена) или правила замены/восполнения;
+           - "missing" — ограничения распоряжения и правила замены
+             в тексте не упоминаются;
+           - "unclear" — есть общие формулировки о сохранности или
+             стоимости, но конкретные ограничения не ясны.
 
         1. disposal_restriction_status — "present" / "not_defined".
-          Есть ли прямое ограничение на продажу/отчуждение.
+           Есть ли прямое ограничение на продажу/отчуждение.
+           - "present" — прямой запрет или ограничение отчуждения
+             (включая запрет без согласия залогодержателя);
+           - "not_defined" — ограничение прямо не установлено
+             (включая случаи, когда отчуждение прямо разрешено).
 
         2. disposal_restriction_display — человекочитаемое:
-          "<описание запрета>";
-          "Не установлено (отчуждение прямо разрешено в порядке
-          обычной деятельности)";
-          "Не удалось определить";
-          "Не установлено".
+           "<описание запрета>";
+           "Не установлено (отчуждение прямо разрешено в порядке
+           обычной деятельности)";
+           "Не удалось определить (обобщённая формулировка без прямой
+           ссылки на отчуждение)";
+           "Не установлено".
 
         3. use_and_lease_restriction_status — "present" / "not_defined".
-          Есть ли прямое ограничение на аренду / пользование / ссуду.
+           Есть ли прямое ограничение на аренду / пользование / ссуду.
 
         4. use_and_lease_restriction_display — человекочитаемое:
-          "<описание ограничения>";
-          "Не удалось определить";
-          "Не установлено".
+           "<описание ограничения>";
+           "Не удалось определить";
+           "Не установлено".
 
         5. substitution_rules_status — "present" / "not_defined".
-          Есть ли правила замены предмета залога.
+           Есть ли правила замены предмета залога.
 
         6. substitution_rules_display — человекочитаемое:
-          "<описание правил замены / восполнения>";
-          "Не удалось определить";
-          "Не установлено".
+           "<описание правил замены / восполнения>";
+           "Не удалось определить";
+           "Не установлено".
 
-        Все 6 ключей должны присутствовать в JSON-ответе.
+        Все 7 ключей должны присутствовать в JSON-ответе.
         </task>
 
         <context_rules>
-        - Используй только текст договора из <context>. Не подставляй нормы закона.
+        - Агрегируй disposal_restrictions_presence по значению хотя бы
+          одного из: disposal_restriction_status,
+          use_and_lease_restriction_status, substitution_rules_status.
+          Если хотя бы одно = "present" → "present"; все три =
+          "not_defined" → "missing"; иначе → "unclear".
+        - Используй только текст договора из <context>. Не подставляй
+          нормы закона.
         - Не делай предположений.
         - Если в <context> попали нерелевантные фрагменты — игнорируй их.
         - Если фрагменты противоречат друг другу и надёжный вывод сделать
-          нельзя — верни "unclear" для соответствующих internal-полей,
-          "Не удалось определить" для display-полей.
+          нельзя — status = "not_defined", display = "Не удалось
+          определить".
         - Не подставляй «право следования по ст. 353 ГК РФ» как present —
           оно действует в силу закона, а не по тексту договора.
         - Различай: ограничение продажи / ограничение аренды / правила
           замены — это разные факты, не смешивай.
+        - Прямое разрешение отчуждения (товары в обороте) ≠ ограничение.
+          Если отчуждение прямо разрешено — disposal_restriction_status =
+          "not_defined".
+        - Ссылка на приложение или спецификацию с ограничениями =
+          "present" (внешний документ учитывается).
         - Не используй "None", "null" и пустые строки.
         - Соблюдай точное соответствие имён ключей схеме полей.
         </context_rules>
 
+        <edge_cases>
+        1. Товары в обороте: «Залогодатель вправе отчуждать предмет залога
+           в порядке обычной хозяйственной деятельности с восполнением
+           запасов» → disposal_restriction_status = "not_defined"
+           (разрешение ≠ ограничение), substitution_rules_status =
+           "present" (восполнение = правило замены).
+        2. Общая фраза «не совершать действий, способных повлечь уменьшение
+           стоимости предмета залога» без конкретики → все status =
+           "not_defined", display = "Не удалось определить (обобщённая
+           формулировка)".
+        3. Запрет отчуждения есть, но аренда прямо разрешена →
+           disposal_restriction_status = "present",
+           use_and_lease_restriction_status = "not_defined".
+        4. Ограничения вынесены в отдельное приложение, на которое есть
+           ссылка в тексте → disposal_restriction_status = "present",
+           в display укажи ссылку на приложение.
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект со всеми 6 ключами без какого-либо
+        - Верни РОВНО один JSON-объект со всеми 7 ключами без какого-либо
           дополнительного текста до или после.
-        - Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей.
+        - Начни ответ сразу с открывающей фигурной скобки и закончи
+          закрывающей.
         - НЕ пиши Markdown, списки, код-фенсы.
-        - Ответ должен быть валидным JSON, пригодным для парсинга через json.loads
-          без предварительной обработки.
+        - Ответ должен быть валидным JSON, пригодным для парсинга через
+          json.loads без предварительной обработки.
+        - Технический формат JSON (value / confidence / location) задан
+          отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "disposal_restrictions_presence"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["present", "missing", "unclear"]
+          description: "Сводный признак наличия в договоре ограничений распоряжения предметом залога."
+          required: true
+          display_in_grid: false
+          risk_weight: "info"
         - name: "disposal_restriction_status"
           type: "string"
           presentation: "signal"
@@ -4447,6 +5219,7 @@ checks_v8:
           description: "Есть ли ограничение на отчуждение (внутренний признак)."
           required: true
           display_in_grid: false
+          risk_weight: "high"
         - name: "disposal_restriction_display"
           type: "string"
           presentation: "fact"
@@ -4462,6 +5235,7 @@ checks_v8:
           description: "Есть ли ограничение аренды/пользования (внутренний признак)."
           required: true
           display_in_grid: false
+          risk_weight: "medium"
         - name: "use_and_lease_restriction_display"
           type: "string"
           presentation: "fact"
@@ -4477,6 +5251,7 @@ checks_v8:
           description: "Есть ли правила замены предмета залога (внутренний признак)."
           required: true
           display_in_grid: false
+          risk_weight: "medium"
         - name: "substitution_rules_display"
           type: "string"
           presentation: "fact"
@@ -4696,7 +5471,13 @@ checks_v8:
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 850
-      compact_output: false
+      compact_output: false  # [CONSIDER]
+
+      presence_signal:
+        field: "movable_registration_presence"
+        present: "present"
+        missing: "missing"
+        unclear: "unclear"
 
       llm_prompt_extraction: |
         <role>
@@ -4711,43 +5492,58 @@ checks_v8:
         </context>
 
         <task>
-        Заполни строго следующие 6 полей:
+        0. Сначала определи movable_registration_presence:
+           - "present" — в тексте прямо предусмотрена регистрация залога
+             в реестре уведомлений о залоге, указана регистрирующая
+             сторона или приведены реквизиты записи;
+           - "missing" — регистрация залога движимого имущества в тексте
+             не упоминается;
+           - "unclear" — есть общие формулировки об учёте залога,
+             но без прямой ссылки на реестр уведомлений.
 
-        1. movable_registration_status — "present" / "unclear" / "not_defined".
-          Внутренний признак наличия условия о регистрации залога
-          в реестре уведомлений.
-          - "present" — прямо предусмотрена регистрация в реестре
-            уведомлений о залоге;
-          - "unclear" — упоминание регистрации есть, но без прямой
-            ссылки на реестр уведомлений;
-          - "not_defined" — условие в договоре не установлено.
+        1. movable_registration_status — "present" / "unclear" /
+           "not_defined".
+           Внутренний признак наличия условия о регистрации залога
+           в реестре уведомлений.
+           - "present" — прямо предусмотрена регистрация в реестре
+             уведомлений о залоге;
+           - "unclear" — упоминание регистрации есть, но без прямой
+             ссылки на реестр уведомлений;
+           - "not_defined" — условие в договоре не установлено.
 
         2. movable_registration_display — человекочитаемое:
-          "Регистрация в реестре уведомлений о залоге предусмотрена";
-          "Не удалось определить (обобщённая формулировка без прямой
-          ссылки на реестр уведомлений о залоге)";
-          "Не установлено".
+           "Регистрация в реестре уведомлений о залоге предусмотрена";
+           "Не удалось определить (обобщённая формулировка без прямой
+           ссылки на реестр уведомлений о залоге)";
+           "Не установлено".
 
         3. registrant_party — "pledgor" / "pledgee" / "both" / "unclear" /
-          "not_defined".
+           "not_defined".
 
         4. registrant_party_display — человекочитаемое:
-          "Залогодатель" / "Залогодержатель" / "Совместно" /
-          "Не удалось определить" / "Не установлено".
+           "Залогодатель" / "Залогодержатель" / "Совместно" /
+           "Не удалось определить" / "Не установлено".
 
-        5. registration_details_status — "present" / "unclear" / "not_defined".
-          Есть ли конкретные реквизиты записи.
+        5. registration_details_status — "present" / "unclear" /
+           "not_defined".
+           Есть ли конкретные реквизиты записи.
 
         6. registration_details_display — человекочитаемое:
-          "Регистрационная запись № <номер> от <дата>";
-          "Не удалось определить";
-          "Не установлено".
+           "Регистрационная запись № <номер> от <дата>";
+           "Не удалось определить";
+           "Не установлено".
 
-        Все 6 ключей должны присутствовать в JSON-ответе.
+        Все 7 ключей должны присутствовать в JSON-ответе.
         </task>
 
         <context_rules>
-        - Используй только текст договора из <context>. Не подставляй нормы закона.
+        - Агрегируй movable_registration_presence по значению хотя бы
+          одного из: movable_registration_status, registrant_party,
+          registration_details_status. Если movable_registration_status =
+          "present" → "present"; все три = "not_defined" → "missing";
+          иначе → "unclear".
+        - Используй только текст договора из <context>. Не подставляй
+          нормы закона.
         - Не делай предположений.
         - Если в <context> попали нерелевантные фрагменты — игнорируй их.
         - Если фрагменты противоречат друг другу и надёжный вывод сделать
@@ -4757,19 +5553,51 @@ checks_v8:
           она могла быть произведена вне текста. Фиксируй только текст.
         - Для залога недвижимости (ипотеки) применяется отдельная
           регистрация в ЕГРН — этот check только для движимого имущества.
+          Если в тексте упомянута только регистрация в ЕГРН —
+          movable_registration_presence = "missing".
+        - Ссылка на приложение с реквизитами записи = "present" для
+          registration_details_status (внешний документ учитывается).
         - Не используй "None", "null" и пустые строки.
         - Соблюдай точное соответствие имён ключей схеме полей.
         </context_rules>
 
+        <edge_cases>
+        1. Прямая отсылка к реестру уведомлений о залоге движимого
+           имущества → movable_registration_status = "present".
+        2. Общая фраза «учёт залога в установленном законом порядке»
+           без ссылки на конкретный реестр →
+           movable_registration_status = "unclear".
+        3. В тексте упомянута только регистрация в ЕГРН (ипотека),
+           реестр уведомлений о залоге не упомянут →
+           movable_registration_presence = "missing" (этот check
+           только для движимого имущества).
+        4. Реквизиты регистрационной записи вынесены в приложение,
+           на которое есть ссылка в тексте →
+           registration_details_status = "present", в display укажи
+           ссылку на приложение.
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект со всеми 6 ключами без какого-либо
+        - Верни РОВНО один JSON-объект со всеми 7 ключами без какого-либо
           дополнительного текста до или после.
-        - Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей.
+        - Начни ответ сразу с открывающей фигурной скобки и закончи
+          закрывающей.
         - НЕ пиши Markdown, списки, код-фенсы.
-        - Ответ должен быть валидным JSON, пригодным для парсинга через json.loads
-          без предварительной обработки.
+        - Ответ должен быть валидным JSON, пригодным для парсинга через
+          json.loads без предварительной обработки.
+        - Технический формат JSON (value / confidence / location) задан
+          отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "movable_registration_presence"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["present", "missing", "unclear"]
+          description: "Сводный признак наличия в договоре условий о регистрации залога движимого имущества."
+          required: true
+          display_in_grid: false
+          risk_weight: "info"
         - name: "movable_registration_status"
           type: "string"
           presentation: "signal"
@@ -4777,6 +5605,7 @@ checks_v8:
           description: "Есть ли условие о регистрации залога (внутренний признак)."
           required: true
           display_in_grid: false
+          risk_weight: "high"
         - name: "movable_registration_display"
           type: "string"
           presentation: "fact"
@@ -4792,6 +5621,7 @@ checks_v8:
           description: "Кто регистрирует залог (внутренний enum)."
           required: true
           display_in_grid: false
+          risk_weight: "medium"
         - name: "registrant_party_display"
           type: "string"
           presentation: "fact"
@@ -4807,6 +5637,7 @@ checks_v8:
           description: "Есть ли реквизиты записи (внутренний признак)."
           required: true
           display_in_grid: false
+          risk_weight: "low"
         - name: "registration_details_display"
           type: "string"
           presentation: "fact"
@@ -5031,7 +5862,13 @@ checks_v8:
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 900
-      compact_output: false
+      compact_output: false  # [CONSIDER]
+
+      presence_signal:
+        field: "spousal_consent_presence"
+        present: "present"
+        missing: "missing"
+        unclear: "unclear"
 
       llm_prompt_extraction: |
         <role>
@@ -5047,70 +5884,119 @@ checks_v8:
         </context>
 
         <task>
-        Заполни строго следующие 6 полей:
+        0. Сначала определи spousal_consent_presence:
+           - "present" — в тексте есть конкретная информация о согласии
+             супруга, режиме собственности на предмет ипотеки или
+             заверении о семейном положении залогодателя;
+           - "missing" — вопросы согласия супруга, режима собственности
+             и семейного положения в тексте не затрагиваются;
+           - "unclear" — есть обобщённые заверения о правах на имущество,
+             но семейное положение прямо не упомянуто.
 
         1. spousal_consent_status — "present" / "not_required" / "unclear" /
-          "not_defined".
-          - "present" — прямо указано, что согласие супруга получено
-            (нотариальное или письменное);
-          - "not_required" — прямо указано, что залогодатель не состоит
-            в браке, либо установлен режим раздельной собственности;
-          - "unclear" — упоминание есть, но надёжно классифицировать нельзя;
-          - "not_defined" — согласие прямо не упомянуто.
+           "not_defined".
+           - "present" — прямо указано, что согласие супруга получено
+             (нотариальное или письменное);
+           - "not_required" — прямо указано, что залогодатель не состоит
+             в браке, либо установлен режим раздельной собственности;
+           - "unclear" — упоминание есть, но надёжно классифицировать
+             нельзя;
+           - "not_defined" — согласие прямо не упомянуто.
 
         2. spousal_consent_display — человекочитаемое:
-          "Нотариально удостоверенное согласие супруга получено (<реквизиты>)";
-          "Письменное согласие супруга получено";
-          "Не требуется (залогодатель не состоит в браке)";
-          "Не требуется (брачный договор с режимом раздельной собственности)";
-          "Не удалось определить";
-          "Не установлено".
+           "Нотариально удостоверенное согласие супруга получено
+           (<реквизиты>)";
+           "Письменное согласие супруга получено";
+           "Не требуется (залогодатель не состоит в браке)";
+           "Не требуется (брачный договор с режимом раздельной
+           собственности)";
+           "Не удалось определить";
+           "Не установлено".
 
         3. marital_regime_status — "joint_property" / "separate_property" /
-          "not_applicable" / "unclear" / "not_defined".
+           "not_applicable" / "unclear" / "not_defined".
 
         4. marital_regime_display — человекочитаемое:
-          "Совместная собственность супругов";
-          "Раздельная собственность (<документ>)";
-          "Не применимо (залогодатель не состоит в браке)";
-          "Не удалось определить";
-          "Не установлено".
+           "Совместная собственность супругов";
+           "Раздельная собственность (<документ>)";
+           "Не применимо (залогодатель не состоит в браке)";
+           "Не удалось определить";
+           "Не установлено".
 
-        5. marital_representation_status — "present" / "unclear" / "not_defined".
+        5. marital_representation_status — "present" / "unclear" /
+           "not_defined".
 
         6. marital_representation_display — человекочитаемое:
-          "<описание заверения о семейном положении>";
-          "Не удалось определить";
-          "Не установлено".
+           "<описание заверения о семейном положении>";
+           "Не удалось определить";
+           "Не установлено".
 
-        Все 6 ключей должны присутствовать в JSON-ответе.
+        Все 7 ключей должны присутствовать в JSON-ответе.
         </task>
 
         <context_rules>
-        - Используй только текст договора из <context>. Не подставляй нормы закона.
+        - Агрегируй spousal_consent_presence по значению хотя бы одного
+          из: spousal_consent_status, marital_regime_status,
+          marital_representation_status. Если spousal_consent_status ∈
+          {"present", "not_required"} или marital_regime_status ∈
+          {"joint_property", "separate_property", "not_applicable"} или
+          marital_representation_status = "present" → "present"; все три
+          = "not_defined" → "missing"; иначе → "unclear".
+        - Используй только текст договора из <context>. Не подставляй
+          нормы закона.
         - Не делай предположений.
         - Если в <context> попали нерелевантные фрагменты — игнорируй их.
         - Если фрагменты противоречат друг другу и надёжный вывод сделать
-          нельзя — верни "unclear" для соответствующих internal-полей,
-          "Не удалось определить" для display-полей.
+          нельзя — верни "unclear" для internal-полей, "Не удалось
+          определить" для display-полей.
         - Отсутствие в тексте согласия супруга ≠ отсутствие согласия:
-          оно может быть удостоверено отдельным документом. Фиксируй только
-          текст.
+          оно может быть удостоверено отдельным документом. Фиксируй
+          только текст.
         - Различай: наличие согласия / режим собственности / заверение
           о семейном положении — это разные факты, не смешивай.
+        - Ссылка на брачный договор в приложении = "present" для
+          marital_regime_status (внешний документ учитывается).
         - Не используй "None", "null" и пустые строки.
         - Соблюдай точное соответствие имён ключей схеме полей.
         </context_rules>
 
+        <edge_cases>
+        1. Нотариальное согласие супруга оформлено отдельным документом,
+           в договоре только ссылка на него → spousal_consent_status =
+           "present", в display укажи реквизиты из ссылки.
+        2. Залогодатель — юридическое лицо (вопрос о супруге не возникает) →
+           spousal_consent_presence = "missing" (чек не применим, но
+           наличие триггера mortgage_pledge требует ответа).
+        3. Общая фраза «Залогодатель обладает всеми правами на предмет
+           ипотеки» без упоминания семейного положения →
+           spousal_consent_status = "unclear", marital_regime_status =
+           "not_defined".
+        4. Брачный договор упомянут, но его режим не конкретизирован
+           («на основании брачного договора») → marital_regime_status =
+           "unclear", spousal_consent_status = "unclear".
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект со всеми 6 ключами без какого-либо
+        - Верни РОВНО один JSON-объект со всеми 7 ключами без какого-либо
           дополнительного текста до или после.
-        - Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей.
+        - Начни ответ сразу с открывающей фигурной скобки и закончи
+          закрывающей.
         - НЕ пиши Markdown, списки, код-фенсы.
-        - Ответ должен быть валидным JSON, пригодным для парсинга через json.loads
-          без предварительной обработки.
+        - Ответ должен быть валидным JSON, пригодным для парсинга через
+          json.loads без предварительной обработки.
+        - Технический формат JSON (value / confidence / location) задан
+          отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "spousal_consent_presence"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["present", "missing", "unclear"]
+          description: "Сводный признак наличия в договоре условий о согласии супруга и семейном положении залогодателя."
+          required: true
+          display_in_grid: false
+          risk_weight: "info"
         - name: "spousal_consent_status"
           type: "string"
           presentation: "signal"
@@ -5118,6 +6004,7 @@ checks_v8:
           description: "Согласие супруга залогодателя (внутренний признак)."
           required: true
           display_in_grid: false
+          risk_weight: "high"
         - name: "spousal_consent_display"
           type: "string"
           presentation: "fact"
@@ -5133,6 +6020,7 @@ checks_v8:
           description: "Режим собственности на предмет ипотеки (внутренний enum)."
           required: true
           display_in_grid: false
+          risk_weight: "high"
         - name: "marital_regime_display"
           type: "string"
           presentation: "fact"
@@ -5148,6 +6036,7 @@ checks_v8:
           description: "Заверение о семейном положении (внутренний признак)."
           required: true
           display_in_grid: false
+          risk_weight: "medium"
         - name: "marital_representation_display"
           type: "string"
           presentation: "fact"
@@ -5362,7 +6251,13 @@ checks_v8:
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 850
-      compact_output: false
+      compact_output: false  # [CONSIDER]
+
+      presence_signal:
+        field: "zakladnaya_presence"
+        present: "present"
+        missing: "missing"
+        unclear: "unclear"
 
       llm_prompt_extraction: |
         <role>
@@ -5377,65 +6272,108 @@ checks_v8:
         </context>
 
         <task>
-        Заполни строго следующие 6 полей:
+        0. Сначала определи zakladnaya_presence:
+           - "present" — в тексте прямо указано, что закладная
+             составляется или что её составление не предусмотрено,
+             либо есть сведения о форме/держателе закладной;
+           - "missing" — закладная в тексте не упоминается;
+           - "unclear" — есть общие отсылки к оформлению залога,
+             но закладная прямо не названа.
 
         1. zakladnaya_status — "present" / "not_provided" / "unclear" /
-          "not_defined".
-          - "present" — прямо указано, что закладная составляется;
-          - "not_provided" — прямо указано, что составление закладной
-            не предусмотрено;
-          - "unclear" — упоминание есть, но надёжно классифицировать нельзя;
-          - "not_defined" — упоминания закладной нет.
+           "not_defined".
+           - "present" — прямо указано, что закладная составляется;
+           - "not_provided" — прямо указано, что составление закладной
+             не предусмотрено;
+           - "unclear" — упоминание есть, но надёжно классифицировать
+             нельзя;
+           - "not_defined" — упоминания закладной нет.
 
         2. zakladnaya_display — человекочитаемое:
-          "Закладная составляется";
-          "Составление закладной прямо не предусмотрено";
-          "Не удалось определить";
-          "Не установлено".
+           "Закладная составляется";
+           "Составление закладной прямо не предусмотрено";
+           "Не удалось определить";
+           "Не установлено".
 
         3. zakladnaya_form — "documentary" / "electronic" / "unclear" /
-          "not_defined".
+           "not_defined".
 
         4. zakladnaya_form_display — человекочитаемое:
-          "Документарная" / "Электронная" /
-          "Не удалось определить (форма не конкретизирована)" /
-          "Не установлено".
+           "Документарная" / "Электронная" /
+           "Не удалось определить (форма не конкретизирована)" /
+           "Не установлено".
 
-        5. zakladnaya_holder_status — "present" / "unclear" / "not_defined".
+        5. zakladnaya_holder_status — "present" / "unclear" /
+           "not_defined".
 
         6. zakladnaya_holder_display — человекочитаемое:
-          "<Залогодержатель — наименование>"; "<иное лицо>";
-          "Не удалось определить";
-          "Не установлено".
+           "<Залогодержатель — наименование>"; "<иное лицо>";
+           "Не удалось определить";
+           "Не установлено".
 
-        Все 6 ключей должны присутствовать в JSON-ответе.
+        Все 7 ключей должны присутствовать в JSON-ответе.
         </task>
 
         <context_rules>
-        - Используй только текст договора из <context>. Не подставляй нормы закона.
+        - Агрегируй zakladnaya_presence по значению zakladnaya_status:
+          если ∈ {"present", "not_provided"} → "present"; если =
+          "not_defined" и zakladnaya_form = "not_defined" и
+          zakladnaya_holder_status = "not_defined" → "missing";
+          иначе → "unclear".
+        - Используй только текст договора из <context>. Не подставляй
+          нормы закона.
         - Не делай предположений.
         - Если в <context> попали нерелевантные фрагменты — игнорируй их.
         - Если фрагменты противоречат друг другу и надёжный вывод сделать
-          нельзя — верни "unclear" для соответствующих internal-полей,
-          "Не удалось определить" для display-полей.
+          нельзя — верни "unclear" для internal-полей, "Не удалось
+          определить" для display-полей.
         - Отсутствие указания на закладную ≠ отсутствие закладной: для
-          ипотеки в силу закона закладная может быть составлена в дальнейшем.
-          Фиксируй только текст.
+          ипотеки в силу закона закладная может быть составлена
+          в дальнейшем. Фиксируй только текст.
         - Различай: составление закладной / форму закладной / держателя
           закладной — это разные факты, не смешивай.
+        - «Закладная не составляется» (прямой запрет) ≠ отсутствие
+          упоминания. Первое = "not_provided", второе = "not_defined".
         - Не используй "None", "null" и пустые строки.
         - Соблюдай точное соответствие имён ключей схеме полей.
         </context_rules>
 
+        <edge_cases>
+        1. «Составление закладной настоящим договором не предусмотрено»
+           (ипотека в силу закона) → zakladnaya_status = "not_provided",
+           zakladnaya_presence = "present" (явное указание есть).
+        2. «Стороны договорились о необходимости оформления закладной
+           в порядке, установленном законодательством» →
+           zakladnaya_status = "present", zakladnaya_form = "unclear"
+           (форма не конкретизирована).
+        3. Закладная не упоминается вообще → zakladnaya_presence =
+           "missing", все status = "not_defined".
+        4. Электронная закладная упомянута, держатель не указан →
+           zakladnaya_status = "present", zakladnaya_form = "electronic",
+           zakladnaya_holder_status = "not_defined".
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект со всеми 6 ключами без какого-либо
+        - Верни РОВНО один JSON-объект со всеми 7 ключами без какого-либо
           дополнительного текста до или после.
-        - Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей.
+        - Начни ответ сразу с открывающей фигурной скобки и закончи
+          закрывающей.
         - НЕ пиши Markdown, списки, код-фенсы.
-        - Ответ должен быть валидным JSON, пригодным для парсинга через json.loads
-          без предварительной обработки.
+        - Ответ должен быть валидным JSON, пригодным для парсинга через
+          json.loads без предварительной обработки.
+        - Технический формат JSON (value / confidence / location) задан
+          отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "zakladnaya_presence"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["present", "missing", "unclear"]
+          description: "Сводный признак наличия в договоре условий о закладной."
+          required: true
+          display_in_grid: false
+          risk_weight: "info"
         - name: "zakladnaya_status"
           type: "string"
           presentation: "signal"
@@ -5443,6 +6381,7 @@ checks_v8:
           description: "Составляется ли закладная (внутренний признак)."
           required: true
           display_in_grid: false
+          risk_weight: "high"
         - name: "zakladnaya_display"
           type: "string"
           presentation: "fact"
@@ -5458,6 +6397,7 @@ checks_v8:
           description: "Форма закладной (внутренний enum)."
           required: true
           display_in_grid: false
+          risk_weight: "medium"
         - name: "zakladnaya_form_display"
           type: "string"
           presentation: "fact"
@@ -5473,6 +6413,7 @@ checks_v8:
           description: "Сведения о держателе закладной (внутренний признак)."
           required: true
           display_in_grid: false
+          risk_weight: "low"
         - name: "zakladnaya_holder_display"
           type: "string"
           presentation: "fact"
@@ -5698,7 +6639,13 @@ checks_v8:
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 900
-      compact_output: false
+      compact_output: false  # [CONSIDER]
+
+      presence_signal:
+        field: "guarantor_defenses_presence"
+        present: "present"
+        missing: "missing"
+        unclear: "unclear"
 
       llm_prompt_extraction: |
         <role>
@@ -5714,55 +6661,72 @@ checks_v8:
         </context>
 
         <task>
-        Заполни строго следующие 6 полей:
+        0. Сначала определи guarantor_defenses_presence:
+           - "present" — в тексте есть прямое закрепление права
+             поручителя на возражения, отказ от возражений или
+             оговорка об отказе кредитора принять исполнение;
+           - "missing" — ни один из этих вопросов в тексте не затронут;
+           - "unclear" — есть обобщённые формулировки о правах
+             поручителя, но конкретика отсутствует.
 
         1. debtor_defenses_right_status — "present" / "unclear" /
-          "not_defined".
-          - "present" — в договоре прямо закреплено право поручителя
-            выдвигать возражения должника;
-          - "unclear" — есть обобщённая формулировка, но право прямо
-            не закреплено;
-          - "not_defined" — нет упоминания.
+           "not_defined".
+           - "present" — в договоре прямо закреплено право поручителя
+             выдвигать возражения должника;
+           - "unclear" — есть обобщённая формулировка, но право прямо
+             не закреплено;
+           - "not_defined" — нет упоминания.
 
         2. debtor_defenses_right_display — человекочитаемое:
-          "Право поручителя выдвигать возражения должника прямо закреплено";
-          "Право на возражения прямо не закреплено";
-          "Не удалось определить (обобщённая формулировка без прямого
-          закрепления права на возражения)";
-          "Не установлено".
+           "Право поручителя выдвигать возражения должника прямо
+           закреплено";
+           "Право на возражения прямо не закреплено";
+           "Не удалось определить (обобщённая формулировка без прямого
+           закрепления права на возражения)";
+           "Не установлено".
 
-        3. waiver_of_defenses_status — "present" / "unclear" / "not_defined".
-          Есть ли отказ поручителя от права на возражения.
+        3. waiver_of_defenses_status — "present" / "unclear" /
+           "not_defined".
+           Есть ли отказ поручителя от права на возражения.
 
         4. waiver_of_defenses_display — человекочитаемое:
-          "Поручитель прямо отказался от права выдвигать возражения должника";
-          "Отказ от возражений не установлен";
-          "Не удалось определить";
-          "Не установлено".
+           "Поручитель прямо отказался от права выдвигать возражения
+           должника";
+           "Отказ от возражений не установлен";
+           "Не удалось определить";
+           "Не установлено".
 
-        5. refusal_of_acceptance_provision_status — "present" / "unclear" /
-          "not_defined".
-          Есть ли оговорка о последствиях отказа кредитора принять
-          надлежащее исполнение.
+        5. refusal_of_acceptance_provision_status — "present" /
+           "unclear" / "not_defined".
+           Есть ли оговорка о последствиях отказа кредитора принять
+           надлежащее исполнение.
 
         6. refusal_of_acceptance_provision_display — человекочитаемое:
-          "<описание оговорки>";
-          "Не удалось определить";
-          "Не установлено".
+           "<описание оговорки>";
+           "Не удалось определить";
+           "Не установлено".
 
-        Все 6 ключей должны присутствовать в JSON-ответе.
+        Все 7 ключей должны присутствовать в JSON-ответе.
         </task>
 
         <context_rules>
-        - Используй только текст договора из <context>. Не подставляй нормы закона.
+        - Агрегируй guarantor_defenses_presence по значению хотя бы
+          одного из: debtor_defenses_right_status,
+          waiver_of_defenses_status,
+          refusal_of_acceptance_provision_status. Если хотя бы одно =
+          "present" → "present"; все три = "not_defined" → "missing";
+          иначе → "unclear".
+        - Используй только текст договора из <context>. Не подставляй
+          нормы закона.
         - Не делай предположений.
         - Если в <context> попали нерелевантные фрагменты — игнорируй их.
         - Если фрагменты противоречат друг другу и надёжный вывод сделать
-          нельзя — верни "unclear" для соответствующих internal-полей,
-          "Не удалось определить" для display-полей.
+          нельзя — верни "unclear" для internal-полей, "Не удалось
+          определить" для display-полей.
         - Право на возражения должника (ст. 364 ГК РФ) действует в силу
-          закона. В debtor_defenses_right_status фиксируй не действие нормы,
-          а именно текст договора.
+          закона. В debtor_defenses_right_status фиксируй не действие
+          нормы, а именно текст договора. Отсутствие упоминания ≠
+          лишение права.
         - Различай: право на возражения / отказ от возражений / оговорки
           об отказе кредитора принять исполнение — это три разных факта,
           не смешивай.
@@ -5772,15 +6736,42 @@ checks_v8:
         - Соблюдай точное соответствие имён ключей схеме полей.
         </context_rules>
 
+        <edge_cases>
+        1. «Поручитель пользуется всеми правами, предоставленными ему
+           действующим законодательством» → debtor_defenses_right_status
+           = "unclear" (обобщённая отсылка, не прямое закрепление).
+        2. Прямой отказ от возражений: «Поручитель не вправе выдвигать
+           возражения должника» → waiver_of_defenses_status = "present",
+           debtor_defenses_right_status = "not_defined" (право не
+           закреплено, а ограничено).
+        3. Оговорка о ст. 367 п. 3 ГК РФ прямо в тексте →
+           refusal_of_acceptance_provision_status = "present".
+        4. Ни один из трёх вопросов не затронут в договоре →
+           guarantor_defenses_presence = "missing", все status =
+           "not_defined".
+        </edge_cases>
+
         <output_expectations>
-        - Верни РОВНО один JSON-объект со всеми 6 ключами без какого-либо
+        - Верни РОВНО один JSON-объект со всеми 7 ключами без какого-либо
           дополнительного текста до или после.
-        - Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей.
+        - Начни ответ сразу с открывающей фигурной скобки и закончи
+          закрывающей.
         - НЕ пиши Markdown, списки, код-фенсы.
-        - Ответ должен быть валидным JSON, пригодным для парсинга через json.loads
-          без предварительной обработки.
+        - Ответ должен быть валидным JSON, пригодным для парсинга через
+          json.loads без предварительной обработки.
+        - Технический формат JSON (value / confidence / location) задан
+          отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
+
       fields:
+        - name: "guarantor_defenses_presence"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["present", "missing", "unclear"]
+          description: "Сводный признак наличия в договоре условий о возражениях поручителя."
+          required: true
+          display_in_grid: false
+          risk_weight: "info"
         - name: "debtor_defenses_right_status"
           type: "string"
           presentation: "signal"
@@ -5788,6 +6779,7 @@ checks_v8:
           description: "Право поручителя на возражения должника (внутренний признак)."
           required: true
           display_in_grid: false
+          risk_weight: "medium"
         - name: "debtor_defenses_right_display"
           type: "string"
           presentation: "fact"
@@ -5803,6 +6795,7 @@ checks_v8:
           description: "Отказ поручителя от возражений (внутренний признак)."
           required: true
           display_in_grid: false
+          risk_weight: "high"
         - name: "waiver_of_defenses_display"
           type: "string"
           presentation: "fact"
@@ -5818,11 +6811,1242 @@ checks_v8:
           description: "Оговорка об отказе кредитора принять исполнение (внутренний признак)."
           required: true
           display_in_grid: false
+          risk_weight: "medium"
         - name: "refusal_of_acceptance_provision_display"
           type: "string"
           presentation: "fact"
           label: "Последствия отказа кредитора принять исполнение"
           description: "Человекочитаемое описание оговорки о последствиях отказа кредитора принять исполнение."
+          required: true
+          display_in_grid: true
+          display_priority: 3
+      store_payload: true
+
+  - id: guaranty_term_and_claim_period_check
+    name: "Поручительство: срок и срок предъявления требований"
+    description: >
+      Проверяет установление срока поручительства, способ его исчисления
+      и срок предъявления требований кредитора к поручителю (п. 4 ст. 367 ГК РФ).
+    triggers:
+      any:
+        - guaranty_contract
+    ui_mode: "field_extraction"
+    severity: "critical"
+    severity_if_pass: "pass"
+    severity_if_fail: "critical"
+    severity_if_unclear: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "срок поручительства"
+        - "поручительство действует до"
+        - "поручительство прекращается"
+        - "предъявление требований к поручителю"
+        - "срок предъявления требований"
+        - "в течение одного года"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)срок\\s+поручительств|поручительств.{0,20}действу"
+        - "(?i)предъявлени.{0,15}требован.{0,15}поручител"
+        - "(?i)поручительств.{0,20}прекраща"
+        - "(?i)в\\s+течени[ея]\\s+\\d+\\s+(год|лет|месяц)"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор поручительства по § 5 Главы 23 ГК РФ.
+        Проверяется только один вопрос: срок поручительства и срок
+        предъявления требований кредитора.
+
+        Нормативный ориентир:
+        - ст. 367 п. 4 ГК РФ — если срок поручительства не установлен,
+          оно прекращается, если кредитор в течение одного года со дня
+          наступления срока исполнения обеспеченного обязательства
+          не предъявит иск к поручителю; если срок исполнения основного
+          обязательства не указан — поручительство прекращается через
+          два года со дня заключения договора поручительства
+        - ст. 367 п. 6 ГК РФ — поручительство прекращается по истечении
+          указанного в договоре срока
+        - ст. 367 п. 1 ГК РФ — поручительство прекращается с прекращением
+          обеспеченного им обязательства
+        - Постановление Пленума ВАС РФ от 12.07.2012 № 42 (п. 33–35) —
+          порядок исчисления сроков поручительства
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора,
+          а чего прямо нет.
+        - Не оценивай серьёзность риска и не рассчитывай сроки.
+        - Не подставляй нормы закона вместо текста договора. Если срок
+          поручительства прямо не указан — guaranty_term_status =
+          "not_defined". Не пиши «1 год по ст. 367 п. 4 ГК РФ» как
+          present — это закон, а не текст договора.
+        - Различай три факта:
+          - срок поручительства (период, в течение которого действует
+            поручительство);
+          - срок предъявления требований (период, в течение которого
+            кредитор должен предъявить требование поручителю);
+          - способ исчисления срока (календарная дата, период, привязка
+            к основному обязательству).
+        - В договорах часто срок поручительства и срок предъявления
+          требований совпадают или формулируются одним предложением.
+          Если формулировка покрывает оба аспекта — отражай в обоих полях.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Установлен ли срок поручительства и какова его формулировка.
+        2. Установлен ли срок предъявления требований кредитора
+          к поручителю.
+        3. Каким способом исчисляется срок (календарная дата, период,
+          привязка к основному обязательству).
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Не подставляй нормы закона вместо текста договора.
+        3. Если условие не указано прямо — текстовое поле = "not_defined",
+          display-поле = "Не установлено".
+        4. Если текст есть, но надёжный вывод сделать нельзя —
+          для internal-полей = "unclear", для display-полей = "Не удалось определить".
+        5. Не используй "None", "null" и пустые строки.
+        6. Все 6 ключей должны присутствовать в JSON-ответе.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — полный срок с привязкой к основному обязательству:
+        Фрагмент:
+        "Поручительство действует в течение всего срока действия Основного договора, а также в течение трёх лет после наступления срока исполнения обеспеченного обязательства. Кредитор вправе предъявить требование к Поручителю в течение срока действия настоящего договора поручительства."
+
+        Ответ:
+        {
+          "guaranty_term_status": "present",
+          "guaranty_term_display": "Срок действия Основного договора + 3 года после наступления срока исполнения",
+          "claim_period_status": "present",
+          "claim_period_display": "В течение срока действия договора поручительства",
+          "term_calculation_method": "linked_to_obligation",
+          "term_calculation_display": "Привязка к сроку Основного договора и сроку исполнения обязательства"
+        }
+
+        Пример 2 — фиксированная календарная дата:
+        Фрагмент:
+        "Настоящее поручительство действует до 31 декабря 2027 года включительно."
+
+        Ответ:
+        {
+          "guaranty_term_status": "present",
+          "guaranty_term_display": "До 31.12.2027 включительно",
+          "claim_period_status": "not_defined",
+          "claim_period_display": "Не установлено",
+          "term_calculation_method": "fixed_date",
+          "term_calculation_display": "Фиксированная календарная дата"
+        }
+
+        Пример 3 — срок не указан:
+        Фрагмент:
+        "Поручитель обязуется отвечать перед Кредитором за исполнение Должником обязательств по Кредитному договору № 123 от 01.01.2025."
+
+        Ответ:
+        {
+          "guaranty_term_status": "not_defined",
+          "guaranty_term_display": "Не установлено",
+          "claim_period_status": "not_defined",
+          "claim_period_display": "Не установлено",
+          "term_calculation_method": "not_defined",
+          "term_calculation_display": "Не установлено"
+        }
+
+        Пример 4 — неоднозначная формулировка:
+        Фрагмент:
+        "Поручительство действует до полного исполнения Должником своих обязательств по Основному договору."
+
+        Ответ:
+        {
+          "guaranty_term_status": "present",
+          "guaranty_term_display": "До полного исполнения обязательств Должником",
+          "claim_period_status": "unclear",
+          "claim_period_display": "Не удалось определить (срок предъявления требований не конкретизирован отдельно)",
+          "term_calculation_method": "linked_to_obligation",
+          "term_calculation_display": "Привязка к полному исполнению основного обязательства"
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о сроке поручительства.
+        2. Найди прямую цитату о сроке предъявления требований.
+        3. Определи способ исчисления срока.
+        4. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь РОВНО одним JSON-объектом без какого-либо дополнительного текста до или после, со всеми 6 ключами:
+        {
+          "guaranty_term_status": "<present / unclear / not_defined>",
+          "guaranty_term_display": "<описание срока / Не удалось определить / Не установлено>",
+          "claim_period_status": "<present / unclear / not_defined>",
+          "claim_period_display": "<описание срока предъявления / Не удалось определить / Не установлено>",
+          "term_calculation_method": "<fixed_date / period / linked_to_obligation / unclear / not_defined>",
+          "term_calculation_display": "<описание способа исчисления / Не удалось определить / Не установлено>"
+        }
+
+        Верни РОВНО один JSON-объект со всеми 6 ключами без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+      context_k: 8
+      temperature: 0.0
+      max_tokens: 550
+
+    retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "срок поручительства срок действия поручительства прекращение поручительства предъявление требований к поручителю срок предъявления требований поручительство действует"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - termination
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+        - "объём ответственности"
+      position_bias:
+        preferred_range: [0.30, 0.80]
+        boost: 0.14
+        scope: segment
+      context_k: 8
+      max_chunks: 10
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "termination"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 35
+      max_snippet_length: 550
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 900
+      compact_output: false  # [CONSIDER]
+
+      presence_signal:
+        field: "guaranty_term_claim_presence"
+        present: "present"
+        missing: "missing"
+        unclear: "unclear"
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора поручительства
+        сведения о сроке поручительства, сроке предъявления требований
+        кредитора и способе исчисления срока.
+        Не анализируй объём ответственности, суброгацию и основания
+        прекращения, не связанные со сроком.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        0. Сначала определи guaranty_term_claim_presence:
+           - "present" — в тексте прямо указан срок поручительства,
+             срок предъявления требований или способ исчисления срока;
+           - "missing" — срок поручительства и связанные вопросы
+             в тексте не упоминаются;
+           - "unclear" — есть общие формулировки о действии
+             поручительства, но конкретный срок не определён.
+
+        1. guaranty_term_status — "present" / "unclear" / "not_defined".
+           - "present" — срок поручительства прямо установлен в договоре
+             (календарная дата, период, привязка к обязательству);
+           - "unclear" — упоминание срока есть, но формулировка
+             не позволяет надёжно определить его продолжительность;
+           - "not_defined" — срок поручительства прямо не указан.
+
+        2. guaranty_term_display — человекочитаемое:
+           "До 31.12.2027 включительно";
+           "Срок действия Основного договора + 3 года после наступления
+           срока исполнения";
+           "До полного исполнения обязательств Должником";
+           "Не удалось определить";
+           "Не установлено".
+
+        3. claim_period_status — "present" / "unclear" / "not_defined".
+           - "present" — срок предъявления требований прямо установлен;
+           - "unclear" — упоминание есть, но не конкретизировано;
+           - "not_defined" — прямо не указан.
+
+        4. claim_period_display — человекочитаемое:
+           "В течение срока действия договора поручительства";
+           "В течение 1 года со дня наступления срока исполнения";
+           "Не удалось определить";
+           "Не установлено".
+
+        5. term_calculation_method — "fixed_date" / "period" /
+           "linked_to_obligation" / "unclear" / "not_defined".
+           - "fixed_date" — конкретная календарная дата;
+           - "period" — период в месяцах/годах без привязки к дате;
+           - "linked_to_obligation" — привязка к сроку основного
+             обязательства или его исполнению;
+           - "unclear" — способ неясен;
+           - "not_defined" — срок не указан.
+
+        6. term_calculation_display — человекочитаемое:
+           "Фиксированная календарная дата";
+           "Период в месяцах/годах";
+           "Привязка к сроку Основного договора";
+           "Не удалось определить";
+           "Не установлено".
+
+        Все 7 ключей должны присутствовать в JSON-ответе.
+        </task>
+
+        <context_rules>
+        - Агрегируй guaranty_term_claim_presence по значению хотя бы
+          одного из: guaranty_term_status, claim_period_status,
+          term_calculation_method. Если хотя бы одно = "present" →
+          "present"; все три = "not_defined" → "missing"; иначе →
+          "unclear".
+        - Используй только текст договора из <context>. Не подставляй
+          нормы закона.
+        - Не подставляй «1 год по ст. 367 п. 4 ГК РФ» как present —
+          это императивная норма, а не текст договора. Если срок
+          прямо не указан — guaranty_term_status = "not_defined".
+        - Не делай предположений и не рассчитывай конкретные даты.
+        - Если в <context> попали нерелевантные фрагменты — игнорируй их.
+        - Если фрагменты противоречат друг другу и надёжный вывод сделать
+          нельзя — верни "unclear" для internal-полей, "Не удалось
+          определить" для display-полей.
+        - Различай: срок поручительства / срок предъявления требований /
+          способ исчисления — это разные факты, не смешивай.
+        - Формулировка «до полного исполнения обязательства» =
+          "linked_to_obligation" (привязка к основному обязательству).
+        - Не используй "None", "null" и пустые строки.
+        - Соблюдай точное соответствие имён ключей схеме полей.
+        </context_rules>
+
+        <edge_cases>
+        1. Срок поручительства прямо не указан, есть только ссылка на
+           основной договор → guaranty_term_status = "unclear" (срок
+           зависит от другого документа), term_calculation_method =
+           "linked_to_obligation".
+        2. «Поручительство действует до полного исполнения Должником
+           обязательств» → guaranty_term_status = "present",
+           term_calculation_method = "linked_to_obligation",
+           claim_period_status = "unclear" (срок предъявления
+           не конкретизирован отдельно).
+        3. Указан только срок предъявления требований без срока
+           поручительства → guaranty_term_status = "not_defined",
+           claim_period_status = "present".
+        4. Формулировка «срок поручительства — 3 года» без указания
+           точки отсчёта → guaranty_term_status = "present",
+           term_calculation_method = "period" (период без привязки).
+        </edge_cases>
+
+        <output_expectations>
+        - Верни РОВНО один JSON-объект со всеми 7 ключами без какого-либо
+          дополнительного текста до или после.
+        - Начни ответ сразу с открывающей фигурной скобки и закончи
+          закрывающей.
+        - НЕ пиши Markdown, списки, код-фенсы.
+        - Ответ должен быть валидным JSON, пригодным для парсинга через
+          json.loads без предварительной обработки.
+        - Технический формат JSON (value / confidence / location) задан
+          отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
+      fields:
+        - name: "guaranty_term_claim_presence"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["present", "missing", "unclear"]
+          description: "Сводный признак наличия в договоре условий о сроке поручительства и сроке предъявления требований."
+          required: true
+          display_in_grid: false
+          risk_weight: "info"
+        - name: "guaranty_term_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["present", "unclear", "not_defined"]
+          description: "Установлен ли срок поручительства (внутренний признак)."
+          required: true
+          display_in_grid: false
+          risk_weight: "high"
+        - name: "guaranty_term_display"
+          type: "string"
+          presentation: "fact"
+          label: "Срок поручительства"
+          description: "Человекочитаемое описание срока поручительства."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+        - name: "claim_period_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["present", "unclear", "not_defined"]
+          description: "Установлен ли срок предъявления требований кредитора (внутренний признак)."
+          required: true
+          display_in_grid: false
+          risk_weight: "high"
+        - name: "claim_period_display"
+          type: "string"
+          presentation: "fact"
+          label: "Срок предъявления требований к поручителю"
+          description: "Человекочитаемое описание срока предъявления требований."
+          required: true
+          display_in_grid: true
+          display_priority: 2
+        - name: "term_calculation_method"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["fixed_date", "period", "linked_to_obligation", "unclear", "not_defined"]
+          description: "Способ исчисления срока поручительства (внутренний enum)."
+          required: true
+          display_in_grid: false
+          risk_weight: "medium"
+        - name: "term_calculation_display"
+          type: "string"
+          presentation: "fact"
+          label: "Способ исчисления срока"
+          description: "Человекочитаемое описание способа исчисления срока."
+          required: true
+          display_in_grid: true
+          display_priority: 3
+      store_payload: true
+
+  - id: guaranty_secured_obligation_check
+    name: "Поручительство: обеспечиваемое обязательство"
+    description: >
+      Проверяет идентификацию обеспечиваемого обязательства, наличие
+      поручительства за будущие обязательства и предельный объём
+      обеспечения (ст. 361 п. 2 ГК РФ).
+    triggers:
+      any:
+        - guaranty_contract
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "обеспечиваемое обязательство"
+        - "основное обязательство"
+        - "будущие обязательства"
+        - "обязательства, которые могут возникнуть"
+        - "предельный объём"
+        - "максимальная сумма поручительства"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)обеспечиваем(ое|ого)\\s+обязательств|основн(ое|ого)\\s+обязательств"
+        - "(?i)будущ(ие|их)\\s+обязательств|обязательств.{0,20}возникн"
+        - "(?i)предельн(ый|ого)\\s+объём|максимальн(ая|ой)\\s+сумм"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор поручительства по § 5 Главы 23 ГК РФ.
+        Проверяется только один вопрос: идентификация обеспечиваемого
+        обязательства.
+
+        Нормативный ориентир:
+        - ст. 361 п. 1 ГК РФ — по договору поручительства поручитель
+          обязывается перед кредитором другого лица отвечать за исполнение
+          последним его обязательства полностью или в части
+        - ст. 361 п. 2 ГК РФ — поручительство может быть дано также
+          в обеспечение обязательства, которое возникнет в будущем;
+          при этом в договоре поручительства должны быть указаны
+          порядок и условия идентификации такого обязательства
+        - ст. 329 п. 1 ГК РФ — исполнение обязательств может
+          обеспечиваться поручительством
+        - ст. 329 п. 3 ГК РФ — недействительность соглашения
+          об обеспечении не влечёт недействительности основного
+          обязательства
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска и не определяй действительность
+          поручительства.
+        - Различай три факта:
+          - идентификация обеспечиваемого обязательства (конкретный
+            договор, рамочная отсылка, неопределённая формулировка);
+          - наличие поручительства за будущие обязательства;
+          - наличие предельного объёма (лимита) обеспечения.
+        - Если в договоре есть ссылка на конкретный кредитный договор
+          с номером и датой — это полная идентификация. Если отсылка
+          обобщённая («все обязательства Должника перед Кредитором») —
+          это неопределённая идентификация, которая может быть оспорена.
+        - Не путай объём ответственности поручителя (лимит поручительства)
+          с предельным объёмом будущих обязательств — это разные понятия.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Как идентифицировано обеспечиваемое обязательство (конкретный
+          договор, рамочная отсылка, общая формулировка).
+        2. Есть ли поручительство за будущие обязательства и указан ли
+          порядок их идентификации.
+        3. Есть ли предельный объём (лимит) обеспечиваемых обязательств.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Не подставляй нормы закона вместо текста договора.
+        3. Если условие не указано прямо — текстовое поле = "not_defined",
+          display-поле = "Не установлено".
+        4. Если текст есть, но надёжный вывод сделать нельзя —
+          для internal-полей = "unclear", для display-полей = "Не удалось определить".
+        5. Не используй "None", "null" и пустые строки.
+        6. Все 6 ключей должны присутствовать в JSON-ответе.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — конкретное обязательство с полной идентификацией:
+        Фрагмент:
+        "Настоящим договором обеспечивается исполнение Должником обязательств по Кредитному договору № КД-2025/0456 от 15.01.2025, заключённому между Кредитором и Должником, на сумму 50 000 000 (пятьдесят миллионов) рублей."
+
+        Ответ:
+        {
+          "obligation_identification_status": "present",
+          "obligation_identification_display": "Кредитный договор № КД-2025/0456 от 15.01.2025 на сумму 50 000 000 руб.",
+          "future_obligation_status": "excluded",
+          "future_obligation_display": "Будущие обязательства не включены (конкретный договор)",
+          "obligation_limit_status": "present",
+          "obligation_limit_display": "50 000 000 руб. (сумма Кредитного договора)"
+        }
+
+        Пример 2 — поручительство за будущие обязательства с лимитом:
+        Фрагмент:
+        "Поручительство даётся в обеспечение всех существующих и будущих обязательств Должника перед Кредитором, возникающих в период с 01.01.2025 по 31.12.2027. Предельный объём обеспечиваемых обязательств составляет 100 000 000 (сто миллионов) рублей."
+
+        Ответ:
+        {
+          "obligation_identification_status": "present",
+          "obligation_identification_display": "Все существующие и будущие обязательства Должника перед Кредитором (период: 01.01.2025–31.12.2027)",
+          "future_obligation_status": "present",
+          "future_obligation_display": "Будущие обязательства включены; период возникновения: 01.01.2025–31.12.2027",
+          "obligation_limit_status": "present",
+          "obligation_limit_display": "Предельный объём: 100 000 000 руб."
+        }
+
+        Пример 3 — неопределённая идентификация (риск):
+        Фрагмент:
+        "Поручитель отвечает за все обязательства Должника перед Кредитором."
+
+        Ответ:
+        {
+          "obligation_identification_status": "unclear",
+          "obligation_identification_display": "Не удалось определить (обобщённая формулировка без конкретизации обязательств)",
+          "future_obligation_status": "unclear",
+          "future_obligation_display": "Не удалось определить (неясно, включены ли будущие обязательства)",
+          "obligation_limit_status": "not_defined",
+          "obligation_limit_display": "Не установлено"
+        }
+
+        Пример 4 — рамочная отсылка к основному договору:
+        Фрагмент:
+        "Поручительство обеспечивается по Основному договору, указанному в п. 1.1 настоящего договора."
+
+        Ответ:
+        {
+          "obligation_identification_status": "present",
+          "obligation_identification_display": "Ссылка на Основной договор (п. 1.1)",
+          "future_obligation_status": "not_defined",
+          "future_obligation_display": "Не установлено",
+          "obligation_limit_status": "not_defined",
+          "obligation_limit_display": "Не установлено"
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату об обеспечиваемом обязательстве.
+        2. Найди прямую цитату о будущих обязательствах.
+        3. Найди прямую цитату о предельном объёме.
+        4. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь РОВНО одним JSON-объектом без какого-либо дополнительного текста до или после, со всеми 6 ключами:
+        {
+          "obligation_identification_status": "<present / unclear / not_defined>",
+          "obligation_identification_display": "<описание обязательства / Не удалось определить / Не установлено>",
+          "future_obligation_status": "<present / excluded / unclear / not_defined>",
+          "future_obligation_display": "<описание / Не удалось определить / Не установлено>",
+          "obligation_limit_status": "<present / unclear / not_defined>",
+          "obligation_limit_display": "<описание лимита / Не удалось определить / Не установлено>"
+        }
+
+        Верни РОВНО один JSON-объект со всеми 6 ключами без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+      context_k: 8
+      temperature: 0.0
+      max_tokens: 550
+
+    retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "обеспечиваемое обязательство основное обязательство будущие обязательства предельный объём максимальная сумма поручительства кредитный договор"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - representations
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+        - "ответственность поручителя"
+      position_bias:
+        preferred_range: [0.0, 0.35]
+        boost: 0.16
+        scope: segment
+      context_k: 8
+      max_chunks: 10
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "representations"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 35
+      max_snippet_length: 550
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 900
+      compact_output: false  # [CONSIDER]
+
+      presence_signal:
+        field: "secured_obligation_presence"
+        present: "present"
+        missing: "missing"
+        unclear: "unclear"
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора поручительства
+        сведения об обеспечиваемом обязательстве: его идентификацию,
+        наличие будущих обязательств и предельный объём.
+        Не анализируй объём ответственности поручителя, срок
+        поручительства и суброгацию.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        0. Сначала определи secured_obligation_presence:
+           - "present" — в тексте идентифицировано обеспечиваемое
+             обязательство, упомянуты будущие обязательства или
+             указан предельный объём;
+           - "missing" — обеспечиваемое обязательство в тексте
+             не идентифицировано;
+           - "unclear" — есть обобщённые отсылки, но конкретика
+             отсутствует.
+
+        1. obligation_identification_status — "present" / "unclear" /
+           "not_defined".
+           - "present" — обеспечиваемое обязательство конкретизировано
+             (номер договора, дата, сумма) или есть чёткая отсылка
+             к основному договору;
+           - "unclear" — формулировка обобщённая («все обязательства»,
+             «обязательства Должника») без конкретизации;
+           - "not_defined" — обеспечиваемое обязательство не указано.
+
+        2. obligation_identification_display — человекочитаемое:
+           "Кредитный договор № КД-2025/0456 от 15.01.2025";
+           "Ссылка на Основной договор (п. 1.1)";
+           "Не удалось определить (обобщённая формулировка)";
+           "Не установлено".
+
+        3. future_obligation_status — "present" / "excluded" /
+           "unclear" / "not_defined".
+           - "present" — прямо указано, что поручительство покрывает
+             будущие обязательства;
+           - "excluded" — прямо указано, что поручительство покрывает
+             только конкретное существующее обязательство;
+           - "unclear" — формулировка допускает толкование в обе стороны;
+           - "not_defined" — вопрос будущих обязательств не затронут.
+
+        4. future_obligation_display — человекочитаемое:
+           "Будущие обязательства включены; период: <...>";
+           "Будущие обязательства не включены (конкретный договор)";
+           "Не удалось определить";
+           "Не установлено".
+
+        5. obligation_limit_status — "present" / "unclear" /
+           "not_defined".
+           - "present" — предельный объём обеспечиваемых обязательств
+             прямо указан;
+           - "unclear" — есть отсылка к лимиту, но он не конкретизирован;
+           - "not_defined" — предельный объём не указан.
+
+        6. obligation_limit_display — человекочитаемое:
+           "Предельный объём: 100 000 000 руб.";
+           "Сумма Кредитного договора";
+           "Не удалось определить";
+           "Не установлено".
+
+        Все 7 ключей должны присутствовать в JSON-ответе.
+        </task>
+
+        <context_rules>
+        - Агрегируй secured_obligation_presence по значению хотя бы
+          одного из: obligation_identification_status,
+          future_obligation_status, obligation_limit_status. Если хотя
+          бы одно = "present" → "present"; все три ∈ {"not_defined",
+          "excluded"} → "missing"; иначе → "unclear".
+        - Используй только текст договора из <context>. Не подставляй
+          нормы закона.
+        - Не делай предположений и не достраивай реквизиты.
+        - Если в <context> попали нерелевантные фрагменты — игнорируй их.
+        - Если фрагменты противоречат друг другу и надёжный вывод сделать
+          нельзя — верни "unclear" для internal-полей, "Не удалось
+          определить" для display-полей.
+        - Различай: идентификация обязательства / будущие обязательства /
+          предельный объём — это три разных факта, не смешивай.
+        - Не путай предельный объём обеспечиваемых обязательств с лимитом
+          ответственности поручителя (это покрывается другим чеком).
+        - Ссылка на приложение с реквизитами основного договора =
+          "present" для obligation_identification_status (внешний
+          документ учитывается).
+        - Не используй "None", "null" и пустые строки.
+        - Соблюдай точное соответствие имён ключей схеме полей.
+        </context_rules>
+
+        <edge_cases>
+        1. Конкретный кредитный договор с номером и датой →
+           obligation_identification_status = "present",
+           future_obligation_status = "excluded".
+        2. «Все существующие и будущие обязательства Должника перед
+           Кредитором» без лимита и периода →
+           obligation_identification_status = "unclear" (слишком
+           обобщённо), future_obligation_status = "present",
+           obligation_limit_status = "not_defined".
+        3. Поручительство за будущие обязательства с указанием периода
+           и лимита → все три status = "present".
+        4. Ссылка на «Основной договор, указанный в п. 1.1» без
+           дополнительных деталей в текущем тексте →
+           obligation_identification_status = "present" (отсылка есть),
+           future_obligation_status = "not_defined".
+        </edge_cases>
+
+        <output_expectations>
+        - Верни РОВНО один JSON-объект со всеми 7 ключами без какого-либо
+          дополнительного текста до или после.
+        - Начни ответ сразу с открывающей фигурной скобки и закончи
+          закрывающей.
+        - НЕ пиши Markdown, списки, код-фенсы.
+        - Ответ должен быть валидным JSON, пригодным для парсинга через
+          json.loads без предварительной обработки.
+        - Технический формат JSON (value / confidence / location) задан
+          отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
+      fields:
+        - name: "secured_obligation_presence"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["present", "missing", "unclear"]
+          description: "Сводный признак наличия в договоре условий об обеспечиваемом обязательстве."
+          required: true
+          display_in_grid: false
+          risk_weight: "info"
+        - name: "obligation_identification_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["present", "unclear", "not_defined"]
+          description: "Идентифицировано ли обеспечиваемое обязательство (внутренний признак)."
+          required: true
+          display_in_grid: false
+          risk_weight: "high"
+        - name: "obligation_identification_display"
+          type: "string"
+          presentation: "fact"
+          label: "Обеспечиваемое обязательство"
+          description: "Человекочитаемое описание обеспечиваемого обязательства."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+        - name: "future_obligation_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["present", "excluded", "unclear", "not_defined"]
+          description: "Включены ли будущие обязательства (внутренний признак)."
+          required: true
+          display_in_grid: false
+          risk_weight: "high"
+        - name: "future_obligation_display"
+          type: "string"
+          presentation: "fact"
+          label: "Будущие обязательства"
+          description: "Человекочитаемое описание статуса будущих обязательств."
+          required: true
+          display_in_grid: true
+          display_priority: 2
+        - name: "obligation_limit_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["present", "unclear", "not_defined"]
+          description: "Указан ли предельный объём обеспечиваемых обязательств (внутренний признак)."
+          required: true
+          display_in_grid: false
+          risk_weight: "medium"
+        - name: "obligation_limit_display"
+          type: "string"
+          presentation: "fact"
+          label: "Предельный объём обязательств"
+          description: "Человекочитаемое описание предельного объёма."
+          required: true
+          display_in_grid: true
+          display_priority: 3
+      store_payload: true
+
+  - id: pledge_co_ownership_consent_check
+    name: "Залог: согласие сособственников предмета залога"
+    description: >
+      Проверяет режим собственности на предмет залога и наличие
+      согласия всех сособственников на залог (ст. 349.1 ГК РФ).
+    triggers:
+      any:
+        - pledge_contract
+        - mortgage_pledge
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "общая собственность"
+        - "долевая собственность"
+        - "совместная собственность"
+        - "согласие сособственников"
+        - "согласие всех собственников"
+        - "доля в праве"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)общ(ая|ей)\\s+собственност[ьи]|долев(ая|ой)\\s+собственност"
+        - "(?i)совместн(ая|ой)\\s+собственност"
+        - "(?i)согласи[ея]\\s+(сособственник|всех\\s+собственник)"
+        - "(?i)доля\\s+в\\s+прав[еа]"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по договорной работе.
+        Анализируется договор залога или ипотеки.
+        Проверяется только один вопрос: режим собственности на предмет
+        залога и согласие сособственников.
+
+        Нормативный ориентир:
+        - ст. 349.1 ГК РФ — залог имущества, находящегося в общей
+          собственности: требуется согласие всех сособственников,
+          если иное не предусмотрено законом или соглашением
+        - ст. 246 ГК РФ — распоряжение долей в праве долевой
+          собственности
+        - ст. 253 ГК РФ — владение, пользование и распоряжение
+          имуществом в совместной собственности
+        - ст. 7 ФЗ-102 — для ипотеки: согласие супруга при залоге
+          имущества в совместной собственности
+        - ст. 35 СК РФ — нотариальное согласие супруга на сделку
+          с недвижимостью
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+        - Различай три факта:
+          - режим собственности на предмет залога (единоличная,
+            долевая, совместная);
+          - наличие согласия сособственников (всех или части);
+          - сведения о сособственниках (наименования, доли).
+        - Для ипотеки согласие супруга — частный случай согласия
+          сособственника. Если в договоре уже есть отдельная оговорка
+          о согласии супруга (покрывается другим чеком), фиксируй
+          и здесь, но не дублируй оценку.
+        - Если предмет залога принадлежит залогодателю на праве
+          единоличной собственности — согласие сособственников
+          не требуется.
+
+        [ЗАДАЧА]
+        Найди в тексте договора:
+        1. Указан ли режим собственности на предмет залога.
+        2. Есть ли согласие сособственников на залог.
+        3. Приведены ли сведения о сособственниках.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа.
+        2. Не подставляй нормы закона вместо текста договора.
+        3. Если условие не указано прямо — текстовое поле = "not_defined",
+          display-поле = "Не установлено".
+        4. Если текст есть, но надёжный вывод сделать нельзя —
+          для internal-полей = "unclear", для display-полей = "Не удалось определить".
+        5. Не используй "None", "null" и пустые строки.
+        6. Все 6 ключей должны присутствовать в JSON-ответе.
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — единоличная собственность:
+        Фрагмент:
+        "Залогодатель является единственным собственником предмета залога. Предмет залога не находится в общей собственности с третьими лицами."
+
+        Ответ:
+        {
+          "ownership_regime_status": "sole",
+          "ownership_regime_display": "Единоличная собственность залогодателя",
+          "co_owner_consent_status": "not_required",
+          "co_owner_consent_display": "Не требуется (единоличная собственность)",
+          "co_owner_info_status": "not_defined",
+          "co_owner_info_display": "Не установлено"
+        }
+
+        Пример 2 — долевая собственность с согласием:
+        Фрагмент:
+        "Предмет залога находится в долевой собственности: Залогодатель — 2/3, Иванов И.И. — 1/3. Иванов И.И. дал нотариально удостоверенное согласие на залог своей доли (согласие № 77 АВ 9876543 от 10.02.2026)."
+
+        Ответ:
+        {
+          "ownership_regime_status": "shared_ownership",
+          "ownership_regime_display": "Долевая собственность: Залогодатель — 2/3, Иванов И.И. — 1/3",
+          "co_owner_consent_status": "present",
+          "co_owner_consent_display": "Нотариальное согласие Иванова И.И. получено (№ 77 АВ 9876543 от 10.02.2026)",
+          "co_owner_info_status": "present",
+          "co_owner_info_display": "Иванов И.И., доля 1/3"
+        }
+
+        Пример 3 — совместная собственность супругов (ипотека):
+        Фрагмент:
+        "Предмет ипотеки находится в совместной собственности супругов. Согласие супруги Залогодателя удостоверено нотариально."
+
+        Ответ:
+        {
+          "ownership_regime_status": "joint_ownership",
+          "ownership_regime_display": "Совместная собственность супругов",
+          "co_owner_consent_status": "present",
+          "co_owner_consent_display": "Нотариальное согласие супруги получено",
+          "co_owner_info_status": "unclear",
+          "co_owner_info_display": "Не удалось определить (супруга не названа по имени)"
+        }
+
+        Пример 4 — режим собственности не указан:
+        Фрагмент:
+        "Залогодатель передаёт в залог нежилое помещение, расположенное по адресу: г. Москва, ул. Примерная, д. 1."
+
+        Ответ:
+        {
+          "ownership_regime_status": "not_defined",
+          "ownership_regime_display": "Не установлено",
+          "co_owner_consent_status": "not_defined",
+          "co_owner_consent_display": "Не установлено",
+          "co_owner_info_status": "not_defined",
+          "co_owner_info_display": "Не установлено"
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        1. Найди прямую цитату о режиме собственности.
+        2. Найди прямую цитату о согласии сособственников.
+        3. Найди прямую цитату о сособственниках.
+        4. Если прямой цитаты нет — верни "not_defined".
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Ответь РОВНО одним JSON-объектом без какого-либо дополнительного текста до или после, со всеми 6 ключами:
+        {
+          "ownership_regime_status": "<sole / shared_ownership / joint_ownership / unclear / not_defined>",
+          "ownership_regime_display": "<описание режима / Не удалось определить / Не установлено>",
+          "co_owner_consent_status": "<present / not_required / unclear / not_defined>",
+          "co_owner_consent_display": "<описание согласия / Не требуется / Не удалось определить / Не установлено>",
+          "co_owner_info_status": "<present / unclear / not_defined>",
+          "co_owner_info_display": "<сведения о сособственниках / Не удалось определить / Не установлено>"
+        }
+
+        Верни РОВНО один JSON-объект со всеми 6 ключами без какого-либо дополнительного текста до или после. Начни ответ сразу с открывающей фигурной скобки и закончи закрывающей. НЕ пиши Markdown, списки, код-фенсы. Ответ должен быть валидным JSON, пригодным для парсинга через json.loads без предварительной обработки.
+      context_k: 8
+      temperature: 0.0
+      max_tokens: 550
+
+    retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "общая собственность долевая собственность совместная собственность согласие сособственников согласие всех собственников доля в праве единственный собственник"
+      preferred_unit_types:
+        - warranty
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+        - warranties
+        - obligations
+      negative_keywords:
+        - "означает"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.0, 0.40]
+        boost: 0.16
+        scope: segment
+      context_k: 8
+      max_chunks: 10
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "representations"
+        - "warranties"
+      confidence_bonus_on_match: 0.10
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 35
+      max_snippet_length: 600
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 900
+      compact_output: false  # [CONSIDER]
+
+      presence_signal:
+        field: "co_ownership_consent_presence"
+        present: "present"
+        missing: "missing"
+        unclear: "unclear"
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист. Извлеки из текста договора залога/ипотеки
+        сведения о режиме собственности на предмет залога, о согласии
+        сособственников и о самих сособственниках.
+        Не анализируй оценку предмета, страхование, обращение взыскания
+        и согласие супруга (если оно выделено в отдельную оговорку —
+        фиксируй, но не дублируй оценку).
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        0. Сначала определи co_ownership_consent_presence:
+           - "present" — в тексте указан режим собственности на предмет
+             залога, есть согласие сособственников или сведения о них;
+           - "missing" — режим собственности и вопросы сособственников
+             в тексте не затрагиваются;
+           - "unclear" — есть общие заверения о правах на предмет залога,
+             но режим собственности не конкретизирован.
+
+        1. ownership_regime_status — "sole" / "shared_ownership" /
+           "joint_ownership" / "unclear" / "not_defined".
+           - "sole" — прямо указано, что залогодатель является
+             единственным собственником;
+           - "shared_ownership" — долевая собственность (указаны доли);
+           - "joint_ownership" — совместная собственность (без долей,
+             обычно супруги);
+           - "unclear" — режим упомянут, но не конкретизирован;
+           - "not_defined" — режим собственности не указан.
+
+        2. ownership_regime_display — человекочитаемое:
+           "Единоличная собственность залогодателя";
+           "Долевая собственность: <доли>";
+           "Совместная собственность супругов";
+           "Не удалось определить";
+           "Не установлено".
+
+        3. co_owner_consent_status — "present" / "not_required" /
+           "unclear" / "not_defined".
+           - "present" — согласие сособственников прямо получено;
+           - "not_required" — единоличная собственность или прямо
+             указано, что согласие не требуется;
+           - "unclear" — упоминание согласия есть, но надёжно
+             классифицировать нельзя;
+           - "not_defined" — согласие не упомянуто.
+
+        4. co_owner_consent_display — человекочитаемое:
+           "Нотариальное согласие <имя> получено (<реквизиты>)";
+           "Не требуется (единоличная собственность)";
+           "Не удалось определить";
+           "Не установлено".
+
+        5. co_owner_info_status — "present" / "unclear" / "not_defined".
+
+        6. co_owner_info_display — человекочитаемое:
+           "<имена сособственников>, доли <...>";
+           "Не удалось определить";
+           "Не установлено".
+
+        Все 7 ключей должны присутствовать в JSON-ответе.
+        </task>
+
+        <context_rules>
+        - Агрегируй co_ownership_consent_presence по значению хотя бы
+          одного из: ownership_regime_status, co_owner_consent_status,
+          co_owner_info_status. Если ownership_regime_status ∈
+          {"sole", "shared_ownership", "joint_ownership"} или
+          co_owner_consent_status ∈ {"present", "not_required"} или
+          co_owner_info_status = "present" → "present"; все три =
+          "not_defined" → "missing"; иначе → "unclear".
+        - Используй только текст договора из <context>. Не подставляй
+          нормы закона.
+        - Не делай предположений.
+        - Если в <context> попали нерелевантные фрагменты — игнорируй их.
+        - Если фрагменты противоречат друг другу и надёжный вывод сделать
+          нельзя — верни "unclear" для internal-полей, "Не удалось
+          определить" для display-полей.
+        - Различай: режим собственности / согласие сособственников /
+          сведения о сособственниках — это три разных факта.
+        - Если предмет залога в единоличной собственности →
+          co_owner_consent_status = "not_required".
+        - Ссылка на выписку из ЕГРН или свидетельство о собственности
+          в приложении = "present" для ownership_regime_status (внешний
+          документ учитывается).
+        - Не используй "None", "null" и пустые строки.
+        - Соблюдай точное соответствие имён ключей схеме полей.
+        </context_rules>
+
+        <edge_cases>
+        1. «Залогодатель является единственным собственником» →
+           ownership_regime_status = "sole",
+           co_owner_consent_status = "not_required".
+        2. Залог доли в праве долевой собственности →
+           ownership_regime_status = "shared_ownership",
+           co_owner_consent_status зависит от текста (может быть
+           "present", "not_defined" или "not_required" если заложен
+           весь предмет).
+        3. Режим собственности не указан, но есть заверение «Залогодатель
+           гарантирует отсутствие прав третьих лиц на предмет залога» →
+           ownership_regime_status = "unclear" (заверение не равно
+           указанию режима), co_ownership_consent_presence = "unclear".
+        4. Совместная собственность супругов с нотариальным согласием
+           супруги → ownership_regime_status = "joint_ownership",
+           co_owner_consent_status = "present".
+        </edge_cases>
+
+        <output_expectations>
+        - Верни РОВНО один JSON-объект со всеми 7 ключами без какого-либо
+          дополнительного текста до или после.
+        - Начни ответ сразу с открывающей фигурной скобки и закончи
+          закрывающей.
+        - НЕ пиши Markdown, списки, код-фенсы.
+        - Ответ должен быть валидным JSON, пригодным для парсинга через
+          json.loads без предварительной обработки.
+        - Технический формат JSON (value / confidence / location) задан
+          отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
+      fields:
+        - name: "co_ownership_consent_presence"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["present", "missing", "unclear"]
+          description: "Сводный признак наличия в договоре условий о режиме собственности и согласии сособственников."
+          required: true
+          display_in_grid: false
+          risk_weight: "info"
+        - name: "ownership_regime_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["sole", "shared_ownership", "joint_ownership", "unclear", "not_defined"]
+          description: "Режим собственности на предмет залога (внутренний enum)."
+          required: true
+          display_in_grid: false
+          risk_weight: "high"
+        - name: "ownership_regime_display"
+          type: "string"
+          presentation: "fact"
+          label: "Режим собственности на предмет залога"
+          description: "Человекочитаемое описание режима собственности."
+          required: true
+          display_in_grid: true
+          display_priority: 1
+        - name: "co_owner_consent_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["present", "not_required", "unclear", "not_defined"]
+          description: "Согласие сособственников на залог (внутренний признак)."
+          required: true
+          display_in_grid: false
+          risk_weight: "high"
+        - name: "co_owner_consent_display"
+          type: "string"
+          presentation: "fact"
+          label: "Согласие сособственников"
+          description: "Человекочитаемое описание согласия сособственников."
+          required: true
+          display_in_grid: true
+          display_priority: 2
+        - name: "co_owner_info_status"
+          type: "string"
+          presentation: "signal"
+          allowed_values: ["present", "unclear", "not_defined"]
+          description: "Сведения о сособственниках (внутренний признак)."
+          required: true
+          display_in_grid: false
+          risk_weight: "medium"
+        - name: "co_owner_info_display"
+          type: "string"
+          presentation: "fact"
+          label: "Сособственники предмета залога"
+          description: "Человекочитаемые сведения о сособственниках."
           required: true
           display_in_grid: true
           display_priority: 3

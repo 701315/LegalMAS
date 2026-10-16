@@ -815,16 +815,22 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1400
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "license_subject_extraction_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_prompt_extraction: |
         <role>
-        Ты — российский юрист по интеллектуальной собственности. Извлеки из
-        лицензионного договора предмет: стороны, объект ИС, вид лицензии, способы
-        использования, территорию и срок.
+        Ты — российский юрист по интеллектуальной собственности. Твоя задача — извлечь из лицензионного договора предмет: стороны, объект ИС, вид лицензии, способы использования, территорию и срок.
         Не анализируй вознаграждение, сублицензию, расторжение или гарантии.
+        Не оценивай риски.
+        Анализируй только текст договора.
         </role>
 
         <context>
@@ -832,42 +838,163 @@ checks_v8:
         </context>
 
         <task>
-        Заполни строго следующие 12 полей + evidence (всего 13 ключей):
-        1. licensor_details — лицензиар (наименование, реквизиты).
-        2. licensee_details — лицензиат (наименование, реквизиты).
-        3. ip_object_type — patent / trademark / copyright / software / know_how / industrial_design / database / other / not_defined.
-        4. ip_object_details — описание объекта ИС с регистрационными данными.
-        5. license_type_code — exclusive / non_exclusive / not_defined.
-        6. license_type_details — формулировка вида лицензии.
-        7. permitted_uses_status — "defined" или "not_defined".
-        8. permitted_uses_details — перечень способов использования.
-        9. territory_status — "defined" или "not_defined".
-        10. territory_details — территория действия лицензии.
-        11. term_status — "defined" или "not_defined".
-        12. term_details — срок действия лицензии.
+        Заполни строго следующие поля:
 
-        Если данные отсутствуют:
-        - signal-поля (ip_object_type, license_type_code, permitted_uses_status,
-          territory_status, term_status) → "not_defined";
-        - fact-поля (все остальные) → "Данные не определены".
+        0. license_subject_extraction_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (ip_object_type, license_type_code, permitted_uses_status,
+              territory_status, term_status) ≠ "not_defined";
+           - "missing" — если все пять содержательных полей = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - ip_object_type = "not_defined";
+           - license_type_code = "not_defined";
+           - permitted_uses_status = "not_defined";
+           - territory_status = "not_defined";
+           - term_status = "not_defined";
+           - licensor_details, licensee_details = "Данные не определены";
+           - ip_object_details, license_type_details = "Данные не определены";
+           - permitted_uses_details, territory_details, term_details = "Данные не определены";
+           - не выполняй остальные шаги.
+
+        1. licensor_details:
+           Наименование и реквизиты лицензиара.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        2. licensee_details:
+           Наименование и реквизиты лицензиата.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        3. ip_object_type:
+           Используй только одно из значений:
+           - "patent" — изобретение, полезная модель, патент;
+           - "trademark" — товарный знак, знак обслуживания;
+           - "copyright" — произведение науки, литературы, искусства;
+           - "software" — программа для ЭВМ;
+           - "know_how" — секрет производства (ноу-хау);
+           - "industrial_design" — промышленный образец;
+           - "database" — база данных;
+           - "other" — иной объект ИС, прямо названный в договоре;
+           - "not_defined" — если объект не идентифицирован.
+
+        4. ip_object_details:
+           Описание объекта ИС с регистрационными данными (номер патента/свидетельства, дата, наименование).
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        5. license_type_code:
+           - "exclusive" — если прямо указано "исключительная лицензия";
+           - "non_exclusive" — если прямо указано "неисключительная" или "простая";
+           - "not_defined" — если вид не указан прямо.
+
+        6. license_type_details:
+           Формулировка вида лицензии.
+           Если license_type_code = "not_defined", укажи:
+           "Вид лицензии не указан. По п. 5 ст. 1235 ГК РФ лицензия предполагается неисключительной."
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        7. permitted_uses_status:
+           - "defined" — если приведён конкретный перечень способов использования;
+           - "not_defined" — если перечень не конкретизирован или отсутствует.
+           Формулировки типа "любые способы, не запрещённые законом" — это "not_defined".
+
+        8. permitted_uses_details:
+           Перечень способов использования объекта ИС.
+           Если данных нет — "Данные не определены".
+           Если данных противоречивы — "Не удалось определить".
+
+        9. territory_status:
+           - "defined" — если территория прямо указана;
+           - "not_defined" — если территория не указана.
+
+        10. territory_details:
+            Территория действия лицензии.
+            Если данных нет — "Данные не определены".
+            Если данные противоречивы — "Не удалось определить".
+
+        11. term_status:
+            - "defined" — если срок прямо указан;
+            - "not_defined" — если срок не указан.
+
+        12. term_details:
+            Срок действия лицензии.
+            Если данных нет — "Данные не определены".
+            Если данные противоречивы — "Не удалось определить".
         </task>
 
-        <rules>
-        - Используй только текст договора.
-        - license_type_code: "exclusive" — если прямо указано "исключительная";
-          "non_exclusive" — если прямо указано "неисключительная" или "простая";
-          "not_defined" — если вид не указан прямо. При "not_defined" в
-          license_type_details укажи: "Вид лицензии не указан. По п. 5 ст. 1235 ГК РФ
-          лицензия предполагается неисключительной."
-        - permitted_uses_status = "defined" только если приведён конкретный перечень
-          способов использования. Формулировки типа "любые способы, не запрещённые
-          законом" — это "not_defined".
-        - Не выводи способы использования из норм ГК.
-        - Верни только JSON — один валидный объект со всеми 13 ключами, пригодный
-          для json.loads без предварительной обработки.
-        </rules>
+        <context_rules>
+        - Перед остальными полями заполни license_subject_extraction_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все signal-поля = "not_defined", все *_details = "Данные не определены".
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона, обычную практику или предположения вместо текста договора.
+        - Не выводи способы использования из норм ГК РФ.
+        - Права, не указанные явно в договоре, считаются НЕпредоставленными.
+        - permitted_uses_status = "defined" только при конкретном перечне способов. Общие формулировки ("любые способы") = "not_defined".
+        - license_type_code = "not_defined" при отсутствии прямого указания; в license_type_details отрази презумпцию п. 5 ст. 1235 ГК РФ.
+        - Если в разных фрагментах указаны разные данные и конфликт нельзя разрешить по тексту: signal → "not_defined", fact → "Не удалось определить".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни объекта ИС, ни вида лицензии, ни способов, ни территории, ни срока.
+           → presence = "missing";
+             все signal-поля = "not_defined";
+             все fact-поля = "Данные не определены".
+
+        2. Объект указан, но вид лицензии не раскрыт.
+           Договор называет объект ИС, но не указывает, исключительная или неисключительная лицензия.
+           → presence = "present";
+             license_type_code = "not_defined";
+             license_type_details = "Вид лицензии не указан. По п. 5 ст. 1235 ГК РФ лицензия предполагается неисключительной.";
+             остальные поля — по факту наличия.
+
+        3. Противоречие между фрагментами.
+           В разных частях договора указаны разные объекты ИС или противоречащие сроки.
+           → presence = "unclear";
+             соответствующие signal-поля = "not_defined";
+             соответствующие fact-поля = "Не удалось определить".
+
+        4. Отсылка на внешний документ.
+           Способы использования или объект определяются по приложению, спецификации или иному документу.
+           → presence = "present";
+             соответствующие signal-поля = "defined";
+             соответствующие fact-поля содержат формулировку вида "Определяется Приложением №1".
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для license_subject_extraction_presence используй только: "present", "missing", "unclear".
+        - Для ip_object_type используй только: "patent", "trademark", "copyright", "software", "know_how", "industrial_design", "database", "other", "not_defined".
+        - Для license_type_code используй только: "exclusive", "non_exclusive", "not_defined".
+        - Для status-полей используй только: "defined" или "not_defined".
+        - Fallback при отсутствии данных:
+          * licensor_details, licensee_details → "Данные не определены";
+          * ip_object_details, license_type_details → "Данные не определены";
+          * permitted_uses_details, territory_details, term_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
 
       fields:
+        - name: "license_subject_extraction_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по предмету лицензии. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "licensor_details"
           type: "string"
           presentation: "fact"
@@ -876,6 +1003,7 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 1
+
         - name: "licensee_details"
           type: "string"
           presentation: "fact"
@@ -884,12 +1012,16 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 2
+
         - name: "ip_object_type"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["patent", "trademark", "copyright", "software", "know_how", "industrial_design", "database", "other", "not_defined"]
+          display_in_grid: false
           description: "Вид объекта ИС."
           required: true
+
         - name: "ip_object_details"
           type: "string"
           presentation: "fact"
@@ -898,12 +1030,16 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
+
         - name: "license_type_code"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["exclusive", "non_exclusive", "not_defined"]
+          display_in_grid: false
           description: "Вид лицензии."
           required: true
+
         - name: "license_type_details"
           type: "string"
           presentation: "fact"
@@ -912,12 +1048,16 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
+
         - name: "permitted_uses_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус перечня способов использования."
           required: true
+
         - name: "permitted_uses_details"
           type: "string"
           presentation: "fact"
@@ -926,12 +1066,16 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 5
+
         - name: "territory_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус указания территории."
           required: true
+
         - name: "territory_details"
           type: "string"
           presentation: "fact"
@@ -940,12 +1084,16 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 6
+
         - name: "term_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус указания срока."
           required: true
+
         - name: "term_details"
           type: "string"
           presentation: "fact"
@@ -954,6 +1102,8 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 7
+
+      store_payload: true
 
   - id: consideration_royalty_check
     name: "Лицензионное вознаграждение, роялти, мингарантия, отчётность и аудит"
@@ -1202,15 +1352,22 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1300
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "consideration_royalty_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_prompt_extraction: |
         <role>
-        Ты — российский юрист по ИС. Извлеки из лицензионного договора сведения
-        о вознаграждении: вид, роялти, паушальный платёж, мингарантия, отчётность, аудит.
+        Ты — российский юрист по интеллектуальной собственности. Твоя задача — извлечь из лицензионного договора сведения о вознаграждении: вид, роялти, паушальный платёж, график, мингарантия, отчётность, аудит.
         Не анализируй предмет лицензии, сублицензию, расторжение или гарантии.
+        Не оценивай риски.
+        Анализируй только текст договора.
         </role>
 
         <context>
@@ -1218,54 +1375,168 @@ checks_v8:
         </context>
 
         <task>
-        Заполни строго следующие 13 полей + evidence (всего 14 ключей):
-        1. consideration_type — royalty / lump_sum / combined / gratuitous / not_defined.
-        2. royalty_rate_status — "defined" или "not_defined".
-        3. royalty_rate_details — ставка роялти.
-        4. lump_sum_status — "defined" или "not_defined".
-        5. lump_sum_details — паушальный платёж.
-        6. payment_schedule_status — "defined" или "not_defined".
-        7. payment_schedule_details — график платежей.
-        8. minimum_guarantee_status — "defined" или "not_defined".
-        9. minimum_guarantee_details — минимальные гарантированные платежи.
-        10. reporting_status — "defined" или "not_defined".
-        11. reporting_details — отчётность лицензиата.
-        12. audit_right_status — "defined" или "not_defined".
-        13. audit_right_details — право аудита лицензиара.
+        Заполни строго следующие поля:
 
-        Если данные отсутствуют:
-        - signal-поля (consideration_type, royalty_rate_status, lump_sum_status,
-          payment_schedule_status, minimum_guarantee_status, reporting_status,
-          audit_right_status) → "not_defined";
-        - fact-поля (royalty_rate_details, lump_sum_details, payment_schedule_details,
-          minimum_guarantee_details, reporting_details, audit_right_details) → "Данные не определены".
+        0. consideration_royalty_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (consideration_type, royalty_rate_status, lump_sum_status,
+              payment_schedule_status, minimum_guarantee_status,
+              reporting_status, audit_right_status) ≠ "not_defined";
+           - "missing" — если все семь содержательных полей = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - consideration_type = "not_defined";
+           - royalty_rate_status = "not_defined";
+           - lump_sum_status = "not_defined";
+           - payment_schedule_status = "not_defined";
+           - minimum_guarantee_status = "not_defined";
+           - reporting_status = "not_defined";
+           - audit_right_status = "not_defined";
+           - все *_details = "Данные не определены";
+           - не выполняй остальные шаги.
+
+        1. consideration_type:
+           - "royalty" — только периодические платежи (роялти);
+           - "lump_sum" — только единовременный платёж (паушальный);
+           - "combined" — сочетание роялти и паушального;
+           - "gratuitous" — прямо указано "безвозмездно";
+           - "not_defined" — если вид не указан прямо.
+
+        2. royalty_rate_status:
+           - "defined" — если ставка роялти прямо указана;
+           - "not_defined" — если не указана.
+
+        3. royalty_rate_details:
+           Ставка роялти (процент, база расчёта).
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        4. lump_sum_status:
+           - "defined" — если паушальный платёж прямо указан;
+           - "not_defined" — если не указан.
+
+        5. lump_sum_details:
+           Размер паушального платежа.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        6. payment_schedule_status:
+           - "defined" — если график/сроки платежей прямо указаны;
+           - "not_defined" — если не указаны.
+
+        7. payment_schedule_details:
+           График платежей.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        8. minimum_guarantee_status:
+           - "defined" — если минимальный гарантированный платёж прямо указан;
+           - "not_defined" — если не указан.
+
+        9. minimum_guarantee_details:
+           Минимальные гарантированные платежи.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        10. reporting_status:
+            - "defined" — если отчётность лицензиата прямо предусмотрена;
+            - "not_defined" — если не предусмотрена.
+
+        11. reporting_details:
+            Периодичность и форма отчётности.
+            Если данных нет — "Данные не определены".
+            Если данные противоречивы — "Не удалось определить".
+
+        12. audit_right_status:
+            - "defined" — если право аудита лицензиара прямо предусмотрено;
+            - "not_defined" — если не предусмотрено.
+
+        13. audit_right_details:
+            Условия и периодичность аудита.
+            Если данных нет — "Данные не определены".
+            Если данные противоречивы — "Не удалось определить".
         </task>
 
-        <rules>
-        - Используй только текст договора.
-        - consideration_type: "royalty" — только периодические платежи;
-          "lump_sum" — только единовременный платёж;
-          "combined" — сочетание; "gratuitous" — прямо указано "безвозмездно";
-          "not_defined" — если вид не указан прямо.
-        - Не выводи вознаграждение из норм ГК.
-        - Верни РОВНО один валидный JSON-объект со всеми 14 ключами, пригодный
-          для парсинга через json.loads без предварительной обработки. Без markdown,
-          без ```json, без комментариев, без текста до или после. Начни ответ сразу
-          с { и закончи }.
-        </rules>
+        <context_rules>
+        - Перед остальными полями заполни consideration_royalty_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все signal-поля = "not_defined", все *_details = "Данные не определены".
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона, обычную практику или предположения вместо текста договора.
+        - Не выводи вознаграждение из норм ГК РФ.
+        - consideration_type = "gratuitous" только при прямом указании "безвозмездно".
+        - Если в разных фрагментах указаны разные данные и конфликт нельзя разрешить по тексту: signal → "not_defined", fact → "Не удалось определить".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни вознаграждения, ни роялти, ни паушального платежа, ни отчётности, ни аудита.
+           → presence = "missing";
+             все signal-поля = "not_defined";
+             все *_details = "Данные не определены".
+
+        2. Безвозмездная лицензия.
+           Прямо указано, что лицензия предоставляется безвозмездно.
+           → presence = "present";
+             consideration_type = "gratuitous";
+             royalty_rate_status = lump_sum_status = "not_defined";
+             все *_details = "Данные не определены".
+
+        3. Противоречие в суммах или ставках.
+           В разных частях договора указаны разные ставки роялти или суммы.
+           → presence = "unclear";
+             соответствующие signal-поля = "not_defined";
+             соответствующие *_details = "Не удалось определить".
+
+        4. Отсылка на отдельное соглашение о вознаграждении.
+           Вознаграждение определяется отдельным договором или приложением.
+           → presence = "present";
+             consideration_type = "not_defined" (если вид не ясен из основного текста);
+             соответствующие *_details содержат формулировку вида "Определяется Приложением №2".
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для consideration_royalty_check_presence используй только: "present", "missing", "unclear".
+        - Для consideration_type используй только: "royalty", "lump_sum", "combined", "gratuitous", "not_defined".
+        - Для status-полей используй только: "defined" или "not_defined".
+        - Fallback при отсутствии данных:
+          * все *_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
 
       fields:
+        - name: "consideration_royalty_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по вознаграждению. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "consideration_type"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["royalty", "lump_sum", "combined", "gratuitous", "not_defined"]
+          display_in_grid: false
           description: "Вид вознаграждения."
           required: true
 
         - name: "royalty_rate_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус ставки роялти."
           required: true
 
@@ -1281,7 +1552,9 @@ checks_v8:
         - name: "lump_sum_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус паушального платежа."
           required: true
 
@@ -1297,7 +1570,9 @@ checks_v8:
         - name: "payment_schedule_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус графика платежей."
           required: true
 
@@ -1312,7 +1587,9 @@ checks_v8:
         - name: "minimum_guarantee_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус мингарантии."
           required: true
 
@@ -1328,7 +1605,9 @@ checks_v8:
         - name: "reporting_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "low"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус отчётности лицензиата."
           required: true
 
@@ -1344,7 +1623,9 @@ checks_v8:
         - name: "audit_right_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "low"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус права аудита."
           required: true
 
@@ -1356,6 +1637,8 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 5
+
+      store_payload: true
 
   - id: warranties_validity_defense_check
     name: "Гарантии лицензиара, действительность права и защита от нарушителей"
@@ -1617,15 +1900,22 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1200
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "warranties_validity_defense_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_prompt_extraction: |
         <role>
-        Ты — российский юрист по ИС. Извлеки из лицензионного договора гарантии
-        лицензиара, действительность права и защиту от нарушителей.
+        Ты — российский юрист по интеллектуальной собственности. Твоя задача — извлечь из лицензионного договора гарантии лицензиара: наличие и действительность права, поддержание в силе, распределение пошлин, защиту от нарушителей.
         Не анализируй вознаграждение, сублицензию или расторжение.
+        Не оценивай риски.
+        Анализируй только текст договора.
         </role>
 
         <context>
@@ -1633,43 +1923,154 @@ checks_v8:
         </context>
 
         <task>
-        Заполни строго следующие 12 полей + evidence (всего 13 ключей):
-        1. ownership_warranty_status — "defined" или "not_defined".
-        2. ownership_warranty_details — гарантия наличия исключительного права.
-        3. validity_warranty_status — "defined" или "not_defined".
-        4. validity_warranty_details — гарантия действительности права.
-        5. maintenance_obligation_status — "defined" или "not_defined".
-        6. maintenance_obligation_details — обязанность поддерживать право в силе.
-        7. fee_payment_status — "defined" или "not_defined".
-        8. fee_payment_details — кто платит пошлины (лицензиар / лицензиат / стороны совместно / не распределено).
-        9. licensor_defense_status — "defined" или "not_defined".
-        10. licensor_defense_details — обязанность лицензиара защищать право.
-        11. licensee_defense_status — "defined" или "not_defined".
-        12. licensee_defense_details — право лицензиата самостоятельно защищать право.
+        Заполни строго следующие поля:
 
-        Если данные отсутствуют:
-        - signal-поля (ownership_warranty_status, validity_warranty_status,
-          maintenance_obligation_status, fee_payment_status, licensor_defense_status,
-          licensee_defense_status) → "not_defined";
-        - fact-поля (ownership_warranty_details, validity_warranty_details,
-          maintenance_obligation_details, fee_payment_details, licensor_defense_details,
-          licensee_defense_details) → "Данные не определены".
+        0. warranties_validity_defense_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (ownership_warranty_status, validity_warranty_status,
+              maintenance_obligation_status, fee_payment_status,
+              licensor_defense_status, licensee_defense_status) ≠ "not_defined";
+           - "missing" — если все шесть содержательных полей = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - ownership_warranty_status = "not_defined";
+           - validity_warranty_status = "not_defined";
+           - maintenance_obligation_status = "not_defined";
+           - fee_payment_status = "not_defined";
+           - licensor_defense_status = "not_defined";
+           - licensee_defense_status = "not_defined";
+           - все *_details = "Данные не определены";
+           - не выполняй остальные шаги.
+
+        1. ownership_warranty_status:
+           - "defined" — если лицензиар прямо гарантирует наличие исключительного права;
+           - "not_defined" — если такой гарантии нет.
+
+        2. ownership_warranty_details:
+           Краткое описание гарантии наличия права.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        3. validity_warranty_status:
+           - "defined" — если лицензиар прямо гарантирует действительность права
+             и/или отсутствие обременений;
+           - "not_defined" — если такой гарантии нет.
+
+        4. validity_warranty_details:
+           Краткое описание гарантии действительности.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        5. maintenance_obligation_status:
+           - "defined" — если прямо предусмотрена обязанность поддерживать право в силе;
+           - "not_defined" — если не предусмотрена.
+
+        6. maintenance_obligation_details:
+           Краткое описание обязанности поддерживать право.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        7. fee_payment_status:
+           - "defined" — если прямо указано, кто уплачивает патентные пошлины;
+           - "not_defined" — если не указано.
+
+        8. fee_payment_details:
+           Роль, уплачивающая пошлины: "лицензиар", "лицензиат", "стороны совместно" или "не распределено".
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        9. licensor_defense_status:
+           - "defined" — если прямо предусмотрена обязанность лицензиара защищать право;
+           - "not_defined" — если не предусмотрена.
+
+        10. licensor_defense_details:
+            Краткое описание обязанности лицензиара защищать право.
+            Если данных нет — "Данные не определены".
+            Если данные противоречивы — "Не удалось определить".
+
+        11. licensee_defense_status:
+            - "defined" — если прямо предусмотрено право лицензиата защищать право;
+            - "not_defined" — если не предусмотрено.
+
+        12. licensee_defense_details:
+            Краткое описание права лицензиата защищать право.
+            Если данных нет — "Данные не определены".
+            Если данные противоречивы — "Не удалось определить".
         </task>
 
-        <rules>
-        - Используй только текст договора.
-        - Не выводи гарантии из норм ГК.
-        - Верни РОВНО один валидный JSON-объект со всеми 13 ключами, пригодный
-          для парсинга через json.loads без предварительной обработки. Без markdown,
-          без ```json, без комментариев, без текста до или после. Начни ответ сразу
-          с { и закончи }.
-        </rules>
+        <context_rules>
+        - Перед остальными полями заполни warranties_validity_defense_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все signal-поля = "not_defined", все *_details = "Данные не определены".
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона, обычную практику или предположения вместо текста договора.
+        - Не выводи гарантии из норм ГК РФ.
+        - fee_payment_details: укажи конкретную роль ("лицензиар", "лицензиат", "стороны совместно") или "не распределено".
+        - Если в разных фрагментах указаны разные данные и конфликт нельзя разрешить по тексту: signal → "not_defined", fact → "Не удалось определить".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни гарантий, ни пошлин, ни защиты от нарушителей.
+           → presence = "missing";
+             все signal-поля = "not_defined";
+             все *_details = "Данные не определены".
+
+        2. Прямое исключение гарантий.
+           Договор прямо указывает, что лицензиар не даёт гарантий
+           (например: «Лицензия предоставляется «как есть», без гарантий»).
+           → presence = "present";
+             ownership_warranty_status = "not_defined";
+             ownership_warranty_details содержит дословную цитату об исключении.
+
+        3. Противоречие между фрагментами.
+           В одной части договора лицензиар гарантирует действительность,
+           в другой — ограничивает гарантии.
+           → presence = "unclear";
+             соответствующие signal-поля = "not_defined";
+             соответствующие *_details = "Не удалось определить".
+
+        4. Частичное покрытие.
+           Гарантии наличия и действительности есть, но защита от нарушителей
+           и распределение пошлин не урегулированы.
+           → presence = "present";
+             ownership_warranty_status = validity_warranty_status = "defined";
+             fee_payment_status = licensor_defense_status = "not_defined";
+             соответствующие *_details = "Данные не определены".
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для warranties_validity_defense_check_presence используй только: "present", "missing", "unclear".
+        - Для status-полей используй только: "defined" или "not_defined".
+        - Fallback при отсутствии данных:
+          * все *_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
 
       fields:
+        - name: "warranties_validity_defense_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по гарантиям и защите. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "ownership_warranty_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус гарантии наличия права."
           required: true
 
@@ -1685,7 +2086,9 @@ checks_v8:
         - name: "validity_warranty_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус гарантии действительности."
           required: true
 
@@ -1701,7 +2104,9 @@ checks_v8:
         - name: "maintenance_obligation_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус обязанности поддерживать право."
           required: true
 
@@ -1717,7 +2122,9 @@ checks_v8:
         - name: "fee_payment_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус распределения пошлин."
           required: true
 
@@ -1732,7 +2139,9 @@ checks_v8:
         - name: "licensor_defense_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус обязанности лицензиара защищать право."
           required: true
 
@@ -1748,7 +2157,9 @@ checks_v8:
         - name: "licensee_defense_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "low"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус права лицензиата защищать право."
           required: true
 
@@ -1759,6 +2170,8 @@ checks_v8:
           description: "Право лицензиата самостоятельно защищать право."
           required: false
           display_in_grid: false
+
+      store_payload: true
 
   - id: quality_improvements_sublicense_check
     name: "Контроль качества ТЗ, улучшения и производные, сублицензия"
@@ -2031,15 +2444,22 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1300
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "quality_improvements_sublicense_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_prompt_extraction: |
         <role>
-        Ты — российский юрист по ИС. Извлеки из лицензионного договора сведения
-        о контроле качества ТЗ, улучшениях и производных, сублицензии.
+        Ты — российский юрист по интеллектуальной собственности. Твоя задача — извлечь из лицензионного договора сведения о контроле качества ТЗ, улучшениях и производных, сублицензии.
         Не анализируй вознаграждение, расторжение или гарантии.
+        Не оценивай риски.
+        Анализируй только текст договора.
         </role>
 
         <context>
@@ -2047,48 +2467,161 @@ checks_v8:
         </context>
 
         <task>
-        Заполни строго следующие 13 полей + evidence (всего 14 ключей):
-        1. quality_control_status — "defined" или "not_defined".
-        2. quality_control_details — стандарты качества.
-        3. inspection_status — "defined" или "not_defined".
-        4. inspection_details — право лицензиара на инспекцию.
-        5. improvements_allowed_status — "defined" или "not_defined".
-        6. improvements_allowed_details — разрешение на создание улучшений.
-        7. improvements_ownership_status — "defined" или "not_defined".
-        8. improvements_ownership_details — кому принадлежат права на улучшения.
-        9. grant_back_status — "defined" или "not_defined".
-        10. grant_back_details — grant-back оговорка.
-        11. sublicense_status — "defined" или "not_defined".
-        12. sublicense_regime — allowed / prohibited / allowed_with_consent / not_defined.
-        13. sublicense_details — условия сублицензирования.
+        Заполни строго следующие поля:
 
-        Если данные отсутствуют:
-        - signal-поля (quality_control_status, inspection_status,
-          improvements_allowed_status, improvements_ownership_status, grant_back_status,
-          sublicense_status, sublicense_regime) → "not_defined";
-        - fact-поля (quality_control_details, inspection_details,
-          improvements_allowed_details, improvements_ownership_details, grant_back_details,
-          sublicense_details) → "Данные не определены".
+        0. quality_improvements_sublicense_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (quality_control_status, inspection_status,
+              improvements_allowed_status, improvements_ownership_status,
+              grant_back_status, sublicense_status, sublicense_regime) ≠ "not_defined";
+           - "missing" — если все семь содержательных полей = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - quality_control_status = "not_defined";
+           - inspection_status = "not_defined";
+           - improvements_allowed_status = "not_defined";
+           - improvements_ownership_status = "not_defined";
+           - grant_back_status = "not_defined";
+           - sublicense_status = "not_defined";
+           - sublicense_regime = "not_defined";
+           - все *_details = "Данные не определены";
+           - не выполняй остальные шаги.
+
+        1. quality_control_status:
+           - "defined" — если прямо предусмотрен контроль качества лицензиаром;
+           - "not_defined" — если не предусмотрен.
+
+        2. quality_control_details:
+           Стандарты и требования к качеству.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        3. inspection_status:
+           - "defined" — если прямо предусмотрено право лицензиара на инспекцию;
+           - "not_defined" — если не предусмотрено.
+
+        4. inspection_details:
+           Условия и периодичность инспекций.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        5. improvements_allowed_status:
+           - "defined" — если прямо указано, разрешены ли улучшения/модификации;
+           - "not_defined" — если не указано.
+
+        6. improvements_allowed_details:
+           Разрешение на создание улучшений и производных.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        7. improvements_ownership_status:
+           - "defined" — если прямо указано, кому принадлежат права на улучшения;
+           - "not_defined" — если не указано.
+
+        8. improvements_ownership_details:
+           Кому принадлежат права на улучшения (лицензиар / лицензиат / совместно).
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        9. grant_back_status:
+           - "defined" — если прямо предусмотрена grant-back оговорка;
+           - "not_defined" — если не предусмотрена.
+
+        10. grant_back_details:
+            Условия grant-back (обратная лицензия на улучшения).
+            Если данных нет — "Данные не определены".
+            Если данные противоречивы — "Не удалось определить".
+
+        11. sublicense_status:
+            - "defined" — если сублицензия прямо упомянута;
+            - "not_defined" — если не упомянута.
+
+        12. sublicense_regime:
+            - "allowed" — если прямо разрешена без условий;
+            - "prohibited" — если прямо запрещена;
+            - "allowed_with_consent" — если требуется согласие лицензиара;
+            - "not_defined" — если сублицензия не упомянута.
+            Не выводи режим из нормы ст. 1238 ГК РФ.
+
+        13. sublicense_details:
+            Условия сублицензирования.
+            Если данных нет — "Данные не определены".
+            Если данные противоречивы — "Не удалось определить".
         </task>
 
-        <rules>
-        - Используй только текст договора.
-        - sublicense_regime: "allowed" — если прямо разрешена без условий;
-          "prohibited" — если прямо запрещена;
-          "allowed_with_consent" — если требуется согласие лицензиара;
-          "not_defined" — если сублицензия не упомянута.
+        <context_rules>
+        - Перед остальными полями заполни quality_improvements_sublicense_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все signal-поля = "not_defined", все *_details = "Данные не определены".
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона, обычную практику или предположения вместо текста договора.
         - Не выводи режим сублицензии из нормы ст. 1238 ГК РФ.
-        - Верни РОВНО один валидный JSON-объект со всеми 14 ключами, пригодный
-          для парсинга через json.loads без предварительной обработки. Без markdown,
-          без ```json, без комментариев, без текста до или после. Начни ответ сразу
-          с { и закончи }.
-        </rules>
+        - sublicense_regime = "prohibited" при прямом запрете; "allowed_with_consent" при требовании согласия; "allowed" только при прямом разрешении без условий.
+        - Если в разных фрагментах указаны разные данные и конфликт нельзя разрешить по тексту: signal → "not_defined", fact → "Не удалось определить".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни контроля качества, ни улучшений, ни сублицензии.
+           → presence = "missing";
+             все signal-поля = "not_defined";
+             все *_details = "Данные не определены".
+
+        2. Сублицензия прямо запрещена, улучшения не урегулированы.
+           Договор содержит прямой запрет сублицензирования, но молчит об улучшениях.
+           → presence = "present";
+             sublicense_status = "defined";
+             sublicense_regime = "prohibited";
+             improvements_allowed_status = improvements_ownership_status = "not_defined";
+             соответствующие *_details = "Данные не определены".
+
+        3. Противоречие между фрагментами.
+           В одной части договора улучшения разрешены, в другой — запрещены.
+           → presence = "unclear";
+             соответствующие signal-поля = "not_defined";
+             соответствующие *_details = "Не удалось определить".
+
+        4. Улучшения разрешены, но принадлежность не определена.
+           Лицензиат вправе создавать улучшения, но договор молчит о том, кому они принадлежат.
+           → presence = "present";
+             improvements_allowed_status = "defined";
+             improvements_ownership_status = "not_defined";
+             improvements_ownership_details = "Данные не определены".
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для quality_improvements_sublicense_check_presence используй только: "present", "missing", "unclear".
+        - Для status-полей используй только: "defined" или "not_defined".
+        - Для sublicense_regime используй только: "allowed", "prohibited", "allowed_with_consent", "not_defined".
+        - Fallback при отсутствии данных:
+          * все *_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
 
       fields:
+        - name: "quality_improvements_sublicense_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по качеству/улучшениям/сублицензии. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "quality_control_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус контроля качества."
           required: true
 
@@ -2104,7 +2637,9 @@ checks_v8:
         - name: "inspection_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус права инспекции."
           required: true
 
@@ -2119,7 +2654,9 @@ checks_v8:
         - name: "improvements_allowed_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус разрешения на улучшения."
           required: true
 
@@ -2135,7 +2672,9 @@ checks_v8:
         - name: "improvements_ownership_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус принадлежности прав на улучшения."
           required: true
 
@@ -2151,7 +2690,9 @@ checks_v8:
         - name: "grant_back_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус grant-back оговорки."
           required: true
 
@@ -2166,14 +2707,18 @@ checks_v8:
         - name: "sublicense_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус сублицензии."
           required: true
 
         - name: "sublicense_regime"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["allowed", "prohibited", "allowed_with_consent", "not_defined"]
+          display_in_grid: false
           description: "Режим сублицензии."
           required: true
 
@@ -2185,6 +2730,8 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 4
+
+      store_payload: true
 
   - id: exclusive_license_scope_check
     name: "Объём исключительной лицензии и запрет конкуренции лицензиара"
@@ -2432,16 +2979,22 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1200
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "exclusive_license_scope_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_prompt_extraction: |
         <role>
-        Ты — российский юрист по ИС. Извлеки из лицензионного договора с исключительной
-        лицензией сведения об объёме ограничений лицензиара: собственное использование,
-        выдача лицензий другим, конкурирующая деятельность, территория и срок.
+        Ты — российский юрист по интеллектуальной собственности. Твоя задача — извлечь из лицензионного договора с исключительной лицензией сведения об объёме ограничений лицензиара: собственное использование, выдача лицензий другим, конкурирующая деятельность, территория и срок.
         Не анализируй вознаграждение, сублицензию или расторжение.
+        Не оценивай риски.
+        Анализируй только текст договора.
         </role>
 
         <context>
@@ -2449,41 +3002,143 @@ checks_v8:
         </context>
 
         <task>
-        Заполни строго следующие 10 полей + evidence (всего 11 ключей):
-        1. licensor_own_use_prohibited_status — "defined" или "not_defined".
-        2. licensor_own_use_prohibited_details — запрет лицензиару самому использовать объект ИС.
-        3. other_licenses_prohibited_status — "defined" или "not_defined".
-        4. other_licenses_prohibited_details — запрет лицензиару выдавать лицензии другим лицам.
-        5. competing_activity_prohibited_status — "defined" или "not_defined".
-        6. competing_activity_prohibited_details — запрет лицензиару конкурирующей деятельности.
-        7. non_compete_territory_status — "defined" или "not_defined".
-        8. non_compete_territory_details — территория ограничений лицензиара.
-        9. non_compete_period_status — "defined" или "not_defined".
-        10. non_compete_period_details — срок ограничений лицензиара.
+        Заполни строго следующие поля:
 
-        Если данные отсутствуют:
-        - signal-поля (licensor_own_use_prohibited_status, other_licenses_prohibited_status,
-          competing_activity_prohibited_status, non_compete_territory_status,
-          non_compete_period_status) → "not_defined";
-        - fact-поля (licensor_own_use_prohibited_details, other_licenses_prohibited_details,
-          competing_activity_prohibited_details, non_compete_territory_details,
-          non_compete_period_details) → "Данные не определены".
+        0. exclusive_license_scope_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (licensor_own_use_prohibited_status, other_licenses_prohibited_status,
+              competing_activity_prohibited_status, non_compete_territory_status,
+              non_compete_period_status) ≠ "not_defined";
+           - "missing" — если все пять содержательных полей = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - licensor_own_use_prohibited_status = "not_defined";
+           - other_licenses_prohibited_status = "not_defined";
+           - competing_activity_prohibited_status = "not_defined";
+           - non_compete_territory_status = "not_defined";
+           - non_compete_period_status = "not_defined";
+           - все *_details = "Данные не определены";
+           - не выполняй остальные шаги.
+
+        1. licensor_own_use_prohibited_status:
+           - "defined" — если прямо указано, что лицензиар не вправе использовать объект ИС;
+           - "not_defined" — если такого запрета нет или лицензиар сохраняет право использования.
+
+        2. licensor_own_use_prohibited_details:
+           Краткое описание запрета собственного использования лицензиаром.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        3. other_licenses_prohibited_status:
+           - "defined" — если прямо указано, что лицензиар не вправе выдавать лицензии другим лицам;
+           - "not_defined" — если такого запрета нет.
+
+        4. other_licenses_prohibited_details:
+           Краткое описание запрета выдачи лицензий третьим лицам.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        5. competing_activity_prohibited_status:
+           - "defined" — если прямо запрещена конкурирующая деятельность лицензиара;
+           - "not_defined" — если такого запрета нет.
+
+        6. competing_activity_prohibited_details:
+           Краткое описание запрета конкурирующей деятельности.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        7. non_compete_territory_status:
+           - "defined" — если прямо указана территория ограничений лицензиара;
+           - "not_defined" — если территория не указана.
+
+        8. non_compete_territory_details:
+           Территория ограничений.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        9. non_compete_period_status:
+           - "defined" — если прямо указан срок ограничений лицензиара;
+           - "not_defined" — если срок не указан.
+
+        10. non_compete_period_details:
+            Срок ограничений.
+            Если данных нет — "Данные не определены".
+            Если данные противоречивы — "Не удалось определить".
         </task>
 
-        <rules>
-        - Используй только текст договора.
-        - Не выводи запрет из нормы п. 1.1 ст. 1236 ГК РФ.
-        - Верни РОВНО один валидный JSON-объект со всеми 11 ключами, пригодный
-          для парсинга через json.loads без предварительной обработки. Без markdown,
-          без ```json, без комментариев, без текста до или после. Начни ответ сразу
-          с { и закончи }.
-        </rules>
+        <context_rules>
+        - Перед остальными полями заполни exclusive_license_scope_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все signal-поля = "not_defined", все *_details = "Данные не определены".
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона, обычную практику или предположения вместо текста договора.
+        - Не выводи запрет из нормы п. 1.1 ст. 1236 ГК РФ — только прямые формулировки договора.
+        - Если лицензиар прямо сохраняет право использования, это не запрет: licensor_own_use_prohibited_status = "not_defined".
+        - Если в разных фрагментах указаны разные данные и конфликт нельзя разрешить по тексту: signal → "not_defined", fact → "Не удалось определить".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни запрета использования, ни запрета выдачи лицензий, ни non-compete.
+           → presence = "missing";
+             все signal-поля = "not_defined";
+             все *_details = "Данные не определены".
+
+        2. Исключительная лицензия без ограничений лицензиара.
+           Лицензия названа исключительной, но лицензиар сохраняет право использования
+           и не ограничен в выдаче лицензий.
+           → presence = "present";
+             licensor_own_use_prohibited_status = "not_defined";
+             licensor_own_use_prohibited_details = "Данные не определены";
+             остальные поля — по факту наличия.
+
+        3. Противоречие между фрагментами.
+           В одной части договора лицензиару запрещено использование,
+           в другой — он сохраняет право использования.
+           → presence = "unclear";
+             соответствующие signal-поля = "not_defined";
+             соответствующие *_details = "Не удалось определить".
+
+        4. Частичное покрытие.
+           Запрет использования и выдачи лицензий есть, но территория и срок не определены.
+           → presence = "present";
+             licensor_own_use_prohibited_status = other_licenses_prohibited_status = "defined";
+             non_compete_territory_status = non_compete_period_status = "not_defined";
+             соответствующие *_details = "Данные не определены".
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для exclusive_license_scope_check_presence используй только: "present", "missing", "unclear".
+        - Для status-полей используй только: "defined" или "not_defined".
+        - Fallback при отсутствии данных:
+          * все *_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
 
       fields:
+        - name: "exclusive_license_scope_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по объёму исключительной лицензии. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "licensor_own_use_prohibited_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус запрета собственного использования лицензиаром."
           required: true
 
@@ -2499,7 +3154,9 @@ checks_v8:
         - name: "other_licenses_prohibited_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус запрета выдачи лицензий другим лицам."
           required: true
 
@@ -2515,7 +3172,9 @@ checks_v8:
         - name: "competing_activity_prohibited_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус запрета конкурирующей деятельности."
           required: true
 
@@ -2531,7 +3190,9 @@ checks_v8:
         - name: "non_compete_territory_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус территории ограничений."
           required: true
 
@@ -2546,7 +3207,9 @@ checks_v8:
         - name: "non_compete_period_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус срока ограничений."
           required: true
 
@@ -2557,6 +3220,8 @@ checks_v8:
           description: "Срок ограничений лицензиара."
           required: false
           display_in_grid: false
+
+      store_payload: true
 
   - id: termination_bankruptcy_check
     name: "Банкротство лицензиара и прекращение исключительного права (специфика ИС)"
@@ -2776,16 +3441,22 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1100
-      store_payload: true
+
+      compact_output: false
+
+      presence_signal:
+        field: "termination_bankruptcy_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_prompt_extraction: |
         <role>
-        Ты — российский юрист по ИС. Извлеки из лицензионного договора сведения
-        о судьбе лицензии при банкротстве/ликвидации лицензиара и при прекращении
-        исключительного права. Не анализируй общие основания расторжения, вознаграждение,
-        сублицензию или гарантии.
+        Ты — российский юрист по интеллектуальной собственности. Твоя задача — извлечь из лицензионного договора сведения о судьбе лицензии при банкротстве/ликвидации лицензиара и при прекращении исключительного права.
+        Не анализируй общие основания расторжения, вознаграждение, сублицензию или гарантии.
+        Не оценивай риски.
+        Анализируй только текст договора.
         </role>
 
         <context>
@@ -2793,32 +3464,113 @@ checks_v8:
         </context>
 
         <task>
-        Заполни строго следующие 4 поля + evidence (всего 5 ключей):
-        1. bankruptcy_status — "defined" или "not_defined".
-        2. bankruptcy_details — условия о судьбе лицензии при банкротстве/ликвидации лицензиара.
-        3. ip_termination_status — "defined" или "not_defined".
-        4. ip_termination_details — судьба лицензии при прекращении исключительного права.
+        Заполни строго следующие поля:
 
-        Если данные отсутствуют:
-        - signal-поля (bankruptcy_status, ip_termination_status) → "not_defined";
-        - fact-поля (bankruptcy_details, ip_termination_details) → "Данные не определены".
+        0. termination_bankruptcy_check_presence:
+           Агрегатное signal-поле — наличие регулирования по теме.
+           - "present" — если хотя бы одно из содержательных полей
+             (bankruptcy_status, ip_termination_status) ≠ "not_defined";
+           - "missing" — если оба содержательных поля = "not_defined";
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - bankruptcy_status = "not_defined";
+           - ip_termination_status = "not_defined";
+           - bankruptcy_details = "Данные не определены";
+           - ip_termination_details = "Данные не определены";
+           - не выполняй остальные шаги.
+
+        1. bankruptcy_status:
+           - "defined" — если прямо указаны условия о судьбе лицензии при банкротстве,
+             ликвидации, реорганизации или несостоятельности лицензиара;
+           - "not_defined" — если таких условий нет.
+           Не проверяй общие основания расторжения.
+
+        2. bankruptcy_details:
+           Краткое описание условий о судьбе лицензии при банкротстве/ликвидации.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
+
+        3. ip_termination_status:
+           - "defined" — если прямо указаны условия о судьбе лицензии при прекращении
+             исключительного права (истечение патента, аннулирование, отказ и т.п.);
+           - "not_defined" — если таких условий нет.
+
+        4. ip_termination_details:
+           Краткое описание судьбы лицензии при прекращении исключительного права.
+           Если данных нет — "Данные не определены".
+           Если данные противоречивы — "Не удалось определить".
         </task>
 
-        <rules>
-        - Используй только текст договора.
-        - Не выводи условия из норм ГК РФ.
-        - Не проверяй общие основания расторжения.
-        - Верни РОВНО один валидный JSON-объект со всеми 5 ключами, пригодный
-          для парсинга через json.loads без предварительной обработки. Без markdown,
-          без ```json, без комментариев, без текста до или после. Начни ответ сразу
-          с { и закончи }.
-        </rules>
+        <context_rules>
+        - Перед остальными полями заполни termination_bankruptcy_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все signal-поля = "not_defined", все *_details = "Данные не определены".
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона, обычную практику или предположения вместо текста договора.
+        - Не проверяй общие основания расторжения — это задача global checks.
+        - Не выводи условия из норм ГК РФ или закона о банкротстве.
+        - Если в разных фрагментах указаны разные данные и конфликт нельзя разрешить по тексту: signal → "not_defined", fact → "Не удалось определить".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы.
+           В тексте нет ни условий о банкротстве, ни условий о прекращении исключительного права.
+           → presence = "missing";
+             оба signal-поля = "not_defined";
+             оба *_details = "Данные не определены".
+
+        2. Общая ссылка на закон.
+           «При прекращении исключительного права стороны руководствуются
+           действующим законодательством» без конкретизации судьбы лицензии.
+           → presence = "present";
+             ip_termination_status = "not_defined";
+             ip_termination_details = "Данные не определены".
+
+        3. Противоречие между фрагментами.
+           В одной части лицензия сохраняется при банкротстве, в другой — прекращается.
+           → presence = "unclear";
+             bankruptcy_status = "not_defined";
+             bankruptcy_details = "Не удалось определить".
+
+        4. Правопреемство без конкретизации.
+           «При реорганизации лицензиара права переходят к правопреемнику»
+           без указания, сохраняется ли лицензия.
+           → presence = "present";
+             bankruptcy_status = "defined";
+             bankruptcy_details содержит дословную формулировку о правопреемстве.
+        </edge_cases>
+
+        <output_expectations>
+        - Все свободные текстовые поля заполняй на русском языке.
+        - Для termination_bankruptcy_check_presence используй только: "present", "missing", "unclear".
+        - Для status-полей используй только: "defined" или "not_defined".
+        - Fallback при отсутствии данных:
+          * bankruptcy_details, ip_termination_details → "Данные не определены".
+        - Fallback при противоречии или неоднозначности:
+          * все *_details → "Не удалось определить".
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
 
       fields:
+        - name: "termination_bankruptcy_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие регулирования по банкротству/прекращению права. Внутреннее агрегатное signal-поле."
+          required: true
+
         - name: "bankruptcy_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус условий о банкротстве/ликвидации лицензиара."
           required: true
 
@@ -2834,7 +3586,9 @@ checks_v8:
         - name: "ip_termination_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус условий о прекращении исключительного права."
           required: true
 
@@ -2846,6 +3600,8 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 2
+
+      store_payload: true
 
   - id: indemnification_liability_check
     name: "IP-индемнити и гарантия ненарушения (специфика ИС)"
@@ -3073,9 +3829,15 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1200
-      store_payload: true
+
+      compact_output: false   # [CONSIDER] 4 поля + evidence — можно true
+
+      presence_signal:
+        field: "indemnification_liability_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_prompt_extraction: |
         <role>
@@ -3090,34 +3852,58 @@ checks_v8:
         </context>
 
         <task>
-        Заполни строго следующие 4 поля + evidence (всего 5 ключей):
+        0. indemnification_liability_check_presence: "present" / "missing" / "unclear".
         1. ip_indemnity_scope — IP claims only / all claims / not_defined.
         2. ip_indemnity_details — формулировка IP-индемнити.
         3. non_infringement_warranty_status — "defined" или "not_defined".
         4. non_infringement_warranty_details — формулировка гарантии ненарушения.
-
-        Если данные отсутствуют:
-        - signal-поля (ip_indemnity_scope, non_infringement_warranty_status) → "not_defined";
-        - fact-поля (ip_indemnity_details, non_infringement_warranty_details) → "Данные не определены".
         </task>
 
-        <rules>
-        - Используй только текст договора.
+        <context_rules>
+        - Перед остальными полями заполни indemnification_liability_check_presence:
+          "present" — если в тексте есть хотя бы один фрагмент об IP-индемнити или гарантии ненарушения;
+          "missing" — если таких фрагментов нет вообще;
+          "unclear" — если формулировки противоречат друг другу.
+        - Если фрагментов по теме нет — presence = "missing", все signal = "not_defined", все fact = "Данные не определены".
+        - Если presence = "missing" — все signal-поля = "not_defined", все fact-поля = "Данные не определены".
         - ip_indemnity_scope: "IP claims only" — если возмещение только при IP-претензиях;
           "all claims" — если возмещение при любых претензиях (включая IP);
           "not_defined" — если объём не указан.
         - Не проверяй общие indemnity, cap и исключения.
-        - Верни РОВНО один валидный JSON-объект со всеми 5 ключами, пригодный
-          для парсинга через json.loads без предварительной обработки. Без markdown,
-          без ```json, без комментариев, без текста до или после. Начни ответ сразу
-          с { и закончи }.
-        </rules>
+        - Используй только текст договора.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы IP-индемнити и гарантии ненарушения. → presence = "missing"
+        2. Частичное раскрытие (только гарантия ненарушения без indemnity, или наоборот). → presence = "present", отсутствующая часть = "not_defined" / "Данные не определены"
+        3. Противоречие между фрагментами (разные объёмы возмещения в разных разделах). → presence = "unclear"
+        4. Общая indemnity-оговорка без IP-специфики (не упоминает IP-претензии отдельно). → presence = "missing" (это global check)
+        </edge_cases>
+
+        <output_expectations>
+        - Верни ровно один JSON-объект с 6 ключами (5 полей + evidence).
+        - Для signal-полей при отсутствии данных — "not_defined".
+        - Для fact-полей при отсутствии данных — "Данные не определены".
+        - В evidence — только точные цитаты из текста договора.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
 
       fields:
+        - name: "indemnification_liability_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие в договоре IP-индемнити или гарантии ненарушения."
+          required: true
+
         - name: "ip_indemnity_scope"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["IP claims only", "all claims", "not_defined"]
+          display_in_grid: false
           description: "Объём возмещения при IP-претензиях."
           required: true
 
@@ -3133,7 +3919,9 @@ checks_v8:
         - name: "non_infringement_warranty_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус гарантии ненарушения."
           required: true
 
@@ -3145,6 +3933,8 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 2
+
+      store_payload: true
 
   - id: registration_cross_border_check
     name: "Регистрация, валютный контроль и экспортный контроль"
@@ -3416,15 +4206,22 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1300
-      store_payload: true
+
+      compact_output: false   # [CONSIDER] 12 полей + evidence — можно true
+
+      presence_signal:
+        field: "registration_cross_border_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист по ИС. Извлеки из лицензионного договора сведения
-        о регистрации, валютном контроле, налоге у источника и экспортном контроле.
-        Не анализируй вознаграждение, сублицензию или расторжение.
+        о государственной регистрации, валютном контроле, налоге у источника
+        и экспортном контроле. Не анализируй вознаграждение, сублицензию
+        или расторжение.
         </role>
 
         <context>
@@ -3432,7 +4229,7 @@ checks_v8:
         </context>
 
         <task>
-        Заполни строго следующие 12 полей + evidence (всего 13 ключей):
+        0. registration_cross_border_check_presence: "present" / "missing" / "unclear".
         1. registration_clause_status — "defined" или "not_defined".
         2. registration_clause_details — условие о регистрации.
         3. registration_applicant_status — "defined" или "not_defined".
@@ -3445,30 +4242,50 @@ checks_v8:
         10. withholding_tax_details — условия налога у источника.
         11. export_control_status — "defined" или "not_defined".
         12. export_control_details — условия экспортного контроля.
-
-        Если данные отсутствуют:
-        - signal-поля (registration_clause_status, registration_applicant_status,
-          registration_costs_status, currency_control_status, withholding_tax_status,
-          export_control_status) → "not_defined";
-        - fact-поля (registration_clause_details, registration_applicant_details,
-          registration_costs_details, currency_control_details, withholding_tax_details,
-          export_control_details) → "Данные не определены".
         </task>
 
-        <rules>
+        <context_rules>
+        - Перед остальными полями заполни registration_cross_border_check_presence:
+          "present" — если в тексте есть хотя бы один фрагмент о регистрации, валютном контроле, налоге у источника или экспортном контроле;
+          "missing" — если таких фрагментов нет вообще;
+          "unclear" — если формулировки противоречат друг другу.
+        - Если фрагментов по теме нет — presence = "missing", все signal = "not_defined", все fact = "Данные не определены".
+        - Если presence = "missing" — все signal-поля = "not_defined", все fact-поля = "Данные не определены".
+        - Не выводи необходимость регистрации из норм ГК — только из текста договора.
         - Используй только текст договора.
-        - Не выводи необходимость регистрации из норм ГК.
-        - Верни РОВНО один валидный JSON-объект со всеми 13 ключами, пригодный
-          для парсинга через json.loads без предварительной обработки. Без markdown,
-          без ```json, без комментариев, без текста до или после. Начни ответ сразу
-          с { и закончи }.
-        </rules>
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие тем регистрации, валютного контроля, налога у источника и экспортного контроля. → presence = "missing"
+        2. Частичное раскрытие (например, только регистрация без валютного контроля). → presence = "present", отсутствующие части = "not_defined" / "Данные не определены"
+        3. Противоречие между фрагментами (разные стороны указаны как ответственные за регистрацию). → presence = "unclear"
+        4. Упоминание регистрации в контексте вступления в силу, но без деталей процедуры. → presence = "present", applicant/costs = "not_defined"
+        </edge_cases>
+
+        <output_expectations>
+        - Верни ровно один JSON-объект с 14 ключами (13 полей + evidence).
+        - Для signal-полей при отсутствии данных — "not_defined".
+        - Для fact-полей при отсутствии данных — "Данные не определены".
+        - В evidence — только точные цитаты из текста договора.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
 
       fields:
+        - name: "registration_cross_border_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие в договоре условий о регистрации, валютном контроле, налоге у источника или экспортном контроле."
+          required: true
+
         - name: "registration_clause_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус условия о регистрации."
           required: true
 
@@ -3484,7 +4301,9 @@ checks_v8:
         - name: "registration_applicant_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус указания подающей стороны."
           required: true
 
@@ -3500,7 +4319,9 @@ checks_v8:
         - name: "registration_costs_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "low"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус распределения расходов."
           required: true
 
@@ -3515,7 +4336,9 @@ checks_v8:
         - name: "currency_control_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус валютного контроля."
           required: true
 
@@ -3531,7 +4354,9 @@ checks_v8:
         - name: "withholding_tax_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус налога у источника."
           required: true
 
@@ -3547,7 +4372,9 @@ checks_v8:
         - name: "export_control_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус экспортного контроля."
           required: true
 
@@ -3558,6 +4385,8 @@ checks_v8:
           description: "Условия экспортного контроля (шифрование, ФСТЭК)."
           required: false
           display_in_grid: false
+
+      store_payload: true
 
   - id: software_data_check
     name: "Escrow исходного кода ПО (специфика ПО)"
@@ -3778,9 +4607,15 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1200
-      store_payload: true
+
+      compact_output: false   # [CONSIDER] 6 полей + evidence — можно true
+
+      presence_signal:
+        field: "software_data_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_prompt_extraction: |
         <role>
@@ -3794,33 +4629,57 @@ checks_v8:
         </context>
 
         <task>
-        Заполни строго следующие 6 полей + evidence (всего 7 ключей):
+        0. software_data_check_presence: "present" / "missing" / "unclear".
         1. escrow_status — "defined" или "not_defined".
         2. escrow_details — депонирование исходного кода.
         3. escrow_agent_status — "defined" или "not_defined".
         4. escrow_agent_details — escrow-агент (нотариус, специализированная организация).
         5. escrow_release_status — "defined" или "not_defined".
         6. escrow_release_details — условия передачи исходного кода лицензиату.
-
-        Если данные отсутствуют:
-        - signal-поля (escrow_status, escrow_agent_status, escrow_release_status) → "not_defined";
-        - fact-поля (escrow_details, escrow_agent_details, escrow_release_details) → "Данные не определены".
         </task>
 
-        <rules>
-        - Используй только текст договора.
+        <context_rules>
+        - Перед остальными полями заполни software_data_check_presence:
+          "present" — если в тексте есть хотя бы один фрагмент об escrow, депонировании или передаче исходного кода;
+          "missing" — если таких фрагментов нет вообще;
+          "unclear" — если формулировки противоречат друг другу.
+        - Если фрагментов по теме нет — presence = "missing", все signal = "not_defined", все fact = "Данные не определены".
+        - Если presence = "missing" — все signal-поля = "not_defined", все fact-поля = "Данные не определены".
         - Не проверяй персональные данные.
-        - Верни РОВНО один валидный JSON-объект со всеми 7 ключами, пригодный
-          для парсинга через json.loads без предварительной обработки. Без markdown,
-          без ```json, без комментариев, без текста до или после. Начни ответ сразу
-          с { и закончи }.
-        </rules>
+        - Используй только текст договора.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие темы escrow / депонирования исходного кода. → presence = "missing"
+        2. Частичное раскрытие (escrow упомянут, но агент или условия передачи не указаны). → presence = "present", отсутствующие части = "not_defined" / "Данные не определены"
+        3. Противоречие между фрагментами (разные условия передачи в разных разделах). → presence = "unclear"
+        4. Упоминание исходного кода в контексте поставки, но без escrow-механизма. → presence = "missing"
+        </edge_cases>
+
+        <output_expectations>
+        - Верни ровно один JSON-объект с 8 ключами (7 полей + evidence).
+        - Для signal-полей при отсутствии данных — "not_defined".
+        - Для fact-полей при отсутствии данных — "Данные не определены".
+        - В evidence — только точные цитаты из текста договора.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
 
       fields:
+        - name: "software_data_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие в договоре условий об escrow / депонировании исходного кода."
+          required: true
+
         - name: "escrow_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус escrow исходного кода."
           required: true
 
@@ -3836,7 +4695,9 @@ checks_v8:
         - name: "escrow_agent_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус escrow-агента."
           required: true
 
@@ -3851,7 +4712,9 @@ checks_v8:
         - name: "escrow_release_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус условий передачи исходного кода."
           required: true
 
@@ -3863,6 +4726,8 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 2
+
+      store_payload: true
 
   - id: knowhow_trade_secret_link_check
     name: "Режим коммерческой тайны для передаваемого Ноу-хау"
@@ -4091,9 +4956,15 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1200
-      store_payload: true
+
+      compact_output: false   # [CONSIDER] 6 полей + evidence — можно true
+
+      presence_signal:
+        field: "knowhow_trade_secret_link_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_prompt_extraction: |
         <role>
@@ -4108,35 +4979,57 @@ checks_v8:
         </context>
 
         <task>
-        Заполни строго следующие 6 полей + evidence (всего 7 ключей):
+        0. knowhow_trade_secret_link_check_presence: "present" / "missing" / "unclear".
         1. knowhow_identification_status — "defined" или "not_defined".
         2. knowhow_identification_details — формулировка идентификации как ноу-хау.
         3. trade_secret_regime_status — "defined" или "not_defined".
         4. trade_secret_regime_details — формулировка режима коммерческой тайны.
         5. transfer_protocol_status — "defined" или "not_defined".
         6. transfer_protocol_details — формулировка порядка передачи.
-
-        Если данные отсутствуют:
-        - signal-поля (knowhow_identification_status, trade_secret_regime_status,
-          transfer_protocol_status) → "not_defined";
-        - fact-поля (knowhow_identification_details, trade_secret_regime_details,
-          transfer_protocol_details) → "Данные не определены".
         </task>
 
-        <rules>
+        <context_rules>
+        - Перед остальными полями заполни knowhow_trade_secret_link_check_presence:
+          "present" — если в тексте есть хотя бы один фрагмент об идентификации ноу-хау, режиме коммерческой тайны или порядке передачи;
+          "missing" — если таких фрагментов нет вообще;
+          "unclear" — если формулировки противоречат друг другу.
+        - Если фрагментов по теме нет — presence = "missing", все signal = "not_defined", все fact = "Данные не определены".
+        - Если presence = "missing" — все signal-поля = "not_defined", все fact-поля = "Данные не определены".
+        - Не проверяй общую конфиденциальность (это global check).
         - Используй только текст договора.
-        - Не проверяй общую конфиденциальность.
-        - Верни РОВНО один валидный JSON-объект со всеми 7 ключами, пригодный
-          для парсинга через json.loads без предварительной обработки. Без markdown,
-          без ```json, без комментариев, без текста до или после. Начни ответ сразу
-          с { и закончи }.
-        </rules>
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие тем ноу-хау, коммерческой тайны и порядка передачи. → presence = "missing"
+        2. Частичное раскрытие (ноу-хау идентифицировано, но режим КТ или порядок передачи не описан). → presence = "present", отсутствующие части = "not_defined" / "Данные не определены"
+        3. Противоречие между фрагментами (разные режимы секретности в разных разделах). → presence = "unclear"
+        4. Общая оговорка о конфиденциальности без явной идентификации сведений как ноу-хау. → presence = "missing" (общая конфиденциальность — global check)
+        </edge_cases>
+
+        <output_expectations>
+        - Верни ровно один JSON-объект с 8 ключами (7 полей + evidence).
+        - Для signal-полей при отсутствии данных — "not_defined".
+        - Для fact-полей при отсутствии данных — "Данные не определены".
+        - В evidence — только точные цитаты из текста договора.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
 
       fields:
+        - name: "knowhow_trade_secret_link_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие в договоре идентификации ноу-хау, режима коммерческой тайны или порядка передачи."
+          required: true
+
         - name: "knowhow_identification_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус идентификации как ноу-хау."
           required: true
 
@@ -4152,7 +5045,9 @@ checks_v8:
         - name: "trade_secret_regime_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус ссылки на режим коммерческой тайны."
           required: true
 
@@ -4168,7 +5063,9 @@ checks_v8:
         - name: "transfer_protocol_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус порядка передачи."
           required: true
 
@@ -4180,6 +5077,8 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 3
+
+      store_payload: true
 
   - id: ip_wind_down_destruction_check
     name: "Пост-терминальные обязательства: уничтожение копий и переходный период"
@@ -4407,9 +5306,15 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1200
-      store_payload: true
+
+      compact_output: false   # [CONSIDER] 6 полей + evidence — можно true
+
+      presence_signal:
+        field: "ip_wind_down_destruction_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_prompt_extraction: |
         <role>
@@ -4424,35 +5329,57 @@ checks_v8:
         </context>
 
         <task>
-        Заполни строго следующие 6 полей + evidence (всего 7 ключей):
+        0. ip_wind_down_destruction_check_presence: "present" / "missing" / "unclear".
         1. destruction_obligation_status — "defined" или "not_defined".
         2. destruction_obligation_details — формулировка обязанности уничтожить/вернуть.
         3. wind_down_period_status — "defined" или "not_defined".
         4. wind_down_period_details — длительность и условия переходного периода.
         5. certification_status — "defined" или "not_defined".
         6. certification_details — формулировка требования о сертификате.
-
-        Если данные отсутствуют:
-        - signal-поля (destruction_obligation_status, wind_down_period_status,
-          certification_status) → "not_defined";
-        - fact-поля (destruction_obligation_details, wind_down_period_details,
-          certification_details) → "Данные не определены".
         </task>
 
-        <rules>
+        <context_rules>
+        - Перед остальными полями заполни ip_wind_down_destruction_check_presence:
+          "present" — если в тексте есть хотя бы один фрагмент об уничтожении/возврате копий, переходном периоде или сертификате уничтожения;
+          "missing" — если таких фрагментов нет вообще;
+          "unclear" — если формулировки противоречат друг другу.
+        - Если фрагментов по теме нет — presence = "missing", все signal = "not_defined", все fact = "Данные не определены".
+        - Если presence = "missing" — все signal-поля = "not_defined", все fact-поля = "Данные не определены".
+        - Не проверяй общие основания расторжения (это global check).
         - Используй только текст договора.
-        - Не проверяй общие основания расторжения.
-        - Верни РОВНО один валидный JSON-объект со всеми 7 ключами, пригодный
-          для парсинга через json.loads без предварительной обработки. Без markdown,
-          без ```json, без комментариев, без текста до или после. Начни ответ сразу
-          с { и закончи }.
-        </rules>
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие пост-терминальных обязательств (ни уничтожения, ни wind-down, ни сертификата). → presence = "missing"
+        2. Частичное раскрытие (только обязанность уничтожить, без переходного периода и сертификата). → presence = "present", отсутствующие части = "not_defined" / "Данные не определены"
+        3. Противоречие между фрагментами (разные сроки уничтожения в разных разделах). → presence = "unclear"
+        4. Общая оговорка о расторжении без пост-терминальных деталей. → presence = "missing"
+        </edge_cases>
+
+        <output_expectations>
+        - Верни ровно один JSON-объект с 8 ключами (7 полей + evidence).
+        - Для signal-полей при отсутствии данных — "not_defined".
+        - Для fact-полей при отсутствии данных — "Данные не определены".
+        - В evidence — только точные цитаты из текста договора.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
 
       fields:
+        - name: "ip_wind_down_destruction_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие в договоре пост-терминальных обязательств (уничтожение, wind-down, сертификат)."
+          required: true
+
         - name: "destruction_obligation_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус обязанности уничтожить/вернуть."
           required: true
 
@@ -4468,7 +5395,9 @@ checks_v8:
         - name: "wind_down_period_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус переходного периода."
           required: true
 
@@ -4484,7 +5413,9 @@ checks_v8:
         - name: "certification_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус обязанности предоставить сертификат."
           required: true
 
@@ -4496,6 +5427,8 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 3
+
+      store_payload: true
 
   - id: oss_dependencies_check
     name: "Гарантии относительно открытого ПО (Open Source) и зависимости"
@@ -4723,9 +5656,15 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 1200
-      store_payload: true
+
+      compact_output: false   # [CONSIDER] 6 полей + evidence — можно true
+
+      presence_signal:
+        field: "oss_dependencies_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_prompt_extraction: |
         <role>
@@ -4740,35 +5679,57 @@ checks_v8:
         </context>
 
         <task>
-        Заполни строго следующие 6 полей + evidence (всего 7 ключей):
+        0. oss_dependencies_check_presence: "present" / "missing" / "unclear".
         1. oss_presence_status — "defined" или "not_defined".
         2. oss_presence_details — формулировка об OSS.
         3. oss_registry_status — "defined" или "not_defined".
         4. oss_registry_details — ссылка на реестр/приложение.
         5. viral_license_warranty_status — "defined" или "not_defined".
         6. viral_license_warranty_details — формулировка гарантии.
-
-        Если данные отсутствуют:
-        - signal-поля (oss_presence_status, oss_registry_status,
-          viral_license_warranty_status) → "not_defined";
-        - fact-поля (oss_presence_details, oss_registry_details,
-          viral_license_warranty_details) → "Данные не определены".
         </task>
 
-        <rules>
-        - Используй только текст договора.
+        <context_rules>
+        - Перед остальными полями заполни oss_dependencies_check_presence:
+          "present" — если в тексте есть хотя бы один фрагмент об OSS, реестре компонентов или вирусных лицензиях;
+          "missing" — если таких фрагментов нет вообще;
+          "unclear" — если формулировки противоречат друг другу.
+        - Если фрагментов по теме нет — presence = "missing", все signal = "not_defined", все fact = "Данные не определены".
+        - Если presence = "missing" — все signal-поля = "not_defined", все fact-поля = "Данные не определены".
         - Не выводи условия из норм ГК РФ.
-        - Верни РОВНО один валидный JSON-объект со всеми 7 ключами, пригодный
-          для парсинга через json.loads без предварительной обработки. Без markdown,
-          без ```json, без комментариев, без текста до или после. Начни ответ сразу
-          с { и закончи }.
-        </rules>
+        - Используй только текст договора.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие упоминания OSS, реестра и вирусных лицензий. → presence = "missing"
+        2. Частичное раскрытие (реестр OSS есть, но гарантии отсутствия вирусных лицензий нет). → presence = "present", отсутствующие части = "not_defined" / "Данные не определены"
+        3. Противоречие между фрагментами (в одном разделе — гарантия отсутствия GPL, в другом — упоминание GPL-компонентов). → presence = "unclear"
+        4. Упоминание пермиссивных лицензий (MIT, Apache) без упоминания вирусных. → presence = "present", viral_license_warranty = "not_defined"
+        </edge_cases>
+
+        <output_expectations>
+        - Верни ровно один JSON-объект с 8 ключами (7 полей + evidence).
+        - Для signal-полей при отсутствии данных — "not_defined".
+        - Для fact-полей при отсутствии данных — "Данные не определены".
+        - В evidence — только точные цитаты из текста договора.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
 
       fields:
+        - name: "oss_dependencies_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие в договоре упоминания OSS, реестра компонентов или гарантий по вирусным лицензиям."
+          required: true
+
         - name: "oss_presence_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус упоминания OSS."
           required: true
 
@@ -4784,7 +5745,9 @@ checks_v8:
         - name: "oss_registry_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус реестра/приложения с OSS."
           required: true
 
@@ -4800,7 +5763,9 @@ checks_v8:
         - name: "viral_license_warranty_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус гарантии отсутствия вирусных лицензий."
           required: true
 
@@ -4812,6 +5777,8 @@ checks_v8:
           required: false
           display_in_grid: true
           display_priority: 3
+
+      store_payload: true
 
   - id: ip_modification_adaptation_check
     name: "Право на переработку, адаптацию и модификацию объекта ИС"
@@ -5050,8 +6017,14 @@ checks_v8:
       enabled: true
       mode: "hybrid"
       llm_max_tokens: 1200
-      compact_output: false
-      store_payload: true
+
+      compact_output: false   # [CONSIDER] 6 полей + evidence — можно true
+
+      presence_signal:
+        field: "ip_modification_adaptation_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
 
       llm_prompt_extraction: |
         <role>
@@ -5066,80 +6039,1936 @@ checks_v8:
         </context>
 
         <task>
-        Заполни строго следующие 6 полей + evidence (всего 7 ключей):
+        0. ip_modification_adaptation_check_presence: "present" / "missing" / "unclear".
         1. modification_right_status — "defined" или "not_defined".
         2. modification_right_details — формулировка права на модификацию.
         3. modification_scope_code — any_modification / limited_modification / no_modification / not_defined.
         4. modification_scope_details — конкретные ограничения или разрешения.
         5. attribution_status — "defined" или "not_defined".
         6. attribution_details — формулировка требования к указанию авторства.
-
-        Если данные отсутствуют:
-        - signal-поля (modification_right_status, modification_scope_code, attribution_status) → "not_defined";
-        - fact-поля (modification_right_details, modification_scope_details,
-          attribution_details) → "Данные не определены".
         </task>
 
-        <rules>
-        - Используй только текст договора.
+        <context_rules>
+        - Перед остальными полями заполни ip_modification_adaptation_check_presence:
+          "present" — если в тексте есть хотя бы один фрагмент о праве на модификацию/переработку, объёме изменений или атрибуции;
+          "missing" — если таких фрагментов нет вообще;
+          "unclear" — если формулировки противоречат друг другу.
+        - Если фрагментов по теме нет — presence = "missing", все signal = "not_defined", все fact = "Данные не определены".
+        - Если presence = "missing" — все signal-поля = "not_defined", все fact-поля = "Данные не определены".
         - modification_scope_code: "any_modification" — любые изменения;
           "limited_modification" — только определённые; "no_modification" — запрещено;
           "not_defined" — не указано.
-        - Не выводи право на переработку из норм ГК РФ.
-        - Верни РОВНО один валидный JSON-объект со всеми 7 ключами, пригодный
-          для парсинга через json.loads без предварительной обработки. Без markdown,
-          без ```json, без комментариев, без текста до или после. Начни ответ сразу
-          с { и закончи }.
-        </rules>
+        - Не выводи право на переработку из норм ГК РФ — только из текста договора.
+        - Используй только текст договора.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие упоминания модификации, переработки и атрибуции. → presence = "missing"
+        2. Частичное раскрытие (право на модификацию есть, но объём или атрибуция не указаны). → presence = "present", отсутствующие части = "not_defined" / "Данные не определены"
+        3. Противоречие между фрагментами (в одном разделе — разрешение, в другом — запрет модификации). → presence = "unclear"
+        4. Прямой запрет модификации без упоминания атрибуции. → presence = "present", scope = "no_modification", attribution = "not_defined"
+        </edge_cases>
+
+        <output_expectations>
+        - Верни ровно один JSON-объект с 8 ключами (7 полей + evidence).
+        - Для signal-полей при отсутствии данных — "not_defined".
+        - Для fact-полей при отсутствии данных — "Данные не определены".
+        - В evidence — только точные цитаты из текста договора.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
 
       fields:
+        - name: "ip_modification_adaptation_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие в договоре условий о праве на модификацию/переработку или атрибуции."
+          required: true
+
         - name: "modification_right_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус права на модификацию."
           required: true
 
         - name: "modification_right_details"
           type: "string"
           presentation: "fact"
-          display_in_grid: true
-          display_priority: 1
           label: "Право на модификацию"
           description: "Формулировка права на переработку/модификацию объекта ИС."
           required: false
+          display_in_grid: true
+          display_priority: 1
 
         - name: "modification_scope_code"
           type: "string"
           presentation: "signal"
+          risk_weight: "high"
           allowed_values: ["any_modification", "limited_modification", "no_modification", "not_defined"]
+          display_in_grid: false
           description: "Объём права на модификацию."
           required: true
 
         - name: "modification_scope_details"
           type: "string"
           presentation: "fact"
-          display_in_grid: true
-          display_priority: 2
           label: "Объём модификации"
           description: "Конкретные ограничения или разрешения на модификацию."
           required: false
+          display_in_grid: true
+          display_priority: 2
 
         - name: "attribution_status"
           type: "string"
           presentation: "signal"
+          risk_weight: "medium"
           allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
           description: "Статус требования атрибуции."
           required: true
 
         - name: "attribution_details"
           type: "string"
           presentation: "fact"
-          display_in_grid: true
-          display_priority: 3
           label: "Атрибуция"
           description: "Требования к указанию авторства при модификации."
           required: false
+          display_in_grid: true
+          display_priority: 3
+
+      store_payload: true
+
+  - id: support_updates_maintenance_check
+    name: "Техническая поддержка, обновления и сопровождение ПО"
+    description: >
+      Фактографическая проверка обязательств лицензиара по технической поддержке,
+      предоставлению обновлений и исправлений ошибок, сроку поддержки и последствиям
+      её прекращения. Применимо к лицензиям на ПО.
+    triggers:
+      any:
+        - software_license
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "техническая поддержка"
+        - "сопровождение"
+        - "обновления"
+        - "updates"
+        - "patches"
+        - "исправление ошибок"
+        - "bug fixes"
+        - "новые версии"
+        - "релизы"
+        - "SLA"
+        - "service level"
+        - "срок поддержки"
+        - "end of life"
+        - "EOL"
+        - "прекращение поддержки"
+        - "горячая линия"
+        - "техподдержка"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)техническ\\w+\\s+поддержк"
+        - "(?i)сопровожден\\w+"
+        - "(?i)обновлени[яй]"
+        - "(?i)исправлен\\w+\\s+ошибок"
+        - "(?i)SLA|service\\s+level"
+        - "(?i)срок.*поддержк"
+        - "(?i)end[\\s-]*of[\\s-]*life|EOL"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по интеллектуальной собственности.
+        Анализируется лицензионный договор на ПО. Проверяется только один
+        специфичный для ПО вопрос: обязательства по технической поддержке,
+        обновлениям и сопровождению.
+
+        Нормативные ориентиры:
+        - ст. 1235 ГК РФ — лицензионный договор.
+        - ст. 1280 ГК РФ — специальные права пользователя ПО (адаптация, исправление ошибок).
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+        - Общие сервисные обязательства по иным услугам НЕ проверяются.
+
+        [ЗАДАЧА]
+        Найди в тексте договора и заполни строго следующие 8 полей + evidence
+        (всего 9 ключей):
+        1. support_obligation_status — статус обязанности предоставлять поддержку.
+        2. support_obligation_details — формулировка обязанности по поддержке.
+        3. updates_provision_status — статус обязанности предоставлять обновления.
+        4. updates_provision_details — объём и условия предоставления обновлений.
+        5. support_term_status — статус срока поддержки.
+        6. support_term_details — длительность и условия срока поддержки.
+        7. support_termination_consequences_status — статус последствий прекращения поддержки.
+        8. support_termination_consequences_details — последствия для лицензиата (escrow, права и т.д.).
+
+        [ПРАВИЛА]
+        1. Используй только текст документа. Не подставляй нормы закона вместо текста договора.
+        2. Не оценивай серьёзность риска.
+        3. Для signal-полей (support_obligation_status, updates_provision_status,
+           support_term_status, support_termination_consequences_status) при отсутствии
+           данных возвращай строго "not_defined".
+        4. Для fact-полей (support_obligation_details, updates_provision_details,
+           support_term_details, support_termination_consequences_details) при отсутствии
+           данных возвращай строго "Данные не определены".
+        5. Не используй "None", "null", пустые строки или отсутствующие ключи.
+        6. В evidence включай только точные цитаты из текста договора.
+        7. Формат ответа — строго по [ФОРМАТ ОТВЕТА] (ровно один валидный JSON-объект
+           со всеми 9 ключами).
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — все условия определены:
+        Фрагмент:
+        "Лицензиар обязуется в течение срока действия лицензии предоставлять
+        техническую поддержку (горячая линия, время отклика — 24 часа) и обновления
+        ПО, включая исправления ошибок и новые версии. Срок поддержки — 3 года
+        с момента предоставления лицензии. По истечении срока поддержки Лицензиар
+        передаёт Лицензиату исходный код из escrow."
+
+        Ответ:
+        {
+          "support_obligation_status": "defined",
+          "support_obligation_details": "предоставлять техническую поддержку (горячая линия, время отклика — 24 часа)",
+          "updates_provision_status": "defined",
+          "updates_provision_details": "обновления ПО, включая исправления ошибок и новые версии",
+          "support_term_status": "defined",
+          "support_term_details": "3 года с момента предоставления лицензии",
+          "support_termination_consequences_status": "defined",
+          "support_termination_consequences_details": "Лицензиар передаёт Лицензиату исходный код из escrow",
+          "evidence": [
+            {
+              "clause_ref": "п. 8.1",
+              "quote": "Лицензиар обязуется в течение срока действия лицензии предоставлять техническую поддержку и обновления ПО."
+            }
+          ]
+        }
+
+        Пример 2 — данные отсутствуют:
+        Фрагмент:
+        "Лицензиат обязуется использовать ПО в соответствии с условиями договора."
+
+        Ответ:
+        {
+          "support_obligation_status": "not_defined",
+          "support_obligation_details": "Данные не определены",
+          "updates_provision_status": "not_defined",
+          "updates_provision_details": "Данные не определены",
+          "support_term_status": "not_defined",
+          "support_term_details": "Данные не определены",
+          "support_termination_consequences_status": "not_defined",
+          "support_termination_consequences_details": "Данные не определены",
+          "evidence": []
+        }
+
+        Пример 3 — частично определённые данные (только поддержка без срока):
+        Фрагмент:
+        "Лицензиар оказывает Лицензиату техническую поддержку по электронной почте.
+        Об обновлениях и сроке поддержки стороны не договорились."
+
+        Ответ:
+        {
+          "support_obligation_status": "defined",
+          "support_obligation_details": "техническая поддержка по электронной почте",
+          "updates_provision_status": "not_defined",
+          "updates_provision_details": "Данные не определены",
+          "support_term_status": "not_defined",
+          "support_term_details": "Данные не определены",
+          "support_termination_consequences_status": "not_defined",
+          "support_termination_consequences_details": "Данные не определены",
+          "evidence": [
+            {
+              "clause_ref": "п. 7.3",
+              "quote": "Лицензиар оказывает Лицензиату техническую поддержку по электронной почте."
+            }
+          ]
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        Проверь, что все 9 ключей (8 полей + evidence) присутствуют в JSON
+        и соответствуют [ФОРМАТ ОТВЕТА].
+        1. Найди прямую цитату об обязанности предоставлять поддержку.
+        2. Найди прямую цитату об обязанности предоставлять обновления.
+        3. Найди прямую цитату о сроке поддержки.
+        4. Найди прямую цитату о последствиях прекращения поддержки.
+        5. Если прямой цитаты нет — верни "not_defined" (для signal) или
+           "Данные не определены" (для fact).
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Верни РОВНО один валидный JSON-объект со всеми 9 ключами, пригодный
+        для парсинга через json.loads без предварительной обработки. Без markdown,
+        без ```json, без комментариев, без текста до или после. Начни ответ сразу
+        с { и закончи }.
+
+        {
+          "support_obligation_status": "<defined / not_defined>",
+          "support_obligation_details": "<текст или 'Данные не определены'>",
+          "updates_provision_status": "<defined / not_defined>",
+          "updates_provision_details": "<текст или 'Данные не определены'>",
+          "support_term_status": "<defined / not_defined>",
+          "support_term_details": "<текст или 'Данные не определены'>",
+          "support_termination_consequences_status": "<defined / not_defined>",
+          "support_termination_consequences_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 700
+
+    retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "техническая поддержка сопровождение обновления updates patches исправление ошибок bug fixes новые версии релизы SLA service level срок поддержки end of life EOL прекращение поддержки горячая линия техподдержка"
+      retrieval_profile: "license_scope_check"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - procedures
+      negative_keywords:
+        - "вознаграждение"
+        - "роялти"
+        - "сублицензия"
+        - "гарантии лицензиара"
+        - "indemnity"
+        - "расторжение"
+        - "форс-мажор"
+        - "эксклюзивность"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.40, 0.85]
+        boost: 0.25
+        scope: segment
+      context_k: 8
+      max_chunks: 10
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "obligations"
+        - "procedures"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 1300
+
+      compact_output: false   # [CONSIDER] 8 полей + evidence — можно true
+
+      presence_signal:
+        field: "support_updates_maintenance_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист по ИС. Извлеки из лицензионного договора на ПО
+        сведения о технической поддержке, обновлениях, сроке поддержки
+        и последствиях её прекращения. Не анализируй вознаграждение, сублицензию,
+        расторжение или общие гарантии.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        0. support_updates_maintenance_check_presence: "present" / "missing" / "unclear".
+        1. support_obligation_status — "defined" или "not_defined".
+        2. support_obligation_details — формулировка обязанности по поддержке.
+        3. updates_provision_status — "defined" или "not_defined".
+        4. updates_provision_details — объём и условия обновлений.
+        5. support_term_status — "defined" или "not_defined".
+        6. support_term_details — длительность и условия срока поддержки.
+        7. support_termination_consequences_status — "defined" или "not_defined".
+        8. support_termination_consequences_details — последствия прекращения поддержки.
+        </task>
+
+        <context_rules>
+        - Перед остальными полями заполни support_updates_maintenance_check_presence:
+          "present" — если в тексте есть хотя бы один фрагмент о технической поддержке, обновлениях, сроке поддержки или её прекращении;
+          "missing" — если таких фрагментов нет вообще;
+          "unclear" — если формулировки противоречат друг другу.
+        - Если фрагментов по теме нет — presence = "missing", все signal = "not_defined", все fact = "Данные не определены".
+        - Если presence = "missing" — все signal-поля = "not_defined", все fact-поля = "Данные не определены".
+        - Не выводи обязанность поддержки из норм ГК РФ — только из текста договора.
+        - Используй только текст договора.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие упоминания поддержки, обновлений и сопровождения. → presence = "missing"
+        2. Частичное раскрытие (поддержка упомянута, но без срока или без описания обновлений). → presence = "present", отсутствующие части = "not_defined" / "Данные не определены"
+        3. Противоречие между фрагментами (в одном разделе — пожизненная поддержка, в другом — 1 год). → presence = "unclear"
+        4. Отсылка к отдельному соглашению об SLA без включения его условий. → presence = "present", details = "по отдельному SLA (условия не раскрыты в договоре)"
+        </edge_cases>
+
+        <output_expectations>
+        - Верни ровно один JSON-объект с 10 ключами (9 полей + evidence).
+        - Для signal-полей при отсутствии данных — "not_defined".
+        - Для fact-полей при отсутствии данных — "Данные не определены".
+        - В evidence — только точные цитаты из текста договора.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
+      fields:
+        - name: "support_updates_maintenance_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие в договоре условий о поддержке, обновлениях или сопровождении."
+          required: true
+
+        - name: "support_obligation_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
+          description: "Статус обязанности предоставлять техническую поддержку."
+          required: true
+
+        - name: "support_obligation_details"
+          type: "string"
+          presentation: "fact"
+          label: "Техническая поддержка"
+          description: "Формулировка обязанности лицензиара по технической поддержке."
+          required: false
+          display_in_grid: true
+          display_priority: 1
+
+        - name: "updates_provision_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
+          description: "Статус обязанности предоставлять обновления."
+          required: true
+
+        - name: "updates_provision_details"
+          type: "string"
+          presentation: "fact"
+          label: "Обновления"
+          description: "Объём и условия предоставления обновлений, исправлений ошибок, новых версий."
+          required: false
+          display_in_grid: true
+          display_priority: 2
+
+        - name: "support_term_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
+          description: "Статус срока поддержки."
+          required: true
+
+        - name: "support_term_details"
+          type: "string"
+          presentation: "fact"
+          label: "Срок поддержки"
+          description: "Длительность и условия срока поддержки."
+          required: false
+          display_in_grid: true
+          display_priority: 3
+
+        - name: "support_termination_consequences_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "medium"
+          allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
+          description: "Статус последствий прекращения поддержки."
+          required: true
+
+        - name: "support_termination_consequences_details"
+          type: "string"
+          presentation: "fact"
+          label: "Прекращение поддержки"
+          description: "Последствия прекращения поддержки для лицензиата (escrow, права и т.д.)."
+          required: false
+          display_in_grid: false
+
+      store_payload: true
+
+  - id: field_of_use_restrictions_check
+    name: "Целевые и отраслевые ограничения использования (field of use)"
+    description: >
+      Фактографическая проверка ограничений использования объекта ИС по сфере,
+      цели, отрасли, продукту или типу пользователей (field of use). Не дублирует
+      проверку способов использования по ст. 1270 ГК (это делает license_subject_extraction).
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "только для"
+        - "исключительно для"
+        - "в целях"
+        - "для внутренних нужд"
+        - "для собственных нужд"
+        - "запрещается использовать"
+        - "не вправе использовать"
+        - "сфера использования"
+        - "цель использования"
+        - "field of use"
+        - "для коммерческого использования"
+        - "для некоммерческого использования"
+        - "в составе продукта"
+        - "для оказания услуг"
+        - "ограниченное использование"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)только\\s+для"
+        - "(?i)исключительно\\s+для"
+        - "(?i)для\\s+(внутренн|собственн)\\w+\\s+нужд"
+        - "(?i)field\\s+of\\s+use"
+        - "(?i)сфер\\w+\\s+использован"
+        - "(?i)цел[ьи].*использован"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по интеллектуальной собственности.
+        Анализируется лицензионный договор. Проверяется только один
+        специфичный для ИС вопрос: ограничения использования по сфере,
+        цели, отрасли или типу пользователей (field of use).
+
+        Нормативные ориентиры:
+        - ст. 1235 ГК РФ — условия лицензионного договора.
+        - ст. 1236 ГК РФ — виды лицензий.
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+        - НЕ проверяй способы использования по ст. 1270 ГК (воспроизведение, распространение
+          и т.п.) — это делает другой чек.
+        - Field of use — это ограничения по СФЕРЕ/ЦЕЛИ (а не по способу).
+
+        [ЗАДАЧА]
+        Найди в тексте договора и заполни строго следующие 6 полей + evidence
+        (всего 7 ключей):
+        1. field_of_use_status — статус ограничений по сфере использования.
+        2. field_of_use_details — формулировка ограничений по сфере.
+        3. purpose_restriction_status — статус ограничений по цели.
+        4. purpose_restriction_details — формулировка ограничений по цели (коммерческое/внутреннее).
+        5. user_type_restriction_status — статус ограничений по типу пользователей.
+        6. user_type_restriction_details — ограничения по типу пользователей (аффилиаты, подрядчики).
+
+        [ПРАВИЛА]
+        1. Используй только текст документа. Не подставляй нормы закона вместо текста договора.
+        2. Не оценивай серьёзность риска.
+        3. Для signal-полей (field_of_use_status, purpose_restriction_status,
+           user_type_restriction_status) при отсутствии данных возвращай строго "not_defined".
+        4. Для fact-полей (field_of_use_details, purpose_restriction_details,
+           user_type_restriction_details) при отсутствии данных возвращай строго "Данные не определены".
+        5. Не используй "None", "null", пустые строки или отсутствующие ключи.
+        6. В evidence включай только точные цитаты из текста договора.
+        7. Не путай field of use со способами использования по ст. 1270 ГК.
+        8. Формат ответа — строго по [ФОРМАТ ОТВЕТА] (ровно один валидный JSON-объект
+           со всеми 7 ключами).
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — все условия определены:
+        Фрагмент:
+        "Лицензия предоставляется исключительно для использования в сфере медицинской
+        диагностики. Лицензиат вправе использовать ПО только для собственных внутренних
+        нужд и не вправе предоставлять доступ к ПО третьим лицам, кроме своих аффилированных
+        компаний и подрядчиков, оказывающих услуги Лицензиату."
+
+        Ответ:
+        {
+          "field_of_use_status": "defined",
+          "field_of_use_details": "исключительно для использования в сфере медицинской диагностики",
+          "purpose_restriction_status": "defined",
+          "purpose_restriction_details": "только для собственных внутренних нужд",
+          "user_type_restriction_status": "defined",
+          "user_type_restriction_details": "аффилированные компании и подрядчики, оказывающие услуги Лицензиату",
+          "evidence": [
+            {
+              "clause_ref": "п. 2.3",
+              "quote": "Лицензия предоставляется исключительно для использования в сфере медицинской диагностики."
+            }
+          ]
+        }
+
+        Пример 2 — данные отсутствуют:
+        Фрагмент:
+        "Лицензиат вправе использовать ПО в соответствии с условиями договора."
+
+        Ответ:
+        {
+          "field_of_use_status": "not_defined",
+          "field_of_use_details": "Данные не определены",
+          "purpose_restriction_status": "not_defined",
+          "purpose_restriction_details": "Данные не определены",
+          "user_type_restriction_status": "not_defined",
+          "user_type_restriction_details": "Данные не определены",
+          "evidence": []
+        }
+
+        Пример 3 — частично определённые данные (только цель):
+        Фрагмент:
+        "ПО может использоваться Лицензиатом только для некоммерческого
+        исследовательского использования."
+
+        Ответ:
+        {
+          "field_of_use_status": "not_defined",
+          "field_of_use_details": "Данные не определены",
+          "purpose_restriction_status": "defined",
+          "purpose_restriction_details": "только для некоммерческого исследовательского использования",
+          "user_type_restriction_status": "not_defined",
+          "user_type_restriction_details": "Данные не определены",
+          "evidence": [
+            {
+              "clause_ref": "п. 3.1",
+              "quote": "ПО может использоваться Лицензиатом только для некоммерческого исследовательского использования."
+            }
+          ]
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        Проверь, что все 7 ключей (6 полей + evidence) присутствуют в JSON
+        и соответствуют [ФОРМАТ ОТВЕТА].
+        1. Найди прямую цитату об ограничении по сфере/отрасли.
+        2. Найди прямую цитату об ограничении по цели (коммерческое/внутреннее).
+        3. Найди прямую цитату об ограничении по типу пользователей (аффилиаты, подрядчики).
+        4. Если прямой цитаты нет — верни "not_defined" (для signal) или
+           "Данные не определены" (для fact).
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Верни РОВНО один валидный JSON-объект со всеми 7 ключами, пригодный
+        для парсинга через json.loads без предварительной обработки. Без markdown,
+        без ```json, без комментариев, без текста до или после. Начни ответ сразу
+        с { и закончи }.
+
+        {
+          "field_of_use_status": "<defined / not_defined>",
+          "field_of_use_details": "<текст или 'Данные не определены'>",
+          "purpose_restriction_status": "<defined / not_defined>",
+          "purpose_restriction_details": "<текст или 'Данные не определены'>",
+          "user_type_restriction_status": "<defined / not_defined>",
+          "user_type_restriction_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 650
+
+    retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "только для исключительно для в целях для внутренних нужд для собственных нужд запрещается использовать не вправе использовать сфера использования цель использования field of use для коммерческого использования для некоммерческого использования в составе продукта для оказания услуг ограниченное использование"
+      retrieval_profile: "license_scope_check"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - rights
+        - obligations
+        - limitations
+      negative_keywords:
+        - "вознаграждение"
+        - "роялти"
+        - "сублицензия"
+        - "гарантии лицензиара"
+        - "indemnity"
+        - "расторжение"
+        - "форс-мажор"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.15, 0.55]
+        boost: 0.25
+        scope: segment
+      context_k: 8
+      max_chunks: 10
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "rights"
+        - "obligations"
+        - "limitations"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 1200
+
+      compact_output: false   # [CONSIDER] 6 полей + evidence — можно true
+
+      presence_signal:
+        field: "field_of_use_restrictions_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист по ИС. Извлеки из лицензионного договора сведения
+        об ограничениях использования по сфере, цели и типу пользователей
+        (field of use). Не анализируй способы использования по ст. 1270 ГК,
+        вознаграждение, сублицензию или расторжение.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        0. field_of_use_restrictions_check_presence: "present" / "missing" / "unclear".
+        1. field_of_use_status — "defined" или "not_defined".
+        2. field_of_use_details — формулировка ограничений по сфере.
+        3. purpose_restriction_status — "defined" или "not_defined".
+        4. purpose_restriction_details — ограничения по цели (коммерческое/внутреннее).
+        5. user_type_restriction_status — "defined" или "not_defined".
+        6. user_type_restriction_details — ограничения по типу пользователей.
+        </task>
+
+        <context_rules>
+        - Перед остальными полями заполни field_of_use_restrictions_check_presence:
+          "present" — если в тексте есть хотя бы один фрагмент об ограничении по сфере, цели или типу пользователей;
+          "missing" — если таких фрагментов нет вообще;
+          "unclear" — если формулировки противоречат друг другу.
+        - Если фрагментов по теме нет — presence = "missing", все signal = "not_defined", все fact = "Данные не определены".
+        - Если presence = "missing" — все signal-поля = "not_defined", все fact-поля = "Данные не определены".
+        - Не путай field of use со способами использования по ст. 1270 ГК (воспроизведение, распространение).
+        - Используй только текст договора.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие ограничений по сфере, цели и типу пользователей. → presence = "missing"
+        2. Частичное раскрытие (ограничена цель, но не сфера или пользователи). → presence = "present", отсутствующие части = "not_defined" / "Данные не определены"
+        3. Противоречие между фрагментами (в одном разделе — только внутренние нужды, в другом — право оказывать услуги третьим лицам). → presence = "unclear"
+        4. Указание сферы без явного ограничения (просто описание предполагаемого применения). → presence = "missing" (не ограничение, а описание)
+        </edge_cases>
+
+        <output_expectations>
+        - Верни ровно один JSON-объект с 8 ключами (7 полей + evidence).
+        - Для signal-полей при отсутствии данных — "not_defined".
+        - Для fact-полей при отсутствии данных — "Данные не определены".
+        - В evidence — только точные цитаты из текста договора.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
+      fields:
+        - name: "field_of_use_restrictions_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие в договоре ограничений использования по сфере, цели или типу пользователей."
+          required: true
+
+        - name: "field_of_use_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
+          description: "Статус ограничений по сфере использования."
+          required: true
+
+        - name: "field_of_use_details"
+          type: "string"
+          presentation: "fact"
+          label: "Сфера использования"
+          description: "Ограничения использования по сфере/отрасли."
+          required: false
+          display_in_grid: true
+          display_priority: 1
+
+        - name: "purpose_restriction_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
+          description: "Статус ограничений по цели."
+          required: true
+
+        - name: "purpose_restriction_details"
+          type: "string"
+          presentation: "fact"
+          label: "Цель использования"
+          description: "Ограничения по цели (коммерческое/внутреннее, конкретный продукт)."
+          required: false
+          display_in_grid: true
+          display_priority: 2
+
+        - name: "user_type_restriction_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "medium"
+          allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
+          description: "Статус ограничений по типу пользователей."
+          required: true
+
+        - name: "user_type_restriction_details"
+          type: "string"
+          presentation: "fact"
+          label: "Тип пользователей"
+          description: "Ограничения по типу пользователей (аффилиаты, подрядчики, конечные пользователи)."
+          required: false
+          display_in_grid: true
+          display_priority: 3
+
+      store_payload: true
+
+  - id: license_renewal_conditions_check
+    name: "Условия продления (renewal) лицензии"
+    description: >
+      Фактографическая проверка механизма продления лицензии: автоматическое
+      продление, право лицензиата на продление, срок уведомления, изменение
+      условий при продлении, право лицензиара отказать в продлении.
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "medium"
+    severity_if_pass: "pass"
+    severity_if_fail: "medium"
+    severity_if_unclear: "medium"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "продление"
+        - "продлевается"
+        - "автоматическое продление"
+        - "auto-renewal"
+        - "renewal"
+        - "срок уведомления"
+        - "уведомление о продлении"
+        - "непродление"
+        - "отказ от продления"
+        - "право на продление"
+        - "преимущественное право"
+        - "возобновление"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)продле[нв]"
+        - "(?i)auto[\\s-]*renewal"
+        - "(?i)автоматическ\\w+\\s+продлен"
+        - "(?i)уведомлен\\w+.*продлен"
+        - "(?i)отказ.*продлен"
+        - "(?i)возобновлен\\w+\\s+договор"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по интеллектуальной собственности.
+        Анализируется лицензионный договор. Проверяется только один
+        специфичный для ИС вопрос: условия продления (renewal) лицензии.
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+        - НЕ проверяй срок (term) лицензии — это делает другой чек.
+        - Проверяй только МЕХАНИЗМ продления.
+
+        [ЗАДАЧА]
+        Найди в тексте договора и заполни строго следующие 6 полей + evidence
+        (всего 7 ключей):
+        1. renewal_mechanism_status — статус механизма продления.
+        2. renewal_mechanism_details — формулировка механизма продления.
+        3. auto_renewal_code — тип продления (automatic / by_notice / by_agreement / no_renewal / not_defined).
+        4. renewal_notice_period_status — статус срока уведомления о продлении/непродлении.
+        5. renewal_notice_period_details — срок и порядок уведомления.
+        6. renewal_terms_change_details — изменение условий (роялти, объём) при продлении.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа. Не подставляй нормы закона вместо текста договора.
+        2. Не оценивай серьёзность риска.
+        3. Для signal-полей (renewal_mechanism_status, auto_renewal_code,
+           renewal_notice_period_status) при отсутствии данных возвращай строго "not_defined".
+        4. Для fact-полей (renewal_mechanism_details, renewal_notice_period_details,
+           renewal_terms_change_details) при отсутствии данных возвращай строго "Данные не определены".
+        5. Не используй "None", "null", пустые строки или отсутствующие ключи.
+        6. В evidence включай только точные цитаты из текста договора.
+        7. auto_renewal_code:
+           - "automatic" — автоматическое продление без действий сторон;
+           - "by_notice" — продление по уведомлению одной из сторон;
+           - "by_agreement" — продление по дополнительному соглашению;
+           - "no_renewal" — продление прямо исключено;
+           - "not_defined" — механизм не указан.
+        8. Формат ответа — строго по [ФОРМАТ ОТВЕТА] (ровно один валидный JSON-объект
+           со всеми 7 ключами).
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — автоматическое продление с уведомлением:
+        Фрагмент:
+        "Договор заключён на срок 1 год и автоматически продлевается на каждый
+        следующий год, если ни одна из Сторон не уведомит другую Сторону
+        о намерении не продлевать Договор не менее чем за 60 дней до окончания
+        текущего срока. При продлении размер роялти индексируется на ИПЦ."
+
+        Ответ:
+        {
+          "renewal_mechanism_status": "defined",
+          "renewal_mechanism_details": "автоматически продлевается на каждый следующий год, если ни одна из Сторон не уведомит о намерении не продлевать",
+          "auto_renewal_code": "automatic",
+          "renewal_notice_period_status": "defined",
+          "renewal_notice_period_details": "не менее чем за 60 дней до окончания текущего срока",
+          "renewal_terms_change_details": "размер роялти индексируется на ИПЦ при продлении",
+          "evidence": [
+            {
+              "clause_ref": "п. 11.2",
+              "quote": "Договор автоматически продлевается на каждый следующий год, если ни одна из Сторон не уведомит другую Сторону о намерении не продлевать."
+            }
+          ]
+        }
+
+        Пример 2 — данные отсутствуют:
+        Фрагмент:
+        "Договор заключён на срок 3 года."
+
+        Ответ:
+        {
+          "renewal_mechanism_status": "not_defined",
+          "renewal_mechanism_details": "Данные не определены",
+          "auto_renewal_code": "not_defined",
+          "renewal_notice_period_status": "not_defined",
+          "renewal_notice_period_details": "Данные не определены",
+          "renewal_terms_change_details": "Данные не определены",
+          "evidence": []
+        }
+
+        Пример 3 — продление по доп. соглашению:
+        Фрагмент:
+        "По истечении срока действия настоящий Договор может быть продлён
+        на новый срок по письменному соглашению Сторон."
+
+        Ответ:
+        {
+          "renewal_mechanism_status": "defined",
+          "renewal_mechanism_details": "может быть продлён на новый срок по письменному соглашению Сторон",
+          "auto_renewal_code": "by_agreement",
+          "renewal_notice_period_status": "not_defined",
+          "renewal_notice_period_details": "Данные не определены",
+          "renewal_terms_change_details": "Данные не определены",
+          "evidence": [
+            {
+              "clause_ref": "п. 10.3",
+              "quote": "По истечении срока действия настоящий Договор может быть продлён на новый срок по письменному соглашению Сторон."
+            }
+          ]
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        Проверь, что все 7 ключей (6 полей + evidence) присутствуют в JSON
+        и соответствуют [ФОРМАТ ОТВЕТА].
+        1. Найди прямую цитату о механизме продления.
+        2. Определи тип продления (automatic / by_notice / by_agreement / no_renewal).
+        3. Найди прямую цитату о сроке уведомления.
+        4. Найди прямую цитату об изменении условий при продлении.
+        5. Если прямой цитаты нет — верни "not_defined" (для signal) или
+           "Данные не определены" (для fact).
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Верни РОВНО один валидный JSON-объект со всеми 7 ключами, пригодный
+        для парсинга через json.loads без предварительной обработки. Без markdown,
+        без ```json, без комментариев, без текста до или после. Начни ответ сразу
+        с { и закончи }.
+
+        {
+          "renewal_mechanism_status": "<defined / not_defined>",
+          "renewal_mechanism_details": "<текст или 'Данные не определены'>",
+          "auto_renewal_code": "<automatic / by_notice / by_agreement / no_renewal / not_defined>",
+          "renewal_notice_period_status": "<defined / not_defined>",
+          "renewal_notice_period_details": "<текст или 'Данные не определены'>",
+          "renewal_terms_change_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 650
+
+    retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "продление продлевается автоматическое продление auto-renewal renewal срок уведомления уведомление о продлении непродление отказ от продления право на продление преимущественное право возобновление"
+      retrieval_profile: "termination_check"
+      preferred_unit_types:
+        - termination_provision
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - procedures
+        - obligations
+      negative_keywords:
+        - "вознаграждение"
+        - "роялти"
+        - "сублицензия"
+        - "контроль качества"
+        - "гарантии лицензиара"
+        - "indemnity"
+        - "форс-мажор"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.65, 1.0]
+        boost: 0.25
+        scope: segment
+      context_k: 6
+      max_chunks: 8
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "procedures"
+        - "obligations"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 1200
+
+      compact_output: false   # [CONSIDER] 6 полей + evidence — можно true
+
+      presence_signal:
+        field: "license_renewal_conditions_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист по ИС. Извлеки из лицензионного договора сведения
+        о механизме продления лицензии: тип продления, срок уведомления, изменение
+        условий. Не анализируй срок действия (term), вознаграждение, сублицензию
+        или общие основания расторжения.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        0. license_renewal_conditions_check_presence: "present" / "missing" / "unclear".
+        1. renewal_mechanism_status — "defined" или "not_defined".
+        2. renewal_mechanism_details — формулировка механизма продления.
+        3. auto_renewal_code — automatic / by_notice / by_agreement / no_renewal / not_defined.
+        4. renewal_notice_period_status — "defined" или "not_defined".
+        5. renewal_notice_period_details — срок и порядок уведомления.
+        6. renewal_terms_change_details — изменение условий при продлении.
+        </task>
+
+        <context_rules>
+        - Перед остальными полями заполни license_renewal_conditions_check_presence:
+          "present" — если в тексте есть хотя бы один фрагмент о продлении, автопродлении, уведомлении о продлении или возобновлении;
+          "missing" — если таких фрагментов нет вообще;
+          "unclear" — если формулировки противоречат друг другу.
+        - Если фрагментов по теме нет — presence = "missing", все signal = "not_defined", все fact = "Данные не определены".
+        - Если presence = "missing" — все signal-поля = "not_defined", все fact-поля = "Данные не определены".
+        - auto_renewal_code: "automatic" — без действий сторон; "by_notice" — по уведомлению;
+          "by_agreement" — по доп. соглашению; "no_renewal" — продление исключено;
+          "not_defined" — не указано.
+        - Не путай продление со сроком действия (term) лицензии.
+        - Используй только текст договора.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие упоминания продления или возобновления. → presence = "missing"
+        2. Частичное раскрытие (есть автопродление, но срок уведомления или изменение условий не указаны). → presence = "present", отсутствующие части = "not_defined" / "Данные не определены"
+        3. Противоречие между фрагментами (в одном разделе — автопродление, в другом — продление только по соглашению). → presence = "unclear"
+        4. Прямое исключение продления («договор не продлевается»). → presence = "present", auto_renewal_code = "no_renewal"
+        </edge_cases>
+
+        <output_expectations>
+        - Верни ровно один JSON-объект с 8 ключами (7 полей + evidence).
+        - Для signal-полей при отсутствии данных — "not_defined".
+        - Для fact-полей при отсутствии данных — "Данные не определены".
+        - В evidence — только точные цитаты из текста договора.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
+      fields:
+        - name: "license_renewal_conditions_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие в договоре условий о продлении лицензии."
+          required: true
+
+        - name: "renewal_mechanism_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
+          description: "Статус механизма продления."
+          required: true
+
+        - name: "renewal_mechanism_details"
+          type: "string"
+          presentation: "fact"
+          label: "Продление"
+          description: "Формулировка механизма продления лицензии."
+          required: false
+          display_in_grid: true
+          display_priority: 1
+
+        - name: "auto_renewal_code"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["automatic", "by_notice", "by_agreement", "no_renewal", "not_defined"]
+          display_in_grid: false
+          description: "Тип продления."
+          required: true
+
+        - name: "renewal_notice_period_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "medium"
+          allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
+          description: "Статус срока уведомления о продлении/непродлении."
+          required: true
+
+        - name: "renewal_notice_period_details"
+          type: "string"
+          presentation: "fact"
+          label: "Срок уведомления"
+          description: "Срок и порядок уведомления о продлении/непродлении."
+          required: false
+          display_in_grid: true
+          display_priority: 2
+
+        - name: "renewal_terms_change_details"
+          type: "string"
+          presentation: "fact"
+          label: "Изменение условий при продлении"
+          description: "Изменение условий (роялти, объём) при продлении."
+          required: false
+          display_in_grid: true
+          display_priority: 3
+
+      store_payload: true
+
+  - id: survival_post_termination_rights_check
+    name: "Сохранение прав Лицензиата после прекращения договора"
+    description: >
+      Фактографическая проверка условий о сохранении прав лицензиата после
+      прекращения договора: право на использование уже созданных копий,
+      производных произведений, встроенных компонентов. Не дублирует проверку
+      обязанности уничтожения (ip_wind_down_destruction_check).
+    triggers: {}
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "сохраняет право"
+        - "survival"
+        - "survive"
+        - "продолжает использовать"
+        - "ранее созданные копии"
+        - "существующие копии"
+        - "уже созданные"
+        - "встроенные компоненты"
+        - "производные произведения"
+        - "вечная лицензия"
+        - "perpetual license"
+        - "неотзывная лицензия"
+        - "сохранить право использования"
+        - "конечные пользователи"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)сохраня\\w+\\s+прав"
+        - "(?i)survival|survive"
+        - "(?i)продолжа\\w+\\s+использова"
+        - "(?i)ранее\\s+создан\\w+\\s+копи"
+        - "(?i)вечн\\w+\\s+лицензи"
+        - "(?i)perpetual"
+        - "(?i)неотзывн\\w+\\s+лицензи"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по интеллектуальной собственности.
+        Анализируется лицензионный договор. Проверяется только один
+        специфичный для ИС вопрос: сохранение прав лицензиата после
+        прекращения договора.
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+        - НЕ проверяй обязанность уничтожить копии — это делает другой чек.
+        - Проверяй только ПРАВА, которые сохраняются после прекращения.
+
+        [ЗАДАЧА]
+        Найди в тексте договора и заполни строго следующие 6 полей + evidence
+        (всего 7 ключей):
+        1. existing_copies_survival_status — статус права на существующие копии.
+        2. existing_copies_survival_details — право использовать копии, созданные до прекращения.
+        3. derivative_works_survival_status — статус права на производные произведения.
+        4. derivative_works_survival_details — право на производные произведения после прекращения.
+        5. embedded_components_survival_status — статус права на встроенные компоненты.
+        6. embedded_components_survival_details — право использовать компонент, встроенный в продукт лицензиата.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа. Не подставляй нормы закона вместо текста договора.
+        2. Не оценивай серьёзность риска.
+        3. Для signal-полей (existing_copies_survival_status, derivative_works_survival_status,
+           embedded_components_survival_status) при отсутствии данных возвращай строго "not_defined".
+        4. Для fact-полей (existing_copies_survival_details, derivative_works_survival_details,
+           embedded_components_survival_details) при отсутствии данных возвращай строго "Данные не определены".
+        5. Не используй "None", "null", пустые строки или отсутствующие ключи.
+        6. В evidence включай только точные цитаты из текста договора.
+        7. Не путай с обязанностью уничтожить (это противоположный аспект).
+        8. Формат ответа — строго по [ФОРМАТ ОТВЕТА] (ровно один валидный JSON-объект
+           со всеми 7 ключами).
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — все права сохраняются:
+        Фрагмент:
+        "После прекращения настоящего Договора Лицензиат сохраняет право
+        использовать копии ПО, предоставленные конечным пользователям до даты
+        прекращения, в течение их жизненного цикла. Производные произведения,
+        созданные Лицензиатом в период действия Договора, остаются в собственности
+        Лицензиата. Компоненты, встроенные Лицензиатом в его собственные продукты,
+        могут продолжать использоваться в составе этих продуктов."
+
+        Ответ:
+        {
+          "existing_copies_survival_status": "defined",
+          "existing_copies_survival_details": "сохраняет право использовать копии ПО, предоставленные конечным пользователям до даты прекращения, в течение их жизненного цикла",
+          "derivative_works_survival_status": "defined",
+          "derivative_works_survival_details": "производные произведения остаются в собственности Лицензиата",
+          "embedded_components_survival_status": "defined",
+          "embedded_components_survival_details": "встроенные компоненты могут продолжать использоваться в составе продуктов Лицензиата",
+          "evidence": [
+            {
+              "clause_ref": "п. 13.4",
+              "quote": "После прекращения настоящего Договора Лицензиат сохраняет право использовать копии ПО, предоставленные конечным пользователям до даты прекращения."
+            }
+          ]
+        }
+
+        Пример 2 — данные отсутствуют:
+        Фрагмент:
+        "При расторжении договора Лицензиат обязан прекратить использование ПО."
+
+        Ответ:
+        {
+          "existing_copies_survival_status": "not_defined",
+          "existing_copies_survival_details": "Данные не определены",
+          "derivative_works_survival_status": "not_defined",
+          "derivative_works_survival_details": "Данные не определены",
+          "embedded_components_survival_status": "not_defined",
+          "embedded_components_survival_details": "Данные не определены",
+          "evidence": []
+        }
+
+        Пример 3 — частично (только копии для конечных пользователей):
+        Фрагмент:
+        "Прекращение Договора не затрагивает прав конечных пользователей,
+        получивших лицензии от Лицензиата до даты прекращения."
+
+        Ответ:
+        {
+          "existing_copies_survival_status": "defined",
+          "existing_copies_survival_details": "прекращение Договора не затрагивает прав конечных пользователей, получивших лицензии до даты прекращения",
+          "derivative_works_survival_status": "not_defined",
+          "derivative_works_survival_details": "Данные не определены",
+          "embedded_components_survival_status": "not_defined",
+          "embedded_components_survival_details": "Данные не определены",
+          "evidence": [
+            {
+              "clause_ref": "п. 12.5",
+              "quote": "Прекращение Договора не затрагивает прав конечных пользователей, получивших лицензии от Лицензиата до даты прекращения."
+            }
+          ]
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        Проверь, что все 7 ключей (6 полей + evidence) присутствуют в JSON
+        и соответствуют [ФОРМАТ ОТВЕТА].
+        1. Найди прямую цитату о праве на существующие копии после прекращения.
+        2. Найди прямую цитату о праве на производные произведения.
+        3. Найди прямую цитату о праве на встроенные компоненты.
+        4. Если прямой цитаты нет — верни "not_defined" (для signal) или
+           "Данные не определены" (для fact).
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Верни РОВНО один валидный JSON-объект со всеми 7 ключами, пригодный
+        для парсинга через json.loads без предварительной обработки. Без markdown,
+        без ```json, без комментариев, без текста до или после. Начни ответ сразу
+        с { и закончи }.
+
+        {
+          "existing_copies_survival_status": "<defined / not_defined>",
+          "existing_copies_survival_details": "<текст или 'Данные не определены'>",
+          "derivative_works_survival_status": "<defined / not_defined>",
+          "derivative_works_survival_details": "<текст или 'Данные не определены'>",
+          "embedded_components_survival_status": "<defined / not_defined>",
+          "embedded_components_survival_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 650
+
+    retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "сохраняет право survival survive продолжает использовать ранее созданные копии существующие копии уже созданные встроенные компоненты производные произведения вечная лицензия perpetual license неотзывная лицензия сохранить право использования конечные пользователи"
+      retrieval_profile: "termination_check"
+      preferred_unit_types:
+        - termination_provision
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - rights
+        - obligations
+        - procedures
+      negative_keywords:
+        - "вознаграждение"
+        - "роялти"
+        - "сублицензия"
+        - "контроль качества"
+        - "улучшения"
+        - "гарантии лицензиара"
+        - "indemnity"
+        - "форс-мажор"
+        - "основания расторжения"
+        - "уничтожить копии"
+        - "вернуть носители"
+        - "сертификат уничтожения"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.70, 1.0]
+        boost: 0.25
+        scope: segment
+      context_k: 8
+      max_chunks: 10
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "rights"
+        - "obligations"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 1200
+
+      compact_output: false   # [CONSIDER] 6 полей + evidence — можно true
+
+      presence_signal:
+        field: "survival_post_termination_rights_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист по ИС. Извлеки из лицензионного договора сведения
+        о сохранении прав Лицензиата после прекращения договора: право на
+        существующие копии, производные произведения и встроенные компоненты.
+        Не анализируй обязанность уничтожить копии, вознаграждение или
+        общие основания расторжения.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        0. survival_post_termination_rights_check_presence: "present" / "missing" / "unclear".
+        1. existing_copies_survival_status — "defined" или "not_defined".
+        2. existing_copies_survival_details — право на существующие копии после прекращения.
+        3. derivative_works_survival_status — "defined" или "not_defined".
+        4. derivative_works_survival_details — право на производные произведения.
+        5. embedded_components_survival_status — "defined" или "not_defined".
+        6. embedded_components_survival_details — право на встроенные компоненты.
+        </task>
+
+        <context_rules>
+        - Перед остальными полями заполни survival_post_termination_rights_check_presence:
+          "present" — если в тексте есть хотя бы один фрагмент о сохранении прав, вечной лицензии, правах конечных пользователей или производных произведениях после прекращения;
+          "missing" — если таких фрагментов нет вообще;
+          "unclear" — если формулировки противоречат друг другу.
+        - Если фрагментов по теме нет — presence = "missing", все signal = "not_defined", все fact = "Данные не определены".
+        - Если presence = "missing" — все signal-поля = "not_defined", все fact-поля = "Данные не определены".
+        - Не путай с обязанностью уничтожить копии (это противоположный аспект).
+        - Используй только текст договора.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие упоминания сохранения прав после прекращения. → presence = "missing"
+        2. Частичное раскрытие (только права конечных пользователей, без встроенных компонентов). → presence = "present", отсутствующие части = "not_defined" / "Данные не определены"
+        3. Противоречие между фрагментами (в одном разделе — сохранение прав, в другом — полное прекращение использования). → presence = "unclear"
+        4. Общая оговорка о прекращении всех прав без исключений («все права лицензиата прекращаются»). → presence = "present", все статусы = "defined", details = "права прекращаются полностью"
+        </edge_cases>
+
+        <output_expectations>
+        - Верни ровно один JSON-объект с 8 ключами (7 полей + evidence).
+        - Для signal-полей при отсутствии данных — "not_defined".
+        - Для fact-полей при отсутствии данных — "Данные не определены".
+        - В evidence — только точные цитаты из текста договора.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
+      fields:
+        - name: "survival_post_termination_rights_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие в договоре условий о сохранении прав Лицензиата после прекращения."
+          required: true
+
+        - name: "existing_copies_survival_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
+          description: "Статус права на существующие копии после прекращения."
+          required: true
+
+        - name: "existing_copies_survival_details"
+          type: "string"
+          presentation: "fact"
+          label: "Права на существующие копии"
+          description: "Право использовать копии, созданные/распространённые до прекращения."
+          required: false
+          display_in_grid: true
+          display_priority: 1
+
+        - name: "derivative_works_survival_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "medium"
+          allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
+          description: "Статус права на производные произведения после прекращения."
+          required: true
+
+        - name: "derivative_works_survival_details"
+          type: "string"
+          presentation: "fact"
+          label: "Производные произведения"
+          description: "Право на производные произведения после прекращения договора."
+          required: false
+          display_in_grid: true
+          display_priority: 2
+
+        - name: "embedded_components_survival_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
+          description: "Статус права на встроенные компоненты."
+          required: true
+
+        - name: "embedded_components_survival_details"
+          type: "string"
+          presentation: "fact"
+          label: "Встроенные компоненты"
+          description: "Право использовать компоненты, встроенные в продукты лицензиата."
+          required: false
+          display_in_grid: true
+          display_priority: 3
+
+      store_payload: true
+
+  - id: reverse_engineering_restrictions_check
+    name: "Ограничения на декомпиляцию и reverse engineering (ПО)"
+    description: >
+      Фактографическая проверка договорных ограничений на декомпиляцию,
+      дизассемблирование, reverse engineering ПО и наличие исключений для
+      достижения совместимости (ст. 1280 ГК РФ).
+    triggers:
+      any:
+        - software_license
+    ui_mode: "field_extraction"
+    severity: "high"
+    severity_if_pass: "pass"
+    severity_if_fail: "high"
+    severity_if_unclear: "high"
+    origin: "DOCUMENT_TYPE"
+    detector_type: "hybrid"
+
+    rules:
+      keywords:
+        - "декомпиляция"
+        - "декомпилировать"
+        - "дизассемблирование"
+        - "дизассемблировать"
+        - "reverse engineering"
+        - "обратная разработка"
+        - "обратное проектирование"
+        - "исследование кода"
+        - "анализ кода"
+        - "совместимость"
+        - "interoperability"
+        - "взаимодействие программ"
+      keyword_mode: "any"
+      regex_patterns:
+        - "(?i)декомпилир"
+        - "(?i)дизассемблир"
+        - "(?i)reverse[\\s-]*engineering"
+        - "(?i)обратн\\w+\\s+разработк"
+        - "(?i)обратн\\w+\\s+проектирован"
+        - "(?i)совместимост"
+
+    llm:
+      prompt_template: |
+        [КОНТЕКСТ]
+        Ты — российский юрист по интеллектуальной собственности.
+        Анализируется лицензионный договор на ПО. Проверяется только один
+        специфичный для ПО вопрос: ограничения на декомпиляцию и reverse
+        engineering, а также исключения для совместимости.
+
+        Нормативные ориентиры:
+        - ст. 1280 ГК РФ — право пользователя ПО на декомпиляцию для совместимости.
+
+        Важно:
+        - Твоя задача — только установить, что прямо есть в тексте договора.
+        - Не оценивай серьёзность риска.
+        - Ст. 1280 ГК разрешает декомпиляцию для достижения совместимости — проверяй,
+          сохранено ли это право в договоре.
+
+        [ЗАДАЧА]
+        Найди в тексте договора и заполни строго следующие 6 полей + evidence
+        (всего 7 ключей):
+        1. decompilation_restriction_status — статус запрета/разрешения декомпиляции.
+        2. decompilation_restriction_details — формулировка условия о декомпиляции.
+        3. reverse_engineering_regime_code — режим (prohibited / allowed / allowed_with_conditions / not_defined).
+        4. reverse_engineering_regime_details — формулировка режима reverse engineering.
+        5. interoperability_exception_status — статус исключения для совместимости.
+        6. interoperability_exception_details — формулировка исключения для совместимости.
+
+        [ПРАВИЛА]
+        1. Используй только текст документа. Не подставляй нормы закона вместо текста договора.
+        2. Не оценивай серьёзность риска.
+        3. Для signal-полей (decompilation_restriction_status, reverse_engineering_regime_code,
+           interoperability_exception_status) при отсутствии данных возвращай строго "not_defined".
+        4. Для fact-полей (decompilation_restriction_details, reverse_engineering_regime_details,
+           interoperability_exception_details) при отсутствии данных возвращай строго "Данные не определены".
+        5. Не используй "None", "null", пустые строки или отсутствующие ключи.
+        6. В evidence включай только точные цитаты из текста договора.
+        7. reverse_engineering_regime_code:
+           - "prohibited" — прямой запрет reverse engineering;
+           - "allowed" — прямо разрешено;
+           - "allowed_with_conditions" — разрешено с условиями (например, только для совместимости);
+           - "not_defined" — режим не указан.
+        8. Формат ответа — строго по [ФОРМАТ ОТВЕТА] (ровно один валидный JSON-объект
+           со всеми 7 ключами).
+
+        [ПРИМЕРЫ (FEW-SHOT)]
+
+        Пример 1 — запрет с исключением для совместимости:
+        Фрагмент:
+        "Лицензиату запрещается декомпилировать, дизассемблировать или иным образом
+        осуществлять обратную разработку ПО, за исключением случаев, прямо
+        предусмотренных ст. 1280 ГК РФ (достижение совместимости с иными программами
+        при соблюдении установленных условий)."
+
+        Ответ:
+        {
+          "decompilation_restriction_status": "defined",
+          "decompilation_restriction_details": "запрещается декомпилировать, дизассемблировать",
+          "reverse_engineering_regime_code": "allowed_with_conditions",
+          "reverse_engineering_regime_details": "запрещено, кроме случаев по ст. 1280 ГК РФ",
+          "interoperability_exception_status": "defined",
+          "interoperability_exception_details": "достижение совместимости с иными программами при соблюдении установленных условий ст. 1280 ГК РФ",
+          "evidence": [
+            {
+              "clause_ref": "п. 5.4",
+              "quote": "Лицензиату запрещается декомпилировать, дизассемблировать или иным образом осуществлять обратную разработку ПО."
+            }
+          ]
+        }
+
+        Пример 2 — данные отсутствуют:
+        Фрагмент:
+        "Лицензиат обязуется использовать ПО в соответствии с условиями договора."
+
+        Ответ:
+        {
+          "decompilation_restriction_status": "not_defined",
+          "decompilation_restriction_details": "Данные не определены",
+          "reverse_engineering_regime_code": "not_defined",
+          "reverse_engineering_regime_details": "Данные не определены",
+          "interoperability_exception_status": "not_defined",
+          "interoperability_exception_details": "Данные не определены",
+          "evidence": []
+        }
+
+        Пример 3 — абсолютный запрет без исключений:
+        Фрагмент:
+        "Любые действия по декомпиляции, дизассемблированию и исследованию
+        исходного кода ПО категорически запрещены независимо от целей."
+
+        Ответ:
+        {
+          "decompilation_restriction_status": "defined",
+          "decompilation_restriction_details": "любые действия по декомпиляции, дизассемблированию и исследованию исходного кода категорически запрещены",
+          "reverse_engineering_regime_code": "prohibited",
+          "reverse_engineering_regime_details": "запрещены независимо от целей",
+          "interoperability_exception_status": "not_defined",
+          "interoperability_exception_details": "Данные не определены",
+          "evidence": [
+            {
+              "clause_ref": "п. 6.2",
+              "quote": "Любые действия по декомпиляции, дизассемблированию и исследованию исходного кода ПО категорически запрещены независимо от целей."
+            }
+          ]
+        }
+
+        [ПРОВЕРКА ПЕРЕД ОТВЕТОМ — CoVe]
+        Проверь, что все 7 ключей (6 полей + evidence) присутствуют в JSON
+        и соответствуют [ФОРМАТ ОТВЕТА].
+        1. Найди прямую цитату о декомпиляции/дизассемблировании.
+        2. Определи режим reverse engineering (запрет / разрешение / с условиями).
+        3. Найди прямую цитату об исключении для совместимости (ст. 1280 ГК).
+        4. Если прямой цитаты нет — верни "not_defined" (для signal) или
+           "Данные не определены" (для fact).
+
+        Не выводи шаги проверки. Верни только JSON.
+
+        [ФОРМАТ ОТВЕТА]
+        Верни РОВНО один валидный JSON-объект со всеми 7 ключами, пригодный
+        для парсинга через json.loads без предварительной обработки. Без markdown,
+        без ```json, без комментариев, без текста до или после. Начни ответ сразу
+        с { и закончи }.
+
+        {
+          "decompilation_restriction_status": "<defined / not_defined>",
+          "decompilation_restriction_details": "<текст или 'Данные не определены'>",
+          "reverse_engineering_regime_code": "<prohibited / allowed / allowed_with_conditions / not_defined>",
+          "reverse_engineering_regime_details": "<текст или 'Данные не определены'>",
+          "interoperability_exception_status": "<defined / not_defined>",
+          "interoperability_exception_details": "<текст или 'Данные не определены'>",
+          "evidence": [{"clause_ref": "<пункт>", "quote": "<точная цитата>"}]
+        }
+      context_k: 6
+      temperature: 0.0
+      max_tokens: 650
+
+    retrieval:
+      corpus_scope: "primary_segment"
+      levels:
+        - "legal_unit"
+        - "section"
+      required_kind: "legal_unit"
+      retrieval_query: "декомпиляция декомпилировать дизассемблирование дизассемблировать reverse engineering обратная разработка обратное проектирование исследование кода анализ кода совместимость interoperability взаимодействие программ"
+      retrieval_profile: "license_scope_check"
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - rights
+        - obligations
+        - limitations
+      negative_keywords:
+        - "вознаграждение"
+        - "роялти"
+        - "сублицензия"
+        - "контроль качества"
+        - "гарантии лицензиара"
+        - "indemnity"
+        - "расторжение"
+        - "форс-мажор"
+        - "в целях настоящего"
+      position_bias:
+        preferred_range: [0.20, 0.65]
+        boost: 0.25
+        scope: segment
+      context_k: 8
+      max_chunks: 10
+      rerank: true
+
+    enrichment_hints:
+      preferred_segment_types:
+        - "contract"
+        - "amendment"
+      excluded_segment_types:
+        - "technical_specification"
+        - "price_list"
+        - "invoice"
+      preferred_clause_functions:
+        - "rights"
+        - "obligations"
+        - "limitations"
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.10
+
+    evidence:
+      required: true
+      min_snippet_length: 40
+      max_snippet_length: 650
+
+    extraction:
+      enabled: true
+      mode: "hybrid"
+      llm_max_tokens: 1200
+
+      compact_output: false   # [CONSIDER] 6 полей + evidence — можно true
+
+      presence_signal:
+        field: "reverse_engineering_restrictions_check_presence"
+        present_values: ["present"]
+        missing_values: ["missing"]
+        unclear_values: ["unclear"]
+
+      llm_prompt_extraction: |
+        <role>
+        Ты — российский юрист по ИС. Извлеки из лицензионного договора на ПО
+        сведения об ограничениях декомпиляции, reverse engineering и исключениях
+        для совместимости по ст. 1280 ГК РФ. Не анализируй вознаграждение,
+        сублицензию, расторжение или общие гарантии.
+        </role>
+
+        <context>
+        {context}
+        </context>
+
+        <task>
+        0. reverse_engineering_restrictions_check_presence: "present" / "missing" / "unclear".
+        1. decompilation_restriction_status — "defined" или "not_defined".
+        2. decompilation_restriction_details — формулировка условия о декомпиляции.
+        3. reverse_engineering_regime_code — prohibited / allowed / allowed_with_conditions / not_defined.
+        4. reverse_engineering_regime_details — формулировка режима.
+        5. interoperability_exception_status — "defined" или "not_defined".
+        6. interoperability_exception_details — исключение для совместимости.
+        </task>
+
+        <context_rules>
+        - Перед остальными полями заполни reverse_engineering_restrictions_check_presence:
+          "present" — если в тексте есть хотя бы один фрагмент о декомпиляции, дизассемблировании, reverse engineering или исключении для совместимости;
+          "missing" — если таких фрагментов нет вообще;
+          "unclear" — если формулировки противоречат друг другу.
+        - Если фрагментов по теме нет — presence = "missing", все signal = "not_defined", все fact = "Данные не определены".
+        - Если presence = "missing" — все signal-поля = "not_defined", все fact-поля = "Данные не определены".
+        - reverse_engineering_regime_code: "prohibited" — прямой запрет;
+          "allowed" — прямо разрешено; "allowed_with_conditions" — разрешено с условиями;
+          "not_defined" — режим не указан.
+        - Не выводи право на декомпиляцию из ст. 1280 ГК — только из текста договора.
+        - Используй только текст договора.
+        </context_rules>
+
+        <edge_cases>
+        1. Полное отсутствие упоминания декомпиляции и reverse engineering. → presence = "missing"
+        2. Частичное раскрытие (есть запрет декомпиляции, но без упоминания исключения по ст. 1280 ГК). → presence = "present", interoperability_exception = "not_defined"
+        3. Противоречие между фрагментами (в одном разделе — прямой запрет, в другом — разрешение для совместимости). → presence = "unclear"
+        4. Прямая ссылка на ст. 1280 ГК с сохранением исключения для совместимости. → presence = "present", regime_code = "allowed_with_conditions"
+        </edge_cases>
+
+        <output_expectations>
+        - Верни ровно один JSON-объект с 8 ключами (7 полей + evidence).
+        - Для signal-полей при отсутствии данных — "not_defined".
+        - Для fact-полей при отсутствии данных — "Данные не определены".
+        - В evidence — только точные цитаты из текста договора.
+        - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations>
+
+      fields:
+        - name: "reverse_engineering_restrictions_check_presence"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "info"
+          allowed_values: ["present", "missing", "unclear"]
+          display_in_grid: false
+          description: "Наличие в договоре условий о декомпиляции или reverse engineering."
+          required: true
+
+        - name: "decompilation_restriction_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
+          description: "Статус запрета/разрешения декомпиляции."
+          required: true
+
+        - name: "decompilation_restriction_details"
+          type: "string"
+          presentation: "fact"
+          label: "Декомпиляция"
+          description: "Формулировка условия о декомпиляции и дизассемблировании."
+          required: false
+          display_in_grid: true
+          display_priority: 1
+
+        - name: "reverse_engineering_regime_code"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "high"
+          allowed_values: ["prohibited", "allowed", "allowed_with_conditions", "not_defined"]
+          display_in_grid: false
+          description: "Режим reverse engineering."
+          required: true
+
+        - name: "reverse_engineering_regime_details"
+          type: "string"
+          presentation: "fact"
+          label: "Режим reverse engineering"
+          description: "Формулировка режима reverse engineering."
+          required: false
+          display_in_grid: true
+          display_priority: 2
+
+        - name: "interoperability_exception_status"
+          type: "string"
+          presentation: "signal"
+          risk_weight: "medium"
+          allowed_values: ["defined", "not_defined"]
+          display_in_grid: false
+          description: "Статус исключения для совместимости (ст. 1280 ГК)."
+          required: true
+
+        - name: "interoperability_exception_details"
+          type: "string"
+          presentation: "fact"
+          label: "Исключение для совместимости"
+          description: "Формулировка исключения для достижения совместимости по ст. 1280 ГК."
+          required: false
+          display_in_grid: true
+          display_priority: 3
+
+      store_payload: true
 
 # ════════════════════════════════════════════════════════════════════════════
 # БЛОК 5: DD_REQUEST_TEMPLATES
