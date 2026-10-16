@@ -841,11 +841,14 @@ checks_v8:
         - name: "factor_status_display"
           type: "string"
           presentation: "fact"
-          label: "Статус фактора"
-          description: "User-facing статус фактора: Банк / Коммерческая организация / Факторинговая компания / Не установлено."
-          required: true
           display_in_grid: true
           display_priority: 2
+          label: "Статус фактора"
+          description: >
+            User-facing статус фактора: Банк / Коммерческая организация /
+            Факторинговая компания / Не установлено.
+            Fallback: "Не установлено" / "Не удалось определить".
+          required: true
 
         - name: "factor_signatory"
           type: "string"
@@ -3126,11 +3129,14 @@ checks_v8:
         - name: "payment_routing_display"
           type: "string"
           presentation: "fact"
-          label: "Платёж после уведомления"
-          description: "User-facing: В пользу Фактора / В пользу Клиента / Не определено / Не установлено."
-          required: true
           display_in_grid: true
           display_priority: 3
+          label: "Платёж после уведомления"
+          description: >
+            User-facing: В пользу Фактора / В пользу Клиента /
+            Не определено / Не установлено.
+            Fallback: "Не установлено" / "Не удалось определить".
+          required: true
 
         - name: "proof_of_notice_mechanism"
           type: "string"
@@ -7322,11 +7328,14 @@ checks_v8:
         - name: "change_restriction_scope_display"
           type: "string"
           presentation: "fact"
-          label: "Охват запрета"
-          description: "User-facing: Любые изменения / Существенные изменения / Отдельные случаи / Не установлено."
-          required: true
           display_in_grid: true
           display_priority: 2
+          label: "Охват запрета"
+          description: >
+            User-facing: Любые изменения / Существенные изменения /
+            Отдельные случаи / Не установлено.
+            Fallback: "Не установлено" / "Не удалось определить".
+          required: true
 
         - name: "breach_consequences_status"
           type: "string"
@@ -8655,11 +8664,14 @@ checks_v8:
         - name: "assignment_mechanism_display"
           type: "string"
           presentation: "fact"
-          label: "Механизм уступки"
-          description: "User-facing: Через заявку / Через акт / Через реестр / Иной механизм / Не установлено."
-          required: true
           display_in_grid: true
           display_priority: 2
+          label: "Механизм уступки"
+          description: >
+            User-facing: Через заявку / Через акт / Через реестр /
+            Иной механизм / Не установлено.
+            Fallback: "Не установлено" / "Не удалось определить".
+          required: true
 
         - name: "transfer_moment_status"
           type: "string"
@@ -10504,8 +10516,9 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 800
+
+      compact_output: false
 
       presence_signal:
         field: "double_factoring_prohibition_check_presence"
@@ -10515,39 +10528,116 @@ checks_v8:
 
       llm_prompt_extraction: |
         <role>
-        Ты — российский юрист. Извлеки из текста договора факторинга 
-        сведения о защите от двойного факторинга: запрет множественной 
-        уступки, заверения об отсутствии prior уступок, специальные санкции.
+        Ты — российский юрист. Извлеки из текста договора факторинга
+        сведения о защите от двойного факторинга: запрет множественной
+        уступки, заверение об отсутствии prior-уступок, специальные санкции.
+        Не анализируй финансирование, комиссию, уведомление должника
+        и иные разделы.
+        Не оценивай риски.
+        Анализируй только текст договора.
         </role>
-        <context>{context}</context>
+
+        <context>
+        {context}
+        </context>
+
         <task>
         Заполни строго следующие поля:
+
         0. double_factoring_prohibition_check_presence:
-           Агрегатное signal-поле. "present" — если хотя бы одно из полей 
-           (double_assignment_prohibition, prior_assignment_warranty, double_factoring_penalty) = "present".
-           "missing" — если все = "not_defined".
-           Если presence = "missing": все статусы = "not_defined", summary = "Запрет: нет; Заверение: нет; Санкции: нет".
-        1. double_assignment_prohibition — present / not_defined.
-        2. prior_assignment_warranty — present / not_defined.
-        3. double_factoring_penalty — present / not_defined.
-        4. double_factoring_summary — сводка одной строкой.
-        5. evidence — массив цитат.
+           - "missing" — если фрагментов по теме в тексте нет вообще
+             (следствие: все содержательные поля = "not_defined");
+           - "present" — если фрагменты по теме есть: либо хотя бы одно
+             содержательное поле ≠ "not_defined", либо тема упомянута,
+             но прямо исключена / отложена на будущее / раскрыта только общей фразой;
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - double_assignment_prohibition = "not_defined";
+           - prior_assignment_warranty = "not_defined";
+           - double_factoring_penalty = "not_defined";
+           - double_factoring_summary = "Запрет: нет; Заверение: нет; Санкции: нет";
+           - не выполняй остальные шаги.
+
+        1. double_assignment_prohibition:
+           - "present" — если в тексте прямо закреплён запрет клиенту
+             уступать одно и то же требование иным лицам;
+           - "not_defined" — если прямой запрет не установлен.
+
+        2. prior_assignment_warranty:
+           - "present" — если клиент прямо заверяет, что требование
+             ранее не было уступлено третьим лицам;
+           - "not_defined" — если такое заверение прямо не закреплено.
+
+        3. double_factoring_penalty:
+           - "present" — если прямо предусмотрены специальные санкции
+             за двойной факторинг (штраф, немедленный возврат
+             финансирования, регресс);
+           - "not_defined" — если специальных санкций нет.
+
+        4. double_factoring_summary:
+           Сводка одной строкой на русском языке в формате:
+           "Запрет: <есть/нет>; Заверение: <есть/нет>; Санкции: <есть/нет>".
+           При противоречии — "Не удалось определить".
         </task>
+
         <context_rules>
-        - Если фрагментов по теме нет — presence = "missing".
-        - Используй только текст договора. Не подставляй нормы закона.
-        - Запрещены null, None, пустые строки.
+        - Перед остальными полями заполни double_factoring_prohibition_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", double_factoring_summary = "Запрет: нет; Заверение: нет; Санкции: нет".
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона, обычную практику или предположения вместо текста договора.
+        - Не делай выводов по типовой структуре договора.
+        - Не путай запрет множественной уступки с общими заверениями цедента по ст. 390 ГК РФ.
+        - Специальная санкция — только явно поименованный штраф, неустойка или механизм регресса за двойной факторинг, а не общая ответственность.
+        - Если в разных фрагментах указаны разные данные и конфликт нельзя разрешить по тексту:
+          * status-поля → "not_defined";
+          * текстовые поля → "Не удалось определить".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
         </context_rules>
+
         <edge_cases>
-        1. Полное отсутствие темы → presence = "missing", summary = "Запрет: нет; Заверение: нет; Санкции: нет".
-        2. Только заверение без штрафа → presence = "present", penalty = "not_defined".
-        3. Противоречие → presence = "unclear", summary = "Не удалось определить".
-        4. Полный набор → presence = "present", все поля = "present".
+        1. Полное отсутствие темы.
+           В договоре нет ни запрета множественной уступки, ни заверения,
+           ни санкций за двойной факторинг.
+           → presence = "missing";
+             все *_status = "not_defined";
+             double_factoring_summary = "Запрет: нет; Заверение: нет; Санкции: нет".
+
+        2. Только заверение без запрета и санкций.
+           Клиент заверяет, что требование ранее не уступалось,
+           но прямой запрет и штраф отсутствуют.
+           → presence = "present";
+             prior_assignment_warranty = "present";
+             double_assignment_prohibition = "not_defined";
+             double_factoring_penalty = "not_defined".
+
+        3. Противоречие между фрагментами.
+           В одном пункте запрет уступки третьим лицам прямо установлен,
+           в другом — допускается уступка без каких-либо ограничений.
+           → presence = "unclear";
+             double_assignment_prohibition = "not_defined";
+             double_factoring_summary = "Не удалось определить".
+
+        4. Полный набор защиты.
+           Запрет уступки + заверение об отсутствии prior-уступок +
+           специальный штраф за выявленный двойной факторинг.
+           → presence = "present";
+             double_assignment_prohibition = "present";
+             prior_assignment_warranty = "present";
+             double_factoring_penalty = "present";
         </edge_cases>
+
         <output_expectations>
         - Все свободные текстовые поля заполняй на русском языке.
         - Для double_factoring_prohibition_check_presence используй только: "present", "missing", "unclear".
-        - Fallback при отсутствии данных: summary = "Запрет: нет; Заверение: нет; Санкции: нет".
+        - Для status-полей используй только: "present", "not_defined".
+        - Fallback при отсутствии данных:
+          * double_factoring_summary → "Запрет: нет; Заверение: нет; Санкции: нет".
+        - Fallback при противоречии или неоднозначности:
+          * double_factoring_summary → "Не удалось определить".
         - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
@@ -10560,44 +10650,51 @@ checks_v8:
           display_in_grid: false
           description: "Наличие регулирования о запрете двойного факторинга. Внутреннее агрегатное signal-поле."
           required: true
+
         - name: "double_assignment_prohibition"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["present", "not_defined"]
-          description: "Наличие прямого запрета на множественную уступку."
-          required: true
           display_in_grid: false
+          description: "Наличие прямого запрета на множественную уступку. Внутреннее enum-поле."
+          required: true
+
         - name: "prior_assignment_warranty"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["present", "not_defined"]
-          description: "Наличие заверения об отсутствии prior уступок."
-          required: true
           display_in_grid: false
+          description: "Наличие заверения об отсутствии prior-уступок. Внутреннее enum-поле."
+          required: true
+
         - name: "double_factoring_penalty"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["present", "not_defined"]
-          description: "Наличие специальных санкций за двойной факторинг."
-          required: true
           display_in_grid: false
+          description: "Наличие специальных санкций за двойной факторинг. Внутреннее enum-поле."
+          required: true
+
         - name: "double_factoring_summary"
           type: "string"
           presentation: "fact"
-          label: "Защита от двойного факторинга"
-          description: "Компактная сводка: запрет, заверения, санкции."
-          required: true
           display_in_grid: true
           display_priority: 1
+          label: "Защита от двойного факторинга"
+          description: >
+            Компактная сводка: запрет, заверения, санкции.
+            Fallback: "Запрет: нет; Заверение: нет; Санкции: нет" / "Не удалось определить".
+          required: true
+
         - name: "evidence"
           type: "array"
           presentation: "diagnostic"
+          display_in_grid: false
           description: "Точные цитаты из договора."
           required: true
-          display_in_grid: false
 
       store_payload: true
 
@@ -10714,8 +10811,9 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 800
+
+      compact_output: false
 
       presence_signal:
         field: "underlying_contract_termination_goods_return_check_presence"
@@ -10725,38 +10823,116 @@ checks_v8:
 
       llm_prompt_extraction: |
         <role>
-        Ты — российский юрист. Извлеки из текста договора факторинга 
-        сведения о действиях при расторжении основного договора или возврате товара: 
-        уведомление, возврат финансирования, замена требования.
+        Ты — российский юрист. Извлеки из текста договора факторинга
+        сведения о действиях при расторжении основного договора
+        или возврате товара должником: уведомление фактора, возврат
+        финансирования, замена аннулированного требования.
+        Не анализируй финансирование, комиссию, уведомление должника
+        об уступке и иные разделы.
+        Не оценивай риски.
+        Анализируй только текст договора.
         </role>
-        <context>{context}</context>
+
+        <context>
+        {context}
+        </context>
+
         <task>
         Заполни строго следующие поля:
+
         0. underlying_contract_termination_goods_return_check_presence:
-           "present" — если хотя бы одно из полей = "present".
-           "missing" — если все = "not_defined".
-           Если presence = "missing": все статусы = "not_defined", summary = "Уведомление: нет; Возврат: нет; Замена: нет".
-        1. termination_notification_duty — present / not_defined.
-        2. immediate_repayment_duty — present / not_defined.
-        3. claim_substitution_mechanism — present / not_defined.
-        4. termination_goods_return_summary — сводка одной строкой.
-        5. evidence — массив цитат.
+           - "missing" — если фрагментов по теме в тексте нет вообще
+             (следствие: все содержательные поля = "not_defined");
+           - "present" — если фрагменты по теме есть: либо хотя бы одно
+             содержательное поле ≠ "not_defined", либо тема упомянута,
+             но прямо исключена / отложена на будущее / раскрыта только общей фразой;
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - termination_notification_duty = "not_defined";
+           - immediate_repayment_duty = "not_defined";
+           - claim_substitution_mechanism = "not_defined";
+           - termination_goods_return_summary = "Уведомление: нет; Возврат: нет; Замена: нет";
+           - не выполняй остальные шаги.
+
+        1. termination_notification_duty:
+           - "present" — если прямо установлена обязанность клиента
+             уведомить фактора о расторжении основного договора
+             или возврате товара должником;
+           - "not_defined" — если такая обязанность прямо не закреплена.
+
+        2. immediate_repayment_duty:
+           - "present" — если прямо установлена обязанность клиента
+             вернуть финансирование при аннулировании требования;
+           - "not_defined" — если такая обязанность прямо не закреплена.
+
+        3. claim_substitution_mechanism:
+           - "present" — если прямо предусмотрена замена аннулированного
+             требования на новое;
+           - "not_defined" — если механизм замены прямо не предусмотрен.
+
+        4. termination_goods_return_summary:
+           Сводка одной строкой на русском языке в формате:
+           "Уведомление: <...>; Возврат: <...>; Замена: <...>".
+           При противоречии — "Не удалось определить".
         </task>
+
         <context_rules>
-        - Если фрагментов по теме нет — presence = "missing".
-        - Используй только текст договора.
-        - Запрещены null, None, пустые строки.
+        - Перед остальными полями заполни underlying_contract_termination_goods_return_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", termination_goods_return_summary = "Уведомление: нет; Возврат: нет; Замена: нет".
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона, обычную практику или предположения вместо текста договора.
+        - Не делай выводов по типовой структуре договора.
+        - Различай: расторжение основного договора (полное прекращение), возврат товара должником и аннулирование отдельного требования.
+        - Общая обязанность клиента информировать фактора о ходе исполнения основного договора ≠ обязанность уведомлять именно о расторжении/возврате.
+        - Если в разных фрагментах указаны разные данные и конфликт нельзя разрешить по тексту:
+          * status-поля → "not_defined";
+          * текстовые поля → "Не удалось определить".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
         </context_rules>
+
         <edge_cases>
-        1. Полное отсутствие темы → presence = "missing", summary = "Уведомление: нет; Возврат: нет; Замена: нет".
-        2. Только обязанность уведомить без механизма возврата → presence = "present", repayment = "not_defined".
-        3. Противоречие → presence = "unclear", summary = "Не удалось определить".
-        4. Полный механизм → presence = "present", все поля = "present".
+        1. Полное отсутствие темы.
+           В договоре нет ни уведомления о расторжении/возврате,
+           ни обязанности вернуть финансирование, ни механизма замены.
+           → presence = "missing";
+             все *_status = "not_defined";
+             termination_goods_return_summary = "Уведомление: нет; Возврат: нет; Замена: нет".
+
+        2. Только обязанность уведомить.
+           Прямо установлено уведомление фактора о расторжении,
+           но механизм возврата финансирования не прописан.
+           → presence = "present";
+             termination_notification_duty = "present";
+             immediate_repayment_duty = "not_defined";
+             claim_substitution_mechanism = "not_defined".
+
+        3. Противоречие между фрагментами.
+           В одном пункте указан немедленный возврат при расторжении,
+           в другом — возврат не предусмотрен.
+           → presence = "unclear";
+             immediate_repayment_duty = "not_defined";
+             termination_goods_return_summary = "Не удалось определить".
+
+        4. Полный механизм.
+           Уведомление + немедленный возврат + замена требования.
+           → presence = "present";
+             termination_notification_duty = "present";
+             immediate_repayment_duty = "present";
+             claim_substitution_mechanism = "present".
         </edge_cases>
+
         <output_expectations>
         - Все свободные текстовые поля заполняй на русском языке.
         - Для underlying_contract_termination_goods_return_check_presence используй только: "present", "missing", "unclear".
-        - Fallback при отсутствии данных: summary = "Уведомление: нет; Возврат: нет; Замена: нет".
+        - Для status-полей используй только: "present", "not_defined".
+        - Fallback при отсутствии данных:
+          * termination_goods_return_summary → "Уведомление: нет; Возврат: нет; Замена: нет".
+        - Fallback при противоречии или неоднозначности:
+          * termination_goods_return_summary → "Не удалось определить".
         - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
@@ -10767,46 +10943,53 @@ checks_v8:
           risk_weight: "info"
           allowed_values: ["present", "missing", "unclear"]
           display_in_grid: false
-          description: "Наличие регулирования о расторжении основного договора/возврате товара. Внутреннее агрегатное signal-поле."
+          description: "Наличие регулирования о расторжении основного договора / возврате товара. Внутреннее агрегатное signal-поле."
           required: true
+
         - name: "termination_notification_duty"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["present", "not_defined"]
-          description: "Обязанность уведомить фактора о расторжении/возврате."
-          required: true
           display_in_grid: false
+          description: "Обязанность уведомить фактора о расторжении / возврате. Внутреннее enum-поле."
+          required: true
+
         - name: "immediate_repayment_duty"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["present", "not_defined"]
-          description: "Обязанность немедленно вернуть финансирование."
-          required: true
           display_in_grid: false
+          description: "Обязанность немедленно вернуть финансирование. Внутреннее enum-поле."
+          required: true
+
         - name: "claim_substitution_mechanism"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["present", "not_defined"]
-          description: "Механизм замены аннулированного требования."
-          required: true
           display_in_grid: false
+          description: "Механизм замены аннулированного требования. Внутреннее enum-поле."
+          required: true
+
         - name: "termination_goods_return_summary"
           type: "string"
           presentation: "fact"
-          label: "Расторжение договора / возврат товара"
-          description: "Компактная сводка: уведомление, возврат средств, замена требования."
-          required: true
           display_in_grid: true
           display_priority: 1
+          label: "Расторжение договора / возврат товара"
+          description: >
+            Компактная сводка: уведомление, возврат средств, замена требования.
+            Fallback: "Уведомление: нет; Возврат: нет; Замена: нет" / "Не удалось определить".
+          required: true
+
         - name: "evidence"
           type: "array"
           presentation: "diagnostic"
+          display_in_grid: false
           description: "Точные цитаты из договора."
           required: true
-          display_in_grid: false
 
       store_payload: true
 
@@ -10922,8 +11105,9 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 800
+
+      compact_output: false
 
       presence_signal:
         field: "misdirected_funds_handling_check_presence"
@@ -10933,38 +11117,115 @@ checks_v8:
 
       llm_prompt_extraction: |
         <role>
-        Ты — российский юрист. Извлеки из текста договора факторинга 
-        сведения о порядке действий при ошибочном получении средств клиентом: 
-        обязанность перевода, срок, статус средств (залог/целевое удержание).
+        Ты — российский юрист. Извлеки из текста договора факторинга
+        сведения о порядке действий при ошибочном получении средств
+        клиентом: обязанность перевода фактору, конкретный срок,
+        статус средств (залог / целевое удержание).
+        Не анализируй финансирование, комиссию, уведомление должника
+        об уступке и иные разделы.
+        Не оценивай риски.
+        Анализируй только текст договора.
         </role>
-        <context>{context}</context>
+
+        <context>
+        {context}
+        </context>
+
         <task>
         Заполни строго следующие поля:
+
         0. misdirected_funds_handling_check_presence:
-           "present" — если хотя бы одно из полей = "present".
-           "missing" — если все = "not_defined".
-           Если presence = "missing": все статусы = "not_defined", summary = "Обязанность перевести: нет; Срок: не указан; Статус средств: не определен".
-        1. funds_transfer_obligation — present / not_defined.
-        2. transfer_deadline_specified — present / not_defined.
-        3. pledge_trust_status — present / not_defined.
-        4. misdirected_funds_summary — сводка одной строкой.
-        5. evidence — массив цитат.
+           - "missing" — если фрагментов по теме в тексте нет вообще
+             (следствие: все содержательные поля = "not_defined");
+           - "present" — если фрагменты по теме есть: либо хотя бы одно
+             содержательное поле ≠ "not_defined", либо тема упомянута,
+             но прямо исключена / отложена на будущее / раскрыта только общей фразой;
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - funds_transfer_obligation = "not_defined";
+           - transfer_deadline_specified = "not_defined";
+           - pledge_trust_status = "not_defined";
+           - misdirected_funds_summary = "Обязанность перевести: нет; Срок: не указан; Статус средств: не определён";
+           - не выполняй остальные шаги.
+
+        1. funds_transfer_obligation:
+           - "present" — если прямо установлена обязанность клиента
+             перевести ошибочно полученные от должника средства фактору;
+           - "not_defined" — если такая обязанность прямо не закреплена.
+
+        2. transfer_deadline_specified:
+           - "present" — если прямо указан конкретный срок перевода
+             (часы / дни);
+           - "not_defined" — если конкретный срок прямо не установлен.
+
+        3. pledge_trust_status:
+           - "present" — если прямо указано, что до момента перевода
+             средства находятся в залоге у фактора или в целевом
+             удержании в его пользу;
+           - "not_defined" — если такой статус прямо не закреплён.
+
+        4. misdirected_funds_summary:
+           Сводка одной строкой на русском языке в формате:
+           "Обязанность перевести: <...>; Срок: <...>; Статус средств: <...>".
+           При противоречии — "Не удалось определить".
         </task>
+
         <context_rules>
-        - Если фрагментов по теме нет — presence = "missing".
-        - Используй только текст договора.
-        - Запрещены null, None, пустые строки.
+        - Перед остальными полями заполни misdirected_funds_handling_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", misdirected_funds_summary = "Обязанность перевести: нет; Срок: не указан; Статус средств: не определён".
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона, обычную практику или предположения вместо текста договора.
+        - Не делай выводов по типовой структуре договора.
+        - Различай: обязанность перевести ошибочно полученные средства фактору; конкретный срок перевода; статус средств (залог / целевое удержание) до момента перевода.
+        - Общая обязанность клиента перечислять фактору уступленные платежи ≠ механизм реагирования на ошибочное поступление именно клиенту.
+        - Если в разных фрагментах указаны разные данные и конфликт нельзя разрешить по тексту:
+          * status-поля → "not_defined";
+          * текстовые поля → "Не удалось определить".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
         </context_rules>
+
         <edge_cases>
-        1. Полное отсутствие темы → presence = "missing", summary = "Обязанность перевести: нет; Срок: не указан; Статус средств: не определен".
-        2. Только обязанность перевести без указания срока и залога → presence = "present", deadline = "not_defined", pledge = "not_defined".
-        3. Противоречие → presence = "unclear", summary = "Не удалось определить".
-        4. Полный механизм → presence = "present", все поля = "present".
+        1. Полное отсутствие темы.
+           В договоре нет правил на случай ошибочного получения
+           средств клиентом.
+           → presence = "missing";
+             все *_status = "not_defined";
+             misdirected_funds_summary = "Обязанность перевести: нет; Срок: не указан; Статус средств: не определён".
+
+        2. Только обязанность перевести без срока и залога.
+           Прямо установлена обязанность клиента вернуть средства
+           фактору, но срок и статус средств не прописаны.
+           → presence = "present";
+             funds_transfer_obligation = "present";
+             transfer_deadline_specified = "not_defined";
+             pledge_trust_status = "not_defined".
+
+        3. Противоречие между фрагментами.
+           В одном пункте — 24 часа на перевод, в другом — 5 рабочих дней.
+           → presence = "unclear";
+             transfer_deadline_specified = "not_defined";
+             misdirected_funds_summary = "Не удалось определить".
+
+        4. Полный механизм.
+           Обязанность перевести + конкретный срок + залог в пользу фактора.
+           → presence = "present";
+             funds_transfer_obligation = "present";
+             transfer_deadline_specified = "present";
+             pledge_trust_status = "present".
         </edge_cases>
+
         <output_expectations>
         - Все свободные текстовые поля заполняй на русском языке.
         - Для misdirected_funds_handling_check_presence используй только: "present", "missing", "unclear".
-        - Fallback при отсутствии данных: summary = "Обязанность перевести: нет; Срок: не указан; Статус средств: не определен".
+        - Для status-полей используй только: "present", "not_defined".
+        - Fallback при отсутствии данных:
+          * misdirected_funds_summary → "Обязанность перевести: нет; Срок: не указан; Статус средств: не определён".
+        - Fallback при противоречии или неоднозначности:
+          * misdirected_funds_summary → "Не удалось определить".
         - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
@@ -10977,44 +11238,51 @@ checks_v8:
           display_in_grid: false
           description: "Наличие регулирования об ошибочном получении средств клиентом. Внутреннее агрегатное signal-поле."
           required: true
+
         - name: "funds_transfer_obligation"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["present", "not_defined"]
-          description: "Обязанность перевести ошибочно полученные средства фактору."
-          required: true
           display_in_grid: false
+          description: "Обязанность перевести ошибочно полученные средства фактору. Внутреннее enum-поле."
+          required: true
+
         - name: "transfer_deadline_specified"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["present", "not_defined"]
-          description: "Наличие конкретного срока перевода средств."
-          required: true
           display_in_grid: false
+          description: "Наличие конкретного срока перевода средств. Внутреннее enum-поле."
+          required: true
+
         - name: "pledge_trust_status"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["present", "not_defined"]
-          description: "Признание средств находящимися в залоге или целевом удержании."
-          required: true
           display_in_grid: false
+          description: "Признание средств находящимися в залоге или целевом удержании. Внутреннее enum-поле."
+          required: true
+
         - name: "misdirected_funds_summary"
           type: "string"
           presentation: "fact"
-          label: "Ошибочное получение средств клиентом"
-          description: "Компактная сводка: обязанность, срок, статус средств."
-          required: true
           display_in_grid: true
           display_priority: 1
+          label: "Ошибочное получение средств клиентом"
+          description: >
+            Компактная сводка: обязанность, срок, статус средств.
+            Fallback: "Обязанность перевести: нет; Срок: не указан; Статус средств: не определён" / "Не удалось определить".
+          required: true
+
         - name: "evidence"
           type: "array"
           presentation: "diagnostic"
+          display_in_grid: false
           description: "Точные цитаты из договора."
           required: true
-          display_in_grid: false
 
       store_payload: true
 
@@ -11128,8 +11396,9 @@ checks_v8:
     extraction:
       enabled: true
       mode: "hybrid"
-      compact_output: false
       llm_max_tokens: 800
+
+      compact_output: false
 
       presence_signal:
         field: "factor_audit_and_information_rights_check_presence"
@@ -11139,38 +11408,117 @@ checks_v8:
 
       llm_prompt_extraction: |
         <role>
-        Ты — российский юрист. Извлеки из текста договора факторинга 
-        сведения о праве фактора на информацию и аудит: истребование документов, 
-        обязанность предоставлять реестры, право на проверку деятельности клиента.
+        Ты — российский юрист. Извлеки из текста договора факторинга
+        сведения о правах фактора на информацию и аудит: истребование
+        первичных документов, обязанность клиента предоставлять реестры,
+        право фактора на проверку деятельности клиента.
+        Не анализируй финансирование, комиссию, уведомление должника
+        об уступке и иные разделы.
+        Не оценивай риски.
+        Анализируй только текст договора.
         </role>
-        <context>{context}</context>
+
+        <context>
+        {context}
+        </context>
+
         <task>
         Заполни строго следующие поля:
+
         0. factor_audit_and_information_rights_check_presence:
-           "present" — если хотя бы одно из полей = "present".
-           "missing" — если все = "not_defined".
-           Если presence = "missing": все статусы = "not_defined", summary = "Истребование документов: нет; Предоставление реестров: нет; Право на аудит: нет".
-        1. document_request_right — present / not_defined.
-        2. registry_reporting_duty — present / not_defined.
-        3. audit_access_right — present / not_defined.
-        4. audit_information_summary — сводка одной строкой.
-        5. evidence — массив цитат.
+           - "missing" — если фрагментов по теме в тексте нет вообще
+             (следствие: все содержательные поля = "not_defined");
+           - "present" — если фрагменты по теме есть: либо хотя бы одно
+             содержательное поле ≠ "not_defined", либо тема упомянута,
+             но прямо исключена / отложена на будущее / раскрыта только общей фразой;
+           - "unclear" — если фрагменты по теме есть, но из-за противоречий
+             вывод невозможен.
+
+           Если presence = "missing":
+           - document_request_right = "not_defined";
+           - registry_reporting_duty = "not_defined";
+           - audit_access_right = "not_defined";
+           - audit_information_summary = "Истребование документов: нет; Предоставление реестров: нет; Право на аудит: нет";
+           - не выполняй остальные шаги.
+
+        1. document_request_right:
+           - "present" — если прямо закреплено право фактора истребовать
+             у клиента первичные документы (накладные, акты, счета);
+           - "not_defined" — если такое право прямо не установлено.
+
+        2. registry_reporting_duty:
+           - "present" — если прямо установлена обязанность клиента
+             регулярно предоставлять фактору реестры уступок
+             (с указанием периодичности или без);
+           - "not_defined" — если такая обязанность прямо не установлена.
+
+        3. audit_access_right:
+           - "present" — если прямо закреплено право фактора проводить
+             выездные или камеральные проверки бухгалтерии / деятельности
+             клиента;
+           - "not_defined" — если такое право прямо не установлено.
+
+        4. audit_information_summary:
+           Сводка одной строкой на русском языке в формате:
+           "Истребование документов: <...>; Предоставление реестров: <...>; Право на аудит: <...>".
+           При противоречии — "Не удалось определить".
         </task>
+
         <context_rules>
-        - Если фрагментов по теме нет — presence = "missing".
-        - Используй только текст договора.
-        - Запрещены null, None, пустые строки.
+        - Перед остальными полями заполни factor_audit_and_information_rights_check_presence по правилу из пункта 0 task.
+        - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
+        - Если presence = "missing" — все *_status = "not_defined", audit_information_summary = "Истребование документов: нет; Предоставление реестров: нет; Право на аудит: нет".
+        - Используй только релевантные фрагменты контекста.
+        - Не подставляй нормы закона, обычную практику или предположения вместо текста договора.
+        - Не делай выводов по типовой структуре договора.
+        - Различай три разных права: истребование первички, обязанность клиента предоставлять реестры, право на выездную/камеральную проверку бухгалтерии.
+        - Общая обязанность клиента предоставлять информацию о ходе исполнения основного договора ≠ право фактора на аудит.
+        - Если в разных фрагментах указаны разные данные и конфликт нельзя разрешить по тексту:
+          * status-поля → "not_defined";
+          * текстовые поля → "Не удалось определить".
+        - Не используй пустые строки.
+        - Все текстовые значения пиши на русском языке.
         </context_rules>
+
         <edge_cases>
-        1. Полное отсутствие темы → presence = "missing", summary = "Истребование документов: нет; Предоставление реестров: нет; Право на аудит: нет".
-        2. Только обязанность предоставлять реестры без права на аудит → presence = "present", audit = "not_defined".
-        3. Противоречие → presence = "unclear", summary = "Не удалось определить".
-        4. Полный набор прав → presence = "present", все поля = "present".
+        1. Полное отсутствие темы.
+           В договоре нет ни права истребовать документы, ни обязанности
+           предоставлять реестры, ни права на аудит.
+           → presence = "missing";
+             все *_status = "not_defined";
+             audit_information_summary = "Истребование документов: нет; Предоставление реестров: нет; Право на аудит: нет".
+
+        2. Только обязанность предоставлять реестры.
+           Прямо установлена ежемесячная передача реестров,
+           но право истребовать первичку и право на аудит не прописаны.
+           → presence = "present";
+             registry_reporting_duty = "present";
+             document_request_right = "not_defined";
+             audit_access_right = "not_defined".
+
+        3. Противоречие между фрагментами.
+           В одном пункте право фактора на аудит прямо установлено,
+           в другом — договор запрещает любые проверки со стороны фактора.
+           → presence = "unclear";
+             audit_access_right = "not_defined";
+             audit_information_summary = "Не удалось определить".
+
+        4. Полный набор прав.
+           Истребование первички + реестры + выездной аудит.
+           → presence = "present";
+             document_request_right = "present";
+             registry_reporting_duty = "present";
+             audit_access_right = "present".
         </edge_cases>
+
         <output_expectations>
         - Все свободные текстовые поля заполняй на русском языке.
         - Для factor_audit_and_information_rights_check_presence используй только: "present", "missing", "unclear".
-        - Fallback при отсутствии данных: summary = "Истребование документов: нет; Предоставление реестров: нет; Право на аудит: нет".
+        - Для status-полей используй только: "present", "not_defined".
+        - Fallback при отсутствии данных:
+          * audit_information_summary → "Истребование документов: нет; Предоставление реестров: нет; Право на аудит: нет".
+        - Fallback при противоречии или неоднозначности:
+          * audit_information_summary → "Не удалось определить".
         - Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
         </output_expectations>
 
@@ -11183,44 +11531,51 @@ checks_v8:
           display_in_grid: false
           description: "Наличие регулирования о праве фактора на аудит и информацию. Внутреннее агрегатное signal-поле."
           required: true
+
         - name: "document_request_right"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["present", "not_defined"]
-          description: "Право истребовать первичные документы."
-          required: true
           display_in_grid: false
+          description: "Право истребовать первичные документы. Внутреннее enum-поле."
+          required: true
+
         - name: "registry_reporting_duty"
           type: "string"
           presentation: "signal"
           risk_weight: "high"
           allowed_values: ["present", "not_defined"]
-          description: "Обязанность клиента предоставлять регулярные реестры."
-          required: true
           display_in_grid: false
+          description: "Обязанность клиента предоставлять регулярные реестры. Внутреннее enum-поле."
+          required: true
+
         - name: "audit_access_right"
           type: "string"
           presentation: "signal"
           risk_weight: "medium"
           allowed_values: ["present", "not_defined"]
-          description: "Право фактора на аудит/проверку деятельности клиента."
-          required: true
           display_in_grid: false
+          description: "Право фактора на аудит / проверку деятельности клиента. Внутреннее enum-поле."
+          required: true
+
         - name: "audit_information_summary"
           type: "string"
           presentation: "fact"
-          label: "Право на аудит и информацию"
-          description: "Компактная сводка: истребование документов, реестры, аудит."
-          required: true
           display_in_grid: true
           display_priority: 1
+          label: "Право на аудит и информацию"
+          description: >
+            Компактная сводка: истребование документов, реестры, аудит.
+            Fallback: "Истребование документов: нет; Предоставление реестров: нет; Право на аудит: нет" / "Не удалось определить".
+          required: true
+
         - name: "evidence"
           type: "array"
           presentation: "diagnostic"
+          display_in_grid: false
           description: "Точные цитаты из договора."
           required: true
-          display_in_grid: false
 
       store_payload: true
 
