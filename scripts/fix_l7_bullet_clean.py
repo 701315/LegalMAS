@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
-"""Fix L7 v3: удаляет висящие строки 'present'/'missing'/'unclear'
-после bullet про presence в <context_rules>.
-Работает поверх v2-правок."""
+"""Fix L7 v4: удаляет висящие строки-продолжения после bullet про presence:
+1. строки "present"/"missing"/"unclear";
+2. строки, начинающиеся с 'по значениям';
+3. строки, начинающиеся с 'значения:';
+4. пустые висящие списки описаний.
+"""
 import re
 import sys
 from pathlib import Path
@@ -10,13 +13,18 @@ from ruamel.yaml.scalarstring import LiteralScalarString
 
 
 def is_orphan_presence_line(line):
-    """Висящая строка — начинается с пробелов, потом кавычка, содержит 'present'/'missing'/'unclear' в начале."""
     stripped = line.lstrip()
     if not stripped or stripped.startswith("-"):
         return False
-    if not stripped.startswith('"'):
-        return False
-    return ('"present"' in stripped or '"missing"' in stripped or '"unclear"' in stripped)
+    # Строки, начинающиеся с "present"/"missing"/"unclear"
+    if stripped.startswith('"') and any(v in stripped for v in ('"present"', '"missing"', '"unclear"')):
+        return True
+    # Строки, начинающиеся со связок про значения presence
+    for prefix in ("по значениям", "значения:", "значения ", "их объединение",
+                   "объединение", "present /", "present/", "present,"):
+        if stripped.lower().startswith(prefix.lower()):
+            return True
+    return False
 
 
 def fix_check(check):
@@ -37,8 +45,6 @@ def fix_check(check):
     block = m.group(2)
     lines = block.split("\n")
 
-    # Проходим: если текущая строка — bullet про presence,
-    # следующие N висящих строк удаляем.
     new_lines = []
     skip_orphans = False
     for line in lines:
@@ -81,6 +87,6 @@ def main(path_str):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Использование: python3 fix_l7_v3.py <file.yaml>")
+        print("Использование: python3 fix_l7_bullet_clean_v2.py <file.yaml>")
         sys.exit(1)
     main(sys.argv[1])
