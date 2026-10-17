@@ -4597,7 +4597,7 @@ checks_v8:
           risk_weight: "info"
           allowed_values: ["present", "missing", "unclear"]
           display_in_grid: false
-          description: "Наличие заверений по Due Diligence и раскрытию в договоре. Внутреннее aggregate signal-поле."
+          description: "Наличие заверений по Due Diligence и раскрытию в договоре. Внутреннее aggregate signal-поле. Внутреннее агрегатное signal-поле."
           required: true
         - name: "dd_status"
           type: "string"

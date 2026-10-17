@@ -8410,7 +8410,7 @@ checks_v8:
           risk_weight: "info"
           allowed_values: ["present", "missing", "unclear"]
           display_in_grid: false
-          description: "Наличие регулирования предотвращения смешения активов."
+          description: "Наличие регулирования предотвращения смешения активов. Внутреннее агрегатное signal-поле."
           required: true
         - name: "commingling_prevention_status"
           type: "string"
@@ -8571,7 +8571,7 @@ checks_v8:
           risk_weight: "info"
           allowed_values: ["present", "missing", "unclear"]
           display_in_grid: false
-          description: "Наличие регулирования налогов и расходов на содержание."
+          description: "Наличие регулирования налогов и расходов на содержание. Внутреннее агрегатное signal-поле."
           required: true
         - name: "tax_liability_status"
           type: "string"
@@ -8733,7 +8733,7 @@ checks_v8:
           risk_weight: "info"
           allowed_values: ["present", "missing", "unclear"]
           display_in_grid: false
-          description: "Наличие регулирования режима вещей индивидуального пользования и питомцев."
+          description: "Наличие регулирования режима вещей индивидуального пользования и питомцев. Внутреннее агрегатное signal-поле."
           required: true
         - name: "luxury_items_status"
           type: "string"
@@ -8890,7 +8890,7 @@ checks_v8:
           risk_weight: "info"
           allowed_values: ["present", "missing", "unclear"]
           display_in_grid: false
-          description: "Наличие оговорки об ограничении применения ст. 451 ГК РФ."
+          description: "Наличие оговорки об ограничении применения ст. 451 ГК РФ. Внутреннее агрегатное signal-поле."
           required: true
         - name: "art_451_waiver_status"
           type: "string"

@@ -3677,7 +3677,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           allowed_values: ["present", "missing", "unclear"]
-          description: "Сводный признак наличия в договоре условий об уведомлении поручителя и/или суброгации."
+          description: "Сводный признак наличия в договоре условий об уведомлении поручителя и/или суброгации. Внутреннее агрегатное signal-поле."
           required: true
           display_in_grid: false
           risk_weight: "info"
@@ -4088,7 +4088,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           allowed_values: ["present", "missing", "unclear"]
-          description: "Сводный признак наличия в договоре условий о страховании предмета залога."
+          description: "Сводный признак наличия в договоре условий о страховании предмета залога. Внутреннее агрегатное signal-поле."
           required: true
           display_in_grid: false
           risk_weight: "info"
@@ -4472,7 +4472,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           allowed_values: ["present", "missing", "unclear"]
-          description: "Сводный признак наличия в договоре банкротных заверений."
+          description: "Сводный признак наличия в договоре банкротных заверений. Внутреннее агрегатное signal-поле."
           required: true
           display_in_grid: false
           risk_weight: "info"
@@ -4864,7 +4864,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           allowed_values: ["present", "missing", "unclear"]
-          description: "Сводный признак наличия в договоре условий о характере залога и старшинстве."
+          description: "Сводный признак наличия в договоре условий о характере залога и старшинстве. Внутреннее агрегатное signal-поле."
           required: true
           display_in_grid: false
           risk_weight: "info"
@@ -5263,7 +5263,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           allowed_values: ["present", "missing", "unclear"]
-          description: "Сводный признак наличия в договоре ограничений распоряжения предметом залога."
+          description: "Сводный признак наличия в договоре ограничений распоряжения предметом залога. Внутреннее агрегатное signal-поле."
           required: true
           display_in_grid: false
           risk_weight: "info"
@@ -5656,7 +5656,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           allowed_values: ["present", "missing", "unclear"]
-          description: "Сводный признак наличия в договоре условий о регистрации залога движимого имущества."
+          description: "Сводный признак наличия в договоре условий о регистрации залога движимого имущества. Внутреннее агрегатное signal-поле."
           required: true
           display_in_grid: false
           risk_weight: "info"
@@ -6062,7 +6062,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           allowed_values: ["present", "missing", "unclear"]
-          description: "Сводный признак наличия в договоре условий о согласии супруга и семейном положении залогодателя."
+          description: "Сводный признак наличия в договоре условий о согласии супруга и семейном положении залогодателя. Внутреннее агрегатное signal-поле."
           required: true
           display_in_grid: false
           risk_weight: "info"
@@ -6446,7 +6446,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           allowed_values: ["present", "missing", "unclear"]
-          description: "Сводный признак наличия в договоре условий о закладной."
+          description: "Сводный признак наличия в договоре условий о закладной. Внутреннее агрегатное signal-поле."
           required: true
           display_in_grid: false
           risk_weight: "info"
@@ -6851,7 +6851,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           allowed_values: ["present", "missing", "unclear"]
-          description: "Сводный признак наличия в договоре условий о возражениях поручителя."
+          description: "Сводный признак наличия в договоре условий о возражениях поручителя. Внутреннее агрегатное signal-поле."
           required: true
           display_in_grid: false
           risk_weight: "info"
@@ -7270,7 +7270,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           allowed_values: ["present", "missing", "unclear"]
-          description: "Сводный признак наличия в договоре условий о сроке поручительства и сроке предъявления требований."
+          description: "Сводный признак наличия в договоре условий о сроке поручительства и сроке предъявления требований. Внутреннее агрегатное signal-поле."
           required: true
           display_in_grid: false
           risk_weight: "info"
@@ -7687,7 +7687,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           allowed_values: ["present", "missing", "unclear"]
-          description: "Сводный признак наличия в договоре условий об обеспечиваемом обязательстве."
+          description: "Сводный признак наличия в договоре условий об обеспечиваемом обязательстве. Внутреннее агрегатное signal-поле."
           required: true
           display_in_grid: false
           risk_weight: "info"
@@ -8102,7 +8102,7 @@ checks_v8:
           type: "string"
           presentation: "signal"
           allowed_values: ["present", "missing", "unclear"]
-          description: "Сводный признак наличия в договоре условий о режиме собственности и согласии сособственников."
+          description: "Сводный признак наличия в договоре условий о режиме собственности и согласии сособственников. Внутреннее агрегатное signal-поле."
           required: true
           display_in_grid: false
           risk_weight: "info"

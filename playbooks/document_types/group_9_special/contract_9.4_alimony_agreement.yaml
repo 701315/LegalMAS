@@ -1325,11 +1325,7 @@ checks_v8:
           label: "Нотариальная форма"
           allowed_values: ["certified", "mentioned", "not_defined"]
           description: >
-            Статус нотариального удостоверения соглашения:
-            "certified" — есть удостоверительная надпись нотариуса;
-            "mentioned" — только упомянуто, что подлежит удостоверению;
-            "not_defined" — не упомянуто.
-            Без certified соглашение ничтожно (ст. 165 ГК РФ).
+            Статус нотариального удостоверения соглашения: "certified" — есть удостоверительная надпись нотариуса; "mentioned" — только упомянуто, что подлежит удостоверению; "not_defined" — не упомянуто. Без certified соглашение ничтожно (ст. 165 ГК РФ). Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
         - name: "notary_name_status"
@@ -6950,14 +6946,15 @@ checks_v8:
           required: true
         - name: "payer_bankruptcy_protection_status"
           type: "string"
-          presentation: "fact"
-          display_in_grid: true
+          presentation: "signal"
+          display_in_grid: false
           display_priority: 1
           label: "Банкротство плательщика"
           allowed_values: ["defined", "statutory_default", "not_defined"]
-          description: >
-            Режим при банкротстве плательщика: оговорка / дефолт закона. Fallback: "Не установлено" / "Не удалось определить".
+          description: >-
+            Режим при банкротстве плательщика: оговорка / дефолт закона. Fallback: "Не установлено" / "Не удалось определить". Внутреннее enum-поле.
           required: true
+          risk_weight: high
         - name: "payer_bankruptcy_protection_details"
           type: "string"
           presentation: "fact"
@@ -6969,14 +6966,15 @@ checks_v8:
           required: false
         - name: "payee_bankruptcy_protection_status"
           type: "string"
-          presentation: "fact"
-          display_in_grid: true
+          presentation: "signal"
+          display_in_grid: false
           display_priority: 2
           label: "Банкротство получателя"
           allowed_values: ["defined", "statutory_default", "not_defined"]
-          description: >
-            Защита алиментов при банкротстве получателя. Fallback: "Не установлено" / "Не удалось определить".
+          description: >-
+            Защита алиментов при банкротстве получателя. Fallback: "Не установлено" / "Не удалось определить". Внутреннее enum-поле.
           required: false
+          risk_weight: medium
         - name: "payee_bankruptcy_protection_details"
           type: "string"
           presentation: "fact"
@@ -6988,14 +6986,15 @@ checks_v8:
           required: false
         - name: "priority_in_bankruptcy_status"
           type: "string"
-          presentation: "fact"
-          display_in_grid: true
+          presentation: "signal"
+          display_in_grid: false
           display_priority: 3
           label: "Очередь в банкротстве"
           allowed_values: ["defined", "statutory_default", "not_defined"]
-          description: >
-            Приоритет алиментных требований при банкротстве. Fallback: "Не установлено" / "Не удалось определить".
+          description: >-
+            Приоритет алиментных требований при банкротстве. Fallback: "Не установлено" / "Не удалось определить". Внутреннее enum-поле.
           required: false
+          risk_weight: high
         - name: "priority_in_bankruptcy_details"
           type: "string"
           presentation: "fact"
@@ -8394,19 +8393,20 @@ checks_v8:
           required: true
         - name: "regional_minimum_basis"
           type: "string"
-          presentation: "fact"
-          display_in_grid: true
+          presentation: "signal"
+          display_in_grid: false
           display_priority: 1
           label: "Привязка к ПМ"
           allowed_values: ["defined", "statutory_default", "not_applicable", "not_defined"]
-          description: >
-            Режим привязки к региональному ПМ: указан / дефолт ст. 117 СК РФ / не применимо. Fallback: "Не установлено" / "Не удалось определить".
+          description: >-
+            Режим привязки к региональному ПМ: указан / дефолт ст. 117 СК РФ / не применимо. Fallback: "Не установлено" / "Не удалось определить". Внутреннее enum-поле.
           required: true
+          risk_weight: high
         - name: "region_details"
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 2
+          display_priority: 1
           label: "Регион ПМ"
           description: >
             Регион / субъект РФ для расчёта ПМ. Fallback: "Не установлено" / "Не удалось определить".
@@ -8415,7 +8415,7 @@ checks_v8:
           type: "string"
           presentation: "fact"
           display_in_grid: true
-          display_priority: 3
+          display_priority: 2
           label: "Категория ПМ"
           allowed_values: ["child", "working_age", "pensioner", "per_capita", "not_defined"]
           description: >
@@ -8432,14 +8432,15 @@ checks_v8:
           required: false
         - name: "update_mechanism_status"
           type: "string"
-          presentation: "fact"
-          display_in_grid: true
+          presentation: "signal"
+          display_in_grid: false
           display_priority: 4
           label: "Механизм обновления"
           allowed_values: ["quarterly", "annual", "on_change", "statutory_default", "not_defined"]
-          description: >
-            Механизм обновления ПМ: ежеквартальный / ежегодный / по факту. Fallback: "Не установлено" / "Не удалось определить".
+          description: >-
+            Механизм обновления ПМ: ежеквартальный / ежегодный / по факту. Fallback: "Не установлено" / "Не удалось определить". Внутреннее enum-поле.
           required: false
+          risk_weight: medium
         - name: "update_mechanism_details"
           type: "string"
           presentation: "fact"

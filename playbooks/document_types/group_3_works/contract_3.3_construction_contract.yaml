@@ -4004,6 +4004,8 @@ checks_v8:
           display_in_grid: false
           required: true
 
+          description: >
+            Fallback: "Не установлено" / "Не удалось определить".
         - name: "retention_money_present"
           type: "string"
           presentation: "signal"
@@ -4020,6 +4022,8 @@ checks_v8:
           display_in_grid: false
           required: true
 
+          description: >
+            Fallback: "Не установлено" / "Не удалось определить".
         - name: "warranty_periods_summary"
           type: "string"
           presentation: "fact"
@@ -4403,6 +4407,8 @@ checks_v8:
           display_in_grid: false
           required: true
 
+          description: >
+            Fallback: "Не установлено" / "Не удалось определить".
       store_payload: true
 
   - id: acceptance_procedure_ks2_ks3
@@ -4767,6 +4773,8 @@ checks_v8:
           display_in_grid: false
           required: true
 
+          description: >
+            Fallback: "Не установлено" / "Не удалось определить".
       store_payload: true
 
   - id: materials_supply_responsibility

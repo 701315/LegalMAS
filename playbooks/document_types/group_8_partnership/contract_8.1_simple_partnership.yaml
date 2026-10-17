@@ -7035,15 +7035,16 @@ checks_v8:
 
         - name: "staff_mention_status"
           type: "string"
-          presentation: "fact"
-          display_in_grid: true
+          presentation: "signal"
+          display_in_grid: false
           display_priority: 1
           label: "Штат товарищества"
           allowed_values: ["detected", "not_detected"]
-          description: >
-            Наличие упоминания штата/персонала товарищества. Fallback: "Не установлено" / "Не удалось определить".
+          description: >-
+            Наличие упоминания штата/персонала товарищества. Fallback: "Не установлено" / "Не удалось определить". Внутреннее enum-поле.
           required: true
 
+          risk_weight: high
         - name: "staff_mention_details"
           type: "string"
           presentation: "fact"
@@ -7055,15 +7056,16 @@ checks_v8:
 
         - name: "bank_account_mention_status"
           type: "string"
-          presentation: "fact"
-          display_in_grid: true
+          presentation: "signal"
+          display_in_grid: false
           display_priority: 2
           label: "Счёт товарищества"
           allowed_values: ["detected", "not_detected"]
-          description: >
-            Наличие упоминания расчётного счёта товарищества. Fallback: "Не установлено" / "Не удалось определить".
+          description: >-
+            Наличие упоминания расчётного счёта товарищества. Fallback: "Не установлено" / "Не удалось определить". Внутреннее enum-поле.
           required: true
 
+          risk_weight: high
         - name: "bank_account_mention_details"
           type: "string"
           presentation: "fact"
@@ -7075,15 +7077,16 @@ checks_v8:
 
         - name: "office_signage_mention_status"
           type: "string"
-          presentation: "fact"
-          display_in_grid: true
+          presentation: "signal"
+          display_in_grid: false
           display_priority: 3
           label: "Офис/печать"
           allowed_values: ["detected", "not_detected"]
-          description: >
-            Наличие упоминания вывески/офиса/печати товарищества. Fallback: "Не установлено" / "Не удалось определить".
+          description: >-
+            Наличие упоминания вывески/офиса/печати товарищества. Fallback: "Не установлено" / "Не удалось определить". Внутреннее enum-поле.
           required: true
 
+          risk_weight: medium
         - name: "office_signage_mention_details"
           type: "string"
           presentation: "fact"
@@ -7095,15 +7098,16 @@ checks_v8:
 
         - name: "separate_balance_mention_status"
           type: "string"
-          presentation: "fact"
-          display_in_grid: true
+          presentation: "signal"
+          display_in_grid: false
           display_priority: 4
           label: "Отдельный баланс"
           allowed_values: ["detected", "not_detected"]
-          description: >
-            Наличие упоминания отдельного баланса товарищества как признака ЮЛ. Fallback: "Не установлено" / "Не удалось определить".
+          description: >-
+            Наличие упоминания отдельного баланса товарищества как признака ЮЛ. Fallback: "Не установлено" / "Не удалось определить". Внутреннее enum-поле.
           required: true
 
+          risk_weight: medium
         - name: "separate_balance_mention_details"
           type: "string"
           presentation: "fact"
