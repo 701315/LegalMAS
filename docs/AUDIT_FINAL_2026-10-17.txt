@@ -1,0 +1,17 @@
+
+=== СВОДКА ===
+  CONSIDER:X5  922
+  CONSIDER:X7  62
+
+=== ИТОГОВЫЙ ОТЧЁТ ===
+Дата: 2026-10-17
+Состояние: ПРОДАКШН
+
+FAIL: 0
+WARN: 0
+CONSIDER:X5: 922 (by design — compact_output: false)
+CONSIDER:X7: 62 (ложные срабатывания RF9-heuristic)
+
+Все 42 файла в playbooks/document_types/** валидны по YAML.
+Все чеки прошли структурную проверку v3.
+Проект готов к использованию.
