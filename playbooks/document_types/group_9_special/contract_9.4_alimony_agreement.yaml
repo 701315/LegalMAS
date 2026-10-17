@@ -1625,14 +1625,17 @@ checks_v8:
 
     extraction:
       enabled: true
-      mode: "hybrid"
-      compact_output: false
+      mode: hybrid
       llm_max_tokens: 900
+      compact_output: false
       presence_signal:
-        field: "amount_minimum_compliance_check_presence"
-        present_values: ["present"]
-        missing_values: ["missing"]
-        unclear_values: ["unclear"]
+        field: amount_minimum_compliance_check_presence
+        present_values:
+          - present
+        missing_values:
+          - missing
+        unclear_values:
+          - unclear
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист по семейному праву. Извлеки из соглашения об уплате
@@ -1676,6 +1679,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни amount_minimum_compliance_check_presence по правилу из пункта 0 task.
         - Используй только текст соглашения.
         - amount_type: "доля от заработка/дохода" = "proportional"; "твёрдая денежная сумма" = "fixed"; комбинация = "mixed"; "предоставление имущества" = "property_transfer"; не указан = "not_defined".
         - minimum_compliance_status:
@@ -1698,8 +1702,118 @@ checks_v8:
 
         <output_expectations>
         Верни строго JSON с 10 ключами (9 полей + evidence).
-        Технический формат JSON (value / confidence / location) задан отдельным контрактом — 
-
+        Технический формат JSON (value / confidence / location) задан отдельным контрактом — соблюдай его, но не описывай здесь.
+        </output_expectations> 
+      fields:
+        - name: amount_minimum_compliance_check_presence
+          type: string
+          presentation: signal
+          risk_weight: info
+          allowed_values:
+            - present
+            - missing
+            - unclear
+          display_in_grid: false
+          description: Наличие регулирования по размеру алиментов и соответствию минимуму. Внутреннее агрегатное signal-поле.
+          required: true
+        - name: amount_type
+          type: string
+          presentation: signal
+          risk_weight: high
+          allowed_values:
+            - proportional
+            - fixed
+            - mixed
+            - property_transfer
+            - not_defined
+          display_in_grid: false
+          description: Способ определения размера алиментов (raw enum). Внутреннее enum-поле.
+          required: true
+        - name: amount_value_status
+          type: string
+          presentation: signal
+          risk_weight: high
+          allowed_values:
+            - defined
+            - not_defined
+          display_in_grid: false
+          description: Статус указания конкретного размера алиментов. Внутреннее enum-поле.
+          required: true
+        - name: amount_value_details
+          type: string
+          presentation: fact
+          display_in_grid: true
+          display_priority: 1
+          label: Размер алиментов
+          description: |
+            Конкретный размер (сумма или доля).
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+        - name: minimum_compliance_status
+          type: string
+          presentation: signal
+          risk_weight: high
+          allowed_values:
+            - compliant
+            - below_minimum
+            - not_evaluable
+            - not_applicable
+            - not_defined
+          display_in_grid: false
+          description: Оценка соответствия минимуму по ст. 81 СК РФ. Внутреннее enum-поле.
+          required: true
+        - name: minimum_compliance_note
+          type: string
+          presentation: fact
+          display_in_grid: true
+          display_priority: 2
+          label: Соответствие минимуму (ст. 81 СК РФ)
+          description: |
+            Обоснование оценки соответствия минимуму.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+        - name: payment_frequency_status
+          type: string
+          presentation: signal
+          risk_weight: medium
+          allowed_values:
+            - defined
+            - not_defined
+          display_in_grid: false
+          description: Статус указания периодичности выплаты. Внутреннее enum-поле.
+          required: true
+        - name: payment_frequency_details
+          type: string
+          presentation: fact
+          display_in_grid: true
+          display_priority: 3
+          label: Периодичность выплаты
+          description: |
+            Периодичность выплаты алиментов.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+        - name: number_of_children_status
+          type: string
+          presentation: signal
+          risk_weight: medium
+          allowed_values:
+            - defined
+            - not_defined
+            - not_applicable
+          display_in_grid: false
+          description: Статус указания числа детей. Внутреннее enum-поле.
+          required: true
+        - name: number_of_children_value
+          type: string
+          presentation: fact
+          display_in_grid: true
+          display_priority: 4
+          label: Число детей
+          description: |
+            Число несовершеннолетних детей арабской цифрой.
+            Fallback: "Данные не определены" / "Не удалось определить".
+          required: true
+      store_payload: true
   - id: payment_procedure_check
     name: "Порядок, сроки, способ выплаты и подтверждение оплаты (ст. 104, 109 СК РФ)"
     description: >
@@ -1971,6 +2085,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни payment_procedure_check_presence по правилу из пункта 0 task.
         - Используй только текст соглашения.
         - payment_method_code: "перечисление на счёт" = "bank_transfer"; "наличными" = "cash"; "почтовый перевод" = "postal"; "удержание из заработной платы по месту работы" = "payroll_deduction" (ст. 109 СК РФ); иной прямо названный способ = "other"; не указан = "not_defined".
         - Если способ = "bank_transfer", в payment_method_details приводи реквизиты (номер счёта, банк).
@@ -2292,6 +2407,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни indexation_check_presence по правилу из пункта 0 task.
         - Используй только текст соглашения.
         - indexation_status:
           * "concrete" — в тексте прямо установлен свой порядок индексации (база, периодичность, исполнитель);
@@ -2615,6 +2731,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни adjustment_mechanism_check_presence по правилу из пункта 0 task.
         - Используй только текст соглашения.
         - adjustment_clause_status:
           * "defined" — оговорка о возможности изменения при существенном изменении обстоятельств прямо установлена в тексте;
@@ -2945,6 +3062,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни penalty_for_delay_check_presence по правилу из пункта 0 task.
         - Используй только текст соглашения.
         - penalty_type: "за каждый день" = "per_day"; "за каждый месяц" = "per_month"; "фиксированная сумма" = "fixed"; иной прямо названный = "other"; оговорки нет, применяется дефолт п. 2 ст. 115 СК РФ (0,1% в день) = "statutory_default"; неопределимо = "not_defined".
         - additional_damages_regime: "provided" — право на убытки сверх неустойки прямо установлено; "waived" — прямо ограничено или исключено; "statutory_default" — не указано, применяется п. 2 ст. 115 СК РФ; "not_defined" — неопределимо.
@@ -3285,6 +3403,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни offset_and_overpayment_check_presence по правилу из пункта 0 task.
         - Используй только текст соглашения.
         - offset_regime: "provided" — зачёт допрасходов установлен в тексте; "prohibited" — прямо запрещён; "statutory_default" — не указано, применяется ст. 86 СК РФ (через суд при исключительных обстоятельствах); "not_defined" — неопределимо.
         - overpayment_credit_regime: "allowed" — переплата зачитывается в счёт будущих платежей; "prohibited" — прямо запрещено; "statutory_default" — не указано, по умолчанию зачёт переплаты не предусмотрен; "not_defined" — неопределимо.
@@ -3627,6 +3746,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни termination_and_amendment_check_presence по правилу из пункта 0 task.
         - Используй только текст соглашения.
         - termination_events_status:
           * "defined" — перечень оснований прекращения прямо установлен в тексте;
@@ -3964,6 +4084,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни targeted_use_reporting_check_presence по правилу из пункта 0 task.
         - Используй только текст соглашения.
         - targeted_use_regime:
           * "defined" — целевое назначение средств прямо установлено в тексте (питание, лечение, образование и т.п.);
@@ -4298,6 +4419,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни child_interest_validation_check_presence по правилу из пункта 0 task.
         - Используй только текст соглашения.
         - child_interest_status:
           * "compliant" — условия соответствуют интересам ребёнка, дискриминационных/кабальных условий не выявлено;
@@ -4643,6 +4765,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни arrears_calculation_check_presence по правилу из пункта 0 task.
         - Используй только текст соглашения.
         - arrears_mechanism_status:
           * "defined" — в тексте прямо установлен механизм определения задолженности (формула, порядок расчёта);
@@ -4988,6 +5111,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни tax_regime_check_presence по правилу из пункта 0 task.
         - Используй только текст соглашения.
         - tax_clause_status:
           * "defined" — в тексте есть налоговая оговорка (НДФЛ, вычет, налогообложение);
@@ -5341,6 +5465,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни withholding_limits_and_priority_check_presence по правилу из пункта 0 task.
         - Используй только текст соглашения.
         - withholding_regime:
           * "defined" — в тексте прямо установлен предел удержания из заработка;
@@ -5666,7 +5791,7 @@ checks_v8:
         </context>
 
         <task>
-        0. Сначала определи paternity_and_status_dispute_check_presence:
+        0. paternity_and_status_dispute_check_presence:
            - "present" — в тексте есть фрагменты об основании обязанности,
              оспаривании отцовства/материнства, последствиях оспаривания
              или возврате платежей;
@@ -5689,6 +5814,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни paternity_and_status_dispute_check_presence по правилу из пункта 0 task.
         - Если в тексте прямо не указаны фрагменты об основании обязанности
           и оспаривании — presence = "missing", все status = "not_defined".
         - По ст. 52 СК РФ оспаривание отцовства/материнства возможно только
@@ -5715,17 +5841,17 @@ checks_v8:
         </context_rules>
 
         <edge_cases>
-        - Если алименты выплачиваются на супруга/родителя, а не на ребёнка —
+        1. Если алименты выплачиваются на супруга/родителя, а не на ребёнка —
           challenge_risk_status = "not_applicable", presence может быть "present"
           (основание указано), но риск оспаривания отцовства не применим.
-        - Если отцовство установлено добровольно через ЗАГС (совместное заявление)
+        2. Если отцовство установлено добровольно через ЗАГС (совместное заявление)
           без генетической экспертизы — challenge_risk_status = "high"
           (повышенный риск оспаривания по ст. 52 СК РФ).
-        - Если в тексте есть общая оговорка о прекращении алиментов при изменении
+        3. Если в тексте есть общая оговорка о прекращении алиментов при изменении
           обстоятельств, но нет прямой ссылки на оспаривание отцовства —
           consequences_on_termination_status = "not_defined" (общая оговорка
           ≠ специальное регулирование).
-        - Если в преамбуле указано свидетельство о рождении, но нет условий
+        4. Если в преамбуле указано свидетельство о рождении, но нет условий
           о последствиях оспаривания — paternity_basis_status = "defined",
           challenge_risk_status = "low",
           consequences_on_termination_status = "not_defined".
@@ -6023,7 +6149,7 @@ checks_v8:
         </context>
 
         <task>
-        0. Сначала определи assignment_and_third_party_rights_check_presence:
+        0. assignment_and_third_party_rights_check_presence:
            - "present" — в тексте есть фрагменты об уступке, цессии, залоге
              алиментов, обращении взыскания или правах третьих лиц;
            - "missing" — таких фрагментов в тексте нет вообще;
@@ -6046,6 +6172,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни assignment_and_third_party_rights_check_presence по правилу из пункта 0 task.
         - Если в тексте нет фрагментов об уступке, залоге, взыскании или
           правах третьих лиц — presence = "missing".
         - По ст. 383 ГК РФ уступка требований, неразрывно связанных с личностью
@@ -6068,19 +6195,19 @@ checks_v8:
         </context_rules>
 
         <edge_cases>
-        - Если в тексте есть общая оговорка «права и обязанности сторон не могут
+        1. Если в тексте есть общая оговорка «права и обязанности сторон не могут
           быть переданы третьим лицам» без прямого упоминания алиментов —
           assignment_clause_status = "defined", assignment_regime =
           "prohibited_by_law" (общая оговорка подтверждает законодательный запрет).
-        - Если в тексте есть условие о залоге или обеспечении алиментных платежей
+        2. Если в тексте есть условие о залоге или обеспечении алиментных платежей
           в пользу третьего лица (кредитора получателя) — assignment_regime =
           "attempted", third_party_claims_status = "allowed" (оба условия,
           как правило, недействительны).
-        - Если текст содержит только стандартные реквизиты и порядок оплаты
+        3. Если текст содержит только стандартные реквизиты и порядок оплаты
           без каких-либо оговорок о правах третьих лиц — presence = "missing",
           assignment_regime = "prohibited_by_law", enforcement_protection_status =
           "statutory_default", все остальные status = "not_defined".
-        - Если в тексте прямо указано «алименты не подлежат обращению взыскания
+        4. Если в тексте прямо указано «алименты не подлежат обращению взыскания
           по обязательствам получателя» — enforcement_protection_status =
           "protected", third_party_claims_status = "excluded".
         </edge_cases>
@@ -6381,7 +6508,7 @@ checks_v8:
         </context>
 
         <task>
-        0. Сначала определи multiple_children_allocation_check_presence:
+        0. multiple_children_allocation_check_presence:
            - "present" — в тексте есть фрагменты о числе детей, распределении
              долей, совокупных пределах удержания или механизме перерасчёта;
            - "missing" — таких фрагментов в тексте нет вообще;
@@ -6403,6 +6530,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни multiple_children_allocation_check_presence по правилу из пункта 0 task.
         - Если в тексте нет фрагментов о числе детей и распределении —
           presence = "missing", все status = "not_defined".
         - По п. 1 ст. 81 СК РФ: 1/4 заработка на одного ребёнка, 1/3 на двух,
@@ -6423,19 +6551,19 @@ checks_v8:
         </context_rules>
 
         <edge_cases>
-        - Если в соглашении указан один ребёнок и нет упоминания других детей
+        1. Если в соглашении указан один ребёнок и нет упоминания других детей
           плательщика — presence = "present", children_count_status = "defined",
           per_child_allocation_status = "not_defined" (распределение не
           требуется), aggregate_withholding_status = "not_evaluable".
-        - Если указана твёрдая денежная сумма на нескольких детей без разделения
+        2. Если указана твёрдая денежная сумма на нескольких детей без разделения
           по каждому — per_child_allocation_status = "aggregate",
           aggregate_withholding_status = "not_evaluable" (невозможно оценить
           долю от заработка без данных о доходе).
-        - Если в тексте прямо указаны доли для каждого ребёнка от разных браков
+        3. Если в тексте прямо указаны доли для каждого ребёнка от разных браков
           (например, «1/6 на первого, 1/6 на второго») —
           per_child_allocation_status = "defined", aggregate_withholding_status
           оценивается по сумме долей.
-        - Если есть оговорка о перерасчёте при рождении нового ребёнка у
+        4. Если есть оговорка о перерасчёте при рождении нового ребёнка у
           плательщика, но нет распределения долей — reduction_risk_status =
           "defined", per_child_allocation_status = "not_defined".
         </edge_cases>
@@ -6745,7 +6873,7 @@ checks_v8:
         </context>
 
         <task>
-        0. Сначала определи bankruptcy_effects_check_presence:
+        0. bankruptcy_effects_check_presence:
            - "present" — в тексте есть фрагменты о банкротстве, несостоятельности,
              конкурсной массе, приоритете алиментных требований или защите
              от взыскания при банкротстве;
@@ -6772,6 +6900,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни bankruptcy_effects_check_presence по правилу из пункта 0 task.
         - Если в тексте нет фрагментов о банкротстве — presence = "missing",
           все status = "statutory_default" (законный режим действует
           автоматически).
@@ -6789,17 +6918,17 @@ checks_v8:
         </context_rules>
 
         <edge_cases>
-        - Если в тексте есть оговорка о банкротстве только плательщика, но не
+        1. Если в тексте есть оговорка о банкротстве только плательщика, но не
           получателя — payer_bankruptcy_protection_status = "defined",
           payee_bankruptcy_protection_status = "statutory_default".
-        - Если в тексте есть общая оговорка о форс-мажоре (стихийные бедствия,
+        2. Если в тексте есть общая оговорка о форс-мажоре (стихийные бедствия,
           военные действия) без прямого упоминания банкротства —
           presence = "unclear", все status = "statutory_default"
           (форс-мажор ≠ банкротство).
-        - Если в тексте прямо указан приоритет алиментных требований в реестре
+        3. Если в тексте прямо указан приоритет алиментных требований в реестре
           кредиторов — priority_in_bankruptcy_status = "defined",
           presence = "present".
-        - Если текст содержит только стандартные условия об оплате без
+        4. Если текст содержит только стандартные условия об оплате без
           каких-либо оговорок о банкротстве — presence = "missing",
           все status = "statutory_default".
         </edge_cases>
@@ -7095,7 +7224,7 @@ checks_v8:
         </context>
 
         <task>
-        0. Сначала определи other_family_members_scope_check_presence:
+        0. other_family_members_scope_check_presence:
            - "present" — в тексте есть фрагменты об иных членах семьи
              (братья/сёстры, бабушки/дедушки, внуки, воспитанники,
              отчим/мачеха), нуждаемости, нетрудоспособности или взаимных
@@ -7124,6 +7253,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни other_family_members_scope_check_presence по правилу из пункта 0 task.
         - Если в тексте нет фрагментов об иных членах семьи по ст. 93–97 —
           presence = "missing", family_category_code = "not_applicable".
         - По ст. 93–97 СК РФ обязанности носят взаимный характер и требуют
@@ -7147,16 +7277,16 @@ checks_v8:
         </context_rules>
 
         <edge_cases>
-        - Если алименты на несовершеннолетнего ребёнка или супруга —
+        1. Если алименты на несовершеннолетнего ребёнка или супруга —
           family_category_code = "not_applicable", presence = "missing",
           все остальные status = "not_defined" (ст. 93–97 не применимы).
-        - Если в тексте указан фактический воспитанник, но нет условий
+        2. Если в тексте указан фактический воспитанник, но нет условий
           о нуждаемости или нетрудоспособности — specific_grounds_regime =
           "statutory_default" (применяются ст. 96–97 СК РФ по умолчанию).
-        - Если в тексте прямо установлена встречная обязанность получателя
+        3. Если в тексте прямо установлена встречная обязанность получателя
           содержать плательщика в будущем при утрате трудоспособности —
           mutuality_status = "defined", presence = "present".
-        - Если соглашение охватывает несколько категорий (например, бабушку
+        4. Если соглашение охватывает несколько категорий (например, бабушку
           и брата) — family_category_code = первая указанная категория,
           family_category_details описывает все категории.
         </edge_cases>
@@ -7473,7 +7603,7 @@ checks_v8:
         </context>
 
         <task>
-        0. Сначала определи foreign_element_and_currency_check_presence:
+        0. foreign_element_and_currency_check_presence:
            - "present" — в тексте есть фрагменты об иностранной валюте,
              иностранном элементе (иностранные стороны, место за рубежом,
              зарубежное имущество), трансграничном исполнении или ссылках
@@ -7498,6 +7628,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни foreign_element_and_currency_check_presence по правилу из пункта 0 task.
         - Если в тексте нет фрагментов об иностранной валюте, иностранном
           элементе или трансграничном исполнении — presence = "missing",
           currency_regime = "statutory_default" (рубли по умолчанию).
@@ -7521,19 +7652,19 @@ checks_v8:
         </context_rules>
 
         <edge_cases>
-        - Если алименты в рублях, обе стороны — резиденты РФ, без каких-либо
+        1. Если алименты в рублях, обе стороны — резиденты РФ, без каких-либо
           оговорок о трансграничном исполнении — presence = "missing",
           currency_regime = "statutory_default" (или "rub", если прямо указаны
           рубли), все остальные status = "not_defined".
-        - Если алименты в иностранной валюте (например, USD), но нет указания
+        2. Если алименты в иностранной валюте (например, USD), но нет указания
           на трансграничное исполнение или международные договоры —
           currency_regime = "foreign", presence = "present",
           cross_border_enforcement_status = "not_defined",
           international_treaty_status = "not_defined".
-        - Если одна из сторон имеет вид на жительство за рубежом или указан
+        3. Если одна из сторон имеет вид на жительство за рубежом или указан
           иностранный банк получателя — foreign_element_status = "defined",
           presence = "present", даже если валюта — рубли.
-        - Если в тексте есть ссылка на Минскую конвенцию, но нет отдельных
+        4. Если в тексте есть ссылка на Минскую конвенцию, но нет отдельных
           условий о трансграничном исполнении — international_treaty_status =
           "defined", cross_border_enforcement_status = "not_defined".
         </edge_cases>
@@ -7830,7 +7961,7 @@ checks_v8:
         </context>
 
         <task>
-        0. Сначала определи post_majority_support_check_presence:
+        0. post_majority_support_check_presence:
            - "present" — в тексте есть фрагменты об алиментах после 18 лет,
              нетрудоспособности совершеннолетнего, поддержке студентов
              или прекращении по достижении совершеннолетия;
@@ -7855,6 +7986,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни post_majority_support_check_presence по правилу из пункта 0 task.
         - Если в тексте нет фрагментов об алиментах после 18 лет —
           presence = "missing", post_majority_regime = "not_provided",
           termination_on_majority_status = "statutory_default".
@@ -7876,20 +8008,20 @@ checks_v8:
         </context_rules>
 
         <edge_cases>
-        - Если в тексте указано «алименты до 18 лет» без оговорок
+        1. Если в тексте указано «алименты до 18 лет» без оговорок
           о нетрудоспособности или обучении — presence = "present"
           (прекращение прямо указано), post_majority_regime = "not_provided",
           termination_on_majority_status = "defined".
-        - Если в тексте есть условие о поддержке ребёнка «до окончания
+        2. Если в тексте есть условие о поддержке ребёнка «до окончания
           очного обучения, но не более 23 лет» — post_majority_regime =
           "student_voluntary", student_support_status = "defined",
           presence = "present" (добровольное обязательство, не основанное
           на СК РФ).
-        - Если ребёнок — инвалид с детства и в тексте указано «выплаты
+        3. Если ребёнок — инвалид с детства и в тексте указано «выплаты
           бессрочно» — post_majority_regime = "adult_disabled",
           termination_on_majority_status = "not_defined" (бессрочность
           исключает прекращение по 18 лет).
-        - Если в тексте есть общая оговорка «алименты прекращаются по
+        4. Если в тексте есть общая оговорка «алименты прекращаются по
           основаниям, предусмотренным ст. 120 СК РФ» без детализации —
           termination_on_majority_status = "defined" (прямая отсылка
           к закону), post_majority_regime = "not_provided".
@@ -8185,7 +8317,7 @@ checks_v8:
         </context>
 
         <task>
-        0. Сначала определи regional_minimum_reference_check_presence:
+        0. regional_minimum_reference_check_presence:
            - "present" — в тексте есть фрагменты о прожиточном минимуме,
              регионе/субъекте РФ для расчёта ПМ, категории ПМ или механизме
              обновления/индексации твёрдой суммы;
@@ -8211,6 +8343,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни regional_minimum_reference_check_presence по правилу из пункта 0 task.
         - Если в тексте нет фрагментов о ПМ и индексации — presence = "missing".
         - По ст. 117 СК РФ индексация твёрдой суммы производится
           пропорционально росту ПМ по месту жительства получателя.
@@ -8229,17 +8362,17 @@ checks_v8:
         </context_rules>
 
         <edge_cases>
-        - Если алименты установлены в долях от заработка (1/4, 1/3, 1/2)
+        1. Если алименты установлены в долях от заработка (1/4, 1/3, 1/2)
           без твёрдой суммы — regional_minimum_basis = "not_applicable",
           presence = "missing" (ст. 117 СК РФ применяется только к твёрдой сумме).
-        - Если в тексте указано «индексация по ст. 117 СК РФ» без указания
+        2. Если в тексте указано «индексация по ст. 117 СК РФ» без указания
           региона и категории ПМ — regional_minimum_basis = "statutory_default",
           pm_category_code = "not_defined", update_mechanism_status =
           "statutory_default", presence = "present" (отсылка к закону есть).
-        - Если в тексте прямо указан ПМ на ребёнка в конкретном регионе
+        3. Если в тексте прямо указан ПМ на ребёнка в конкретном регионе
           (например, «ПМ для детей в г. Москве») — regional_minimum_basis =
           "defined", pm_category_code = "child", presence = "present".
-        - Если твёрдая сумма привязана к ПМ на душу населения, а не на ребёнка —
+        4. Если твёрдая сумма привязана к ПМ на душу населения, а не на ребёнка —
           pm_category_code = "per_capita", presence = "present" (нестандартная
           категория для алиментов на ребёнка, но допустимая).
         </edge_cases>
