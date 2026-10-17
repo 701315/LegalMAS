@@ -3531,10 +3531,12 @@ checks_v8:
 
       presence_signal:
         field: "guarantor_notice_subrogation_presence"
-        present: "present"
-        missing: "missing"
-        unclear: "unclear"
-
+        present_values:
+          - present
+        missing_values:
+          - missing
+        unclear_values:
+          - unclear
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора поручительства
@@ -3549,7 +3551,7 @@ checks_v8:
         </context>
 
         <task>
-        0. Сначала определи guarantor_notice_subrogation_presence:
+        0. guarantor_notice_subrogation_presence:
            - "present" — в тексте есть хотя бы одно из условий: уведомление
              поручителя о дефолте, суброгация/переход прав, передача
              документов поручителю;
@@ -3612,6 +3614,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни guarantor_notice_subrogation_presence по правилу из пункта 0 task.
         - Агрегируй guarantor_notice_subrogation_presence по значению хотя бы
           одного из полей: default_notice_status, subrogation_status,
           document_transfer_to_guarantor. Если хотя бы одно = "present" →
@@ -3956,10 +3959,12 @@ checks_v8:
 
       presence_signal:
         field: "pledge_insurance_presence"
-        present: "present"
-        missing: "missing"
-        unclear: "unclear"
-
+        present_values:
+          - present
+        missing_values:
+          - missing
+        unclear_values:
+          - unclear
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора залога сведения
@@ -3974,7 +3979,7 @@ checks_v8:
         </context>
 
         <task>
-        0. Сначала определи pledge_insurance_presence:
+        0. pledge_insurance_presence:
            - "present" — в тексте есть хотя бы одно условие о страховании
              предмета залога (обязанность, выгодоприобретатель или
              параметры страхования);
@@ -4026,6 +4031,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни pledge_insurance_presence по правилу из пункта 0 task.
         - Агрегируй pledge_insurance_presence по значению хотя бы одного из:
           insurance_obligation_status, pledgee_as_beneficiary,
           insurance_details_status. Если хотя бы одно = "present" →
@@ -4348,10 +4354,12 @@ checks_v8:
 
       presence_signal:
         field: "bankruptcy_rep_presence"
-        present: "present"
-        missing: "missing"
-        unclear: "unclear"
-
+        present_values:
+          - present
+        missing_values:
+          - missing
+        unclear_values:
+          - unclear
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора залога сведения
@@ -4365,7 +4373,7 @@ checks_v8:
         </context>
 
         <task>
-        0. Сначала определи bankruptcy_rep_presence:
+        0. bankruptcy_rep_presence:
            - "present" — в тексте есть заверения об отсутствии признаков
              банкротства, процедур банкротства или оспоримых сделок;
            - "missing" — банкротные заверения в тексте отсутствуют;
@@ -4406,6 +4414,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни bankruptcy_rep_presence по правилу из пункта 0 task.
         - Агрегируй bankruptcy_rep_presence по значению
           bankruptcy_representation_status: если = "present" → "present";
           если = "not_defined" и bankruptcy_rep_details_status = "not_defined"
@@ -4720,10 +4729,12 @@ checks_v8:
 
       presence_signal:
         field: "subsequent_pledge_presence"
-        present: "present"
-        missing: "missing"
-        unclear: "unclear"
-
+        present_values:
+          - present
+        missing_values:
+          - missing
+        unclear_values:
+          - unclear
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора залога/ипотеки
@@ -4737,7 +4748,7 @@ checks_v8:
         </context>
 
         <task>
-        0. Сначала определи subsequent_pledge_presence:
+        0. subsequent_pledge_presence:
            - "present" — в тексте прямо указан характер залога (первый
              или последующий), упомянут предыдущий залогодержатель
              или согласие на последующий залог;
@@ -4792,6 +4803,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни subsequent_pledge_presence по правилу из пункта 0 task.
         - Агрегируй subsequent_pledge_presence по значению хотя бы одного
           из: subsequent_pledge_status, prior_pledgee_consent_status,
           prior_pledgee_info_status. Если subsequent_pledge_status ∈
@@ -5126,10 +5138,12 @@ checks_v8:
 
       presence_signal:
         field: "disposal_restrictions_presence"
-        present: "present"
-        missing: "missing"
-        unclear: "unclear"
-
+        present_values:
+          - present
+        missing_values:
+          - missing
+        unclear_values:
+          - unclear
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора залога/ипотеки
@@ -5143,7 +5157,7 @@ checks_v8:
         </context>
 
         <task>
-        0. Сначала определи disposal_restrictions_presence:
+        0. disposal_restrictions_presence:
            - "present" — в тексте есть хотя бы одно прямое ограничение
              на распоряжение предметом залога (отчуждение, аренда,
              замена) или правила замены/восполнения;
@@ -5187,6 +5201,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни disposal_restrictions_presence по правилу из пункта 0 task.
         - Агрегируй disposal_restrictions_presence по значению хотя бы
           одного из: disposal_restriction_status,
           use_and_lease_restriction_status, substitution_rules_status.
@@ -5518,10 +5533,12 @@ checks_v8:
 
       presence_signal:
         field: "movable_registration_presence"
-        present: "present"
-        missing: "missing"
-        unclear: "unclear"
-
+        present_values:
+          - present
+        missing_values:
+          - missing
+        unclear_values:
+          - unclear
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора залога движимого
@@ -5535,7 +5552,7 @@ checks_v8:
         </context>
 
         <task>
-        0. Сначала определи movable_registration_presence:
+        0. movable_registration_presence:
            - "present" — в тексте прямо предусмотрена регистрация залога
              в реестре уведомлений о залоге, указана регистрирующая
              сторона или приведены реквизиты записи;
@@ -5580,6 +5597,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни movable_registration_presence по правилу из пункта 0 task.
         - Агрегируй movable_registration_presence по значению хотя бы
           одного из: movable_registration_status, registrant_party,
           registration_details_status. Если movable_registration_status =
@@ -5913,10 +5931,12 @@ checks_v8:
 
       presence_signal:
         field: "spousal_consent_presence"
-        present: "present"
-        missing: "missing"
-        unclear: "unclear"
-
+        present_values:
+          - present
+        missing_values:
+          - missing
+        unclear_values:
+          - unclear
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора ипотеки сведения
@@ -5931,7 +5951,7 @@ checks_v8:
         </context>
 
         <task>
-        0. Сначала определи spousal_consent_presence:
+        0. spousal_consent_presence:
            - "present" — в тексте есть конкретная информация о согласии
              супруга, режиме собственности на предмет ипотеки или
              заверении о семейном положении залогодателя;
@@ -5982,6 +6002,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни spousal_consent_presence по правилу из пункта 0 task.
         - Агрегируй spousal_consent_presence по значению хотя бы одного
           из: spousal_consent_status, marital_regime_status,
           marital_representation_status. Если spousal_consent_status ∈
@@ -6306,10 +6327,12 @@ checks_v8:
 
       presence_signal:
         field: "zakladnaya_presence"
-        present: "present"
-        missing: "missing"
-        unclear: "unclear"
-
+        present_values:
+          - present
+        missing_values:
+          - missing
+        unclear_values:
+          - unclear
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора ипотеки сведения
@@ -6323,7 +6346,7 @@ checks_v8:
         </context>
 
         <task>
-        0. Сначала определи zakladnaya_presence:
+        0. zakladnaya_presence:
            - "present" — в тексте прямо указано, что закладная
              составляется или что её составление не предусмотрено,
              либо есть сведения о форме/держателе закладной;
@@ -6366,6 +6389,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни zakladnaya_presence по правилу из пункта 0 task.
         - Агрегируй zakladnaya_presence по значению zakladnaya_status:
           если ∈ {"present", "not_provided"} → "present"; если =
           "not_defined" и zakladnaya_form = "not_defined" и
@@ -6698,10 +6722,12 @@ checks_v8:
 
       presence_signal:
         field: "guarantor_defenses_presence"
-        present: "present"
-        missing: "missing"
-        unclear: "unclear"
-
+        present_values:
+          - present
+        missing_values:
+          - missing
+        unclear_values:
+          - unclear
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора поручительства
@@ -6716,7 +6742,7 @@ checks_v8:
         </context>
 
         <task>
-        0. Сначала определи guarantor_defenses_presence:
+        0. guarantor_defenses_presence:
            - "present" — в тексте есть прямое закрепление права
              поручителя на возражения, отказ от возражений или
              оговорка об отказе кредитора принять исполнение;
@@ -6765,6 +6791,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни guarantor_defenses_presence по правилу из пункта 0 task.
         - Агрегируй guarantor_defenses_presence по значению хотя бы
           одного из: debtor_defenses_right_status,
           waiver_of_defenses_status,
@@ -7109,10 +7136,12 @@ checks_v8:
 
       presence_signal:
         field: "guaranty_term_claim_presence"
-        present: "present"
-        missing: "missing"
-        unclear: "unclear"
-
+        present_values:
+          - present
+        missing_values:
+          - missing
+        unclear_values:
+          - unclear
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора поручительства
@@ -7127,7 +7156,7 @@ checks_v8:
         </context>
 
         <task>
-        0. Сначала определи guaranty_term_claim_presence:
+        0. guaranty_term_claim_presence:
            - "present" — в тексте прямо указан срок поручительства,
              срок предъявления требований или способ исчисления срока;
            - "missing" — срок поручительства и связанные вопросы
@@ -7181,6 +7210,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни guaranty_term_claim_presence по правилу из пункта 0 task.
         - Агрегируй guaranty_term_claim_presence по значению хотя бы
           одного из: guaranty_term_status, claim_period_status,
           term_calculation_method. Если хотя бы одно = "present" →
@@ -7522,10 +7552,12 @@ checks_v8:
 
       presence_signal:
         field: "secured_obligation_presence"
-        present: "present"
-        missing: "missing"
-        unclear: "unclear"
-
+        present_values:
+          - present
+        missing_values:
+          - missing
+        unclear_values:
+          - unclear
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора поручительства
@@ -7540,7 +7572,7 @@ checks_v8:
         </context>
 
         <task>
-        0. Сначала определи secured_obligation_presence:
+        0. secured_obligation_presence:
            - "present" — в тексте идентифицировано обеспечиваемое
              обязательство, упомянуты будущие обязательства или
              указан предельный объём;
@@ -7596,6 +7628,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни secured_obligation_presence по правилу из пункта 0 task.
         - Агрегируй secured_obligation_presence по значению хотя бы
           одного из: obligation_identification_status,
           future_obligation_status, obligation_limit_status. Если хотя
@@ -7935,10 +7968,12 @@ checks_v8:
 
       presence_signal:
         field: "co_ownership_consent_presence"
-        present: "present"
-        missing: "missing"
-        unclear: "unclear"
-
+        present_values:
+          - present
+        missing_values:
+          - missing
+        unclear_values:
+          - unclear
       llm_prompt_extraction: |
         <role>
         Ты — российский юрист. Извлеки из текста договора залога/ипотеки
@@ -7954,7 +7989,7 @@ checks_v8:
         </context>
 
         <task>
-        0. Сначала определи co_ownership_consent_presence:
+        0. co_ownership_consent_presence:
            - "present" — в тексте указан режим собственности на предмет
              залога, есть согласие сособственников или сведения о них;
            - "missing" — режим собственности и вопросы сособственников
@@ -8005,6 +8040,7 @@ checks_v8:
         </task>
 
         <context_rules>
+        - Перед остальными полями заполни co_ownership_consent_presence по правилу из пункта 0 task.
         - Агрегируй co_ownership_consent_presence по значению хотя бы
           одного из: ownership_regime_status, co_owner_consent_status,
           co_owner_info_status. Если ownership_regime_status ∈
