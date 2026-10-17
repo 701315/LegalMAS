@@ -1771,8 +1771,7 @@ checks_v8:
         - текстовое поле = "Данные не определены"
         </task>
         <context_rules>
-        - no_worsening_principle_check_presence и все статусные поля попарно не пересекаются
-          по значениям present/missing/unclear; их объединение покрывает все допустимые значения.
+        - Перед остальными полями заполни no_worsening_principle_check_presence по правилу из пункта 0 task.
         - no_worsening_clause_status: "explicit" — прямое указание на недопустимость ухудшения;
           "implicit" — принцип подразумевается, но прямого «не хуже ТК» нет;
           "not_defined" — вопрос не раскрыт.
@@ -2111,8 +2110,7 @@ checks_v8:
         - текстовое поле = "Данные не определены"
         </task>
         <context_rules>
-        - wage_indexation_check_presence и все статусные поля попарно не пересекаются
-          по значениям present/missing/unclear; их объединение покрывает все допустимые значения.
+        - Перед остальными полями заполни wage_indexation_check_presence по правилу из пункта 0 task.
         - indexation_mechanism_status: "concrete" — есть основа, периодичность и/или порядок;
           "declarative" — только общая декларация без параметров;
           "not_defined" — ни механизма, ни декларации.
@@ -2123,7 +2121,6 @@ checks_v8:
         - Если indexation_mechanism_status ∈ {concrete, declarative} ИЛИ
           indexation_basis ≠ "not_defined" ИЛИ indexation_frequency ≠ "not_defined", то
           wage_indexation_check_presence = "present".
-        - Если все поля = "not_defined", то wage_indexation_check_presence = "missing".
         </context_rules>
         <edge_cases>
         1. Полное отсутствие упоминаний индексации, ИПЦ, инфляции, повышения оплаты труда →
@@ -2466,7 +2463,7 @@ checks_v8:
         - текстовое поле = "Данные не определены"
         </task>
         <context_rules>
-        - union_activity_guarantees_check_presence и все статусные поля попарно не
+        - Перед остальными полями заполни union_activity_guarantees_check_presence по правилу из пункта 0 task.
           пересекаются по значениям present/missing/unclear; их объединение покрывает
           все допустимые значения.
         - Для каждого из 5 аспектов: "defined" — гарантия прямо указана в тексте;
@@ -2829,8 +2826,7 @@ checks_v8:
         - текстовое поле = "Данные не определены"
         </task>
         <context_rules>
-        - multiple_unions_check_presence и все статусные поля попарно не пересекаются
-          по значениям present/missing/unclear; их объединение покрывает все допустимые значения.
+        - Перед остальными полями заполни multiple_unions_check_presence по правилу из пункта 0 task.
         - multiple_unions_status: "defined" — прямо указано наличие нескольких профсоюзов;
           "not_defined" — не указано.
         - unified_body_status: "defined" — создание единого представительного органа
@@ -2843,7 +2839,6 @@ checks_v8:
         - Если multiple_unions_status = "defined" ИЛИ unified_body_status = "defined"
           ИЛИ representation_method ≠ "not_defined", то
           multiple_unions_check_presence = "present".
-        - Если все поля = "not_defined", то multiple_unions_check_presence = "missing".
         </context_rules>
         <edge_cases>
         1. Полное отсутствие упоминаний множественности профсоюзов, единого органа
@@ -3168,7 +3163,7 @@ checks_v8:
         - текстовое поле = "Данные не определены"
         </task>
         <context_rules>
-        - job_security_retraining_check_presence и все статусные поля попарно не
+        - Перед остальными полями заполни job_security_retraining_check_presence по правилу из пункта 0 task.
           пересекаются по значениям present/missing/unclear; их объединение покрывает
           все допустимые значения.
         - job_security_status: "concrete" — указаны конкретные мероприятия
@@ -3537,7 +3532,7 @@ checks_v8:
         - текстовое поле = "Данные не определены"
         </task>
         <context_rules>
-        - reorganization_succession_check_presence и все статусные поля попарно не
+        - Перед остальными полями заполни reorganization_succession_check_presence по правилу из пункта 0 task.
           пересекаются по значениям present/missing/unclear; их объединение покрывает
           все допустимые значения.
         - reorganization_clause_status: "defined" — положение о реорганизации прямо
@@ -3901,7 +3896,7 @@ checks_v8:
         - текстовое поле = "Данные не определены"
         </task>
         <context_rules>
-        - social_benefits_detail_check_presence и все статусные поля попарно не
+        - Перед остальными полями заполни social_benefits_detail_check_presence по правилу из пункта 0 task.
           пересекаются по значениям present/missing/unclear; их объединение покрывает
           все допустимые значения.
         - benefits_list_status: "defined" — есть конкретный перечень льгот;
@@ -4287,7 +4282,7 @@ checks_v8:
         - текстовое поле = "Данные не определены"
         </task>
         <context_rules>
-        - amendment_control_registration_check_presence и все статусные поля попарно
+        - Перед остальными полями заполни amendment_control_registration_check_presence по правилу из пункта 0 task.
           не пересекаются по значениям present/missing/unclear; их объединение
           покрывает все допустимые значения.
         - amendment_procedure_status: "defined" — порядок внесения изменений прямо
@@ -4675,7 +4670,7 @@ checks_v8:
         - текстовое поле = "Данные не определены"
         </task>
         <context_rules>
-        - dispute_resolution_liability_check_presence и все статусные поля попарно
+        - Перед остальными полями заполни dispute_resolution_liability_check_presence по правилу из пункта 0 task.
           не пересекаются по значениям present/missing/unclear; их объединение
           покрывает все допустимые значения.
         - dispute_procedure_status: "defined" — поэтапная процедура прямо указана;
@@ -5015,7 +5010,7 @@ checks_v8:
         - текстовое поле = "Данные не определены"
         </task>
         <context_rules>
-        - working_hours_and_leave_check_presence и все статусные поля попарно не
+        - Перед остальными полями заполни working_hours_and_leave_check_presence по правилу из пункта 0 task.
           пересекаются по значениям present/missing/unclear; их объединение покрывает
           все допустимые значения.
         - working_hours_status: "defined" — режим рабочего времени прямо указан
@@ -5354,7 +5349,7 @@ checks_v8:
         - текстовое поле = "Данные не определены"
         </task>
         <context_rules>
-        - occupational_safety_check_presence и все статусные поля попарно не
+        - Перед остальными полями заполни occupational_safety_check_presence по правилу из пункта 0 task.
           пересекаются по значениям present/missing/unclear; их объединение покрывает
           все допустимые значения.
         - safety_measures_status: "defined" — мероприятия и/или финансирование охраны
@@ -5720,7 +5715,7 @@ checks_v8:
         - текстовое поле = "Данные не определены"
         </task>
         <context_rules>
-        - collective_agreement_content_scope_presence и все статусные поля попарно
+        - Перед остальными полями заполни collective_agreement_content_scope_presence по правилу из пункта 0 task.
           не пересекаются по значениям present/missing/unclear; их объединение
           покрывает все допустимые значения.
         - Для каждой из 6 тем: "defined" — есть конкретные обязательства;
@@ -6086,7 +6081,7 @@ checks_v8:
         - текстовое поле = "Данные не определены"
         </task>
         <context_rules>
-        - remuneration_system_check_presence и все статусные поля попарно не
+        - Перед остальными полями заполни remuneration_system_check_presence по правилу из пункта 0 task.
           пересекаются по значениям present/missing/unclear; их объединение покрывает
           все допустимые значения.
         - remuneration_system_status: "defined" — системы/формы оплаты прямо указаны;
@@ -6434,7 +6429,7 @@ checks_v8:
         - текстовое поле = "Данные не определены"
         </task>
         <context_rules>
-        - collective_agreement_conclusion_negotiations_presence и все статусные
+        - Перед остальными полями заполни collective_agreement_conclusion_negotiations_presence по правилу из пункта 0 task.
           поля попарно не пересекаются по значениям present/missing/unclear;
           их объединение покрывает все допустимые значения.
         - negotiations_procedure_status: "defined" — порядок переговоров конкретно
