@@ -9654,7 +9654,7 @@ checks_v8:
       retrieval_profile: "notice_check"
       preferred_unit_types:
         - general_provision
-        - boilerplate
+        - general_provision
       excluded_unit_types:
         - definition
         - structural_anchor

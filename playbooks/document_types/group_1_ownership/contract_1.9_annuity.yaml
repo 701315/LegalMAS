@@ -8064,7 +8064,7 @@ checks_v8:
       preferred_unit_types:
         - general_provision
         - obligation
-        - procedures
+        - obligation
       excluded_unit_types:
         - definition
         - structural_anchor

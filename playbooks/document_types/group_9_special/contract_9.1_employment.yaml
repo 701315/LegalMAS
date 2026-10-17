@@ -14762,7 +14762,7 @@ checks_v8:
       preferred_clause_functions:
         - obligations
         - procedures
-        - payment
+        - procedures
       boost_keywords:
         - "совмещение профессий"
         - "совмещение должностей"
@@ -14793,7 +14793,7 @@ checks_v8:
       preferred_clause_functions:
         - "obligations"
         - "procedures"
-        - "payment"
+        - procedures
       confidence_bonus_on_match: 0.08
       confidence_penalty_on_excluded_segment: 0.10
 

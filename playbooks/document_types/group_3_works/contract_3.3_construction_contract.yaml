@@ -3791,7 +3791,9 @@ checks_v8:
 
     enrichment_hints:
       preferred_segment_types: ["contract", "amendment"]
-      preferred_clause_functions: ["obligations", "payment_terms"]
+      preferred_clause_functions:
+        - "obligations"
+        - procedures
       confidence_bonus_on_match: 0.12
 
     evidence:

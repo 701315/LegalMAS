@@ -8217,7 +8217,7 @@ checks_v8:
       retrieval_profile: "confidentiality_check"
       preferred_unit_types:
         - general_provision
-        - boilerplate
+        - general_provision
         - obligation
       excluded_unit_types:
         - definition
@@ -8607,7 +8607,7 @@ checks_v8:
       preferred_unit_types:
         - obligation
         - general_provision
-        - procedures
+        - obligation
       excluded_unit_types:
         - definition
         - structural_anchor

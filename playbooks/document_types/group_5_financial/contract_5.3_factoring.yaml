@@ -907,7 +907,7 @@ checks_v8:
           display_in_grid: false
 
         - name: "evidence"
-          type: "array"
+          type: "string"
           presentation: "diagnostic"
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
@@ -1403,7 +1403,7 @@ checks_v8:
           display_priority: 6
 
         - name: "evidence"
-          type: "array"
+          type: "string"
           presentation: "diagnostic"
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
@@ -1834,7 +1834,7 @@ checks_v8:
           display_in_grid: false
 
         - name: "evidence"
-          type: "array"
+          type: "string"
           presentation: "diagnostic"
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
@@ -2250,7 +2250,7 @@ checks_v8:
           display_in_grid: false
 
         - name: "evidence"
-          type: "array"
+          type: "string"
           presentation: "diagnostic"
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
@@ -3177,7 +3177,7 @@ checks_v8:
           display_priority: 4
 
         - name: "evidence"
-          type: "array"
+          type: "string"
           presentation: "diagnostic"
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
@@ -3624,7 +3624,7 @@ checks_v8:
           display_priority: 3
 
         - name: "evidence"
-          type: "array"
+          type: "string"
           presentation: "diagnostic"
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
@@ -4117,7 +4117,7 @@ checks_v8:
           display_priority: 4
 
         - name: "evidence"
-          type: "array"
+          type: "string"
           presentation: "diagnostic"
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
@@ -4527,7 +4527,7 @@ checks_v8:
           display_priority: 2
 
         - name: "evidence"
-          type: "array"
+          type: "string"
           presentation: "diagnostic"
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
@@ -5015,7 +5015,7 @@ checks_v8:
           display_priority: 2
 
         - name: "evidence"
-          type: "array"
+          type: "string"
           presentation: "diagnostic"
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
@@ -5539,7 +5539,7 @@ checks_v8:
           display_priority: 2
 
         - name: "evidence"
-          type: "array"
+          type: "string"
           presentation: "diagnostic"
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
@@ -6018,7 +6018,7 @@ checks_v8:
           display_priority: 3
 
         - name: "evidence"
-          type: "array"
+          type: "string"
           presentation: "diagnostic"
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
@@ -6480,7 +6480,7 @@ checks_v8:
           display_priority: 3
 
         - name: "evidence"
-          type: "array"
+          type: "string"
           presentation: "diagnostic"
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
@@ -6951,7 +6951,7 @@ checks_v8:
           display_priority: 4
 
         - name: "evidence"
-          type: "array"
+          type: "string"
           presentation: "diagnostic"
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
@@ -7401,7 +7401,7 @@ checks_v8:
           display_priority: 3
 
         - name: "evidence"
-          type: "array"
+          type: "string"
           presentation: "diagnostic"
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
@@ -7823,7 +7823,7 @@ checks_v8:
           display_priority: 3
 
         - name: "evidence"
-          type: "array"
+          type: "string"
           presentation: "diagnostic"
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
@@ -8288,7 +8288,7 @@ checks_v8:
           display_priority: 4
 
         - name: "evidence"
-          type: "array"
+          type: "string"
           presentation: "diagnostic"
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
@@ -8746,7 +8746,7 @@ checks_v8:
           display_priority: 3
 
         - name: "evidence"
-          type: "array"
+          type: "string"
           presentation: "diagnostic"
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
@@ -9196,7 +9196,7 @@ checks_v8:
           display_priority: 4
 
         - name: "evidence"
-          type: "array"
+          type: "string"
           presentation: "diagnostic"
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
@@ -9621,7 +9621,7 @@ checks_v8:
           display_priority: 3
 
         - name: "evidence"
-          type: "array"
+          type: "string"
           presentation: "diagnostic"
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
@@ -10043,7 +10043,7 @@ checks_v8:
           display_priority: 3
 
         - name: "evidence"
-          type: "array"
+          type: "string"
           presentation: "diagnostic"
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
@@ -10457,7 +10457,7 @@ checks_v8:
           display_priority: 3
 
         - name: "evidence"
-          type: "array"
+          type: "string"
           presentation: "diagnostic"
           description: "Точные цитаты из договора, подтверждающие извлечённые значения."
           required: true
@@ -10757,7 +10757,7 @@ checks_v8:
           required: true
 
         - name: "evidence"
-          type: "array"
+          type: "string"
           presentation: "diagnostic"
           display_in_grid: false
           description: "Точные цитаты из договора."
@@ -11052,7 +11052,7 @@ checks_v8:
           required: true
 
         - name: "evidence"
-          type: "array"
+          type: "string"
           presentation: "diagnostic"
           display_in_grid: false
           description: "Точные цитаты из договора."
@@ -11345,7 +11345,7 @@ checks_v8:
           required: true
 
         - name: "evidence"
-          type: "array"
+          type: "string"
           presentation: "diagnostic"
           display_in_grid: false
           description: "Точные цитаты из договора."
@@ -11638,7 +11638,7 @@ checks_v8:
           required: true
 
         - name: "evidence"
-          type: "array"
+          type: "string"
           presentation: "diagnostic"
           display_in_grid: false
           description: "Точные цитаты из договора."

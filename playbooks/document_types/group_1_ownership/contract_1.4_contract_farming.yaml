@@ -8347,7 +8347,7 @@ checks_v8:
       preferred_clause_functions:
         - representations
         - limitations
-        - indemnification
+        - remedies
       negative_keywords:
         - "цена продукции"
         - "оплата"
@@ -8379,7 +8379,7 @@ checks_v8:
       preferred_clause_functions:
         - "representations"
         - "limitations"
-        - "indemnification"
+        - remedies
       confidence_bonus_on_match: 0.08
       confidence_penalty_on_excluded_segment: 0.12
     evidence:
@@ -8778,7 +8778,7 @@ checks_v8:
       preferred_unit_types:
         - general_provision
         - obligation
-        - boilerplate
+        - general_provision
       excluded_unit_types:
         - definition
         - structural_anchor

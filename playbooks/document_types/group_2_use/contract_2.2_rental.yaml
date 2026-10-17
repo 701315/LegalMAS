@@ -10580,7 +10580,7 @@ checks_v8:
       retrieval_profile: "acceptance_check"
       preferred_unit_types:
         - obligation
-        - procedures
+        - obligation
         - general_provision
       excluded_unit_types:
         - definition

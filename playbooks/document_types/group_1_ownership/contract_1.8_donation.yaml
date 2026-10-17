@@ -1960,17 +1960,17 @@ checks_v8:
            Агрегатное signal-поле — наличие регулирования по теме встречного предоставления.
            - "present" — если reclassification_target ∈ {sale, exchange, annuity, sham}
              ИЛИ protective_clause_present = "defined"
-             ИЛИ counter_performance_types содержит хотя бы один элемент;
+             ИЛИ counter_performance_types ≠ "not_defined";
            - "missing" — если reclassification_target = "not_applicable"
              И protective_clause_present = "not_defined"
-             И counter_performance_types = [];
+             И counter_performance_types = "not_defined";
            - "unclear" — если фрагменты по теме есть, но из-за противоречий
              вывод невозможен.
 
            Если presence = "missing":
            - reclassification_target = "not_applicable";
            - protective_clause_present = "not_defined";
-           - counter_performance_types = [];
+           - counter_performance_types = "not_defined";
            - не выполняй остальные шаги.
 
         1. counter_performance_types:
@@ -1995,16 +1995,16 @@ checks_v8:
            - "not_defined" — если такой оговорки нет.
 
         Если признаков встречного предоставления нет:
-        - counter_performance_types = []
+        - counter_performance_types = "not_defined"
         - reclassification_target = "not_applicable"
         </task>
 
         <context_rules>
         - Перед остальными полями заполни counter_performance_check_presence по правилу из пункта 0 task.
         - Если фрагментов по теме нет — presence = "missing"; не используй "unclear" при полном отсутствии фрагментов.
-        - Если presence = "missing" — reclassification_target = "not_applicable", protective_clause_present = "not_defined", counter_performance_types = [].
+        - Если presence = "missing" — reclassification_target = "not_applicable", protective_clause_present = "not_defined", counter_performance_types = "not_defined".
         - Только текст договора.
-        - counter_performance_types непуст только если в тексте есть прямые признаки встречного предоставления (оплата, содержание, уход, "в обмен на").
+        - counter_performance_types ≠ "not_defined" только если в тексте есть прямые признаки встречного предоставления (оплата, содержание, уход, "в обмен на").
         - sale = встречное предоставление выглядит как оплата или цена.
         - exchange = встречное предоставление выглядит как встречная передача имущества.
         - annuity = встречное предоставление выглядит как содержание, уход, регулярные выплаты.
@@ -2021,27 +2021,27 @@ checks_v8:
            → presence = "missing";
              reclassification_target = "not_applicable";
              protective_clause_present = "not_defined";
-             counter_performance_types = [].
+             counter_performance_types = "not_defined".
 
         2. Защитная оговорка без признаков встречного предоставления.
            "Одаряемый не несёт никаких обязательств перед Дарителем."
            → presence = "present";
              reclassification_target = "not_applicable";
              protective_clause_present = "defined";
-             counter_performance_types = [].
+             counter_performance_types = "not_defined".
 
         3. Противоречие между фрагментами.
            В одном пункте — "безвозмездно", в другом — "в обмен на уход и содержание".
            → presence = "unclear";
              reclassification_target = "not_applicable";
-             counter_performance_types содержит найденные признаки.
+             counter_performance_types содержит найденные признаки через запятую.
 
         4. Признаки ренты / пожизненного содержания.
            "Одаряемый обязуется пожизненно содержать Дарителя и выплачивать
            ежемесячно 20 000 рублей."
            → presence = "present";
              reclassification_target = "annuity";
-             counter_performance_types = ["пожизненное содержание", "ежемесячные платежи"].
+             counter_performance_types = "пожизненное содержание, ежемесячные платежи".
         </edge_cases>
 
         <output_expectations>
@@ -2049,9 +2049,9 @@ checks_v8:
         - Для counter_performance_check_presence используй только: "present", "missing", "unclear".
         - Для reclassification_target используй только: "sale", "exchange", "annuity", "sham", "not_applicable".
         - Для protective_clause_present используй только: "defined" или "not_defined".
-        - Для counter_performance_types используй массив строк на русском языке (пустой массив при отсутствии признаков).
+        - Для counter_performance_types используй строку на русском языке с перечислением через запятую (или "not_defined" при отсутствии признаков).
         - Fallback при отсутствии данных:
-          * counter_performance_types → [];
+          * counter_performance_types → "not_defined";
           * reclassification_target → "not_applicable";
           * protective_clause_present → "not_defined".
         - Fallback при противоречии или неоднозначности:
@@ -2070,15 +2070,13 @@ checks_v8:
           required: true
 
         - name: "counter_performance_types"
-          type: "string_list"
+          type: "string"
           presentation: "fact"
           display_in_grid: true
           display_priority: 1
           label: "Признаки встречного предоставления"
           description: >
-            Типы встречного предоставления, прямо найденные в тексте договора.
-            Примеры: "ежемесячные платежи", "содержание", "уход", "оплата".
-            Fallback: пустой массив [].
+            Типы встречного предоставления, прямо найденные в тексте договора, через запятую. Примеры: "ежемесячные платежи, содержание, уход". Fallback: "not_defined" / "Не удалось определить".
           required: false
 
         - name: "reclassification_target"

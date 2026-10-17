@@ -624,7 +624,18 @@ checks_v8:
       context_k: 8
       max_chunks: 10
       rerank: true
-    enrichment_hints: ['... без изменений ...']
+    enrichment_hints:
+      preferred_segment_types:
+        - contract
+        - amendment
+      excluded_segment_types:
+        - technical_specification
+        - price_list
+      preferred_clause_functions:
+        - representations
+        - boilerplate
+      confidence_bonus_on_match: 0.08
+      confidence_penalty_on_excluded_segment: 0.15
     evidence:
       required: true
       min_snippet_length: 40
@@ -1053,7 +1064,18 @@ checks_v8:
       context_k: 8
       max_chunks: 10
       rerank: true
-    enrichment_hints: ['... без изменений ...']
+    enrichment_hints:
+      preferred_segment_types:
+        - contract
+        - amendment
+      excluded_segment_types:
+        - technical_specification
+        - price_list
+      preferred_clause_functions:
+        - obligations
+        - definitions
+      confidence_bonus_on_match: 0.12
+      confidence_penalty_on_excluded_segment: 0.15
     evidence:
       required: true
       min_snippet_length: 40

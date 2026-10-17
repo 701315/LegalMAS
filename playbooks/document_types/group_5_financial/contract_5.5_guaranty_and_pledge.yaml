@@ -4315,7 +4315,7 @@ checks_v8:
         - technical_fragment
       preferred_clause_functions:
         - representations
-        - warranties
+        - representations
       negative_keywords:
         - "означает"
         - "в целях настоящего"
@@ -4337,7 +4337,7 @@ checks_v8:
         - "invoice"
       preferred_clause_functions:
         - "representations"
-        - "warranties"
+        - representations
       confidence_bonus_on_match: 0.10
       confidence_penalty_on_excluded_segment: 0.10
 
@@ -5892,7 +5892,7 @@ checks_v8:
         - technical_fragment
       preferred_clause_functions:
         - representations
-        - warranties
+        - representations
       negative_keywords:
         - "означает"
         - "в целях настоящего"
@@ -5914,7 +5914,7 @@ checks_v8:
         - "invoice"
       preferred_clause_functions:
         - "representations"
-        - "warranties"
+        - representations
       confidence_bonus_on_match: 0.10
       confidence_penalty_on_excluded_segment: 0.10
 
@@ -7096,7 +7096,7 @@ checks_v8:
         - technical_fragment
       preferred_clause_functions:
         - obligations
-        - termination
+        - limitations
       negative_keywords:
         - "означает"
         - "в целях настоящего"
@@ -7119,7 +7119,7 @@ checks_v8:
         - "invoice"
       preferred_clause_functions:
         - "obligations"
-        - "termination"
+        - limitations
       confidence_bonus_on_match: 0.08
       confidence_penalty_on_excluded_segment: 0.10
 
@@ -7928,7 +7928,7 @@ checks_v8:
         - technical_fragment
       preferred_clause_functions:
         - representations
-        - warranties
+        - representations
         - obligations
       negative_keywords:
         - "означает"
@@ -7951,7 +7951,7 @@ checks_v8:
         - "invoice"
       preferred_clause_functions:
         - "representations"
-        - "warranties"
+        - representations
       confidence_bonus_on_match: 0.10
       confidence_penalty_on_excluded_segment: 0.10
 

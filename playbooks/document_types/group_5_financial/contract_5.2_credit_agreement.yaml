@@ -3633,7 +3633,7 @@ checks_v8:
           required: true
 
         - name: "acceleration_triggers"
-          type: "array"
+          type: "string"
           presentation: "fact"
           label: "Основания досрочного истребования кредита"
           display_in_grid: false
@@ -4869,7 +4869,7 @@ checks_v8:
           required: true
 
         - name: "allocation_order_details"
-          type: "array"
+          type: "string"
           presentation: "fact"
           label: "Очередность погашения требований"
           display_in_grid: false
@@ -5217,7 +5217,7 @@ checks_v8:
         - technical_fragment
       preferred_clause_functions:
         - obligations
-        - covenants
+        - obligations
       negative_keywords:
         - "означает"
         - "в целях настоящего"
@@ -5243,7 +5243,7 @@ checks_v8:
         - "invoice"
       preferred_clause_functions:
         - "obligations"
-        - "covenants"
+        - obligations
       confidence_bonus_on_match: 0.08
       confidence_penalty_on_excluded_segment: 0.10
 
@@ -5472,7 +5472,7 @@ checks_v8:
           required: true
 
         - name: "covenant_types"
-          type: "array"
+          type: "string"
           presentation: "fact"
           label: "Перечень финансовых ковенантов"
           display_in_grid: false
@@ -6913,7 +6913,7 @@ checks_v8:
         - technical_fragment
       preferred_clause_functions:
         - obligations
-        - covenants
+        - obligations
       negative_keywords:
         - "означает"
         - "в целях настоящего"
@@ -6939,7 +6939,7 @@ checks_v8:
         - "invoice"
       preferred_clause_functions:
         - "obligations"
-        - "covenants"
+        - obligations
       confidence_bonus_on_match: 0.08
       confidence_penalty_on_excluded_segment: 0.10
 
@@ -7665,7 +7665,7 @@ checks_v8:
           required: true
 
         - name: "collateral_types"
-          type: "array"
+          type: "string"
           presentation: "fact"
           label: "Виды обеспечения кредита"
           display_in_grid: false
@@ -8195,7 +8195,7 @@ checks_v8:
           required: true
 
         - name: "cp_documents_required"
-          type: "array"
+          type: "string"
           presentation: "fact"
           label: "Документы отлагательных условий (CP)"
           display_in_grid: false
@@ -8496,7 +8496,7 @@ checks_v8:
         - technical_fragment
       preferred_clause_functions:
         - obligations
-        - covenants
+        - obligations
       negative_keywords:
         - "означает"
         - "в целях настоящего"
@@ -8521,7 +8521,7 @@ checks_v8:
         - "invoice"
       preferred_clause_functions:
         - "obligations"
-        - "covenants"
+        - obligations
       confidence_bonus_on_match: 0.08
       confidence_penalty_on_excluded_segment: 0.10
 
@@ -8711,7 +8711,7 @@ checks_v8:
           required: true
 
         - name: "negative_covenants_types"
-          type: "array"
+          type: "string"
           presentation: "fact"
           label: "Виды негативных ковенантов"
           display_in_grid: false
@@ -8720,7 +8720,7 @@ checks_v8:
           required: true
 
         - name: "affirmative_covenants_types"
-          type: "array"
+          type: "string"
           presentation: "fact"
           label: "Виды позитивных ковенантов"
           display_in_grid: false
@@ -11298,7 +11298,7 @@ checks_v8:
           required: true
 
         - name: "notice_methods_value"
-          type: "array"
+          type: "string"
           presentation: "fact"
           label: "Способы отправки юридически значимых уведомлений"
           display_in_grid: false
@@ -13218,7 +13218,7 @@ checks_v8:
           required: true
 
         - name: "reps_list"
-          type: "array"
+          type: "string"
           presentation: "fact"
           label: "Перечень заверений заёмщика"
           display_in_grid: false

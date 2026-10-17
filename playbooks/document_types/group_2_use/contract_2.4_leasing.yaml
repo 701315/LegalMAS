@@ -9175,7 +9175,7 @@ checks_v8:
         - technical_fragment
       preferred_clause_functions:
         - representations
-        - warranties
+        - representations
         - remedies
       negative_keywords:
         - "график платежей как таблица"
@@ -9202,7 +9202,7 @@ checks_v8:
         - "price_list"
       preferred_clause_functions:
         - "representations"
-        - "warranties"
+        - representations
         - "remedies"
       confidence_bonus_on_match: 0.10
       confidence_penalty_on_excluded_segment: 0.12
