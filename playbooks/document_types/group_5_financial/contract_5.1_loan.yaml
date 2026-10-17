@@ -589,7 +589,41 @@ checks_v8:
       context_k: 8
       temperature: 0.0
       max_tokens: 900
-    retrieval: ['... без изменений ...']
+    retrieval:
+      retrieval_profile: party_identification_check
+      corpus_scope: primary_segment
+      levels:
+        - legal_unit
+        - section
+      required_kind: legal_unit
+      retrieval_query: займодавец заимодавец заемщик заёмщик именуем в лице действующего на основании Устава доверенности приказа ИНН ОГРН ОГРНИП паспорт гражданин индивидуальный предприниматель юридическое лицо реквизиты сторон преамбула подписи
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - representations
+        - boilerplate
+      negative_keywords:
+        - сумма займа
+        - проценты
+        - срок возврата
+        - неустойка
+        - обеспечение
+        - означает
+        - в целях настоящего
+      position_bias:
+        preferred_range:
+          - 0.0
+          - 0.20
+        boost: 0.40
+        scope: segment
+      context_k: 8
+      max_chunks: 10
+      rerank: true
     enrichment_hints: ['... без изменений ...']
     evidence:
       required: true
@@ -983,7 +1017,42 @@ checks_v8:
       context_k: 8
       temperature: 0.0
       max_tokens: 700
-    retrieval: ['... без изменений ...']
+    retrieval:
+      retrieval_profile: payment_terms_check
+      corpus_scope: primary_segment
+      levels:
+        - legal_unit
+        - section
+      required_kind: legal_unit
+      retrieval_query: предмет займа сумма размер денежные средства валюта рубли доллары евро передаёт передает количество вещи согласно приложению график траншей спецификация
+      preferred_unit_types:
+        - obligation
+        - general_provision
+      excluded_unit_types:
+        - definition
+        - structural_anchor
+        - technical_fragment
+      preferred_clause_functions:
+        - obligations
+        - definitions
+      negative_keywords:
+        - проценты
+        - ставка
+        - срок возврата
+        - неустойка
+        - обеспечение
+        - залог
+        - означает
+        - в целях настоящего
+      position_bias:
+        preferred_range:
+          - 0.0
+          - 0.25
+        boost: 0.35
+        scope: segment
+      context_k: 8
+      max_chunks: 10
+      rerank: true
     enrichment_hints: ['... без изменений ...']
     evidence:
       required: true

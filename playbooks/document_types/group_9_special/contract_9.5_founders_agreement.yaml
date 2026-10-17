@@ -906,6 +906,7 @@ checks_v8:
             Организационно-правовая форма создаваемого общества (ooo / ao / pao). Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
+          label: Форма (ОПФ) общества
         - name: "company_location_status"
           type: "string"
           presentation: "signal"
@@ -1284,6 +1285,7 @@ checks_v8:
             Валюта уставного капитала (для российского общества — RUB). Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
+          label: Валюта уставного капитала
         - name: "shares_distribution_status"
           type: "string"
           presentation: "signal"
@@ -2940,6 +2942,7 @@ checks_v8:
             Тип предварительного одобрения сделок, заключаемых от имени создаваемого общества. Fallback: "Не установлено" / "Не удалось определить".
           required: true
 
+          label: Механизм одобрения
         - name: "amount_limit_status"
           type: "string"
           presentation: "signal"
