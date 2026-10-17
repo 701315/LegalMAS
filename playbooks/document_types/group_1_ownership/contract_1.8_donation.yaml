@@ -6981,7 +6981,6 @@ checks_v8:
 
       store_payload: true
 
-
 # ════════════════════════════════════════════════════════════════════════════
 # БЛОК 5: DD_REQUEST_TEMPLATES
 # Читается: DDRequestTemplateLoader

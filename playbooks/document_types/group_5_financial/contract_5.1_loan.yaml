@@ -596,8 +596,6 @@ checks_v8:
       min_snippet_length: 40
       max_snippet_length: 600
     extraction:
-      store_payload: true
-
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -943,6 +941,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 6
 
+      store_payload: true
+
   - id: loan_subject_and_amount
     name: "Предмет и сумма займа"
     description: >
@@ -990,8 +990,6 @@ checks_v8:
       min_snippet_length: 40
       max_snippet_length: 500
     extraction:
-      store_payload: true
-
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -1225,6 +1223,8 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
+
+      store_payload: true
 
   - id: loan_interest_terms
     name: "Проценты по займу: процентность, ставка, база начисления, периодичность"
@@ -5160,6 +5160,7 @@ checks_v8:
           required: true
 
       store_payload: true
+
   - id: related_party_loan_check
     name: "Заём между аффилированными лицами: раскрытие и рыночность (Обзор ВС РФ 29.01.2020, ст. 61.2 127-ФЗ)"
     description: >
@@ -12933,4 +12934,3 @@ dd_request_templates:
       Просим предоставить дополнительную информацию по вопросу «{check_name}»
       применительно к {doc_names}.
     addressee: "Юридический советник"
-

@@ -765,8 +765,6 @@ checks_v8:
       min_snippet_length: 40
       max_snippet_length: 600
     extraction:
-      store_payload: true
-
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -1053,6 +1051,8 @@ checks_v8:
           description: "Основание полномочий подписанта поклажедателя. Внутреннее enum-поле."
           required: true
 
+      store_payload: true
+
   - id: storage_subject_extraction
     name: "Предмет хранения: описание вещи, количество, стоимость"
     description: >
@@ -1281,8 +1281,6 @@ checks_v8:
       min_snippet_length: 50
       max_snippet_length: 800
     extraction:
-      store_payload: true
-
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -1565,6 +1563,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 5
 
+      store_payload: true
+
   - id: acceptance_documentation_check
     name: "Документальное подтверждение приёма вещи (ст. 887 ГК РФ, форма МХ-1)"
     description: >
@@ -1757,8 +1757,6 @@ checks_v8:
       min_snippet_length: 30
       max_snippet_length: 500
     extraction:
-      store_payload: true
-
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -1965,6 +1963,8 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
+
+      store_payload: true
 
   - id: professional_custodian_liability
     name: "Ответственность хранителя: основание, объём, лимит (ст. 901, 902 ГК РФ)"
@@ -2187,8 +2187,6 @@ checks_v8:
       min_snippet_length: 40
       max_snippet_length: 600
     extraction:
-      store_payload: true
-
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -2402,6 +2400,8 @@ checks_v8:
           display_in_grid: true
           display_priority: 5
 
+      store_payload: true
+
   - id: return_on_first_demand_check
     name: "Право на возврат вещи по первому требованию (ст. 904 ГК РФ)"
     description: >
@@ -2611,8 +2611,6 @@ checks_v8:
       min_snippet_length: 30
       max_snippet_length: 500
     extraction:
-      store_payload: true
-
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -2825,6 +2823,8 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 3
+
+      store_payload: true
 
   - id: irregular_storage_terms
     name: "Иррегулярное хранение: условия смешения вещей (ст. 890 ГК РФ)"
@@ -3045,8 +3045,6 @@ checks_v8:
       min_snippet_length: 30
       max_snippet_length: 500
     extraction:
-      store_payload: true
-
       enabled: true
       mode: "hybrid"
       compact_output: false
@@ -3294,6 +3292,8 @@ checks_v8:
           required: true
           display_in_grid: true
           display_priority: 4
+
+      store_payload: true
 
   - id: uncollected_goods_disposal
     name: "Реализация невостребованной вещи (ст. 899 ГК РФ)"
