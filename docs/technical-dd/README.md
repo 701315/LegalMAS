@@ -51,8 +51,8 @@ This pack supports a pre-seed technical due diligence of Steloom (repository `Le
 - DD Grid V1 with `cell_state` (`defined`/`not_defined`/`not_executed`/`error`), per-cell risk badges, drawer with anchor / location / review status / QC.
 - Exports (Excel, Word, JSON); `EXPORT_STARTED`/`EXPORT_COMPLETED`/`EXPORT_FAILED` audited.
 - Admin observability: `/tenant/dashboard`, `/tenant/metrics`, `/tenant/logs` audited via middleware; `/tenant/alerts` not audited (read-only).
-- Systemd deployment; `deploy-demo.sh` uses `rsync --delete` without git commit in demo (R-38).
-- Backups at `/mnt/backups/steloom-demo/releases/` — 15 GB, no rotation (R-39).
+- Systemd deployment; `deploy/deploy-demo.sh` uses whitelist `rsync -a --delete` without git commit in demo (R-38 CLOSED via `.deploy-meta.json`, E103).
+- Backups at `/mnt/backups/steloom-demo/releases/` — retention 30d + keep latest 10 (R-39 CLOSED, E103); current 12 dirs, 4.4 GB.
 - Q6 fix applied 2026-10-26: `--proxy-headers --forwarded-allow-ips=127.0.0.1` in uvicorn; login rate limit now per-client (E75).
 
 **Planned per HANDOVER / owner:**
@@ -181,7 +181,7 @@ Synthetic fixture acceptable only if clearly marked.
 - **Prompt injection** — compact `<UNTRUSTED_DOCUMENT_TEXT>` delimiters + security line applied 2026-10-26 to 3 prompt files (`generic_presence.txt`, `classify_document.txt`, `clause_detection.txt`). Smoke-tested via `PromptLoader` (E97). Residual LOW: delimiter escape not sanitized; full closure via `_render_prompt` sanitization deferred (~2h). R-17 FIXED.
 - **Audit coverage** — 40+ write actions covered; login/upload-identity/download/admin-user-management not audited. PARTIALLY ACCEPTED + PLANNED (R-02).
 - **LLM call count** — observed 37 calls for 21-check doc (E102); aggregate cost not exposed per-run in UI (R-33).
-- **Backups** — 15 GB, no rotation (R-39).
+- **Backups** — rotation via `rotate_backups()` (30d + keep 10); 42→12 dirs, 15 GB→4.4 GB. R-39 CLOSED (E103).
 - **V2 `anchor_uid` boundary path** — dormant (no producer found in `document_layout/`, `structure/` except consumer, `engine/content/`); if activated, needs confidence validation (R-43, LOW/dormant).
 - **Test isolation** — Tier 2 fixture wipes `audit_logs` unconditionally (R-45, LOW). Scope DELETE by tenant_id or require separate test DB.
 - **R-44 CLOSED** — `test_result_presentation_smoke.py` fixture drift fixed 2026-10-26 (E100); no runtime impact.

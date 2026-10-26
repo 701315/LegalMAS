@@ -53,7 +53,7 @@ Steloom (LegalMAS) is a multi-tenant SaaS for AI-assisted legal due diligence on
 | CI for tests | **Absent** | `.github/workflows/dependency-audit.yml` only | STATIC | Only pip-audit |
 | PII key rotation | **Absent** | `pii_encryption.py` | STATIC | R-10 |
 | JWT revocation | **Absent** | `api/deps/auth.py` | STATIC | R-01 |
-| Backup rotation | **Absent** | `deploy-demo.sh`, `/mnt/backups/` | STATIC | 15 GB; R-39 |
+| Backup rotation | **Active** | `deploy/deploy-demo.sh:rotate_backups()` | EXECUTED (E103) | retention 30d + keep latest 10; 42→12 dirs, 15 GB→4.4 GB (R-39 CLOSED) |
 | Rollback script | **Absent** | `deploy/` | STATIC | R-28 |
 | Word add-in | Planned | — | — | Not in code |
 | Legislation monitoring | Planned | — | — | Not in code |
