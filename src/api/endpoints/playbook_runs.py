@@ -39,6 +39,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps.auth import CurrentUser, get_current_user
@@ -51,18 +52,22 @@ from api.schemas.playbook_runs import (
 )
 from api.schemas.playbooks import PlaybookCreateRequest  # для описания "рецепта" в current
 from core.constants import PlaybookStatus
+from core.logging import get_logger
 from core.playbooks.compiler import (
     PlaybookConfig,
     build_compiled_checks,
 )
-from services.global_checks_db_loader import load_global_checks_from_db
 from core.utils.semver import bump_semver
 from db.models.playbook import PlaybookVersion
 from db.repositories.deal_repo import DealRepository
 from db.repositories.playbook_repo import PlaybookRepository
 from db.repositories.run_repo import RunRepository
 from db.session import get_db
-from services.global_checks_db_loader import load_global_checks_with_refs_from_db
+from services.global_checks_db_loader import (
+    load_global_checks_with_refs_from_db,
+)
+
+logger = get_logger(__name__)
 
 router = APIRouter(
     prefix="/deals",
@@ -294,18 +299,52 @@ async def rebuild_playbook_and_rerun(
     deal.playbook_version_id = new_playbook.id
 
     # 8. Создаём новый Run
-    new_run = await run_repo.create(
-        deal_id=deal_id,
-        tenant_id=deal.tenant_id,
-        playbook_version_id=new_playbook.id,
-        model_config_id=new_playbook.model_config_id,
-        bundle_id=None,
-        environment_hash=None,
-        profile=deal.profile,
-        checks_mode=checks_mode,
-        checks_scope=payload.checks_scope.model_dump() if payload.checks_scope else None,
-        analysis_language=deal.primary_language,  # <-- ДОБАВИТЬ
-    )
+    try:
+        new_run = await run_repo.create(
+            deal_id=deal_id,
+            tenant_id=deal.tenant_id,
+            playbook_version_id=new_playbook.id,
+            model_config_id=new_playbook.model_config_id,
+            bundle_id=None,
+            environment_hash=None,
+            profile=deal.profile,
+            checks_mode=checks_mode,
+            checks_scope=payload.checks_scope.model_dump() if payload.checks_scope else None,
+            analysis_language=deal.primary_language,
+        )
+    except IntegrityError as exc:
+        # R-52: same guard as R-33 (POST /deals/{id}/run). Partial unique
+        # index uq_runs_one_active_per_deal prevents two concurrent active
+        # runs per deal. Convert to 409 with X-Active-Run-Id.
+        #
+        # rollback is required here (not just session recovery):
+        # before this line, the flow has already created a new PlaybookVersion
+        # (create_version -> session.add + flush) and reassigned
+        # deal.playbook_version_id in-memory. Without explicit rollback, the
+        # async session may be committed by a downstream retry/handler,
+        # leaving an orphan playbook version without a corresponding run.
+        await db.rollback()
+        active = await run_repo.get_active_for_deal(deal_id)
+        headers: dict[str, str] = {"X-Error-Code": "DEAL_ALREADY_HAS_ACTIVE_RUN"}
+        if active is not None:
+            headers["X-Active-Run-Id"] = str(active.id)
+        logger.warning(
+            "Playbook rebuild rerun rejected: active run exists for deal",
+            extra={
+                "deal_id": str(deal_id),
+                "tenant_id": str(deal.tenant_id),
+                "active_run_id": str(active.id) if active else None,
+                "requested_by": getattr(user, "id", None),
+            },
+        )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            headers=headers,
+            detail=(
+                "Deal already has an active analysis run. "
+                "Wait for it to complete or cancel it before rebuilding the playbook."
+            ),
+        ) from exc
 
     # 9. Запускаем оркестратор пайплайна для этого Run
     from mas_queue.celery_app import celery_app as _celery
