@@ -16,6 +16,7 @@
   },
   "modelConfig": {
     "currentDealProfile": "Current deal profile: <bold>{{name}}</bold>",
+    "readOnlyBanner": "Profile management is available to superadmin only. You can view profiles and select one for this deal.",
     "list": {
       "title": "Profiles",
       "newBtn": "New",

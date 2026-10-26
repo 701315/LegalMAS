@@ -13,6 +13,7 @@ import type {
   ModelConfigUpdateInput,
 } from "../../types";
 
+import { useAuth } from "../../hooks/useAuth";
 import Button from "../ui/Button";
 import InlineAlert from "../InlineAlert";
 
@@ -111,6 +112,8 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
   const [successText, setSuccessText] = useState<string | null>(null);
 
   const isEmbedded = mode === "embedded";
+  const { globalRole } = useAuth();
+  const canManageConfigs = globalRole === "superadmin";
 
   const selectedConfig = useMemo(
     () => state.items.find((item) => item.id === selectedId) ?? null,
@@ -736,14 +739,16 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
               {selectedConfig.id}
             </div>
           </div>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={handleStartEdit}
-            leftIcon={<Pencil className="h-3.5 w-3.5" />}
-          >
-            {t("modelConfig.form.edit")}
-          </Button>
+          {canManageConfigs && (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleStartEdit}
+              leftIcon={<Pencil className="h-3.5 w-3.5" />}
+            >
+              {t("modelConfig.form.edit")}
+            </Button>
+          )}
         </div>
 
         {/* ── Модели эмбеддингов ──────────────────────── */}
@@ -1025,14 +1030,16 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
             </Button>
           )}
 
-          <button
-            type="button"
-            onClick={() => void handleDelete(selectedConfig)}
-            disabled={isDeleting || isUsed}
+          {canManageConfigs && (
+            <button
+              type="button"
+              onClick={() => void handleDelete(selectedConfig)}
+              disabled={isDeleting || isUsed}
             className="ml-auto text-[10px] text-[var(--text-muted)] transition-colors hover:text-[var(--color-error-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-card)] disabled:cursor-not-allowed disabled:opacity-40"
           >
             {t("modelConfig.form.deleteProfile")}
-          </button>
+            </button>
+          )}
         </div>
       </div>
     );
@@ -1041,6 +1048,11 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
   // ── Main render ─────────────────────────────────────────
   return (
     <div className={isEmbedded ? "space-y-4" : "space-y-6"}>
+      {!canManageConfigs && (
+        <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-2 text-[11px] text-[var(--text-muted)]">
+          {t("modelConfig.readOnlyBanner")}
+        </div>
+      )}
       {/* Embedded: текущий профиль сделки */}
       {isEmbedded && currentDeal?.model_config_name && (
         <div className="rounded-xl border border-[var(--border-soft)] bg-[var(--bg-elevated-soft)] px-3 py-2 text-[11px] text-[var(--text-muted)]">
@@ -1069,14 +1081,16 @@ const ModelConfigManagerPanel: React.FC<ModelConfigManagerPanelProps> = ({
             <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">
               {t("modelConfig.list.title")}
             </h2>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={handleStartCreate}
-              leftIcon={<Plus className="h-3.5 w-3.5" />}
-            >
-              {t("modelConfig.list.newBtn")}
-            </Button>
+            {canManageConfigs && (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={handleStartCreate}
+                leftIcon={<Plus className="h-3.5 w-3.5" />}
+              >
+                {t("modelConfig.list.newBtn")}
+              </Button>
+            )}
           </div>
 
           {state.isLoading ? (
