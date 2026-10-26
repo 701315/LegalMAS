@@ -1,12 +1,12 @@
 # Steloom / LegalMAS — Technical Overview
 
 **Document:** TECHNICAL_OVERVIEW (Architecture and Code Guide)
-**Version:** 1.4
+**Version:** 1.5
 **Date:** 2026-10-26
 **Snapshot (audited baseline):** CONFIRMED — branch `master`, HEAD `f22e3ba1b82348ba1208bd7de8f183ff5331df57` (2026-10-26)
-**HEAD at completion:** `763f2d9` (7 post-snapshot commits; see §11). HANDOVER v7.8 referenced `d692e18`; diff = 182 files, +159,922 / −53,613 lines, 79 non-merge commits.
-**Deployed demo:** HEAD `763f2d9`, deployed 2026-10-26T14:07:58 UTC; authoritative `/srv/steloom-demo/.deploy-meta.json` (E103, R-38 CLOSED)
-**Fix log:** Q6 `--proxy-headers --forwarded-allow-ips=127.0.0.1` applied 2026-10-26T10:46 UTC (E75); Q9 compact `<UNTRUSTED_DOCUMENT_TEXT>` delimiters applied 2026-10-26 to 3 prompt files, smoke-tested (E97); DB schema verified VARCHAR(50) (E90); Tier 1 pytest 131/131 passed (E99, E100); Tier 2 security regression 3/3 passed (E101); end-to-end pipeline run 17.5 min on synthetic doc (E102); deploy hardening R-38/R-39/R-46 closed 2026-10-26T14:07 UTC (E103) — demo deployed at HEAD 763f2d9; threat model v1.0 + R-07 CLOSED (E104)
+**HEAD at completion:** `e1325f9` (18 post-snapshot commits; see §11). HANDOVER v7.8 referenced `d692e18`; diff = 182 files, +159,922 / −53,613 lines, 79 non-merge commits.
+**Deployed demo:** HEAD `e1325f9`, deployed 2026-10-26T17:13:48 UTC; authoritative `/srv/steloom-demo/.deploy-meta.json` (E103, E106, R-38 CLOSED)
+**Fix log:** Q6 `--proxy-headers --forwarded-allow-ips=127.0.0.1` applied 2026-10-26T10:46 UTC (E75); Q9 compact `<UNTRUSTED_DOCUMENT_TEXT>` delimiters applied 2026-10-26 to 3 prompt files, smoke-tested (E97); DB schema verified VARCHAR(50) (E90); Tier 1 pytest 131/131 passed (E99, E100); Tier 2 security regression 3/3 passed (E101); end-to-end pipeline run 17.5 min on synthetic doc (E102); deploy hardening R-38/R-39/R-46 closed 2026-10-26T14:07 UTC (E103) — demo deployed at HEAD 763f2d9; threat model v1.0 + R-07 CLOSED (E104); dev end-to-end run 15.2 min + race 409 verified (E105, E106); R-33/R-49/R-52/R-03 CLOSED; demo re-deployed at e1325f9 2026-10-26T17:13 UTC (E106)
 **Review mode:** static + targeted Q6 runtime verification + DB schema check + Tier 1+2 pytest + end-to-end run
 **Status:** Final for investor delivery
 **Methodology:** AI-assisted static analysis + owner-executed verification. Not an independent audit.
@@ -567,7 +567,7 @@ Only one ADR exists (`docs/adr/0001-multilingual-result-presentations.md`).
 
 **Monitoring alerts (13 rules):** pipeline (6) + operations (7). LLM alerts sleeping (no worker `/metrics`; R-32).
 
-**Demo git state:** git HEAD `97901c8` (stale); working tree has hundreds of `M`/`D`/`??` from rsync. **Authoritative: `cat /srv/steloom-demo/.deploy-meta.json`** → `{schema_version, dev_head, dev_head_short, deployed_at, deployer, host, backup_dir, demo_git_head_before_deploy, note}`. **Current: dev_head=`763f2d9`, deployed_at=`2026-10-26T14:07:58+00:00`, backup_dir=`2026-10-26-140553`.** Auto-generated on every deploy (E103, R-38 CLOSED).
+**Demo git state:** git HEAD `97901c8` (stale); working tree has hundreds of `M`/`D`/`??` from rsync. **Authoritative: `cat /srv/steloom-demo/.deploy-meta.json`** → `{schema_version, dev_head, dev_head_short, deployed_at, deployer, host, backup_dir, demo_git_head_before_deploy, note}`. **Current: dev_head=`e1325f9`, deployed_at=`2026-10-26T17:13:48+00:00`, backup_dir=`2026-10-26-171153`.** Auto-generated on every deploy (E103, E106, R-38 CLOSED).
 
 **Backups:** retention 30 days + keep latest 10 in `deploy/deploy-demo.sh:rotate_backups()`. After R-39 fix (2026-10-26): **12 dirs, 4.4 GB** (was 42 dirs, 15 GB). Oldest kept: `2026-09-28-130143`. R-39 CLOSED (E103).
 
@@ -611,4 +611,4 @@ Only one ADR exists (`docs/adr/0001-multilingual-result-presentations.md`).
 
 ---
 
-*End of TECHNICAL_OVERVIEW. Audited baseline `f22e3ba`; HEAD at completion `763f2d9`. Demo deployed at `763f2d9` 2026-10-26T14:07 UTC (E103). Threat model v1.0 (E104): 18 threats (9 Protected, 1 Bounded, 2 LOW, 1 LOW-MEDIUM, 2 MEDIUM, 1 MEDIUM-HIGH, 2 HIGH). **R-49 HIGH (model_configs unauth) is BLOCKER for external test access.** Q6 fix pre/post verified (E75, E103). DB VARCHAR(50). Tier 1+2 pytest 134/134 (E99–E101). E2E 17.5 min (E102). 49 risks: R-07/R-38/R-39/R-44/R-46 CLOSED; R-49 HIGH; R-50 MEDIUM; R-51 LOW; R-24 LOW-MEDIUM; R-03/R-33 HIGH; R-45 OPEN LOW.*
+*End of TECHNICAL_OVERVIEW. Audited baseline `f22e3ba`; HEAD at completion `e1325f9`. Demo deployed at `e1325f9` 2026-10-26T17:13 UTC (E103, E106). Threat model v1.1 (E106): 18 threats (9 Protected, 1 Bounded, 3 CLOSED — T-PII, T-AUTH-1, T-LLM-COST; 2 LOW, 1 LOW-MEDIUM, 2 MEDIUM). **0 HIGH open.** Q6 fix pre/post verified (E75, E103). DB VARCHAR(50). Tier 1+2 pytest 134/134 (E99–E101). E2E 17.5 min (E102) + dev 15.2 min (E105). 51 risks: 9 CLOSED (R-03/R-07/R-33/R-38/R-39/R-44/R-46/R-49/R-52); OPEN: R-50 MEDIUM, R-51 LOW, R-24 LOW-MEDIUM, R-53 LOW, R-45 LOW.*

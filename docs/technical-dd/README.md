@@ -1,12 +1,12 @@
 # Steloom / LegalMAS — Reviewer Guide
 
 **Document:** README (Reviewer Guide)
-**Version:** 1.4
+**Version:** 1.5
 **Date:** 2026-10-26
 **Snapshot (audited baseline):** CONFIRMED — branch `master`, HEAD `f22e3ba1b82348ba1208bd7de8f183ff5331df57` (owner-confirmed 2026-10-26)
-**HEAD at completion:** `763f2d9` (7 post-snapshot commits: Q9 fix, R-44 fix, DD package v1.4, deploy hardening R-38/R-39/R-46; all evidence-tracked in `internal/REVIEW_WORKLOG.md`)
+**HEAD at completion:** `e1325f9` (18 post-snapshot commits: Q9 fix, R-44 fix, DD package v1.4, deploy hardening R-38/R-39/R-46, threat model v1.0, R-33/R-52 race guards + migration, R-49 auth, R-03 PII rate limit; all evidence-tracked in `internal/REVIEW_WORKLOG.md`)
 **Deployed demo:** git HEAD `97901c8`; content via rsync (R-38)
-**Fix log:** Q6 `--proxy-headers` applied 2026-10-26T10:46 UTC (E75); Q9 prompt-injection compact delimiters applied 2026-10-26 to 3 prompt files, smoke-tested (E97); `/storage/*` MinIO bucket verified private (`403`); DB schema verified VARCHAR(50) (E90); Tier 1 pytest 131/131 passed 2026-10-26 (E99, E100); Tier 2 security regression 3/3 passed (E101); end-to-end run completed 17.5 min on synthetic doc (E102); deploy hardening R-38/R-39/R-46 closed 2026-10-26T14:07 UTC (E103) — demo deployed at HEAD 763f2d9; threat model v1.0 + R-07 CLOSED + R-49/R-50/R-51 new (E104)
+**Fix log:** Q6 `--proxy-headers` applied 2026-10-26T10:46 UTC (E75); Q9 prompt-injection compact delimiters applied 2026-10-26 to 3 prompt files, smoke-tested (E97); `/storage/*` MinIO bucket verified private (`403`); DB schema verified VARCHAR(50) (E90); Tier 1 pytest 131/131 passed 2026-10-26 (E99, E100); Tier 2 security regression 3/3 passed (E101); end-to-end run completed 17.5 min on synthetic doc (E102); deploy hardening R-38/R-39/R-46 closed 2026-10-26T14:07 UTC (E103) — demo deployed at HEAD 763f2d9; threat model v1.0 + R-07 CLOSED + R-49/R-50/R-51 new (E104); dev end-to-end run 15.2 min + race 409 verified (E105, E106); R-33/R-49/R-52/R-03 CLOSED (E106); demo re-deployed at e1325f9 2026-10-26T17:13 UTC (E106), V1–V10 post-deploy verified
 **Review mode:** static + targeted runtime verification + Tier 1 pytest (131) + Tier 2 pytest (3) + end-to-end pipeline run
 **Status:** Final for investor delivery — 0 open owner questions
 **Methodology:** AI-assisted static analysis + owner-executed verification. Not an independent audit.
@@ -70,7 +70,7 @@ This pack supports a pre-seed technical due diligence of Steloom (repository `Le
 3. **This file** — orientation, verification matrix, quick start, known limitations.
 
 **`internal/REVIEW_WORKLOG.md`** — trace of what was viewed and closed (not for investor delivery).
-**`internal/THREAT_MODEL.md`** — 18 threats mapped (OWASP-style), evidence-linked, E104. Summary statuses: 9 Protected, 1 Bounded, 2 LOW, 1 LOW-MEDIUM, 2 MEDIUM, 1 MEDIUM-HIGH, 2 HIGH.
+**`internal/THREAT_MODEL.md`** — 18 threats mapped (OWASP-style), evidence-linked, E104/E106. Summary statuses: 9 Protected, 1 Bounded, 3 CLOSED (was MEDIUM-HIGH/HIGH — T-PII, T-AUTH-1, T-LLM-COST fixed 2026-10-26), 2 LOW, 1 LOW-MEDIUM, 2 MEDIUM. **0 HIGH open.**
 
 ## Verification matrix
 
@@ -163,7 +163,7 @@ Synthetic fixture acceptable only if clearly marked.
 1. **Ollama model parity** — dev uses `qwen2.5:14b` base model (observed at E102), not the documented `qwen25-legal` (Makefile) or `llama3.1` (config default). Model change can flip extraction quality.
 2. **`PII_ENCRYPTION_KEY`** verified set in dev and demo (43-char Fernet base64, E104). PII mapping encrypted in MinIO with Fernet; empty-key plaintext path rejected by `pii_encryption.py:97-100` validator. R-07 CLOSED (E104).
 3. **Legacy runs without instruction snapshot** → non-reproducible.
-4. **Demo git HEAD `97901c8`** — `git rev-parse HEAD` in `/srv/steloom-demo` is not a valid indicator of deployed content (rsync). **Authoritative version: `cat /srv/steloom-demo/.deploy-meta.json`** (auto-generated on every deploy: `dev_head`, `deployed_at`, `backup_dir`). **Current: dev_head=`763f2d9`, deployed_at=`2026-10-26T14:07:58+00:00`.** R-38 CLOSED (E103).
+4. **Demo git HEAD `97901c8`** — `git rev-parse HEAD` in `/srv/steloom-demo` is not a valid indicator of deployed content (rsync). **Authoritative version: `cat /srv/steloom-demo/.deploy-meta.json`** (auto-generated on every deploy: `dev_head`, `deployed_at`, `backup_dir`). **Current: dev_head=`e1325f9`, deployed_at=`2026-10-26T17:13:48+00:00`.** R-38 CLOSED (E103, E106).
 5. **`/storage/*` MinIO endpoint** open via Caddy. Bucket verified private (`403` on `/storage/mas-artifacts/`). Recommended: remove `handle /storage/*` from Caddyfile (defense-in-depth; R-40, LOW).
 6. **`/ws/*` dead block** in Caddyfile (no matching FastAPI endpoint, `404 application/json`). Not a risk; hygiene cleanup optional (R-41, INFO).
 7. **Tier 2 security test wipes audit_logs** on `mas_dd` (R-45, LOW). Manual backup before running if forensic trail is needed.
@@ -171,7 +171,7 @@ Synthetic fixture acceptable only if clearly marked.
 
 ## Known limitations — general
 
-- **R-49 HIGH — `model_configs.py` unauth write**: POST/PATCH/DELETE without `get_current_user`. Live verified (E104). **BLOCKER for external test access.** Fix: `Depends(get_current_user)` + role check, ~30min.
+- **R-49 CLOSED — `model_configs.py` unauth write**: fixed in backend (require_superadmin guard, `061c7e3`) + frontend (hide buttons, `524988b`); 15/15 tests passed. **Not a blocker anymore** (E106).
 - **R-50 MEDIUM — Content-Disposition injection**: `documents/exports.py:196` raw f-string; 3 endpoints (`:267,:332,:408`). Fix: reuse `_build_content_disposition` from `pdf_urls.py`, ~30min.
 - **R-51 LOW — `document_types.py` GET public**: read-only metadata, non-sensitive.
 
@@ -192,4 +192,4 @@ Owner-provided contact details were not supplied. Do not assume roles, names, or
 
 ---
 
-*End of README. Audited baseline `f22e3ba`; HEAD at completion `763f2d9` (7 post-snapshot commits). Demo deployed at `763f2d9` 2026-10-26T14:07 UTC via `.deploy-meta.json` (E103). Threat model v1.0 (E104): 18 threats — 9 Protected, 1 Bounded, 2 LOW, 1 LOW-MEDIUM, 2 MEDIUM, 1 MEDIUM-HIGH, 2 HIGH. **R-49 HIGH (model_configs unauth) is BLOCKER for external test access.** Q6 fix verified pre/post (5×401+2×429). DB schema VARCHAR(50). Tier 1+2 pytest 134/134 (E99–E101). E2E 17.5 min (E102). 0 open owner questions. 49 risks: R-07/R-38/R-39/R-44/R-46 CLOSED; R-49 HIGH; R-50 MEDIUM; R-51 LOW; R-24/R-03/R-33 upgraded; R-45 OPEN LOW.*
+*End of README. Audited baseline `f22e3ba`; HEAD at completion `e1325f9` (18 post-snapshot commits). Demo deployed at `e1325f9` 2026-10-26T17:13 UTC via `.deploy-meta.json` (E103, E106). Threat model v1.1 (E106): 18 threats — 9 Protected, 1 Bounded, 3 CLOSED (T-PII, T-AUTH-1, T-LLM-COST fixed), 2 LOW, 1 LOW-MEDIUM, 2 MEDIUM. **0 HIGH open.** Q6 fix verified pre/post (5×401+2×429). DB schema VARCHAR(50). Tier 1+2 pytest 134/134 (E99–E101). E2E 17.5 min (E102) + dev run 15.2 min (E105). 0 open owner questions. 51 risks: 9 CLOSED (R-03/R-07/R-33/R-38/R-39/R-44/R-46/R-49/R-52); OPEN: R-50 MEDIUM, R-51 LOW, R-24 LOW-MEDIUM, R-53 LOW (test gap), R-45 LOW.*

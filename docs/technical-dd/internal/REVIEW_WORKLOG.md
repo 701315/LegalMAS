@@ -2,8 +2,8 @@
 
 **Status:** Final (internal trace)
 **Date:** 2026-10-26
-**Version:** 1.4
-**HEAD at completion:** `763f2d9` (7 post-snapshot commits over audited baseline `f22e3ba`)
+**Version:** 1.5
+**HEAD at completion:** `e1325f9` (18 post-snapshot commits over audited baseline `f22e3ba`)
 **Reviewer:** AI-assisted static analysis + owner-executed verification (not independent audit)
 **Snapshot:** CONFIRMED — `master`, HEAD `f22e3ba1b82348ba1208bd7de8f183ff5331df57`
 
@@ -245,4 +245,4 @@ Diff scope: **182 files, +159,922 / −53,613 lines**. Significantly more work t
 
 ---
 
-*End of REVIEW_WORKLOG. Internal working document — not for investor delivery. Audited baseline `f22e3ba`; HEAD at completion `763f2d9`. Tier 1+2 pytest 134/134 (E99–E101). E2E 17.5 min (E102). Deploy hardening 2026-10-26T14:07 UTC (E103). Threat model v1.0 (E104). **R-07/R-38/R-39/R-44/R-46 CLOSED.** R-49 HIGH (model_configs unauth — BLOCKER); R-50 MEDIUM; R-51 LOW; R-24 LOW-MEDIUM; R-03/R-33 HIGH; R-45 OPEN LOW. 49 risks in final status. 0 open owner questions.*
+*End of REVIEW_WORKLOG. Internal working document — not for investor delivery. Audited baseline `f22e3ba`; HEAD at completion `e1325f9`. Tier 1+2 pytest 134/134 (E99–E101). E2E 17.5 min (E102). Dev end-to-end run 15.2 min (E105). Deploy hardening 2026-10-26T14:07 UTC (E103). Deploy of all HIGH fixes to demo 2026-10-26T17:13 UTC. Threat model v1.1 (E106). **CLOSED: R-03/R-07/R-33/R-38/R-39/R-44/R-46/R-49/R-52.** OPEN: R-50 MEDIUM, R-51 LOW, R-24 LOW-MEDIUM, R-53 LOW (test gap), R-45 OPEN LOW. 51 risks in final status. 0 HIGH open. 0 open owner questions.*

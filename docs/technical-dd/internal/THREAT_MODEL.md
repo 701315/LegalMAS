@@ -1,6 +1,6 @@
 # Steloom / LegalMAS — Threat Model
 
-**Version:** 1.0
+**Version:** 1.1
 **Date:** 2026-10-26
 **Snapshot:** audited baseline `f22e3ba`; HEAD at completion `763f2d9`
 **Method:** AI-assisted static analysis + targeted runtime verification. Not an independent penetration test.
@@ -25,12 +25,12 @@ Multi-tenant SaaS processing untrusted legal documents via LLM pipeline. Actor m
 | T-MAGIC-1 | Malicious file bypass (HEIC/WebP/HEIF) | Doc author | `.heic`/`.webp`/`.heif` с HTML/EXE | Extension whitelist + magic bytes for PDF/ZIP/PNG/JPG/TIFF/BMP/DOC/RTF. **HEIC/WebP/HEIF in EXTENSION_MAP but NOT in MAGIC_BYTES → falls through as `unknown`, not QUARANTINE** (`file_validator.py:200-215`) | Downstream parser is sole defense | **LOW-MEDIUM** (R-24) |
 | T-HDR-1 | Content-Disposition injection | Auth user | Upload с `\r\n` в filename → download | `pdf_urls.py:_build_content_disposition` — RFC 5987 safe (strips `\r\n`, URL-encodes). **`documents/exports.py:196 _build_download_headers` — UNSAFE raw f-string** | 3 endpoints (`exports.py:267,332,408`). Starlette 0.41.3 accepts CRLF при init | **MEDIUM** (R-50) |
 | T-IDOR-1 | Cross-tenant object access | User tenant B | Tenant A access | `get_scoped_*` + `require_project_role` в 34 endpoint файлах; E101 verified cross-tenant → 404 | None | **Protected** (E101) |
-| T-AUTH-1 | Unauthenticated write to model configs | Unauthenticated | POST/PATCH/DELETE `/api/v1/model-configs` без token | `model_configs.py:65,113,171` — POST/PATCH/DELETE без `Depends(get_current_user)`; только `Depends(get_db)`. **Live confirmed:** `GET → 200`, `POST (empty body) → 422` (pydantic validates body before handler, no auth gate) | Full unauth write/delete. Chain: GET (200) → enumerate IDs → DELETE → DoS; PATCH embeddings → pipeline integrity compromise. No `base_url`/`api_key` in schema → no data exfil / no RCE | **HIGH** (R-49) |
+| T-AUTH-1 | Unauthenticated write to model configs | Unauthenticated | POST/PATCH/DELETE `/api/v1/model-configs` без token | `require_superadmin()` Depends guard (`security.py`); POST/PATCH/DELETE → `Depends(require_superadmin)`; GET/usage → `Depends(get_current_user)`; frontend hides write buttons for non-superadmin + banner. 15/15 tests. | Was: full unauth write/delete. Now: 401 no-token, 403 member, 403 tenant_admin, 422 superadmin empty-body. | **CLOSED** (R-49, E106) |
 | T-AUTH-2 | Public read on document type metadata | Unauthenticated | `GET /api/v1/document-types` без token | `document_types.py:33` — no auth. Returns `{type, name, category, risk_level, language, jurisdiction}` | Metadata public (non-sensitive). Not a data leak per se | **LOW** (R-51) |
 | T-JWT-1 | JWT forgery | Any | Algorithm confusion / `none` | `jwt.decode(algorithms=[settings.JWT_ALGORITHM])` explicit; HS256 (`auth_service.py:163`) | None | **Protected** |
 | T-XFF-1 | Rate limit bypass via XFF spoofing | External | Spoof `X-Forwarded-For` | Caddy `{remote_host}` overwrites client header; uvicorn `--forwarded-allow-ips=127.0.0.1` | None | **Protected** (E75) |
-| T-LLM-COST-1 | LLM cost DoS | Auth user | N parallel runs per deal | `try_start_run` atomically moves single PENDING→RUNNING; **no check for other RUNNING runs of same deal**; **no partial unique index** on `(deal_id, status=running)` | R-33: ~50 LLM calls/run, no per-deal quota | **HIGH** |
-| T-PII-1 | PII exfiltration via editor | Compromised editor | Bulk `GET /pii-reveal` | Pre-audit mandatory (`pii_reveal.py:85,119`); **no rate limit** (`rate_limit.py` covers login/logs/admin only) | R-03: no PII reveal rate limit | **MEDIUM-HIGH** |
+| T-LLM-COST-1 | LLM cost DoS | Auth user | N parallel runs per deal (both `/deals/{id}/run` and `/playbook/rebuild-and-rerun`) | Partial unique index `uq_runs_one_active_per_deal WHERE status IN ('pending','running')` (`bf78307e1293`); API `IntegrityError` → 409 + `X-Active-Run-Id`; MissingGreenlet fix (cached ORM FK before rollback). Both endpoints covered (R-33 + R-52). | Was: N parallel runs allowed → cost amplification. Now: 2nd concurrent → 409 with pointer to active run. | **CLOSED** (R-33 + R-52, E106) |
+| T-PII-1 | PII exfiltration via editor | Compromised editor | Bulk `GET /pii-reveal` | Pre-audit mandatory + `check_pii_reveal_rate_limit` 10/min per user (scope=`pii_reveal`, identity=`user.id` not IP; Caddy-safe). 8/8 tests. | Was: no rate limit → bulk exfil amplifier. Now: 11th rapid call → 429 + `Retry-After: 60`. | **CLOSED** (R-03, E106) |
 | T-XSS-1 | XSS → JWT theft | Malicious UI/doc | Stored XSS → `localStorage.mas_dd_api_key` | JWT, role, tenant_id, project_roles все в localStorage (`uiStore.ts:45,51,79-83`) | XSS = full token theft; combined with R-01 (no revocation) — up to 8h window | **MEDIUM** |
 | T-PII-KEY-1 | PII plaintext in storage | Ops/deploy | Empty `PII_ENCRYPTION_KEY` | dev: SET (43 chars Fernet base64); demo: SET (43 chars). `pii_encryption.py:97-100` rejects invalid format | None | **Protected** (R-07 CLOSED, E104) |
 
@@ -38,12 +38,11 @@ Multi-tenant SaaS processing untrusted legal documents via LLM pipeline. Actor m
 
 - **Protected:** 9 (T-SSRF, T-XXE-main, T-CMDI, T-PATH, T-SQLI, T-IDOR, T-JWT, T-XFF, T-PII-KEY)
 - **Bounded (isolation-limited):** 1 (T-RCE)
+- **CLOSED (was MEDIUM-HIGH/HIGH):** 3 (T-PII, T-AUTH-1, T-LLM-COST — all fixed 2026-10-26, E106)
 - **LOW:** 2 (T-OFFICE, T-AUTH-2)
 - **LOW-MEDIUM:** 1 (T-MAGIC)
 - **MEDIUM:** 2 (T-HDR, T-XSS)
-- **MEDIUM-HIGH:** 1 (T-PII)
-- **HIGH:** 2 (T-AUTH-1, T-LLM-COST)
-- **Total:** 18 threats
+- **Total:** 18 threats (0 MEDIUM-HIGH open, 0 HIGH open)
 
 ## Not claimed
 
@@ -54,4 +53,4 @@ Multi-tenant SaaS processing untrusted legal documents via LLM pipeline. Actor m
 
 ---
 
-*End of THREAT_MODEL. 18 threats: 9 Protected, 1 Bounded, 2 LOW, 1 LOW-MEDIUM, 2 MEDIUM, 1 MEDIUM-HIGH, 2 HIGH. See QUALITY_AND_RISKS.md §6 for risk register integration (R-24, R-03, R-33, R-49, R-50, R-51).*
+*End of THREAT_MODEL. 18 threats: 9 Protected, 1 Bounded, 3 CLOSED (T-PII, T-AUTH-1, T-LLM-COST — verified 2026-10-26, E106), 2 LOW, 1 LOW-MEDIUM, 2 MEDIUM. 0 MEDIUM-HIGH open, 0 HIGH open. See QUALITY_AND_RISKS.md §6 for risk register integration (R-03, R-24, R-33, R-49, R-50, R-51, R-52, R-53).*
