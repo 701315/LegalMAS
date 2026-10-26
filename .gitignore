@@ -88,3 +88,7 @@ docs/*.md.bak-*
 # Test reports (локальные артефакты)
 _test_output/
 docs/ukbusinessworkbook2026.xlsx
+
+# DD audit scratch — full-file dumps for review (2MB+)
+# Contains dev defaults from code; not for repo
+batch_*.txt
