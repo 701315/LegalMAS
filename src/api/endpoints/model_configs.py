@@ -17,6 +17,8 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from api.deps.auth import CurrentUser, get_current_user
+from api.deps.security import require_superadmin
 from api.schemas.playbooks import (
     ModelConfigCreateRequest,
     ModelConfigResponse,
@@ -40,6 +42,7 @@ router = APIRouter(
 )
 async def list_model_configs(
     db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
 ):
     """
     Возвращает список доступных конфигураций моделей.
@@ -71,6 +74,7 @@ async def list_model_configs(
 async def create_model_config(
     payload: ModelConfigCreateRequest,
     db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(require_superadmin),
 ):
     """
     Создаёт новый профиль модели.
@@ -119,6 +123,7 @@ async def update_model_config(
     config_id: UUID,
     payload: ModelConfigUpdateRequest,
     db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(require_superadmin),
 ):
     """
     Частично обновляет профиль модели.
@@ -176,6 +181,7 @@ async def update_model_config(
 async def delete_model_config(
     config_id: UUID,
     db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(require_superadmin),
 ):
     """
     Удаляет профиль модели.
@@ -243,6 +249,7 @@ class ModelConfigUsageResponse(BaseModel):
 async def get_model_config_usage(
     config_id: UUID,
     db: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
 ):
     """
     Возвращает список версий плейбуков и сделок, которые ссылаются

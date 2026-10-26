@@ -186,3 +186,24 @@ def require_tenant_scope_access(
     )
 
 
+
+
+def require_superadmin(
+    user: CurrentUser = Depends(get_current_user),
+) -> CurrentUser:
+    """
+    Depends-style guard: only superadmin.
+
+    Use for endpoints managing platform-level resources (no tenant_id
+    isolation), e.g. model_configs. tenant_admin is NOT allowed because
+    changes affect all tenants — no isolation possible.
+
+    Raises:
+        403 — if user.global_role != "superadmin"
+    """
+    if user.global_role != "superadmin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Superadmin access required",
+        )
+    return user
