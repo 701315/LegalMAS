@@ -198,6 +198,11 @@ async def _start_run_core(
         else:
             pipeline_strategy = "REUSE_STRUCTURE"
 
+    # Capture before try: db.rollback() in except handler expires ORM instances.
+    # Accessing expired deal.tenant_id after rollback would trigger lazy IO
+    # and raise MissingGreenlet (session outside greenlet context).
+    deal_tenant_id_str = str(deal.tenant_id)
+
     try:
         run = await run_repo.create(
             deal_id=deal_uuid,
@@ -222,7 +227,7 @@ async def _start_run_core(
             "Run start rejected: active run exists for deal",
             extra={
                 "deal_id": str(deal_uuid),
-                "tenant_id": str(deal.tenant_id),
+                "tenant_id": deal_tenant_id_str,
                 "active_run_id": str(active.id) if active else None,
                 "requested_by": getattr(user, "id", None),
             },
