@@ -30,6 +30,7 @@ _limiter = FixedWindowRateLimiter(_storage)
 _LIMIT_LOGS = parse("60 per minute")
 _LIMIT_ADMIN = parse("30 per minute")
 _LIMIT_LOGIN = parse("5 per minute")  # Находка №5: Лимит на попытки входа
+_LIMIT_PII_REVEAL = parse("10 per minute")  # R-03: PII reveal bulk exfil guard
 _RETRY_AFTER_SECONDS = 60
 
 
@@ -98,7 +99,24 @@ def check_admin_rate_limit(
     )
 
 
-    
 
 
-    
+
+
+def check_pii_reveal_rate_limit(
+    request: Request,
+    user: CurrentUser = Depends(get_current_user),
+) -> None:
+    """
+    Лимит для PII reveal endpoint (10/мин на юзера).
+
+    R-03 mitigation: prevents compromised editor from bulk PII exfiltration.
+    identity = user.id (not IP) — правильная защита за Caddy, где все клиенты
+    выглядят как 127.0.0.1.
+    """
+    _check_limit(
+        _LIMIT_PII_REVEAL,
+        request=request,
+        identity=user.id,
+        scope="pii_reveal",
+    )

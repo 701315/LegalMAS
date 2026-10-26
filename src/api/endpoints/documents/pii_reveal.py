@@ -26,6 +26,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps.auth import CurrentUser, get_current_user
+from api.deps.rate_limit import check_pii_reveal_rate_limit
 from api.deps.security import require_project_role
 from core.logging import get_logger
 from db.repositories.audit_repo import AuditRepository
@@ -61,6 +62,7 @@ async def reveal_document_pii_endpoint(
     doc_id: UUID,
     db: AsyncSession = Depends(get_db),
     user: CurrentUser = Depends(get_current_user),
+    _rate_limit: None = Depends(check_pii_reveal_rate_limit),
 ) -> PIIRevealResponse:
     """
     Восстановить оригинальный текст документа из sanitized layout.
