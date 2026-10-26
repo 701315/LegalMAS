@@ -1,8 +1,9 @@
+cat > docs/technical-dd/internal/THREAT_MODEL.md <<'ENDOFFILE_TM'
 # Steloom / LegalMAS — Threat Model
 
 **Version:** 1.1
 **Date:** 2026-10-26
-**Snapshot:** audited baseline `f22e3ba`; HEAD at completion `763f2d9`
+**Snapshot:** audited baseline `f22e3ba`; HEAD at completion `e1325f9`
 **Method:** AI-assisted static analysis + targeted runtime verification. Not an independent penetration test.
 
 ## Scope
@@ -54,3 +55,4 @@ Multi-tenant SaaS processing untrusted legal documents via LLM pipeline. Actor m
 ---
 
 *End of THREAT_MODEL. 18 threats: 9 Protected, 1 Bounded, 3 CLOSED (T-PII, T-AUTH-1, T-LLM-COST — verified 2026-10-26, E106), 2 LOW, 1 LOW-MEDIUM, 2 MEDIUM. 0 MEDIUM-HIGH open, 0 HIGH open. See QUALITY_AND_RISKS.md §6 for risk register integration (R-03, R-24, R-33, R-49, R-50, R-51, R-52, R-53).*
+ENDOFFILE_TM
