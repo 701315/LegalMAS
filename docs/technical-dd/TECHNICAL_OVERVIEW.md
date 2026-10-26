@@ -6,7 +6,7 @@
 **Snapshot (audited baseline):** CONFIRMED — branch `master`, HEAD `f22e3ba1b82348ba1208bd7de8f183ff5331df57` (2026-10-26)
 **HEAD at completion:** `763f2d9` (7 post-snapshot commits; see §11). HANDOVER v7.8 referenced `d692e18`; diff = 182 files, +159,922 / −53,613 lines, 79 non-merge commits.
 **Deployed demo:** HEAD `763f2d9`, deployed 2026-10-26T14:07:58 UTC; authoritative `/srv/steloom-demo/.deploy-meta.json` (E103, R-38 CLOSED)
-**Fix log:** Q6 `--proxy-headers --forwarded-allow-ips=127.0.0.1` applied 2026-10-26T10:46 UTC (E75); Q9 compact `<UNTRUSTED_DOCUMENT_TEXT>` delimiters applied 2026-10-26 to 3 prompt files, smoke-tested (E97); DB schema verified VARCHAR(50) (E90); Tier 1 pytest 131/131 passed (E99, E100); Tier 2 security regression 3/3 passed (E101); end-to-end pipeline run 17.5 min on synthetic doc (E102); deploy hardening R-38/R-39/R-46 closed 2026-10-26T14:07 UTC (E103) — demo deployed at HEAD 763f2d9
+**Fix log:** Q6 `--proxy-headers --forwarded-allow-ips=127.0.0.1` applied 2026-10-26T10:46 UTC (E75); Q9 compact `<UNTRUSTED_DOCUMENT_TEXT>` delimiters applied 2026-10-26 to 3 prompt files, smoke-tested (E97); DB schema verified VARCHAR(50) (E90); Tier 1 pytest 131/131 passed (E99, E100); Tier 2 security regression 3/3 passed (E101); end-to-end pipeline run 17.5 min on synthetic doc (E102); deploy hardening R-38/R-39/R-46 closed 2026-10-26T14:07 UTC (E103) — demo deployed at HEAD 763f2d9; threat model v1.0 + R-07 CLOSED (E104)
 **Review mode:** static + targeted Q6 runtime verification + DB schema check + Tier 1+2 pytest + end-to-end run
 **Status:** Final for investor delivery
 **Methodology:** AI-assisted static analysis + owner-executed verification. Not an independent audit.
@@ -506,6 +506,7 @@ S3 layout: `tenants/{tenant_id}/deals/{deal_id}/{artifact_type}/...`.
 - `QualityGateError` → QUARANTINE + structured details; no audit event (R-31).
 - `deploy/deploy-demo.sh` uses whitelist `rsync -a --delete` (src, alembic, playbooks, prompts, deploy, frontend) without git commit in demo; deployment identity tracked via auto-generated `.deploy-meta.json` (E103, R-38 CLOSED).
 - Backup rotation: `rotate_backups()` retention 30 days + keep latest 10; observed 42→12 dirs, 15 GB→4.4 GB after deploy (E103, R-39 CLOSED).
+- **Threat model v1.0** (`internal/THREAT_MODEL.md`, E104): 18 threats — 9 Protected, 1 Bounded, 2 LOW, 1 LOW-MEDIUM, 2 MEDIUM, 1 MEDIUM-HIGH, 2 HIGH. Live verification found **R-49 HIGH (model_configs unauth)**, R-50 MEDIUM (content-disposition), R-51 LOW (document_types public GET).
 - Q6 fix (`--proxy-headers --forwarded-allow-ips=127.0.0.1`) committed to versioned `deploy/systemd/steloom-demo-backend.service`; `verify_systemd_units_contain_q6()` pre-flight aborts deploy on regression (E103, R-46 CLOSED).
 - Caddy `/api/*` with `X-Forwarded-For {remote_host}`; uvicorn `--proxy-headers --forwarded-allow-ips=127.0.0.1` (Q6 fix, E75).
 - `/storage/*` proxies MinIO; bucket private (`403`); R-40 LOW.
@@ -610,4 +611,4 @@ Only one ADR exists (`docs/adr/0001-multilingual-result-presentations.md`).
 
 ---
 
-*End of TECHNICAL_OVERVIEW. Audited baseline `f22e3ba`; HEAD at completion `763f2d9`. Demo deployed at `763f2d9` 2026-10-26T14:07 UTC (E103, `.deploy-meta.json`). Q6 fix verified pre- and post-deploy (E75, E103). DB schema verified VARCHAR(50). Tier 1+2 pytest 134/134 passed (E99–E101). End-to-end run 17.5 min (E102). All 45 risks in final status: R-38/R-39/R-44/R-46 CLOSED, R-45 OPEN LOW.*
+*End of TECHNICAL_OVERVIEW. Audited baseline `f22e3ba`; HEAD at completion `763f2d9`. Demo deployed at `763f2d9` 2026-10-26T14:07 UTC (E103). Threat model v1.0 (E104): 18 threats (9 Protected, 1 Bounded, 2 LOW, 1 LOW-MEDIUM, 2 MEDIUM, 1 MEDIUM-HIGH, 2 HIGH). **R-49 HIGH (model_configs unauth) is BLOCKER for external test access.** Q6 fix pre/post verified (E75, E103). DB VARCHAR(50). Tier 1+2 pytest 134/134 (E99–E101). E2E 17.5 min (E102). 49 risks: R-07/R-38/R-39/R-44/R-46 CLOSED; R-49 HIGH; R-50 MEDIUM; R-51 LOW; R-24 LOW-MEDIUM; R-03/R-33 HIGH; R-45 OPEN LOW.*
