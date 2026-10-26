@@ -116,6 +116,7 @@ class RunRepository:
         Предотвращает Race Condition при параллельном обновлении снимков.
         """
         from sqlalchemy import select
+
         from db.models.run import Run
 
         result = await self.session.execute(
@@ -216,6 +217,26 @@ class RunRepository:
         Вернуть последний Run для сделки по дате создания.
         """
         stmt = select(Run).where(Run.deal_id == deal_id).order_by(desc(Run.created_at)).limit(1)
+        result = await self.session.execute(stmt)
+        return result.scalars().first()
+
+
+    async def get_active_for_deal(self, deal_id: uuid.UUID) -> Run | None:
+        """
+        Вернуть активный Run (PENDING или RUNNING) для сделки, если существует.
+
+        Используется в R-33: при IntegrityError на partial unique index
+        uq_runs_one_active_per_deal возвращаем клиенту ID активного run.
+        """
+        stmt = (
+            select(Run)
+            .where(
+                Run.deal_id == deal_id,
+                Run.status.in_([RunStatus.PENDING.value, RunStatus.RUNNING.value]),
+            )
+            .order_by(desc(Run.created_at))
+            .limit(1)
+        )
         result = await self.session.execute(stmt)
         return result.scalars().first()
 

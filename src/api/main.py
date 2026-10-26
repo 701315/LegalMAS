@@ -42,6 +42,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from api.endpoints.global_instruction_versions import router as global_instruction_router
+from api.endpoints.localization_review import router as localization_review_router
 from classifiers.yaml_registry import YAMLRegistry
 from core.config import settings
 from core.logging import get_logger, setup_logging
@@ -82,9 +84,6 @@ from .endpoints.documents.router import router as documents_router
 from .endpoints.provenance import router as provenance_router
 from .endpoints.tenant_admin import router as tenant_admin_router
 from .middleware.audit import AuditMiddleware
-from api.endpoints.global_instruction_versions import router as global_instruction_router
-from api.endpoints.localization_review import router as localization_review_router
-
 
 setup_logging()
 
@@ -198,7 +197,7 @@ app.add_middleware(
     allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
     allow_methods=cors_allow_methods,
     allow_headers=cors_allow_headers,
-    expose_headers=["ETag"],
+    expose_headers=["ETag", "X-Active-Run-Id", "X-Error-Code"],
 )
 
 # ---------------------------------------------------------------------------

@@ -17,9 +17,10 @@ import uuid
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from api.deps.auth import CurrentUser, get_current_user
@@ -197,16 +198,43 @@ async def _start_run_core(
         else:
             pipeline_strategy = "REUSE_STRUCTURE"
 
-    run = await run_repo.create(
-        deal_id=deal_uuid,
-        tenant_id=deal.tenant_id,
-        playbook_version_id=playbook_version_id,
-        model_config_id=model_config_id,
-        bundle_id=None,
-        profile=data.profile,
-        pipeline_strategy=pipeline_strategy,
-        checks_mode=data.checks_mode,
-    )
+    try:
+        run = await run_repo.create(
+            deal_id=deal_uuid,
+            tenant_id=deal.tenant_id,
+            playbook_version_id=playbook_version_id,
+            model_config_id=model_config_id,
+            bundle_id=None,
+            profile=data.profile,
+            pipeline_strategy=pipeline_strategy,
+            checks_mode=data.checks_mode,
+        )
+    except IntegrityError as exc:
+        # R-33: partial unique index uq_runs_one_active_per_deal prevents
+        # two concurrent active runs per deal. Return 409 with the id of
+        # the already-active run so the client can open it instead of retrying.
+        await db.rollback()
+        active = await run_repo.get_active_for_deal(deal_uuid)
+        headers: dict[str, str] = {"X-Error-Code": "DEAL_ALREADY_HAS_ACTIVE_RUN"}
+        if active is not None:
+            headers["X-Active-Run-Id"] = str(active.id)
+        logger.warning(
+            "Run start rejected: active run exists for deal",
+            extra={
+                "deal_id": str(deal_uuid),
+                "tenant_id": str(deal.tenant_id),
+                "active_run_id": str(active.id) if active else None,
+                "requested_by": getattr(user, "id", None),
+            },
+        )
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            headers=headers,
+            detail=(
+                "Deal already has an active analysis run. "
+                "Wait for it to complete or cancel it before starting a new one."
+            ),
+        ) from exc
 
     logger.info(
         "Run created",
