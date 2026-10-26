@@ -155,6 +155,29 @@ verify_demo_worker_queues() {
   echo "   worker queues -> OK"
 }
 
+verify_systemd_units_contain_q6() {
+  log "Verifying systemd units contain Q6 fix (--proxy-headers)"
+
+  local backend_unit="$DEV_DIR/deploy/systemd/steloom-demo-backend.service"
+  if [[ ! -f "$backend_unit" ]]; then
+    echo "FATAL: missing $backend_unit"
+    exit 1
+  fi
+
+  if ! grep -q -- '--proxy-headers' "$backend_unit"; then
+    echo "FATAL: $backend_unit missing --proxy-headers (Q6 fix regressed)"
+    echo "Add: --proxy-headers --forwarded-allow-ips=127.0.0.1 to ExecStart"
+    exit 1
+  fi
+
+  if ! grep -q -- '--forwarded-allow-ips=127.0.0.1' "$backend_unit"; then
+    echo "FATAL: $backend_unit missing --forwarded-allow-ips=127.0.0.1"
+    exit 1
+  fi
+
+  echo "   Q6 fix present in systemd units -> OK"
+}
+
 REQUIREMENTS_CHANGED=0
 FRONTEND_DEPS_CHANGED=0
 
@@ -206,6 +229,7 @@ done
 echo "All required demo files present."
 
 run_env_contract_audit
+verify_systemd_units_contain_q6
 
 log "Current service state before deploy"
 for svc in "${START_ORDER[@]}"; do
@@ -248,6 +272,33 @@ fi
 if [[ -d "$DEMO_DIR/frontend/dist" ]]; then
   tar -czf "$BACKUP_DIR/frontend-dist.tgz" -C "$DEMO_DIR/frontend" dist
 fi
+
+rotate_backups() {
+  log "Rotating backups (retention: 30 days + keep latest 10)"
+
+  if [[ ! -d "$BACKUP_ROOT" ]]; then
+    return 0
+  fi
+
+  local keep_10
+  keep_10=$(ls -1dt "$BACKUP_ROOT"/*/ 2>/dev/null | head -10 | sed 's:/*$::')
+
+  while IFS= read -r dir; do
+    [[ -z "$dir" ]] && continue
+    dir="${dir%/}"
+    if echo "$keep_10" | grep -qxF "$dir"; then
+      continue
+    fi
+    if [[ -d "$dir" ]]; then
+      echo "   removing old backup: $(basename "$dir")"
+      rm -rf "$dir"
+    fi
+  done < <(find "$BACKUP_ROOT" -mindepth 1 -maxdepth 1 -type d -mtime +30 2>/dev/null)
+
+  echo "   backups after rotation: $(ls -1d "$BACKUP_ROOT"/*/ 2>/dev/null | wc -l)"
+}
+
+rotate_backups
 
 log "Stopping demo services"
 for svc in "${STOP_ORDER[@]}"; do
@@ -359,3 +410,26 @@ done
 echo
 echo "DEPLOY SUCCESS"
 echo "Backup saved to: $BACKUP_DIR"
+
+# --- deploy metadata (R-38) ---
+DEPLOY_META="$DEMO_DIR/.deploy-meta.json"
+DEV_HEAD="$(cd "$DEV_DIR" && git rev-parse HEAD 2>/dev/null || echo "unknown")"
+DEV_HEAD_SHORT="$(cd "$DEV_DIR" && git rev-parse --short HEAD 2>/dev/null || echo "unknown")"
+DEMO_HEAD_BEFORE="$(cd "$DEMO_DIR" && git rev-parse HEAD 2>/dev/null || echo "n/a")"
+
+cat > "$DEPLOY_META" <<METAEOF
+{
+  "schema_version": 1,
+  "dev_head": "$DEV_HEAD",
+  "dev_head_short": "$DEV_HEAD_SHORT",
+  "deployed_at": "$(date -Iseconds)",
+  "deployer": "$(whoami)",
+  "host": "$(hostname)",
+  "backup_dir": "$BACKUP_DIR",
+  "demo_git_head_before_deploy": "$DEMO_HEAD_BEFORE",
+  "note": "demo_git_head is not authoritative (rsync without git commit). Use dev_head for exact deployed source."
+}
+METAEOF
+echo "[deploy] wrote $DEPLOY_META"
+cat "$DEPLOY_META"
+# --- end deploy metadata ---
