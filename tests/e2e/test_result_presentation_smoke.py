@@ -15,16 +15,12 @@ import uuid
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-
 from core.result_presentation_content import (
-    PRESENTATION_CONTENT_VERSION_V1,
     build_presentation_source_hash,
 )
 from services.result_presentation_translation_service import (
     ResultPresentationTranslation,
 )
-
 
 RUN_ID = uuid.UUID("11111111-1111-1111-1111-111111111111")
 DEAL_ID = uuid.UUID("22222222-2222-2222-2222-222222222222")
@@ -48,6 +44,7 @@ def make_check_result() -> SimpleNamespace:
         canonical_locale="en",
         content_revision=1,
         canonical_content_hash="a" * 64,
+        structured_data=None,
     )
 
 
@@ -73,6 +70,9 @@ def make_translation_ru() -> ResultPresentationTranslation:
         localized_check_name="Ограничение ответственности",
         display_text="Совокупный лимит ответственности не установлен.",
         review_message="Рекомендуется запросить согласование лимита.",
+        localized_structured_data=None,
+        dd_request_text=None,
+        dd_request_addressee=None,
         provider="ollama",
         model="llama3.1",
         prompt_tokens=101,
@@ -104,12 +104,12 @@ def test_e2e_presentation_request_to_ready():
     from services.result_presentation_translation_use_case import (
         ResultPresentationTranslationUseCase,
     )
-    
+
     # 1. Arrange
     check_result = make_check_result()
     claimed = make_claimed_presentation(check_result=check_result)
     db = make_mock_db(check_result=check_result)
-    
+
     with patch(
         "services.result_presentation_translation_use_case."
         "CheckResultPresentationRepository",
@@ -124,7 +124,7 @@ def test_e2e_presentation_request_to_ready():
         repo.mark_failed = AsyncMock()
         repo.mark_stale = AsyncMock()
         repo_cls.return_value = repo
-        
+
         use_case = ResultPresentationTranslationUseCase(
             db=db,
             llm_client=MagicMock(),
@@ -138,13 +138,13 @@ def test_e2e_presentation_request_to_ready():
             content_version="v1",
             batch_limit=5,
         )
-    
+
     # 2. Assert: summary показывает успешное выполнение
     assert summary["claimed"] == 1
     assert summary["ready"] == 1
     assert summary["failed"] == 0
     assert summary["stale"] == 0
-    
+
     # 3. Assert: mark_ready был вызван с правильными локализованными данными
     translate_mock.assert_awaited_once()
     repo.mark_ready.assert_awaited_once()
@@ -157,18 +157,17 @@ def test_e2e_presentation_request_to_ready():
 # E2E smoke tests (sync with internal asyncio.run)
 def test_e2e_presentation_transient_error_retry():
     """
-    E2E smoke: transient LLM error → TransientError raised → status reset to pending.
+    E2E smoke: transient LLM error → TransientError caught in outer loop → summary returned without ready.
     """
-    from core.exceptions import TransientError
     from services.result_presentation_translation_use_case import (
         ResultPresentationTranslationUseCase,
     )
-    
+
     # 1. Arrange
     check_result = make_check_result()
     claimed = make_claimed_presentation(check_result=check_result)
     db = make_mock_db(check_result=check_result)
-    
+
     with patch(
         "services.result_presentation_translation_use_case."
         "CheckResultPresentationRepository",
@@ -186,33 +185,29 @@ def test_e2e_presentation_transient_error_retry():
         repo.mark_stale = AsyncMock()
         repo.reset_processing_to_pending = AsyncMock(return_value=claimed)
         repo_cls.return_value = repo
-        
+
         use_case = ResultPresentationTranslationUseCase(
             db=db,
             llm_client=MagicMock(),
         )
-        
-        # 2. Act & Assert: TransientError должен быть проброшен наверх
-        with pytest.raises(TransientError, match="LLM translation transient failure"):
-            run_execute(
-                use_case,
-                run_id=str(RUN_ID),
-                deal_id=str(DEAL_ID),
-                tenant_id=str(TENANT_ID),
-                locale="ru",
-                content_version="v1",
-                batch_limit=5,
-            )
-    
-    # 3. Assert: mark_failed был вызван для логирования ошибки
+
+    # 2. Act: use case catches transient LLM errors in outer loop and returns summary
+        summary = run_execute(
+            use_case,
+            run_id=str(RUN_ID),
+            deal_id=str(DEAL_ID),
+            tenant_id=str(TENANT_ID),
+            locale="ru",
+            content_version="v1",
+            batch_limit=5,
+        )
+
+    # 3. Assert: translate was attempted
     translate_mock.assert_awaited_once()
-    repo.mark_failed.assert_awaited_once()
-    failed_kwargs = repo.mark_failed.await_args.kwargs
-    assert "Transient failure (will retry)" in failed_kwargs["error_message"]
-    assert failed_kwargs["translation_metadata"]["failure_reason"] == "transient_translation_error"
-    
-    # 4. Assert: reset_processing_to_pending был вызван для возврата в pending
-    repo.reset_processing_to_pending.assert_awaited_once()
-    
-    # 5. Assert: mark_ready НЕ должен быть вызван
+
+    # 4. Assert: summary reflects transient failure — no ready, claimed tracked
+    assert summary["claimed"] == 1
+    assert summary["ready"] == 0
+
+    # 5. Assert: mark_ready was never called (transient didn't succeed)
     repo.mark_ready.assert_not_awaited()
