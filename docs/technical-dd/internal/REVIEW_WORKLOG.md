@@ -3,6 +3,7 @@
 **Status:** Final (internal trace)
 **Date:** 2026-10-26
 **Version:** 1.4
+**HEAD at completion:** `763f2d9` (7 post-snapshot commits over audited baseline `f22e3ba`)
 **Reviewer:** AI-assisted static analysis + owner-executed verification (not independent audit)
 **Snapshot:** CONFIRMED — `master`, HEAD `f22e3ba1b82348ba1208bd7de8f183ff5331df57`
 
@@ -134,6 +135,7 @@ Diff scope: **182 files, +159,922 / −53,613 lines**. Significantly more work t
 | E99 | Tier 1 pytest 2026-10-26 (HEAD f22e3ba): `test_exports_access.py` 11/11 passed; `test_result_semantics*.py` 118/118 passed; `test_result_presentation_smoke.py` initial run 2 failed → pre-existing test/spec drift (R-44: `make_translation_ru` missing 3 required args; `make_check_result` missing `structured_data`; `TransientError` exception no longer propagated) | `pytest` | EXECUTED | Failures pre-existing, not from Q9 fix |
 | E100 | R-44 fixed 2026-10-26: (a) added `localized_structured_data`/`dd_request_text`/`dd_request_addressee` to `make_translation_ru`; (b) added `structured_data=None` to `make_check_result`; (c) rewrote `test_e2e_presentation_transient_error_retry` to assert summary-based behavior (batch swallows `TransientError`); (d) removed unused `TransientError` import; (e) `ruff check --fix` cleaned trailing whitespace (13 fixes: I001 import sort, F401 unused pytest, W291/W293). Result: `pytest tests/e2e/test_result_presentation_smoke.py` → 2/2 passed; `ruff check` clean. Tier 1 total: 131/131 passed. | `pytest` + `ruff` | EXECUTED | — |
 | E101 | Tier 2 security pytest 2026-10-26 (dev `mas_dd`): `tests/security/test_leakage_repro.py` → 3/3 passed. `test_reproduce_unauthorized_deal_access` (401), `test_reproduce_cross_tenant_evidence_leakage` (404), `test_reproduce_audit_identity_spoofing` (actor != X-User-Id). Fixture performs unconditional `DELETE FROM audit_logs` on `mas_dd` — 9283 pre-existing records wiped; manual backup `/tmp/audit_logs_backup_20261026-121932.sql` (5.3 MB, 9317 lines). New finding R-45 (LOW). Tier 1+2 total: 134/134. | `pytest` | EXECUTED | Fixture destructiveness (R-45) |
+| E103 | Deploy hardening 2026-10-26T14:07 UTC: (a) R-46 fix committed to versioned `deploy/systemd/steloom-demo-backend.service` (commit `3bd6beb`) + `verify_systemd_units_contain_q6()` pre-flight (commit `763f2d9`); (b) R-39 `rotate_backups()` retention 30d + keep 10 (commit `763f2d9`) → 42→12 dirs, 15 GB→4.4 GB; (c) R-38 `.deploy-meta.json` auto-gen → `{dev_head: 763f2d9, deployed_at: 2026-10-26T14:07:58, backup_dir: 2026-10-26-140553}`. Post-deploy verify: services active, systemd repo==live (3×), meta==git HEAD, Q6 fix 5×401+2×429 (pre==post), endpoints OK, 12 backups, 4.4 GB. | `systemd`, `diff`, `curl`, `git log`, `cat .deploy-meta.json` | EXECUTED | R-38/R-39/R-46 CLOSED |
 | E102 | End-to-end pipeline run 2026-10-26 (dev, HEAD f22e3ba, run `b7025e4e-7824-4ba3-a200-3817696012e7`, deal `ad27bbf4-c1d1-4340-bbbb-27880860d762`): synthetic `Sample_Contract.DOCX` (18 pp.) → `contract_1.6_real_estate` (confidence 0.95) → DD Grid. Status `completed`; `has_errors=f`; duration **17.5 min** (12:29:35 → 12:47:05 UTC); `pipeline_strategy=REUSE_STRUCTURE`, `checks_mode=global_and_doc_type`. 21/21 checks succeeded (14 pass, 0 fail, 1 unclear, 6 no-verdict). Anchors: 34 exact_span (34 validated), 8 fuzzy_span (8 validated), 19 clause_only. LLM usage: 37 calls (`checks_extraction_llm` 20, `result_presentation_translation` 12, `run_summary_pass_b` 1, `run_summary_pass_a` 1, `structure_clause_detection` 1, `structure_semantic_enrichment` 1, `classification_l4` 1); model `qwen2.5:14b` on Ollama. Audit trail: 16 distinct action types (27 rows total) full lifecycle (IMPORT → ANALYSIS_COMPLETED + 12 translations). DD Grid: 21/21 with `structured_data` + `primary_anchor_id`. | `psql` + pipeline run | EXECUTED | Single synthetic doc; CPU-only Ollama; base model (not qwen25-legal tuned) |
 
 ## Contradictions
@@ -150,7 +152,7 @@ Diff scope: **182 files, +159,922 / −53,613 lines**. Significantly more work t
 
 ## Open questions
 
-**0 open.** 23/23 closed + follow-up findings (R-40, R-41, R-42, R-43, R-44, R-45): R-17 fixed 2026-10-26 (E97), residual LOW; R-09 closed (E90); R-37 closed (E91); R-42 closed (E82/E89); R-43 LOW dormant (E94); **R-44 CLOSED (E100)**; **R-45 OPEN LOW** (test isolation — audit_logs wipe, E101).
+**0 open.** 23/23 closed + follow-up findings (R-40, R-41, R-42, R-43, R-44, R-45): R-17 fixed 2026-10-26 (E97), residual LOW; R-09 closed (E90); R-37 closed (E91); R-42 closed (E82/E89); R-43 LOW dormant (E94); **R-38 CLOSED (E103)**; **R-39 CLOSED (E103)**; **R-44 CLOSED (E100)**; **R-45 OPEN LOW** (test isolation — audit_logs wipe, E101); **R-46 CLOSED (E103)**.
 - Q1, Q2, Q7, Q8, Q10, Q11 (VARCHAR(50) verified), Q12, Q13, Q14, Q15, Q16, Q17, Q18, Q19 — CLOSED by evidence.
 - Q3, Q4, Q5, Q9 — CLOSED by owner decision (E69–E72).
 - Q6 — CLOSED by fix + verification (E75).
@@ -203,6 +205,14 @@ Diff scope: **182 files, +159,922 / −53,613 lines**. Significantly more work t
 - `psql` queries: 8 blocks against `mas_dd` — run metadata, documents, check_results, anchors, llm_usage, audit_logs, DD Grid shape.
 - Run `b7025e4e-...` on deal `ad27bbf4-...` → `completed` in 17.5 min, 21/21 checks.
 
+**Deploy hardening 2026-10-26T14:07 UTC (E103):**
+- `./deploy/deploy-demo.sh` exit 0; env contract errors=0; Q6 pre-flight OK.
+- Rotation: 42→12 dirs, 15 GB→4.4 GB.
+- rsync + alembic + npm build OK; systemd units installed; 3 services active; worker queues OK; health checks OK.
+- Meta auto-gen: `{dev_head: 763f2d9, deployed_at: 2026-10-26T14:07:58, backup_dir: 2026-10-26-140553}`.
+- `diff deploy/systemd/*.service /etc/systemd/system/*.service` → 3× IDENTICAL.
+- `curl` 7× login → 5×401 + 2×429 post-deploy (== pre-deploy).
+
 **Verification of v1.4 documents (2026-10-26):**
 - `grep -E "^\*\*Version:" docs/technical-dd/README.md` → `**Version:** 1.4`.
 - `grep -cE "E10[0-2]|R-44|R-45|134/134|17\.5" docs/technical-dd/README.md` → 22 (>= 5 expected).
@@ -225,6 +235,7 @@ Diff scope: **182 files, +159,922 / −53,613 lines**. Significantly more work t
    - Q9 applied 2026-10-26 (E97). Compact `<UNTRUSTED_DOCUMENT_TEXT>` + security line in 3 prompt files; smoke-tested. Runtime LLM config recorded (E98): LLM_CONTEXT_LIMIT=12288. Residual LOW: delimiter escape not sanitized; optional `_render_prompt` sanitization (~2h, deferred).
 5b. Tier 1 pytest 2026-10-26 (E99, E100): 131/131 passed. R-44 closed (test fixture drift). No regressions from Q6 or Q9 fix.
 5c. Tier 2 pytest 2026-10-26 (E101): 3/3 security regression passed. R-45 OPEN LOW (test fixture wipes audit_logs on `mas_dd`).
+5e. R-38/R-39/R-46 closed 2026-10-26T14:07 UTC (E103): deploy hardening committed (`3bd6beb`, `763f2d9`), demo deployed at `763f2d9`, `.deploy-meta.json` auto-gen, backup rotation 42→12 (15 GB→4.4 GB), Q6 fix verified pre/post (5×401+2×429).
 5d. End-to-end pipeline run 2026-10-26 (E102): `completed` in 17.5 min on synthetic 18-pp. contract; 21/21 checks; 42 validated anchors; full audit trail. Baseline OWNER-REPORTED → EXECUTED (partial) for 134 tests + 1 E2E run.
 6. Files read (batch A–J): api, deps, middleware, services (import, layout, structure, checks starter, DD Grid, QC, PII, export, translation, deal review), engine (checks, detectors, retrieval, prompt loader), classifiers (hybrid, L1, L2, L3, cascade steps), workers (orchestrator, checks, import), mas_queue (celery, base_task, dispatcher), core (config, anchors), storage, deployment, prompts (3), monitoring alerts, DB schema.
 7. Files not read (optional): `_element_classifier/`, `_heading_builder/`, `_heading_scoring/`, `_hierarchy_builder/`, `_models/` (except `_identity.py`), `semantic_enrichment/`, `coherence/`, `cohesion/`, `chunk_planner/_types.py`, `_clause_detector/routing.py`. Not required for DD — coverage adequate.
@@ -232,4 +243,4 @@ Diff scope: **182 files, +159,922 / −53,613 lines**. Significantly more work t
 
 ---
 
-*End of REVIEW_WORKLOG. Internal working document — not for investor delivery. Snapshot CONFIRMED at `f22e3ba`. Tier 1+2 pytest 134/134 passed (E99–E101). E2E run 17.5 min (E102). R-44 CLOSED (E100). R-45 OPEN LOW (E101). 45 risks in final status. 0 open owner questions.*
+*End of REVIEW_WORKLOG. Internal working document — not for investor delivery. Audited baseline `f22e3ba`; HEAD at completion `763f2d9`. Tier 1+2 pytest 134/134 passed (E99–E101). E2E run 17.5 min (E102). Deploy hardening 2026-10-26T14:07 UTC: demo deployed at `763f2d9` (E103). R-38/R-39/R-44/R-46 CLOSED. R-45 OPEN LOW. 45 risks in final status. 0 open owner questions.*

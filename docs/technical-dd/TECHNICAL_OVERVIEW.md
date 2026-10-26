@@ -3,9 +3,10 @@
 **Document:** TECHNICAL_OVERVIEW (Architecture and Code Guide)
 **Version:** 1.4
 **Date:** 2026-10-26
-**Snapshot:** CONFIRMED — branch `master`, HEAD `f22e3ba1b82348ba1208bd7de8f183ff5331df57` (2026-10-26). HANDOVER v7.8 referenced `d692e18`; diff = 182 files, +159,922 / −53,613 lines, 79 non-merge commits.
-**Deployed demo:** git HEAD `97901c8`; content via rsync (R-38)
-**Fix log:** Q6 `--proxy-headers --forwarded-allow-ips=127.0.0.1` applied 2026-10-26T10:46 UTC (E75); Q9 compact `<UNTRUSTED_DOCUMENT_TEXT>` delimiters applied 2026-10-26 to 3 prompt files, smoke-tested (E97); DB schema verified VARCHAR(50) (E90); Tier 1 pytest 131/131 passed (E99, E100); Tier 2 security regression 3/3 passed (E101); end-to-end pipeline run 17.5 min on synthetic doc (E102)
+**Snapshot (audited baseline):** CONFIRMED — branch `master`, HEAD `f22e3ba1b82348ba1208bd7de8f183ff5331df57` (2026-10-26)
+**HEAD at completion:** `763f2d9` (7 post-snapshot commits; see §11). HANDOVER v7.8 referenced `d692e18`; diff = 182 files, +159,922 / −53,613 lines, 79 non-merge commits.
+**Deployed demo:** HEAD `763f2d9`, deployed 2026-10-26T14:07:58 UTC; authoritative `/srv/steloom-demo/.deploy-meta.json` (E103, R-38 CLOSED)
+**Fix log:** Q6 `--proxy-headers --forwarded-allow-ips=127.0.0.1` applied 2026-10-26T10:46 UTC (E75); Q9 compact `<UNTRUSTED_DOCUMENT_TEXT>` delimiters applied 2026-10-26 to 3 prompt files, smoke-tested (E97); DB schema verified VARCHAR(50) (E90); Tier 1 pytest 131/131 passed (E99, E100); Tier 2 security regression 3/3 passed (E101); end-to-end pipeline run 17.5 min on synthetic doc (E102); deploy hardening R-38/R-39/R-46 closed 2026-10-26T14:07 UTC (E103) — demo deployed at HEAD 763f2d9
 **Review mode:** static + targeted Q6 runtime verification + DB schema check + Tier 1+2 pytest + end-to-end run
 **Status:** Final for investor delivery
 **Methodology:** AI-assisted static analysis + owner-executed verification. Not an independent audit.
@@ -125,7 +126,7 @@ Trust boundaries:
 - **API** — uvicorn 2 workers on `127.0.0.1:8001`; `--proxy-headers --forwarded-allow-ips=127.0.0.1` (Q6 fix, E75).
 - **Workers** — Celery queues: `default`, `high_priority`, `system`, `low_priority`, `heavy_llm_enrichment`, `heavy_llm_segment_classification`, `heavy_llm_checks`.
 - **office-converter** — LibreOffice HTTP microservice.
-- **Observability** — `docker-compose.monitoring.yml`; 11 alert rules; LLM alerts sleeping (R-32).
+- **Observability** — `docker-compose.monitoring.yml`; 13 alert rules; LLM alerts sleeping (R-32).
 - **Caddy** — `/etc/caddy/Caddyfile`; `/api/*` reverse_proxy with `X-Forwarded-For {remote_host}`; `/storage/*` proxy to MinIO; `/ws/*` dead block (R-41); root → frontend dist.
 
 ## 6. Document → DD Grid path
@@ -503,7 +504,9 @@ S3 layout: `tenants/{tenant_id}/deals/{deal_id}/{artifact_type}/...`.
 - DD request trigger by `review_status`.
 - V2 layout enabled by default (`layout_config.document_layout_v2_enabled=True`).
 - `QualityGateError` → QUARANTINE + structured details; no audit event (R-31).
-- `deploy-demo.sh` uses `rsync --delete` without git commit (R-38).
+- `deploy/deploy-demo.sh` uses whitelist `rsync -a --delete` (src, alembic, playbooks, prompts, deploy, frontend) without git commit in demo; deployment identity tracked via auto-generated `.deploy-meta.json` (E103, R-38 CLOSED).
+- Backup rotation: `rotate_backups()` retention 30 days + keep latest 10; observed 42→12 dirs, 15 GB→4.4 GB after deploy (E103, R-39 CLOSED).
+- Q6 fix (`--proxy-headers --forwarded-allow-ips=127.0.0.1`) committed to versioned `deploy/systemd/steloom-demo-backend.service`; `verify_systemd_units_contain_q6()` pre-flight aborts deploy on regression (E103, R-46 CLOSED).
 - Caddy `/api/*` with `X-Forwarded-For {remote_host}`; uvicorn `--proxy-headers --forwarded-allow-ips=127.0.0.1` (Q6 fix, E75).
 - `/storage/*` proxies MinIO; bucket private (`403`); R-40 LOW.
 - `/ws/*` dead block (no matching endpoint); R-41 INFO.
@@ -550,7 +553,7 @@ Only one ADR exists (`docs/adr/0001-multilingual-result-presentations.md`).
 - `steloom-demo-worker.service` — Celery, 7 queues.
 - `steloom-demo-beat.service` — celery beat.
 
-**`deploy-demo.sh`:** `flock`; backup to `/mnt/backups/steloom-demo/releases/{TS}` (no rotation, R-39); `rsync --delete` dev→demo (no git commit, R-38); pip/npm if changed; `alembic upgrade`; `npm run build`; `grep localhost:8000` fail-fast; health checks.
+**`deploy/deploy-demo.sh`:** `flock`; backup to `/mnt/backups/steloom-demo/releases/{TS}`; `rotate_backups()` retention 30 days + keep latest 10 (E103, R-39 CLOSED); `rsync -a --delete` dev→demo (whitelist: src, alembic, playbooks, prompts, deploy, frontend; no git commit in demo); `pip/npm` if changed; `alembic upgrade`; `npm run build`; `grep localhost:8000` fail-fast; health checks; auto-gen `.deploy-meta.json` (E103, R-38 CLOSED). Pre-flight: `verify_systemd_units_contain_q6()` aborts on Q6 regression (E103, R-46 CLOSED).
 
 **`docker-compose.yml`** — infrastructure only; API/workers on host.
 
@@ -561,11 +564,11 @@ Only one ADR exists (`docs/adr/0001-multilingual-result-presentations.md`).
 - Root → `frontend/dist`; `try_files` fallback to `index.html`.
 - Logs: `/var/log/caddy/app.steloom.com.log` (JSON).
 
-**Monitoring alerts (11 rules):** pipeline (6) + operations (5). LLM alerts sleeping (no worker `/metrics`; R-32).
+**Monitoring alerts (13 rules):** pipeline (6) + operations (7). LLM alerts sleeping (no worker `/metrics`; R-32).
 
-**Demo git state:** HEAD `97901c8`; working tree has hundreds of `M`/`D`/`??` from rsync (R-38).
+**Demo git state:** git HEAD `97901c8` (stale); working tree has hundreds of `M`/`D`/`??` from rsync. **Authoritative: `cat /srv/steloom-demo/.deploy-meta.json`** → `{schema_version, dev_head, dev_head_short, deployed_at, deployer, host, backup_dir, demo_git_head_before_deploy, note}`. **Current: dev_head=`763f2d9`, deployed_at=`2026-10-26T14:07:58+00:00`, backup_dir=`2026-10-26-140553`.** Auto-generated on every deploy (E103, R-38 CLOSED).
 
-**Backups:** 15 GB, 9 directories (oldest 2026-10-01); no rotation (R-39).
+**Backups:** retention 30 days + keep latest 10 in `deploy/deploy-demo.sh:rotate_backups()`. After R-39 fix (2026-10-26): **12 dirs, 4.4 GB** (was 42 dirs, 15 GB). Oldest kept: `2026-09-28-130143`. R-39 CLOSED (E103).
 
 **Fix verification (E75):**
 - `systemctl is-active steloom-demo-backend` = `active`.
@@ -607,4 +610,4 @@ Only one ADR exists (`docs/adr/0001-multilingual-result-presentations.md`).
 
 ---
 
-*End of TECHNICAL_OVERVIEW. Snapshot CONFIRMED at `f22e3ba`. Q6 fix verified 2026-10-26T10:46 UTC (E75). DB schema verified VARCHAR(50). Tier 1+2 pytest 134/134 passed (E99–E101). End-to-end run 17.5 min on synthetic doc (E102). All 45 risks in final status.*
+*End of TECHNICAL_OVERVIEW. Audited baseline `f22e3ba`; HEAD at completion `763f2d9`. Demo deployed at `763f2d9` 2026-10-26T14:07 UTC (E103, `.deploy-meta.json`). Q6 fix verified pre- and post-deploy (E75, E103). DB schema verified VARCHAR(50). Tier 1+2 pytest 134/134 passed (E99–E101). End-to-end run 17.5 min (E102). All 45 risks in final status: R-38/R-39/R-44/R-46 CLOSED, R-45 OPEN LOW.*

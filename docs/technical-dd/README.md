@@ -3,9 +3,10 @@
 **Document:** README (Reviewer Guide)
 **Version:** 1.4
 **Date:** 2026-10-26
-**Snapshot:** CONFIRMED — branch `master`, HEAD `f22e3ba1b82348ba1208bd7de8f183ff5331df57` (owner-confirmed 2026-10-26)
+**Snapshot (audited baseline):** CONFIRMED — branch `master`, HEAD `f22e3ba1b82348ba1208bd7de8f183ff5331df57` (owner-confirmed 2026-10-26)
+**HEAD at completion:** `763f2d9` (7 post-snapshot commits: Q9 fix, R-44 fix, DD package v1.4, deploy hardening R-38/R-39/R-46; all evidence-tracked in `internal/REVIEW_WORKLOG.md`)
 **Deployed demo:** git HEAD `97901c8`; content via rsync (R-38)
-**Fix log:** Q6 `--proxy-headers` applied 2026-10-26T10:46 UTC (E75); Q9 prompt-injection compact delimiters applied 2026-10-26 to 3 prompt files, smoke-tested (E97); `/storage/*` MinIO bucket verified private (`403`); DB schema verified VARCHAR(50) (E90); Tier 1 pytest 131/131 passed 2026-10-26 (E99, E100); Tier 2 security regression 3/3 passed (E101); end-to-end run completed 17.5 min on synthetic doc (E102)
+**Fix log:** Q6 `--proxy-headers` applied 2026-10-26T10:46 UTC (E75); Q9 prompt-injection compact delimiters applied 2026-10-26 to 3 prompt files, smoke-tested (E97); `/storage/*` MinIO bucket verified private (`403`); DB schema verified VARCHAR(50) (E90); Tier 1 pytest 131/131 passed 2026-10-26 (E99, E100); Tier 2 security regression 3/3 passed (E101); end-to-end run completed 17.5 min on synthetic doc (E102); deploy hardening R-38/R-39/R-46 closed 2026-10-26T14:07 UTC (E103) — demo deployed at HEAD 763f2d9
 **Review mode:** static + targeted runtime verification + Tier 1 pytest (131) + Tier 2 pytest (3) + end-to-end pipeline run
 **Status:** Final for investor delivery — 0 open owner questions
 **Methodology:** AI-assisted static analysis + owner-executed verification. Not an independent audit.
@@ -161,10 +162,11 @@ Synthetic fixture acceptable only if clearly marked.
 1. **Ollama model parity** — dev uses `qwen2.5:14b` base model (observed at E102), not the documented `qwen25-legal` (Makefile) or `llama3.1` (config default). Model change can flip extraction quality.
 2. **`PII_ENCRYPTION_KEY`** empty in dev → plaintext PII mapping in MinIO (R-07). Acceptable for demo with synthetic documents; not acceptable with real client data.
 3. **Legacy runs without instruction snapshot** → non-reproducible.
-4. **Demo git HEAD `97901c8`** — `git rev-parse HEAD` in `/srv/steloom-demo` is not a valid indicator of deployed content (rsync; R-38).
+4. **Demo git HEAD `97901c8`** — `git rev-parse HEAD` in `/srv/steloom-demo` is not a valid indicator of deployed content (rsync). **Authoritative version: `cat /srv/steloom-demo/.deploy-meta.json`** (auto-generated on every deploy: `dev_head`, `deployed_at`, `backup_dir`). **Current: dev_head=`763f2d9`, deployed_at=`2026-10-26T14:07:58+00:00`.** R-38 CLOSED (E103).
 5. **`/storage/*` MinIO endpoint** open via Caddy. Bucket verified private (`403` on `/storage/mas-artifacts/`). Recommended: remove `handle /storage/*` from Caddyfile (defense-in-depth; R-40, LOW).
 6. **`/ws/*` dead block** in Caddyfile (no matching FastAPI endpoint, `404 application/json`). Not a risk; hygiene cleanup optional (R-41, INFO).
 7. **Tier 2 security test wipes audit_logs** on `mas_dd` (R-45, LOW). Manual backup before running if forensic trail is needed.
+8. **Backup retention:** `deploy/deploy-demo.sh` rotates backups (>30 days, keep latest 10). Current: 12 dirs, 4.4 GB (was 42 dirs, 15 GB before R-39 fix).
 
 ## Known limitations — general
 
@@ -185,4 +187,4 @@ Owner-provided contact details were not supplied. Do not assume roles, names, or
 
 ---
 
-*End of README. Snapshot CONFIRMED at `f22e3ba`. Q6 fix applied 2026-10-26T10:46 (E75). DB schema verified VARCHAR(50). Tier 1+2 pytest 134/134 passed (E99–E101). End-to-end run 17.5 min on synthetic doc (E102). 0 open owner questions. 45 risks in final status.*
+*End of README. Audited baseline `f22e3ba`; HEAD at completion `763f2d9` (7 post-snapshot commits). Demo deployed at `763f2d9` 2026-10-26T14:07 UTC via `.deploy-meta.json` (E103). Q6 fix verified both pre- and post-deploy (5×401 + 2×429). DB schema verified VARCHAR(50). Tier 1+2 pytest 134/134 passed (E99–E101). End-to-end run 17.5 min (E102). 0 open owner questions. 45 risks in final status: R-38/R-39/R-44/R-46 CLOSED, R-45 OPEN LOW.*

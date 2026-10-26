@@ -5,7 +5,7 @@
 **Date:** 2026-10-26
 **Snapshot:** CONFIRMED — branch `master`, HEAD `f22e3ba1b82348ba1208bd7de8f183ff5331df57` (2026-10-26); working tree `M frontend/public/steloom.svg` (not read). HANDOVER v7.8 referenced `d692e18`; diff = 182 files, +159,922 / −53,613, 79 non-merge commits.
 **Deployed demo:** git HEAD `97901c8` (rsync; R-38)
-**Fix log:** Q6 fix applied 2026-10-26T10:46 UTC (E75); `/storage/*` MinIO bucket verified private (`403`); DB `result`/`severity` verified `VARCHAR(50)` (E90); Q9 prompt-injection compact delimiters applied 2026-10-26, smoke-tested (E97); Tier 1 pytest executed 2026-10-26 (E99): 131/131 passed; R-44 test fixture drift closed (E100); Tier 2 security pytest 3/3 passed (E101); end-to-end pipeline run completed 17.5 min on synthetic doc (E102)
+**Fix log:** Q6 fix applied 2026-10-26T10:46 UTC (E75); `/storage/*` MinIO bucket verified private (`403`); DB `result`/`severity` verified `VARCHAR(50)` (E90); Q9 prompt-injection compact delimiters applied 2026-10-26, smoke-tested (E97); Tier 1 pytest executed 2026-10-26 (E99): 131/131 passed; R-44 test fixture drift closed (E100); Tier 2 security pytest 3/3 passed (E101); end-to-end pipeline run completed 17.5 min on synthetic doc (E102); deploy hardening R-38/R-39/R-46 closed 2026-10-26T14:07 UTC (E103) — demo deployed at HEAD 763f2d9
 **Review mode:** static + targeted Q6 runtime verification + DB schema check + Tier 1 pytest + Tier 2 pytest + end-to-end pipeline run
 **Status:** Final for investor delivery — 0 open owner questions
 **Methodology:** AI-assisted static analysis + owner-executed verification. Not an independent audit.
@@ -33,7 +33,7 @@
 - `_truncated` written by backend, not read by frontend (R-18).
 - `result`/`severity` — model `String(50)`; DB `information_schema` confirms `VARCHAR(50)` (E90); `_safe_truncate(20)` is no-op for current values (R-09 CLOSED).
 - `create_planned` race: unique partial indexes exist (`bc56177ec084`); `IntegrityError` not caught (R-08, LOW).
-- Backups: 15 GB, 9 dirs, no rotation (R-39).
+- Backups: retention via `rotate_backups()` (30d + keep 10); after deploy 2026-10-26: 12 dirs, 4.4 GB (was 42 dirs, 15 GB). R-39 CLOSED (E103).
 - Rollback script: none (R-28).
 - Worker `/metrics`: not implemented; LLM alerts sleeping (R-32).
 - `chunk_planner` mode C: no alert (R-34).
@@ -187,7 +187,7 @@ Additional end-to-end pipeline run (E102): 1 synthetic document → DD Grid in 1
 
 ## 4. Reliability and operations
 
-**Implemented:** durable stage ledger; outbox; retry with backoff; stale reapers; DLQ; finalize guards; 3 layout quality gates; chunk planner; export lifecycle audit; 11 alert rules; unique partial indexes on plan items; `--proxy-headers` (Q6 fix); segmentation `MAX_REASONABLE_SEGMENTS=15` enforcement.
+**Implemented:** durable stage ledger; outbox; retry with backoff; stale reapers; DLQ; finalize guards; 3 layout quality gates; chunk planner; export lifecycle audit; 13 alert rules; unique partial indexes on plan items; `--proxy-headers` (Q6 fix); segmentation `MAX_REASONABLE_SEGMENTS=15` enforcement.
 
 **Observed at E102 (2026-10-26):** pipeline completed in 17.5 min on CPU-only Ollama for 18-page synthetic contract (21 checks); full lifecycle in `audit_logs`; 21/21 check_results with `structured_data` + `primary_anchor_id`; no stale executions. Demonstrates reliability of orchestration for a small synthetic doc; not a benchmark.
 
@@ -251,14 +251,15 @@ Severity uses qualitative reasoning (impact × reachability). **No CVSS assigned
 | R-35 | Data ordering | Geometric sort fallback for missing bbox | STATIC | `_core_builder.py` | Silent ordering change | **LOW** | — | Accepted |
 | R-36 | Docs | `AUDIT_FINAL` scope = playbook only | STATIC (grep) | audit file + scripts | Reader may misinterpret | **LOW** | — | Open (clarify in HANDOVER) |
 | R-37 | Docs | HANDOVER references `d692e18`; actual HEAD `f22e3ba`; diff = 182 files, +159,922/−53,613, 79 non-merge commits | EXECUTED | HANDOVER §1; `git diff --stat`, `git log` | HANDOVER significantly stale | **INFO** (was MEDIUM) | — | **CLOSED (INFO)** |
-| R-38 | Deploy | `deploy-demo.sh` rsync without git commit | CONFIRMED (demo HEAD `97901c8`) | `deploy-demo.sh`, demo tree | `git rev-parse HEAD` in demo ≠ deployed content | **MEDIUM** | — | OPEN (fix: git reset or build-meta) |
-| R-39 | Ops | Backups = 15 GB, no rotation | CONFIRMED (`du`, `ls`) | `deploy-demo.sh`, `/mnt/backups/` | Disk growth | **MEDIUM** | Manual cleanup | OPEN (rotation ~30m) |
+| R-38 | Deploy | `deploy/deploy-demo.sh` rsync without git commit | CONFIRMED → CLOSED | `deploy/deploy-demo.sh`; `/srv/steloom-demo/.deploy-meta.json` (E103) | `git rev-parse HEAD` in demo ≠ deployed content; mitigated by auto-gen deploy-meta | **LOW** | `.deploy-meta.json` auto-generated on every deploy: `{dev_head, deployed_at, deployer, host, backup_dir}`. Current dev_head=`763f2d9`, deployed_at=2026-10-26T14:07:58 | **CLOSED** (E103) — 2026-10-26 |
+| R-39 | Ops | Backups growth unbounded (was 42 dirs, 15 GB) | CONFIRMED → CLOSED | `deploy/deploy-demo.sh`; `/mnt/backups/steloom-demo/releases/` (E103) | Disk growth | **LOW** | `rotate_backups()` — 30 days + keep latest 10; after deploy 2026-10-26: 12 dirs, 4.4 GB | **CLOSED** (E103) — 2026-10-26 |
 | R-40 | Deploy | `/storage/*` MinIO proxy exposed; bucket private (`403`) | STATIC + EXECUTED | `/etc/caddy/Caddyfile`; `curl /storage/mas-artifacts/` → 403 | Attack surface; not a data leak | **LOW** | Bucket private | **ACCEPTED** (recommend removing block) |
 | R-41 | Deploy | `/ws/*` dead block in Caddyfile (no matching endpoint) | STATIC + EXECUTED | `/etc/caddy/Caddyfile`; `curl /ws/` → 404 | Not a risk; hygiene | **INFO** | — | **ACCEPTED** (optional cleanup) |
 | R-42 | Segmentation | `MAX_REASONABLE_SEGMENTS=15` enforced in `segmenter.py` public facade → single-segment fallback | STATIC | `segmenter.py:200-213` | Protection exists | **CLOSED** | Fallback confirmed | **CLOSED** |
 | R-43 | Segmentation | V2 `anchor_uid` path (`_collect_v2_anchor_boundaries`, confidence=0.95) dormant — no `anchor_uid` producer found in `document_layout/`, `structure/` (except consumer), `engine/content/` | STATIC (grep) + UNKNOWN | `_segmenter/candidates.py`, grep | If V2 pipeline activates and emits `anchor_uid`, any change → boundary with 0.95 confidence | **LOW** (dormant) | `_is_v2_format` requires ≥30% V2 elements | OPEN (LOW, dormant) — verify semantics if V2 pipeline activates |
 | R-44 | Tests | Pre-existing test/spec drift: `test_result_presentation_smoke.py` fixtures not updated after `ResultPresentationTranslation` contract (3 new required args) and `CheckResult.structured_data` expansion; `TransientError` exception no longer propagated (batch swallows) | STATIC → EXECUTED | `pytest` (E99) → fixtures updated (E100) → 2/2 passed | Test suite drift signals fixture maintenance lag; not a runtime bug | **LOW** | Fixtures updated 2026-10-26; unused `TransientError` import removed; `ruff check --fix` cleaned whitespace | **CLOSED** (E100) |
 | R-45 | Tests / QA | `test_leakage_repro.py` fixture performs unconditional `DELETE FROM audit_logs` on shared `mas_dd`; wipes all 9283 pre-existing audit records on every run, no scope by tenant_id or test marker | STATIC → EXECUTED | `pytest` (E101) output: 9283 audit_logs before, 1 after (test itself creates 1); backup `/tmp/audit_logs_backup_20261026-121932.sql` (5.3 MB) | Destroys forensic evidence on shared DB; not a runtime bug; no customer impact in production (test DB only) | **LOW** | Manual backup before run (optional) | **OPEN** — recommendations: (a) scope DELETE by `tenant_id IN (test_tenant_ids)`; (b) require `TEST_DATABASE_URL` separate from dev; (c) use transaction rollback instead of DELETE |
+| R-46 | Deploy | Q6 fix (`--proxy-headers --forwarded-allow-ips=127.0.0.1`) applied to live `/etc/systemd/system/` (E75) but NOT to versioned `deploy/systemd/steloom-demo-backend.service` (last commit `80f8d60` 2026-08-10). Next deploy would revert Q6. | CONFIRMED → CLOSED | `diff deploy/systemd/... /etc/systemd/...`; `git log` Aug 10 (E103) | Rate limit regresses to shared-IP bucket (5/min total); 429 for all users | **HIGH** → CLOSED | (a) Q6 committed to versioned unit (commit `3bd6beb`); (b) `verify_systemd_units_contain_q6()` pre-flight aborts on regression; (c) verified pre- and post-deploy 5×401+2×429 | **CLOSED** (E103) — 2026-10-26 |
 
 **Not claimed:** no "no vulnerabilities"; no "safe"/"production-ready"/"enterprise-grade"; no compliance claim.
 
@@ -306,7 +307,7 @@ For the record — closed list:
 **Before external test access:**
 1. R-29 — rotate MinIO root credentials.
 2. R-27 — update `dd_grid_v1_contract.md`.
-3. R-38 — clarify deployed demo content; add git reset or build-meta to `deploy-demo.sh`.
+3. R-38 — ✅ **CLOSED** (E103): `.deploy-meta.json` auto-gen; deployed identity traceable.
 4. R-40 — remove `handle /storage/*` from Caddyfile (defense-in-depth; not blocking).
 
 **Before completing technical DD:**
@@ -321,7 +322,7 @@ For the record — closed list:
 11. R-14 — `password_changed_at` / `last_login_at`.
 12. R-26 — `prompts/README.md`.
 13. R-28 — rollback script.
-14. R-39 — backup rotation.
+14. R-39 — ✅ **CLOSED** (E103): `rotate_backups()` 30d + keep 10; 42→12 dirs.
 15. R-30 — incremental ADRs.
 16. R-31 — audit event on `QualityGateError`.
 17. R-34 — mode C alert.
@@ -336,4 +337,4 @@ For the record — closed list:
 
 ---
 
-*End of QUALITY_AND_RISKS. Snapshot CONFIRMED at `f22e3ba`. Q6 fix applied 2026-10-26T10:46 (E75). DB schema verified VARCHAR(50). Tier 1+2 pytest 134/134 passed (E99, E100, E101). End-to-end run 17.5 min on synthetic doc (E102). 0 open owner questions. 45 risks in final status.*
+*End of QUALITY_AND_RISKS. Audited baseline `f22e3ba`; HEAD at completion `763f2d9`. Demo deployed at `763f2d9` 2026-10-26T14:07 UTC (E103). Q6 fix verified pre- and post-deploy (E75, E103). DB schema verified VARCHAR(50). Tier 1+2 pytest 134/134 passed (E99–E101). End-to-end run 17.5 min (E102). Backup retention 30d + keep 10 (12 dirs, 4.4 GB). 0 open owner questions. 45 risks in final status: R-38/R-39/R-44/R-46 CLOSED, R-45 OPEN LOW.*
