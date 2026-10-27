@@ -1,289 +1,172 @@
-# Steloom / LegalMAS — Architecture
+---
+title: "Steloom / LegalMAS — Product Overview"
+subtitle: "Version 1.1 · 2026-10-27 · tech due diligence"
+date: "2026-10-27"
+lang: ru
+---
 
-**Document:** Steloom_Architecture (VC Technical Due Diligence)
-**Version:** 1.0
+# Steloom / LegalMAS — Product Overview
+
+**Document:** Steloom_Product_Overview
+**Version:** 1.1
 **Date:** 2026-10-27
-**Audience:** Technical VC (ex-CTO, ex-engineer), pre-seed technical due diligence
-**Snapshot:** audited baseline `f22e3ba`; HEAD at completion `e1325f9` (deployed demo at `e1325f9`, 2026-10-26T17:13:48 UTC)
-**Companion to:** `TECHNICAL_OVERVIEW.md` (full audit-grade detail), `DIAGRAMS.md` (standalone diagrams), `QUALITY_AND_RISKS.md` (51 risks, 0 HIGH open)
+**Audience:** tech due diligence
+**Snapshot:** audited baseline `f22e3ba`; HEAD at completion `e1325f9` (demo deployed at `e1325f9`, 2026-10-26T17:13:48 UTC)
+**Companion to:** `Steloom_Architecture.md` (technical, v1.1), `Steloom_AI_Quality_and_Limitations.md` (AI honesty), `TECHNICAL_OVERVIEW.md` / `QUALITY_AND_RISKS.md` (audit pack)
 
-This is a compact architecture document for VC technical diligence. Full audit-grade detail is in `TECHNICAL_OVERVIEW.md`. Diagrams are reproduced from `DIAGRAMS.md` §1 and §2. No claims beyond code at HEAD `e1325f9`.
-
----
-
-## 1. Purpose & scope
-
-Steloom (LegalMAS) is a multi-tenant SaaS for AI-assisted legal review of document sets — primarily ongoing contract / compliance review for mid-market in-house legal teams (≥50 new legal documents flowing through review), with M&A-style due diligence as an adjacent use case. The core product path:
-
-`upload → language discovery → layout & PII → structure (segmentation + clause tree) → chunk → classify → playbook checks → DD Grid → export`.
-
-**What this document covers:** system context, in-house vs 3rd-party components, LLM architecture (model, fine-tuning, local vs external), the document → DD Grid path, versioning & reproducibility, team & ownership, manual vs automated operations, technical debt plan, and known limitations.
-
-**What it does not cover:** product narrative and market positioning (see `Steloom_Product_Overview.md` when available), AI quality measurements and honest limitations (see `Steloom_AI_Quality_and_Limitations.md`), full risk register (see `QUALITY_AND_RISKS.md` §6), threat model detail (see `internal/THREAT_MODEL.md`).
+Technical detail is in the companion documents. Claims are bounded by code at HEAD `e1325f9`; no capabilities beyond that are attributed to the current product.
 
 ---
 
-## 2. System context
+## 1. Users, buyers, and what the product replaces
 
-**Deployment:** single host, Docker infrastructure services (PostgreSQL, Redis, MinIO, office-converter) + host-level API/workers under systemd, Caddy as HTTPS reverse proxy at `app.steloom.com`.
+**Primary design target:** mid-market in-house legal teams handling a flow of **≥50 new legal documents** through review — ongoing contract / compliance review, not one-off M&A deals.
 
-~~~mermaid
-flowchart LR
-    User([Lawyer]) -->|"HTTPS"| Caddy["Caddy<br/>app.steloom.com"]
-    Caddy -->|"HTTP 127.0.0.1:8001<br/>X-Forwarded-For {remote_host}"| API["FastAPI<br/>uvicorn --proxy-headers"]
-    Caddy -->|"/storage/* strip_prefix<br/>127.0.0.1:9000"| MinIO[("MinIO<br/>bucket private 403")]
-    API -->|"SQLAlchemy async"| PG[("PostgreSQL 16")]
-    API -->|"Celery broker"| Redis[("Redis 7")]
-    API -->|"S3 API"| MinIO
-    API -->|"HTTP"| Ollama["Ollama"]
-    Workers["Celery workers<br/>same host"] -->|"SQLAlchemy async"| PG
-    Workers -->|"S3 API"| MinIO
-    Workers -->|"HTTP"| Ollama
-    Workers -->|"office convert"| Office["office-converter"]
-~~~
+**Buyer:** General Counsel, Head of Legal Operations, or senior in-house counsel at mid-market companies (typically 200–2000 employees) where legal headcount (2–15 lawyers) is outnumbered by incoming document volume.
 
-**Trust boundaries:**
-- **User ↔ API:** HTTPS terminated by Caddy. Caddy overwrites client-supplied `X-Forwarded-For` with `{remote_host}`; uvicorn trusts only `127.0.0.1` (`--forwarded-allow-ips=127.0.0.1`) — login rate limit is per-client-IP, not a shared bucket.
-- **API ↔ internal services:** localhost only, no auth between API and PG/Redis/MinIO/Ollama. Internal network assumed trusted (single host).
-- **Client documents:** untrusted input. Prompt injection defenses: compact `<UNTRUSTED_DOCUMENT_TEXT>` delimiters + security line in 3 prompt files (fixed 2026-10-26). Residual LOW: delimiter escape not sanitized.
-- **`/storage/*` MinIO proxy:** bucket private (`403` on direct access); exposed as Caddy route (R-40 LOW, recommended removal for defense-in-depth).
-- **`/ws/*`:** dead Caddy block, no matching FastAPI endpoint (R-41 INFO, hygiene cleanup optional).
+**User:** in-house lawyer, paralegal, or legal-ops analyst doing the actual document review.
+
+**Adjacent segments** (same artifact — DD Grid over playbook checks — with different playbooks): law firms (associate-level review), M&A analysts, PE/VC funds (deal diligence) and internal audit and compliance teams. Adjacent, not primary; the product is designed around the mid-market in-house flow.
+
+**Work replaced or accelerated:** the manual first pass of a contract set against a company's rules — checking each document for change-of-control clauses, liability caps, termination grounds, sanctions exposure, IP ownership, and so on — any checks the company could consider applying to the document to review, driven by the lawyer's level of education, experience, and paranoia. That first pass is mechanical but time-consuming; today it is either done by a junior lawyer line by line, or skipped under volume. Steloom produces a structured **DD Grid**: every document × every check, with a verdict, a cited anchor (page / clause / span), and a review status for human sign-off. It does not replace legal judgment — it produces a structured draft a human reviews.
 
 ---
 
-## 3. In-house vs 3rd-party
+## 2. What works today
 
-**In-house (written for Steloom):** the pipeline orchestration, the legal-domain logic, the API, and the frontend. ~14 major components:
+The end-to-end path is live: **upload → language discovery → layout & PII sanitize → structure → chunks → classify → playbook checks → DD Grid → export**.
 
-| Component | Responsibility |
+Observed end-to-end on a synthetic 18-page contract (E102, 2026-10-26, dev; second run E105 after fixes):
+
+| Aspect | E102 | E105 (post-fix) |
+|---|---|---|
+| Duration | 17.5 min (GPU: RTX 5060 Ti, 49/49 layers offloaded, qwen2.5:14b) | 15.2 min |
+| Checks scheduled / completed | 21 / 21 | 21 / 21 |
+| Check results | 14 pass / 0 fail / 1 unclear / 6 no-verdict | same shape |
+| Anchors | 42 validated (34 exact_span + 8 fuzzy_span) | 43 validated (35 exact_span + 8 fuzzy_span) |
+| LLM calls | 37 | 46 |
+| Classification | 0.95 confidence, `contract_1.6_real_estate` | same |
+
+Full lifecycle audited: IMPORT → LANGUAGE_DISCOVERY → ANALYSIS_STARTED → PRIMARY_SOURCE_READY → SANITIZE → CHUNK_BUILD_COMPLETED → CLASSIFY_COMPLETED → STRUCTURE_COMPLETED → LEGAL_UNITS_ENRICHMENT_COMPLETED → ANALYSIS_COMPLETED → result_presentation.
+
+**What a user can do today:** create a deal, upload one or multiple documents, run the pipeline, open the DD Grid, review each cell (verdict + cited anchor + status), apply QC (approve / reject / edit), export to Excel / Word / JSON. Human review is built into the loop: every check result carries a `review_status` and pre-audit; the grid is a draft, not a verdict.
+
+**What is deliberately bounded:** single-document end-to-end is verified; multi-document orchestration exists and is exercised, but the synthetic E2E evidence is single-document. Cross-document reasoning (comparing clauses across documents) is not claimed as a validated capability — cross-document infrastructure is established but not yet fully utilized in the end-to-end evidence.
+
+---
+
+## 3. What is not yet built (vision / roadmap — explicitly not current product)
+
+- **External counterparty and asset verification** — registry integrations (e.g. ЕГРЮЛ, Companies House) to verify counterparties and assets against external data. Not in code.
+- **Word add-in** — review inside Word rather than in the web UI. Not in code.
+- **Legal Intelligence** — the founder's term for long-term analytical capabilities (cross-deal insights, patterns, trend detection). Not in code; scope to be defined.
+- **AI-assisted self-serve playbook composition** — today clients can build playbooks in Playbook Studio by selecting from a library of 900+ checks authored by Steloom's domain experts; AI-assisted composition (like a GPT-style chatbot that drafts a playbook from a compliance matrix) is a roadmap item, not current.
+- **Legislation monitoring** — not in code.
+
+None of the above is attributed to the current product. They are listed so the boundary is explicit.
+
+---
+
+## 4. Document formats, languages, doc-types
+
+**Supported formats — 25 extensions** (whitelist `IMPORT_ALLOWED_EXTENSIONS`, validated in `file_validator.py`):
+
+| Category | Extensions |
 |---|---|
-| Pipeline orchestration | Celery stages, outbox pattern, stage ledger, stale reapers, finalize guards |
-| Layout 15-layer wrapper | Quality gates, quarantine, monolingual projection, spatial marker recovery (over Docling) |
-| Segmentation (`_segmenter/`, 11 files) | Boundary detection: 11 weighted signals, swarm protection, TOC/catalog suppression (6 heuristics), purity recovery |
-| Structure / clause tree | FSM hierarchy builder, cross-reference graph, structure assessment gate |
-| LLM clause detection | Hybrid merge (LLM + conservative numeric fallback), appendices trimming, global routing, list-intro invariant |
-| Chunk planner (Phase 10) | 3 modes: STRUCTURE_FIRST / HYBRID / LAYOUT_FALLBACK |
-| Classification cascade L1–L4 | Filename → header → semantic → LLM; generic-under-specific cap, log-normalized L2 scoring, multi-window L3 encoding, adaptive noise suppression |
-| Check execution | Check runner, result semantics, grounding, anchor resolution, DD request rules |
-| Retrieval engine | BM25 + dense + metadata fusion |
-| PII tokenizer + encryption wrapper | Fernet encryption, RU/EN role map, reveal with pre-audit |
-| DD Grid builder | `dd_grid_v1_builder` + `deal_review_service` + risk-aware cells |
-| Instruction snapshot + versioning | Two-phase freeze, strict mode, reproducibility flags |
-| Export lifecycle | Excel / Word / JSON, lifecycle audit |
-| Frontend | React + AG Grid; DD Grid V1 drawer, QC, admin |
+| PDF | `.pdf` |
+| Word | `.docx`, `.doc`, `.docm`, `.rtf`, `.odt` |
+| Excel | `.xlsx`, `.xls`, `.xlsm`, `.ods`, `.csv` |
+| PowerPoint | `.pptx`, `.ppt`, `.odp` |
+| HTML | `.html`, `.htm` |
+| Images (scanned docs) | `.png`, `.jpg`, `.jpeg`, `.tiff`, `.tif`, `.bmp`, `.webp`, `.heic`, `.heif` |
 
-Plus API layer, audit middleware, rate-limit wrapper, observability (`/metrics` for API only — worker `/metrics` not implemented, R-32).
+Office formats go through an isolated LibreOffice microservice → PDF → layout extraction; images go through OCR. Validation: extension whitelist + magic-byte sniffing + size limit. Known gap (R-24, LOW-MEDIUM): HEIC / WebP magic bytes not checked — a file with `.heic` / `.webp` extension and non-image content passes as `unknown` and relies on the downstream parser. Documented, not hidden.
 
-**3rd-party services (external, not in code):**
+**Languages:** multilingual pipeline; language discovery is a mandatory precondition (the deal gets a `primary_language`); classification uses language-agnostic embedding signals (BGE-M3) with RU/EN-specific heuristics (to be extended to other languages at a later stage). PII tokenizer role map is RU/EN (R-11, LOW) — role hints for other languages are not mapped.
 
-| Service | Version | Role |
-|---|---|---|
-| PostgreSQL | 16 | Primary database |
-| Redis | 7 | Celery broker, rate-limit storage, cache |
-| MinIO | S3-compatible | Object storage (bucket private) |
-| Ollama | HTTP API | LLM inference server (local) |
-| LibreOffice | via `office-converter` Docker (python:3.11-slim + LO + fonts-noto-cjk + ru/zh/ar locales) | DOCX/XLSX/PPTX → PDF; isolated microservice, non-root `appuser`, per-request `profile_dir`, PDF quality validation via pdfplumber |
-| Tesseract | in-process (eng/rus/deu/fra/tur/ara) | OCR for PDF images |
-| Docling | 2.121.0 (family: core 2.92.0, ibm-models 3.14.0, parse 7.15.0) | PDF layout extraction (in-process Python lib) |
-
-**3rd-party Python libraries (~40, in code):** FastAPI 0.115.6, uvicorn 0.34.0, SQLAlchemy 2.0.36 async + asyncpg 0.30.0 + Alembic 1.14.1, Celery 5.4.0, pydantic 2.10.4, sentence-transformers 3.3.1 + transformers 4.49.0 + torch 2.5.1+cpu (install-profile selects CPU/GPU), pdfplumber 0.11.4, pdf2image 1.17.0, pytesseract 0.3.13, PyMuPDF 1.28.2, cryptography 44.0.0, natasha 1.6.0, langdetect 1.0.9, lingua 2.0.2, rank-bm25, rapidfuzz, thefuzz, python-Levenshtein, prometheus-client 0.21.0, opentelemetry 1.28.2, boto3, openpyxl, xlsxwriter, python-docx, bcrypt, PyJWT, tiktoken, jsonschema, ruamel.yaml. **No in-house fork of any 3rd-party library.**
-
-**office-converter as an isolated microservice** (own `requirements.txt`: fastapi 0.115.0, uvicorn 0.30.6, pydantic 2.8.2, starlette 0.38.2, pdfplumber 0.11.4): defense-in-depth for LibreOffice — non-root, per-request isolated profile, 100 MB max file, 14-extension whitelist, 180s timeout, PDF page/char/replacement-char/language validation, graceful shutdown, background cleanup. LibreOffice is treated as an untrusted parser, not called in-process.
+**Document types — 42 doc-types across 9 groups**: ownership (12 — sale, supply, real estate, barter, gift…), use (4 — lease, leasing, vehicle lease), works (3), services (5 — services, cargo transportation, freight forwarding, storage, insurance), financial (5 — credit, factoring, deposit, guarantee), intermediary (3 — mandate, commission, agency), IP (4 — IP assignment, license, franchise, NDA), partnership (1), special (5 — employment, collective, marriage, alimony, founding). Each is a YAML definition in `playbooks/document_types/`. Currently, the instructions are in Russian, as the pilot projects were carried out using Russian-language documents at pilot companies in Kazakhstan and Armenia. Translating these instructions into any other language is a technical task and will be completed in the near future.
 
 ---
 
-## 4. Document → DD Grid path
+## 5. Playbooks, checks, and how the DD Grid is formed
 
-~~~mermaid
-sequenceDiagram
-    participant U as User
-    participant C as Caddy
-    participant API as FastAPI
-    participant DB as Postgres
-    participant Q as Celery
-    participant W as Workers
-    participant S3 as MinIO
-    participant LLM as Ollama
+**The check library** is the product's legal substance: **45 global checks** across 15 categories (formal, liability, term, finance, R&W, regulatory, sanctions, confidentiality, IP/IT, change-of-control, HR, disputes, cyber, assignment, others) + **42 doc-type checks** in 9 groups. Global checks apply across document types; doc-type checks apply to specific contract types. The Playbook Studio library exposes **900+ checks** authored by Steloom's domain experts, from which clients compose their playbooks.
 
-    U->>C: POST /api/v1/deals/{id}/documents/upload
-    C->>API: reverse_proxy with X-Forwarded-For
-    API->>API: mkdtemp, zip, send_task(import_bundle)
-    Note over API: temp ZIP not cleaned on success (R-23)
+**How a playbook is configured — today (hybrid: self-serve composition + guided onboarding).** A playbook is a composition of checks from the library, frozen as a PlaybookVersion (semver, status=published, compiled_checks) and referenced by the run. Clients build their own playbooks via Playbook Studio, selecting from the library of 900+ checks. During onboarding, we also provide hands-on support to help clients align the selected checks with their compliance matrix, and the resulting composition is versioned. This hybrid approach is deliberate — the higher-value question is whether a given playbook composition produces correct, useful results for the client. Playbook Studio enables self-serve iteration from day one, while our team remains available to guide composition during the critical onboarding phase. AI-assisted composition (drafting a playbook from a compliance matrix) is a roadmap item (§3).
 
-    Q->>W: import_bundle → Bundle/Document/DocumentVersion
-    W->>S3: put original
-    W->>DB: outbox(LANGUAGE_DISCOVERY_REQUESTED)
+**How the applicable playbook is determined.** A deal carries `playbook_version_id` and `model_config_id`; when a run starts, both are frozen into the run. The run's check plan (`RunCheckPlanItem`) is derived from the frozen `compiled_checks`; each (document, check) pair becomes a plan item, executed independently. Two-phase instruction-snapshot freeze (subset at start, extend at checks) makes the run configuration reproducible.
 
-    Q->>W: start_language_discovery
-    W->>DB: language_discovery_status=completed
+**How the DD Grid is formed.** `DDGridV1ResponseDTO` is built from the run's check results: one cell per (document, check) with `cell_state` ∈ {`defined`, `not_defined`, `not_executed`, `error`}, a verdict, a `review_status`, and a `primary_anchor_id` pointing at the cited fragment (page / clause / span) when one exists. Risk-aware cells (`cell_risk_level`, `top_risk_*`) are computed on top. The drawer shows `display_text`, `execution_status`, the anchor, and QC controls.
 
-    U->>API: POST /deals/{id}/run
-    API->>DB: Run (PENDING), send_task(start_run_pipeline)
-
-    Q->>W: start_run_pipeline
-    W->>DB: try_start_run PENDING→RUNNING
-    W->>DB: DocumentStageExecution(planned) per stage
-    W->>DB: freeze_instruction_snapshot (subset)
-
-    Q->>W: build_primary_language_source
-    Note over W: 15-layer layout: Docling → PyMuPDF → Region → ReadingOrder → LangClass → StructNodes → ParallelAlign → Gate1 → Project → Gate2 → TableSem → Compat → Gate3
-    Note over W: QualityGateError → DocumentStatus.QUARANTINE + processing_error_details
-    W->>S3: canonical_layout.json, layout_primary.json
-    W->>DB: primary_source_ref, layout_primary_ref
-
-    Q->>W: extract_document / pii_sanitize_document / build_structure / build_chunks
-    W->>LLM: LLMClauseDetector.refine_tree (~1 call)
-    W->>S3: clause_tree.json, file_graph.json, chunks_manifest_v2.json, chunk_plan.json
-    Note over W: Chunk planner chooses STRUCTURE_FIRST / HYBRID / LAYOUT_FALLBACK
-
-    Q->>W: classify_document
-    W->>LLM: L2/L3/L4 cascade if needed
-    W->>DB: Document.doc_type, classification_*
-
-    Q->>W: build_legal_units_enrichment
-    W->>LLM: semantic enrichment per unit
-    W->>DB: Document.status=ENRICHED
-
-    Note over W: outbox(run_deal_checks) when all participating docs ENRICHED
-
-    Q->>W: run_deal_checks
-    W->>DB: freeze_instruction_snapshot(extend)
-    W->>DB: RunCheckPlanItem(planned) per (doc, check)
-    W->>DB: outbox(run_single_check) per item
-
-    Q->>W: run_single_check (per item)
-    W->>LLM: detection + extraction per check (~2 calls/check)
-    W->>DB: CheckResult (execution_status, display_text, review_status, anchors)
-    W->>DB: outbox(finalize_run_if_ready)
-
-    Q->>W: finalize_run_if_ready
-    W->>DB: Run.status = COMPLETED / COMPLETED_WITH_ERRORS
-
-    U->>API: GET /deals/{id}/runs/{run}/dd-grid-v1
-    API->>DB: load checks, results, plan items, docs
-    API-->>U: DDGridV1ResponseDTO
-~~~
-
-**Observed at E102** (2026-10-26, dev, synthetic 18-page contract `Sample_Contract.DOCX`, doc_type `contract_1.6_real_estate`, classification confidence 0.95): full sequence executed in **17.5 min** on GPU (RTX 5060 Ti, 49/49 layers offloaded) with `qwen2.5:14b`; 21 checks scheduled / 21 completed; 42 validated span anchors (34 `exact_span` + 8 `fuzzy_span`) + 19 `clause_only`; 37 LLM calls (~148k prompt / ~17.6k completion tokens); full lifecycle in `audit_logs` (16 action types from IMPORT → ANALYSIS_COMPLETED).
-
-**Second run (E105, dev, post-R-33/R-49/R-03/R-52 fixes):** same synthetic contract, **15.2 min**, 21/21 checks, 43 anchors (35 exact + 8 fuzzy), 46 LLM calls. Confirms fixes did not break pipeline.
-
-**Caveat — two check-scheduling paths:** batch (`run_deal_checks`, guarded by unique `Job`) and per-doc (`run_document_checks`, no `Job`). Both use `RunCheckPlanItem.create_planned`; unique partial indexes exist (migration `bc56177ec084`); `IntegrityError` not caught (R-08 LOW). Concurrent-run guard: partial unique index `uq_runs_one_active_per_deal WHERE status IN ('pending','running')` (migration `bf78307e1293`, R-33 CLOSED) — second concurrent `POST /deals/{id}/run` → `409 Conflict` + `X-Active-Run-Id` header (curl-verified E106; also on `/playbook/rebuild-and-rerun`, R-52 CLOSED).
+**Export:** Excel, Word, JSON; each export lifecycle is audited (`EXPORT_STARTED` / `COMPLETED` / `FAILED`). PDF export is `inline` in the browser; download is not separately audited (R-13, LOW-MEDIUM, documented).
 
 ---
 
-## 5. LLM architecture
+## 6. "Not found" — how to read it, what a human checks
 
-**Provider:** `ollama` (local, JSON mode via `format=json`) is the production path. Alternatives: `openai`, `llamacpp` (GBNF, `Semaphore(1)`), `none`. In production, **Ollama local-only — no external API calls; data never leaves the client's infrastructure.** OpenAI provider exists in code but is not the production path; it would be a deliberate configuration change, not a default.
+A check cell resolves in several ways, and the product is explicit about the difference:
 
-**Model:** `qwen2.5:14b` — **base model, no fine-tuning.** No Modelfile, no training data, no PEFT/LoRA adapter in the repository. All quality comes from prompt engineering + retrieval + conservative fallbacks (numeric-only clause fallback, grounding score, anchor resolution). A documented `qwen25-legal` name appears in the Makefile and `llama3.1` in the config default, but the observed runtime at E102/E105 is `qwen2.5:14b` — this is the honest state; model parity caveat applies to accuracy claims.
+- **`pass`** — the clause / condition was found and satisfied.
+- **`fail`** — found and not satisfied.
+- **`unclear`** — found, but model confidence or grounding is insufficient to call it. Surfaced for human review.
+- **no-verdict / "not found"** — the condition was not located. This is **not** automatically "the clause is absent"; it can mean the clause is phrased differently, extraction missed it, or the check does not apply to this document type.
 
-**Runtime config (demo `.env`, E98):** `LLM_CONTEXT_LIMIT=12288` (code default 32768), `LLM_MAX_TOKENS=256`, `LLM_SAFETY_MARGIN_TOKENS=512`. L4 worst-case fragment budget verified: `skeleton_tokens=3778`, `fragment_budget=7756`, overhead ratio 32.8% — sufficient. At `LLM_CONTEXT_LIMIT=4096` the fragment budget would floor at 300 (L4 near-useless); 12288 is a deliberate CPU-latency tradeoff.
+Observed at E102: 14 `pass` / 0 `fail` / 1 `unclear` / 6 no-verdict (out of 21 checks). The 1 `unclear` and 6 no-verdict are exactly the cells where a human should look. The product never presents "not found" as a legal conclusion — it presents "we did not locate this; a human should decide".
 
-**Call sites (~50 per 23-check doc; observed 37 at E102 for 21 checks):** extraction LLM (20), result presentation translation (12), run summary (2), clause detection (1), semantic enrichment (1), classification L4 (1), detection LLM (0 at E102 — rules-only). Detection uses `temperature=0.0`, `response_format="json_object"`, retries with backoff, `_salvage_partial_json` (3 passes) on structured output.
+**What a human checks:** every `unclear` and every no-verdict cell; any cell whose anchor is weak or `clause_only` (page/clause located, no exact span quote); the QC step (approve / reject / edit per cell); the final export before downstream use. `review_status` is the canonical human-in-the-loop signal — the DD Grid is a structured draft, not a signed opinion.
 
-**Grounding:** token-overlap score; `exact` = 1.0; `<0.1` → suppressed; `0.1–0.3` → cap 0.7; `≥0.3` → anchor. Grounding suppresses weak evidence — it does not eliminate hallucinations; it is a mitigation, not a defense.
-
-**Prompt injection:** compact `<UNTRUSTED_DOCUMENT_TEXT>` delimiters + security line applied 2026-10-26 to 3 prompt files (`generic_presence.txt`, `classify_document.txt`, `clause_detection.txt`). `classify_document.txt` additionally has ChatML system/user separation. Residual LOW: delimiter escape not sanitized (full closure in `_render_prompt` ~2h, deferred). Clause detection has a conservative numeric-only fallback that bounds hallucinated clause numbers.
-
-**GPU default (deployed):** RTX 5060 Ti 16GB, CUDA 13.2, `torch 2.13.0+cu130`, Ollama 100% GPU (49/49 layers offloaded). Declared CPU profile lives in `requirements.txt` (`torch==2.5.1+cpu`); GPU install via `make install-runtime-gpu`. The 15–17 min wall-clock for 18-page / 21-check is dominated by non-LLM stages (Docling layout, OCR, segmentation, office-converter) — LLM inference is a fraction.
-
----
-
-## 6. Office-converter microservice
-
-LibreOffice is treated as an untrusted parser and isolated in its own FastAPI service (`/srv/steloom-dev/office-converter`), separate from the main app. Own `requirements.txt` (fastapi 0.115.0, uvicorn 0.30.6, pydantic 2.8.2, starlette 0.38.2, pdfplumber 0.11.4). Docker base `python:3.11-slim` + LibreOffice + `fonts-noto-cjk` + ru/zh/ar locales, non-root `appuser`.
-
-Defense-in-depth per conversion: filename sanitization, 100 MB max file, 14-extension whitelist, per-request isolated `profile_dir` (no shared LibreOffice user profile), 180s timeout, `--headless --nologo --norestore`, PDF quality validation via pdfplumber (pages, extracted chars, replacement-char ratio, language detection cyrillic/arabic/cjk/latin), graceful shutdown via signal handlers, background cleanup. Endpoints: `/health`, `/ready`, `/metrics`, `/convert`, `/convert/debug` (`APP_VERSION 2.1.0`).
+Known limitation surfacing here: `_truncated` (partial JSON salvage during extraction) is written by the backend but not yet shown in the UI (R-18, MEDIUM) — a cell built from a truncated extraction can look complete. On the fix list before paying customers (§9).
 
 ---
 
-## 7. Versioning & reproducibility
+## 7. Deployment — where the product runs, what it takes to launch
 
-Three separately versioned things, plus a frozen snapshot per run:
+**Current deployment: SaaS at `app.steloom.com`.** Single host: Caddy (HTTPS reverse proxy) → FastAPI (uvicorn, 2 workers) → Celery workers (7 queues) → PostgreSQL 16, Redis 7, MinIO (object storage), Ollama (local LLM inference on GPU), and an isolated office-converter microservice (LibreOffice). API and workers run under systemd; infrastructure services in Docker. Deploys via `deploy/deploy-demo.sh` (flock, backup, rsync whitelist, Alembic migrate, frontend build, health checks, `.deploy-meta.json` for traceability). The current demo is deployed at HEAD `e1325f9` (2026-10-26T17:13:48 UTC), matching the audited baseline recorded in the companion Technical Overview.
 
-| Layer | Frozen in run | Mechanism |
-|---|---|---|
-| Model | `Run.model_config_id` | `ModelConfig` DB entity |
-| Playbook | `Run.playbook_version_id` | `PlaybookVersion` (`semver`, `compiled_checks`) |
-| Instruction snapshot | `Run.instruction_snapshot_*` + `snapshot_schema_version` | two-phase freeze |
-| Result | `CheckResult` + `CheckResultAnchor` + `CheckResultPresentation` | anchor hashes |
+**Runtime — GPU.** Inference runs on an RTX 5060 Ti 16GB (CUDA 13.2, torch 2.13.0+cu130); Ollama serves `qwen2.5:14b` with 49/49 layers offloaded to GPU. The 15–17 min wall-clock per 18-page / 21-check document is dominated by non-LLM stages (Docling layout, OCR, segmentation, office-converter), not by LLM inference.
 
-Strict mode (`>=1`) forbids filesystem fallback → `ConfigurationIntegrityError`. `compiled_checks` is the frozen check composition for the run. Model config is a DB entity; the run freezes `model_config_id`. Each anchor carries hashes + `primary_anchor_id`.
+**What it takes to launch a SaaS client:** create a tenant, configure the playbook with the client (§5), run onboarding on the client's document set. The pipeline is self-serve after that; the client's legal team works in the web UI.
 
-**Reproducibility:** a run with a valid instruction snapshot + published `PlaybookVersion` + `ModelConfig` is reproducible in principle (same inputs → same check composition, same prompts). **Legacy runs** with `instruction_snapshot_* = NULL` are marked `is_reproducible=False` — model/playbook may have changed since. Known caveat: `pipeline_strategy` depends only on the model, not the playbook, so a playbook change does not trigger `FULL_RERUN` (owner-intent accepted, S-04).
+**On-premise / private cloud.** Architecturally supported (the whole stack is single-host Docker + systemd, and Ollama is local — data never leaves the host), but **not production-hardened as a per-client install today.** Hardening for a private-cloud / on-prem deployment is estimated at roughly 4–8 weeks per client (deployment-level tenant isolation, config management, deployment runbook, backup/restore drills, security review). This is a post-funding direction, driven by enterprise data-residency requirements — mid-market in-house legal is a segment where "our documents stay on our infrastructure" is a real buying criterion. Honest position: SaaS is live; on-prem is architecturally ready but not yet packaged as a product.
 
-**Not claimed:** bit-for-bit reproducibility of LLM output (temperature 0.0 reduces but does not eliminate nondeterminism across model versions). The snapshot guarantees "same configuration", not "same tokens".
+**Data handling.** Ollama runs locally — LLM inference is on the host, not a third-party API; client documents do not leave the deployment for inference. PII is tokenized with Fernet encryption; the PII encryption key is set in both dev and demo (R-07 CLOSED; see threat model v1.1 in the Technical Overview, E104/E106). No compliance certification is claimed (no SOC 2, no ISO 27001, no GDPR certification) — see §10.
 
 ---
 
-## 8. Team & ownership
+## 8. Team
 
-**Founders (2):**
-- **Founder 1 (business):** principle business-logic ideas; initial prototype built via vibe-coding. The prototype was then rewritten — it is not the production codebase.
+**Two co-founders:**
+- **Founder 1 (business):** business-logic and product ideas; built the initial prototype via vibe-coding. The prototype was rewritten — it is not the production codebase.
 - **Founder 2 (CTO):** technical architecture and configuration; rewrote the prototype into the current codebase; sole current engineer on the code.
 
-**Contractors (2 outsourced engineers):** engaged under specific implementation tasks and corrected code where needed; not full-time; not a standing engineering team. The codebase is currently maintained by the CTO.
+**Two contract engineers** engaged under specific implementation tasks (correcting code where needed); not full-time, not a standing engineering team. The codebase is currently maintained by the Founders.
 
-**Engineering is 100% in-house** (no outsourced ownership of core components, no in-house fork of a 3rd-party library). Post-funding plan: hire an engineering team; specifics belong in the pitch, not this document.
-
----
-
-## 9. Manual vs automated operations
-
-**Automated:** the whole document → DD Grid pipeline (Celery stages, outbox dispatch every 5s, retries with backoff, DLQ on `PermanentError`/`SoftTimeLimit`, stale-execution reaper every 600s, stale-run reaper every 1800s, finalize guards, 3 layout quality gates, concurrent-run 409 guard).
-
-**Manual today:**
-- **Playbook configuration** — hand-crafted per tenant from the YAML library (45 global checks + 42 doc-types); onboarding is hands-on with the client. Self-serve playbook builder is not in code (roadmap decision pending — see `Steloom_Product_Overview.md`).
-- **Deploy** — `deploy/deploy-demo.sh` (flock, backup, `rsync -a --delete` whitelist, `alembic upgrade`, `npm run build`, health checks, auto-gen `.deploy-meta.json`). Pre-flight `verify_systemd_units_contain_q6()` aborts on rate-limit regression.
-- **DB migrations** — Alembic, run manually in the deploy script.
-- **DLQ review, reclassifications, run monitoring** — operator-driven; no self-healing UI.
-- **Backups** — rotation automated (`rotate_backups()`, 30d + keep 10; currently 12 dirs, 4.4 GB), but restore is manual; no rollback script (R-28 LOW-MEDIUM).
+**Engineering is 100% in-house** — no outsourced ownership of core components, no in-house fork of a third-party library. Post-funding plan: hire an engineering team (specifics belong in the pitch, not this document).
 
 ---
 
-## 10. Technical debt & roadmap
+## 9. Known limitations
 
-P1 items (target: before first paying customer), from `OPEN_WORK.md` / `QUALITY_AND_RISKS.md` §10:
-
-| Item | Effort | Why it matters |
-|---|---|---|
-| R-01 JWT revocation (`password_changed_at`, TTL 30min, refresh) | ~8h | Deactivation/demotion/password change only effective at 8h token expiry today |
-| R-02 audit gaps (login, upload-identity, download, admin-users) | ~6h | Compliance trail completeness |
-| R-10 PII key rotation | ~4h | Old mappings unreadable after key change today |
-| R-18 `_truncated` badge in UI | ~3h | Partial JSON shown as complete today |
-| R-22 CI test workflow | ~2h | Tests do not run in CI today (only `pip-audit`) |
-| R-28 rollback script | ~3h | Manual rollback only |
-
-**~26h total** for the P1 set. P2 (post-first-paying): R-05 rate-limiter fallback, R-31 `LAYOUT_QUARANTINED` audit event, R-32 worker `/metrics` (LLM alerts currently sleeping), R-34 mode-C alert, R-08 `IntegrityError` catch, R-17 residual delimiter sanitization.
-
-**Current open risk posture:** 51 risks, **0 HIGH open**, 9 CLOSED with evidence (R-03, R-07, R-33, R-38, R-39, R-44, R-46, R-49, R-52). Open includes R-50 MEDIUM (Content-Disposition CRLF, ~30min fix), R-51 LOW (public `document-types` GET), R-24 LOW-MEDIUM (HEIC/WebP magic → VALID), R-53 LOW (test gap), R-45 LOW (test isolation).
-
----
-
-## 11. Known limitations
-
-- **Single synthetic document** verified end-to-end (E102/E105, 18 pp.). Not a benchmark of accuracy, not representative of all doc types, no multi-document cross-reasoning validation.
-- **15–17 min wall-clock (measured on GPU)** per 18-page / 21-check document — dominated by non-LLM stages (Docling layout, OCR, segmentation, office-converter), not LLM inference.
-- **Base model, no fine-tuning** — `qwen2.5:14b`; model parity caveat (documented `qwen25-legal` not observed at runtime).
-- **No accuracy benchmark** — see `Steloom_AI_Quality_and_Limitations.md` for what is and isn't measured, and the evaluation plan.
+- **No accuracy benchmark.** E102 / E105 are single synthetic documents — they demonstrate the pipeline works, not that it is accurate across doc types or against ground truth. Accuracy measurement and the evaluation plan are in `Steloom_AI_Quality_and_Limitations.md`. No benchmark is fabricated for this data room.
+- **15–17 min wall-clock (measured on GPU)** per 18-page / 21-check document — dominated by non-LLM stages (layout, OCR, segmentation, office-converter), not LLM inference.
+- **Base model, no fine-tuning** — `qwen2.5:14b`. Quality comes from prompt engineering + retrieval + conservative fallbacks, not a tuned model.
+- **Playbook composition is hybrid** — Playbook Studio is self-serve for check selection; AI-assisted composition and full self-serve onboarding are roadmap (§3, §5).
+- **`_truncated` not surfaced in UI** (R-18, MEDIUM) — a cell built from a truncated extraction can look complete. On the fix list before paying customers.
 - **No CVE audit / dependency scanning beyond `pip-audit`** in CI.
-- **Playbook configuration is a service, not self-serve** (today).
-- **Worker `/metrics` not implemented** — LLM alerts sleeping (R-32).
-- **Demo deployed via rsync** without a git commit — authoritative version is `/srv/steloom-demo/.deploy-meta.json` (dev_head=`e1325f9`, deployed 2026-10-26T17:13:48 UTC), not `git rev-parse HEAD` in the demo dir.
+- **PII tokenizer role map is RU/EN** (R-11, LOW).
+- **On-prem / private cloud not production-hardened** — §7.
+- **E2E evidence is single-document.** Multi-document orchestration exists and is exercised; cross-document reasoning is not claimed as validated.
 
 ---
 
-## 12. Out of scope (of this document)
+## 10. What we are not claiming
 
-- **Full AI pipeline detail** (L1/L2/L3 scoring formulas, grounding, anchor resolution) — `TECHNICAL_OVERVIEW.md` §7.
-- **Data model ER diagram** — `TECHNICAL_OVERVIEW.md` §8.
-- **~70 structure submodule files** (`_element_classifier/`, `_heading_builder/`, `_hierarchy_builder/`, `semantic_enrichment/`, `coherence/`, `cohesion/`, etc.) — not read in the audit; not required for architecture-level diligence.
-- **Frontend beyond DD Grid V1** — not covered.
-- **Threat model detail** — `internal/THREAT_MODEL.md` (18 threats, 0 HIGH open).
-- **Full risk register** — `QUALITY_AND_RISKS.md` §6.
-- **Product narrative / market** — `Steloom_Product_Overview.md` (when available).
+- Not "production-ready at scale" — the end-to-end evidence is a single synthetic document; the open risk register (**51 risks: 9 CLOSED, 0 HIGH open; open: R-50 MEDIUM, R-51 LOW, R-24 LOW-MEDIUM, R-53 LOW, R-45 LOW**) is documented in `QUALITY_AND_RISKS.md`. R-49 (HIGH, model_configs unauth) was found during live verification and is **CLOSED** as of threat model v1.1 (E106).
+- Not "enterprise-grade" — no SOC 2 / ISO 27001 / GDPR certification; data handling is described in §7 and the threat model, not certified.
+- Not "AI that replaces lawyers" — the product produces a structured draft with cited anchors and a review status; a human reviews every unclear / no-verdict cell and signs off.
+- Not "full 42-doc-type coverage validated" — the library exists (45 global + 42 doc-type checks); which checks a given client runs is configured per playbook, and the end-to-end evidence is a single contract.
+- **Pilots are out of scope of this document** — pilot narrative, industries, and geographies are not described here by design.
 
 ---
 
-*End of Steloom_Architecture. Snapshot `f22e3ba`; HEAD at completion `e1325f9`; demo deployed at `e1325f9` 2026-10-26T17:13 UTC. In-house vs 3rd-party per `TECHNICAL_OVERVIEW.md` §3–§4; LLM per §7; versioning per §7/§8; debt per `OPEN_WORK.md` / `QUALITY_AND_RISKS.md` §10. Evidence E99–E106. 51 risks, 0 HIGH open, 9 CLOSED. Not an independent audit — companion to the tech DD pack.*
+*End of Steloom_Product_Overview. Snapshot `f22e3ba`; HEAD at completion `e1325f9`; demo deployed 2026-10-26T17:13 UTC. Users/buyers = mid-market in-house legal (≥50 docs flow). Formats = 25 extensions from `file_validator.py`. Doc-types = 42 in 9 groups; checks = 45 global + 42 doc-type; Playbook Studio library = 900+ checks. E2E evidence E102 / E105 on GPU (RTX 5060 Ti). Playbook config = hybrid (Studio self-serve + guided onboarding); deployment = SaaS now, on-prem architecturally ready post-funding. 51 risks, 0 HIGH open (R-49 CLOSED). No fabricated benchmark.*
