@@ -1,0 +1,80 @@
+/* VC data room PDF — compact profile + robust table/image wrapping */
+
+@page {
+  size: A4;
+  margin: 1.5cm 1.5cm 1.8cm 1.5cm;
+  @bottom-center {
+    content: counter(page) " / " counter(pages);
+    font-size: 8pt;
+    color: #888;
+  }
+}
+
+body {
+  font-family: "DejaVu Sans", "Noto Sans", sans-serif;
+  font-size: 9pt;
+  line-height: 1.35;
+  color: #222;
+}
+
+h1 { font-size: 15pt; margin: 0 0 6pt 0; color: #111; }
+h2 { font-size: 11.5pt; margin: 12pt 0 4pt 0; color: #111;
+     border-bottom: 1px solid #ddd; padding-bottom: 2pt; }
+h3 { font-size: 10pt; margin: 10pt 0 3pt 0; color: #222; }
+
+p { margin: 3pt 0 5pt 0; text-align: left; }
+ul, ol { margin: 3pt 0 5pt 0; padding-left: 18pt; }
+li { margin: 1pt 0; }
+
+/* Tables: forced fixed layout + wrap */
+table {
+  width: 100% !important;
+  table-layout: fixed;
+  border-collapse: collapse;
+  margin: 4pt 0 8pt 0;
+  font-size: 8pt;
+}
+th, td {
+  padding: 3pt 4pt;
+  border: 1px solid #ccc;
+  vertical-align: top;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+th {
+  background: #f0f0f0;
+  font-weight: bold;
+  font-size: 8pt;
+}
+
+/* Code must not overflow page */
+code, tt {
+  font-family: "DejaVu Sans Mono", "Noto Sans Mono", monospace;
+  font-size: 7.5pt;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+pre {
+  font-size: 7pt;
+  background: #f8f8f8;
+  padding: 4pt;
+  border: 1px solid #e0e0e0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+/* Images (mermaid diagrams) */
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 4pt auto;
+}
+
+blockquote {
+  margin: 4pt 0;
+  padding: 3pt 8pt;
+  border-left: 3px solid #ccc;
+  color: #444;
+}

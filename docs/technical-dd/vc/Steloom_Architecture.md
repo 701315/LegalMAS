@@ -202,12 +202,14 @@ Defense-in-depth per conversion: filename sanitization, 100 MB max file, 14-exte
 
 Three separately versioned things, plus a frozen snapshot per run:
 
-| Layer | Mechanism | Notes |
+| Layer | Frozen in run | Mechanism |
 |---|---|---|
-| **Model** | `ModelConfig` row referenced by `Run.model_config_id`; `LLM_OLLAMA_MODEL` / `STRUCTURE_LLM_MODEL` env at runtime | Model config is a DB entity; run freezes `model_config_id` |
-| **Playbook** | `PlaybookVersion` (`semver`, `status=published`, `compiled_checks`) referenced by `Run.playbook_version_id` | `compiled_checks` is the frozen check composition for the run |
-| **Instruction snapshot** | `Run.instruction_snapshot_*` + `snapshot_schema_version`; two-phase freeze (subset at start, extend at checks) | Strict mode (`>=1`) forbids filesystem fallback → `ConfigurationIntegrityError` |
-| **Result** | `CheckResult` canonical + `CheckResultAnchor` + `CheckResultPresentation` (localized) | Anchor hashes + `primary_anchor_id` |
+| Model | `Run.model_config_id` | `ModelConfig` DB entity |
+| Playbook | `Run.playbook_version_id` | `PlaybookVersion` (`semver`, `compiled_checks`) |
+| Instruction snapshot | `Run.instruction_snapshot_*` + `snapshot_schema_version` | two-phase freeze |
+| Result | `CheckResult` + `CheckResultAnchor` + `CheckResultPresentation` | anchor hashes |
+
+Strict mode (`>=1`) forbids filesystem fallback → `ConfigurationIntegrityError`. `compiled_checks` is the frozen check composition for the run. Model config is a DB entity; the run freezes `model_config_id`. Each anchor carries hashes + `primary_anchor_id`.
 
 **Reproducibility:** a run with a valid instruction snapshot + published `PlaybookVersion` + `ModelConfig` is reproducible in principle (same inputs → same check composition, same prompts). **Legacy runs** with `instruction_snapshot_* = NULL` are marked `is_reproducible=False` — model/playbook may have changed since. Known caveat: `pipeline_strategy` depends only on the model, not the playbook, so a playbook change does not trigger `FULL_RERUN` (owner-intent accepted, S-04).
 
