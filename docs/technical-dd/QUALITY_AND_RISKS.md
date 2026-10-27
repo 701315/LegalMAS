@@ -120,7 +120,7 @@ DD Grid shape:
 - with_structured_data: 21/21
 - with_anchor: 21/21
 
-**Verification scope note:** end-to-end run used `qwen2.5:14b` (base model), not `qwen25-legal` documented in Makefile or `llama3.1` config default. Model parity caveat applies to demo accuracy (see §4 known gaps, R-33). Single synthetic document; not a benchmark of accuracy. Wall-clock on CPU-only Ollama.
+**Verification scope note:** end-to-end run used `qwen2.5:14b` (base model), not `qwen25-legal` documented in Makefile or `llama3.1` config default. Model parity caveat applies to demo accuracy (see §4 known gaps, R-33). Single synthetic document; not a benchmark of accuracy. Wall-clock on GPU (RTX 5060 Ti, 49/49 layers offloaded) — dominated by non-LLM stages (Docling layout, OCR, segmentation, office-converter), not LLM inference.
 
 **Owner-reported:** test baselines for `tests/unit/`, `tests/services/`, `tests/unit/engine/` (see §2); anti-hypotheses B7.3/B7.7/B7.8 rejected; HEAD `f22e3ba`.
 
@@ -189,7 +189,7 @@ Additional end-to-end pipeline run (E102): 1 synthetic document → DD Grid in 1
 
 **Implemented:** durable stage ledger; outbox; retry with backoff; stale reapers; DLQ; finalize guards; 3 layout quality gates; chunk planner; export lifecycle audit; 13 alert rules; unique partial indexes on plan items; `--proxy-headers` (Q6 fix); segmentation `MAX_REASONABLE_SEGMENTS=15` enforcement.
 
-**Observed at E102 (2026-10-26):** pipeline completed in 17.5 min on CPU-only Ollama for 18-page synthetic contract (21 checks); full lifecycle in `audit_logs`; 21/21 check_results with `structured_data` + `primary_anchor_id`; no stale executions. Demonstrates reliability of orchestration for a small synthetic doc; not a benchmark.
+**Observed at E102 (2026-10-26):** pipeline completed in 17.5 min on GPU (RTX 5060 Ti, 49/49 layers offloaded; wall-clock dominated by non-LLM stages) for 18-page synthetic contract (21 checks); full lifecycle in `audit_logs`; 21/21 check_results with `structured_data` + `primary_anchor_id`; no stale executions. Demonstrates reliability of orchestration for a small synthetic doc; not a benchmark.
 
 **Known gaps:** `IntegrityError` on `create_planned` not caught (R-08); retry overwrites `CheckResult`; `_shared_llm_client` module-level; backup rotation missing (R-39); no rollback script (R-28); LLM alerts sleeping (R-32); mode C not alerted (R-34); `QualityGateError` path missing `LAYOUT_QUARANTINED` audit (R-31); demo git drift (R-38); test fixture wipes `audit_logs` (R-45).
 

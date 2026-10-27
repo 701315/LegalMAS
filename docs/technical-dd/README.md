@@ -47,7 +47,7 @@ This pack supports a pre-seed technical due diligence of Steloom (repository `Le
 - LLM clause detection inside structure pipeline: hybrid merge (LLM + numeric fallback), appendices boundary trimming, global routing, list-intro invariant, frozen-safe.
 - Multi-tenant data model; project roles (`viewer`, `editor`, `admin`); system roles (`superadmin`, `tenant_admin`, `member`).
 - Async orchestration on Celery with `DocumentStageExecution` ledger + outbox pattern + stale-execution/run reapers + DLQ.
-- AI inference via Ollama by default (OpenAI, llama.cpp alternatives). **Observed at E102**: 37 LLM calls for a 21-check single-document run, 17.5 min wall-clock on CPU-only Ollama with `qwen2.5:14b`.
+- AI inference via Ollama by default (OpenAI, llama.cpp alternatives). **Observed at E102**: 37 LLM calls for a 21-check single-document run, 17.5 min wall-clock on GPU (RTX 5060 Ti, 49/49 layers offloaded) with `qwen2.5:14b`.
 - DD Grid V1 with `cell_state` (`defined`/`not_defined`/`not_executed`/`error`), per-cell risk badges, drawer with anchor / location / review status / QC.
 - Exports (Excel, Word, JSON); `EXPORT_STARTED`/`EXPORT_COMPLETED`/`EXPORT_FAILED` audited.
 - Admin observability: `/tenant/dashboard`, `/tenant/metrics`, `/tenant/logs` audited via middleware; `/tenant/alerts` not audited (read-only).
@@ -79,7 +79,7 @@ This pack supports a pre-seed technical due diligence of Steloom (repository `Le
 | Repository review (this pack) | Static as-is view at HEAD `f22e3ba` | No independent human audit |
 | **Tier 1 pytest (executed 2026-10-26, E99/E100)** | 131/131 passed — RBAC (11), result semantics (118), presentation smoke (2) | Mocked LLM/DB for most; real DB for smoke presentation |
 | **Tier 2 security pytest (executed 2026-10-26, E101)** | 3/3 passed — cross-tenant leakage, unauthorized access, audit identity spoofing | Requires dev DB; wipes `audit_logs` (R-45) |
-| **End-to-end pipeline run (executed 2026-10-26, E102)** | Synthetic contract (18 pp., `contract_1.6_real_estate`) → DD Grid; 21 checks; 17.5 min wall-clock | Single synthetic document; CPU-only Ollama; `qwen2.5:14b` base model (not qwen25-legal tuned) |
+| **End-to-end pipeline run (executed 2026-10-26, E102)** | Synthetic contract (18 pp., `contract_1.6_real_estate`) → DD Grid; 21 checks; 17.5 min wall-clock | Single synthetic document; GPU (RTX 5060 Ti, 49/49 layers offloaded); `qwen2.5:14b` base model (not qwen25-legal tuned) |
 | Guided code walkthrough | Owner walks through "document → DD Grid" | Depends on owner availability |
 | Isolated local run | Reproducible environment | Requires Ollama, DB seed, `.env` |
 | Demo login | Live UI demonstration | Demo git HEAD `97901c8`; content via rsync |
@@ -102,7 +102,7 @@ Commands derived from `Makefile` / `docker-compose.yml` / `deploy/`.
 
 ## Environment requirements
 
-**Confirmed:** Python ≥ 3.11; PostgreSQL 16, Redis 7, MinIO; LibreOffice; Tesseract with eng/rus/deu/fra/tur/ara; Ollama HTTP API; CPU-only default (`torch==2.5.1+cpu`); GPU via `ACCELERATOR=gpu`.
+**Confirmed:** Python ≥ 3.11; PostgreSQL 16, Redis 7, MinIO; LibreOffice; Tesseract with eng/rus/deu/fra/tur/ara; Ollama HTTP API. Deployed runtime: GPU (RTX 5060 Ti 16GB, CUDA 13.2, `torch 2.13.0+cu130`, Ollama 100% GPU, 49/49 layers offloaded). Declared CPU default in `requirements.txt` (`torch==2.5.1+cpu`); GPU install via `make install-runtime-gpu`.
 
 **Not confirmed:** production `.env` values; exact demo-deployed SHA (rsync). At E102, dev used `qwen2.5:14b` (base model), not `qwen25-legal` — parity caveat for demo accuracy.
 

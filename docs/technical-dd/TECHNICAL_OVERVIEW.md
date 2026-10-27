@@ -63,7 +63,7 @@ Steloom (LegalMAS) is a multi-tenant SaaS for AI-assisted legal due diligence on
 
 **Declared:** Python `>=3.11`; FastAPI `0.115.6`; SQLAlchemy `2.0.36` async; asyncpg; Alembic; Celery `5.4.0` + Redis `5.2.1`; MinIO client; pydantic `2.10.4`; sentence-transformers `3.3.1`; transformers `4.49.0`; `torch 2.5.1+cpu`; llama-cpp-python; tiktoken; docling family `2.121.0`; PDF/OCR: pdfplumber, pdf2image, pytesseract, PyMuPDF `1.28.2`; PII: cryptography `44.0.0`, natasha, langdetect, lingua; retrieval: rank-bm25, rapidfuzz, thefuzz, python-Levenshtein; observability: prometheus-client, opentelemetry `1.28.2`; `setuptools<81`.
 
-**Runtime:** CPU-only default; GPU via `ACCELERATOR=gpu`. At E102, dev Ollama served `qwen2.5:14b` (base model — deviation from documented `qwen25-legal`).
+**Runtime (deployed):** GPU — RTX 5060 Ti 16GB, CUDA 13.2, `torch 2.13.0+cu130`, Ollama 100% GPU (49/49 layers offloaded, journal 2026-10-26 12:24 UTC). Declared CPU default in `requirements.txt` (`torch==2.5.1+cpu`); deployed via `make install-runtime-gpu`. At E102, Ollama served `qwen2.5:14b` (base model — deviation from documented `qwen25-legal`) with all layers on GPU.
 
 **Not confirmed:** actual demo runtime versions; prod GPU; exact LLM model in production.
 

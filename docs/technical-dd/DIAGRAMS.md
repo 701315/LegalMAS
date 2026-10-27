@@ -133,7 +133,7 @@ sequenceDiagram
 - Duration **17.5 min** (12:29:35 → 12:47:05 UTC)
 - 21 checks scheduled / 21 completed; `has_errors=false`
 - 42 validated anchors (34 `exact_span` + 8 `fuzzy_span`); 19 `clause_only`
-- 37 LLM calls (`qwen2.5:14b` on Ollama, CPU-only)
+- 37 LLM calls (`qwen2.5:14b` on Ollama, 100% GPU — 49/49 layers offloaded)
 - Full audit trail: IMPORT → LANGUAGE_DISCOVERY_STARTED/COMPLETED → ANALYSIS_STARTED → PRIMARY_SOURCE_READY → SANITIZE → CHUNK_BUILD_COMPLETED → CLASSIFY_COMPLETED → STRUCTURE_COMPLETED → LEGAL_UNITS_ENRICHMENT_COMPLETED → ANALYSIS_COMPLETED → result_presentation.requested/claimed/translated
 
 **Second run (E105, dev, post-R-33/R-49/R-03/R-52 fixes):**

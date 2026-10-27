@@ -164,7 +164,7 @@ sequenceDiagram
     API-->>U: DDGridV1ResponseDTO
 ~~~
 
-**Observed at E102** (2026-10-26, dev, synthetic 18-page contract `Sample_Contract.DOCX`, doc_type `contract_1.6_real_estate`, classification confidence 0.95): full sequence executed in **17.5 min** on CPU-only Ollama with `qwen2.5:14b`; 21 checks scheduled / 21 completed; 42 validated span anchors (34 `exact_span` + 8 `fuzzy_span`) + 19 `clause_only`; 37 LLM calls (~148k prompt / ~17.6k completion tokens); full lifecycle in `audit_logs` (16 action types from IMPORT → ANALYSIS_COMPLETED).
+**Observed at E102** (2026-10-26, dev, synthetic 18-page contract `Sample_Contract.DOCX`, doc_type `contract_1.6_real_estate`, classification confidence 0.95): full sequence executed in **17.5 min** on GPU (RTX 5060 Ti, 49/49 layers offloaded) with `qwen2.5:14b`; 21 checks scheduled / 21 completed; 42 validated span anchors (34 `exact_span` + 8 `fuzzy_span`) + 19 `clause_only`; 37 LLM calls (~148k prompt / ~17.6k completion tokens); full lifecycle in `audit_logs` (16 action types from IMPORT → ANALYSIS_COMPLETED).
 
 **Second run (E105, dev, post-R-33/R-49/R-03/R-52 fixes):** same synthetic contract, **15.2 min**, 21/21 checks, 43 anchors (35 exact + 8 fuzzy), 46 LLM calls. Confirms fixes did not break pipeline.
 
@@ -186,7 +186,7 @@ sequenceDiagram
 
 **Prompt injection:** compact `<UNTRUSTED_DOCUMENT_TEXT>` delimiters + security line applied 2026-10-26 to 3 prompt files (`generic_presence.txt`, `classify_document.txt`, `clause_detection.txt`). `classify_document.txt` additionally has ChatML system/user separation. Residual LOW: delimiter escape not sanitized (full closure in `_render_prompt` ~2h, deferred). Clause detection has a conservative numeric-only fallback that bounds hallucinated clause numbers.
 
-**CPU-only default:** `torch 2.5.1+cpu`; GPU via `ACCELERATOR=gpu` install profile. CPU is why 18-page / 21-check runs take 15–17 min; a GPU would be materially faster (not benchmarked in this pack).
+**GPU default (deployed):** RTX 5060 Ti 16GB, CUDA 13.2, `torch 2.13.0+cu130`, Ollama 100% GPU (49/49 layers offloaded). Declared CPU profile lives in `requirements.txt` (`torch==2.5.1+cpu`); GPU install via `make install-runtime-gpu`. The 15–17 min wall-clock for 18-page / 21-check is dominated by non-LLM stages (Docling layout, OCR, segmentation, office-converter) — LLM inference is a fraction.
 
 ---
 
@@ -264,7 +264,7 @@ P1 items (target: before first paying customer), from `OPEN_WORK.md` / `QUALITY_
 ## 11. Known limitations
 
 - **Single synthetic document** verified end-to-end (E102/E105, 18 pp.). Not a benchmark of accuracy, not representative of all doc types, no multi-document cross-reasoning validation.
-- **CPU-only inference** — 15–17 min per 18-page / 21-check document; GPU path exists but is not benchmarked in this pack.
+- **15–17 min wall-clock (measured on GPU)** per 18-page / 21-check document — dominated by non-LLM stages (Docling layout, OCR, segmentation, office-converter), not LLM inference.
 - **Base model, no fine-tuning** — `qwen2.5:14b`; model parity caveat (documented `qwen25-legal` not observed at runtime).
 - **No accuracy benchmark** — see `Steloom_AI_Quality_and_Limitations.md` for what is and isn't measured, and the evaluation plan.
 - **No CVE audit / dependency scanning beyond `pip-audit`** in CI.
